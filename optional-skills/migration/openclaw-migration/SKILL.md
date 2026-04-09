@@ -1,161 +1,161 @@
 ---
 name: openclaw-migration
-description: Migrate a user's OpenClaw customization footprint into KClaw Agent. Imports KClaw-compatible memories, SOUL.md, command allowlists, user skills, and selected workspace assets from ~/.openclaw, then reports exactly what could not be migrated and why.
+description: 将用户的OpenClaw自定义足迹迁移到KClaw Agent。从~/.openclaw导入KClaw兼容的记忆、SOUL.md、命令允许列表、用户技能和选定的workspace资产，然后准确报告什么无法迁移及原因。
 version: 1.0.0
 author: KClaw Agent (Nous Research)
 license: MIT
 metadata:
   kclaw:
-    tags: [Migration, OpenClaw, KClaw, Memory, Persona, Import]
+    tags: [迁移, OpenClaw, KClaw, 记忆, 角色, 导入]
     related_skills: [kclaw]
 ---
 
-# OpenClaw -> KClaw Migration
+# OpenClaw -> KClaw 迁移
 
-Use this skill when a user wants to move their OpenClaw setup into KClaw Agent with minimal manual cleanup.
+当用户想要将OpenClaw设置迁移到KClaw Agent且手动清理最少时使用此技能。
 
-## CLI Command
+## CLI命令
 
-For a quick, non-interactive migration, use the built-in CLI command:
+对于快速、非交互式迁移，使用内置CLI命令：
 
 ```bash
-kclaw claw migrate              # Full interactive migration
-kclaw claw migrate --dry-run    # Preview what would be migrated
-kclaw claw migrate --preset user-data   # Migrate without secrets
-kclaw claw migrate --overwrite  # Overwrite existing conflicts
-kclaw claw migrate --source /custom/path/.openclaw  # Custom source
+kclaw claw migrate              # 完全交互式迁移
+kclaw claw migrate --dry-run    # 预览将要迁移的内容
+kclaw claw migrate --preset user-data   # 不迁移密钥
+kclaw claw migrate --overwrite  # 覆盖现有冲突
+kclaw claw migrate --source /custom/path/.openclaw  # 自定义源
 ```
 
-The CLI command runs the same migration script described below. Use this skill (via the agent) when you want an interactive, guided migration with dry-run previews and per-item conflict resolution.
+CLI命令运行下面描述的相同迁移脚本。当您想要交互式、有指导的迁移并带有dry-run预览和每个项目的冲突解决时，使用此技能（通过代理）。
 
-**First-time setup:** The `kclaw setup` wizard automatically detects `~/.openclaw` and offers migration before configuration begins.
+**首次设置：** `kclaw setup`向导自动检测`~/.openclaw`并在配置开始前提供迁移。
 
-## What this skill does
+## 此技能的作用
 
-It uses `scripts/openclaw_to_kclaw.py` to:
+它使用`scripts/openclaw_to_kclaw.py`来：
 
-- import `SOUL.md` into the KClaw home directory as `SOUL.md`
-- transform OpenClaw `MEMORY.md` and `USER.md` into KClaw memory entries
-- merge OpenClaw command approval patterns into KClaw `command_allowlist`
-- migrate KClaw-compatible messaging settings such as `TELEGRAM_ALLOWED_USERS` and `MESSAGING_CWD`
-- copy OpenClaw skills into `~/.kclaw/skills/openclaw-imports/`
-- optionally copy the OpenClaw workspace instructions file into a chosen KClaw workspace
-- mirror compatible workspace assets such as `workspace/tts/` into `~/.kclaw/tts/`
-- archive non-secret docs that do not have a direct KClaw destination
-- produce a structured report listing migrated items, conflicts, skipped items, and reasons
+- 将`SOUL.md`导入KClaw主目录作为`SOUL.md`
+- 将OpenClaw `MEMORY.md`和`USER.md`转换为KClaw记忆条目
+- 将OpenClaw命令批准模式合并到KClaw `command_allowlist`
+- 迁移KClaw兼容的消息设置，如`TELEGRAM_ALLOWED_USERS`和`MESSAGING_CWD`
+- 将OpenClaw技能复制到`~/.kclaw/skills/openclaw-imports/`
+- 可选地将OpenClaw workspace指令文件复制到选定的KClaw workspace
+- 镜像兼容的workspace资产，如`workspace/tts/`到`~/.kclaw/tts/`
+- 归档没有直接KClaw目标点的非秘密文档
+- 生成结构化报告，列出已迁移项目、冲突、跳过的项目及原因
 
-## Path resolution
+## 路径解析
 
-The helper script lives in this skill directory at:
+辅助脚本位于此技能目录中：
 
 - `scripts/openclaw_to_kclaw.py`
 
-When this skill is installed from the Skills Hub, the normal location is:
+当从此技能中心安装时，正常位置是：
 
 - `~/.kclaw/skills/migration/openclaw-migration/scripts/openclaw_to_kclaw.py`
 
-Do not guess a shorter path like `~/.kclaw/skills/openclaw-migration/...`.
+不要猜测更短的路径如`~/.kclaw/skills/openclaw-migration/...`。
 
-Before running the helper:
+在运行辅助脚本之前：
 
-1. Prefer the installed path under `~/.kclaw/skills/migration/openclaw-migration/`.
-2. If that path fails, inspect the installed skill directory and resolve the script relative to the installed `SKILL.md`.
-3. Only use `find` as a fallback if the installed location is missing or the skill was moved manually.
-4. When calling the terminal tool, do not pass `workdir: "~"`. Use an absolute directory such as the user's home directory, or omit `workdir` entirely.
+1. 优先使用`~/.kclaw/skills/migration/openclaw-migration/`下的安装路径。
+2. 如果该路径失败，检查已安装的技能目录并相对于已安装的`SKILL.md`解析脚本。
+3. 仅在安装位置缺失或技能被手动移动时才使用`find`作为后备。
+4. 当调用终端工具时，不要传递`workdir: "~"`。使用绝对目录如用户的主目录，或完全省略`workdir`。
 
-With `--migrate-secrets`, it will also import a small allowlisted set of KClaw-compatible secrets, currently:
+使用`--migrate-secrets`时，它还将导入一小部分KClaw兼容的密钥，目前包括：
 
 - `TELEGRAM_BOT_TOKEN`
 
-## Default workflow
+## 默认工作流
 
-1. Inspect first with a dry run.
-2. Present a simple summary of what can be migrated, what cannot be migrated, and what would be archived.
-3. If the `clarify` tool is available, use it for user decisions instead of asking for a free-form prose reply.
-4. If the dry run finds imported skill directory conflicts, ask how those should be handled before executing.
-5. Ask the user to choose between the two supported migration modes before executing.
-6. Ask for a target workspace path only if the user wants the workspace instructions file brought over.
-7. Execute the migration with the matching preset and flags.
-8. Summarize the results, especially:
-   - what was migrated
-   - what was archived for manual review
-   - what was skipped and why
+1. 首先用dry run检查。
+2. 展示可以迁移什么、不能迁移什么以及将归档什么的简单总结。
+3. 如果`clarify`工具可用，使用它进行用户决策，而不是请求自由格式的散文回复。
+4. 如果dry run发现导入的技能目录冲突，在执行之前问这些应该如何处理。
+5. 在执行之前问用户选择两种支持的迁移模式。
+6. 仅在用户想要带来workspace指令文件时才请求目标workspace路径。
+7. 使用匹配的预设和标志执行迁移。
+8. 总结结果，特别是：
+   - 迁移了什么
+   - 什么被归档供手动审查
+   - 什么被跳过及原因
 
-## User interaction protocol
+## 用户交互协议
 
-KClaw CLI supports the `clarify` tool for interactive prompts, but it is limited to:
+KClaw CLI支持`clarify`工具用于交互式提示，但它限于：
 
-- one choice at a time
-- up to 4 predefined choices
-- an automatic `Other` free-text option
+- 一次一个选择
+- 最多4个预定义选择
+- 自动的`Other`自由文本选项
 
-It does **not** support true multi-select checkboxes in a single prompt.
+它**不支持**真正的多选复选框。
 
-For every `clarify` call:
+对于每个`clarify`调用：
 
-- always include a non-empty `question`
-- include `choices` only for real selectable prompts
-- keep `choices` to 2-4 plain string options
-- never emit placeholder or truncated options such as `...`
-- never pad or stylize choices with extra whitespace
-- never include fake form fields in the question such as `enter directory here`, blank lines to fill in, or underscores like `_____`
-- for open-ended path questions, ask only the plain sentence; the user types in the normal CLI prompt below the panel
+- 始终包含非空的`question`
+- 仅对真正的可选择提示包含`choices`
+- 将`choices`保持在2-4个纯字符串选项
+- 永远不要发出占位符或截断的选项如`...`
+- 永远不要用额外空白填充或样式化选项
+- 永远不要在问题中包含假表单字段如`enter directory here`、空行或下划线如`_____`
+- 对于开放式路径问题，仅问纯句子；用户在面板下方的正常CLI提示中输入
 
-If a `clarify` call returns an error, inspect the error text, correct the payload, and retry once with a valid `question` and clean choices.
+如果`clarify`调用返回错误，检查错误文本，纠正有效载荷，然后用有效的`question`和干净的选项重试一次。
 
-When `clarify` is available and the dry run reveals any required user decision, your **next action must be a `clarify` tool call**.
-Do not end the turn with a normal assistant message such as:
+当`clarify`可用且dry run揭示任何需要的用户决策时，**您的下一个行动必须是`clarify`工具调用**。
+不要用正常的助手消息结束回合如：
 
-- "Let me present the choices"
-- "What would you like to do?"
-- "Here are the options"
+- "让我展示选项"
+- "你想怎么做？"
+- "以下是选项"
 
-If a user decision is required, collect it via `clarify` before producing more prose.
-If multiple unresolved decisions remain, do not insert an explanatory assistant message between them. After one `clarify` response is received, your next action should usually be the next required `clarify` call.
+如果需要用户决策，通过`clarify`收集后再产生更多散文。
+如果多个未解决的决策仍然存在，不要在它们之间插入解释性助手消息。收到一个`clarify`响应后，您的下一个行动通常是下一个必需的`clarify`调用。
 
-Treat `workspace-agents` as an unresolved decision whenever the dry run reports:
+当dry run报告时，将`workspace-agents`视为未解决的决策：
 
 - `kind="workspace-agents"`
 - `status="skipped"`
-- reason containing `No workspace target was provided`
+- 原因包含`No workspace target was provided`
 
-In that case, you must ask about workspace instructions before execution. Do not silently treat that as a decision to skip.
+在那种情况下，您必须在执行之前问关于workspace指令的内容。不要无声地将其视为跳过的决策。
 
-Because of that limitation, use this simplified decision flow:
+由于该限制，使用这个简化的决策流：
 
-1. For `SOUL.md` conflicts, use `clarify` with choices such as:
+1. 对于`SOUL.md`冲突，使用`clarify`与选项如：
    - `keep existing`
    - `overwrite with backup`
    - `review first`
-2. If the dry run shows one or more `kind="skill"` items with `status="conflict"`, use `clarify` with choices such as:
+2. 如果dry run显示一个或多个`kind="skill"`项目带有`status="conflict"`，使用`clarify`与选项如：
    - `keep existing skills`
    - `overwrite conflicting skills with backup`
    - `import conflicting skills under renamed folders`
-3. For workspace instructions, use `clarify` with choices such as:
+3. 对于workspace指令，使用`clarify`与选项如：
    - `skip workspace instructions`
    - `copy to a workspace path`
    - `decide later`
-4. If the user chooses to copy workspace instructions, ask a follow-up open-ended `clarify` question requesting an **absolute path**.
-5. If the user chooses `skip workspace instructions` or `decide later`, proceed without `--workspace-target`.
-5. For migration mode, use `clarify` with these 3 choices:
+4. 如果用户选择复制workspace指令，问后续开放式`clarify`问题请求**绝对路径**。
+5. 如果用户选择`skip workspace instructions`或`decide later`， proceeding without `--workspace-target`。
+5. 对于迁移模式，使用`clarify`与这3个选项：
    - `user-data only`
    - `full compatible migration`
    - `cancel`
-6. `user-data only` means: migrate user data and compatible config, but do **not** import allowlisted secrets.
-7. `full compatible migration` means: migrate the same compatible user data plus the allowlisted secrets when present.
-8. If `clarify` is not available, ask the same question in normal text, but still constrain the answer to `user-data only`, `full compatible migration`, or `cancel`.
+6. `user-data only`意味着：迁移用户数据和兼容配置，但**不**导入允许列表中的密钥。
+7. `full compatible migration`意味着：迁移相同的兼容用户数据以及存在的允许列表密钥。
+8. 如果`clarify`不可用，在正常文本中问同样的问题，但仍将答案约束为`user-data only`、`full compatible migration`或`cancel`。
 
-Execution gate:
+执行门槛：
 
-- Do not execute while a `workspace-agents` skip caused by `No workspace target was provided` remains unresolved.
-- The only valid ways to resolve it are:
-  - user explicitly chooses `skip workspace instructions`
-  - user explicitly chooses `decide later`
-  - user provides a workspace path after choosing `copy to a workspace path`
-- Absence of a workspace target in the dry run is not itself permission to execute.
-- Do not execute while any required `clarify` decision remains unresolved.
+- 当由`No workspace target was provided`引起的`workspace-agents`跳过仍然未解决时，不要执行。
+- 解决它的唯一有效方式是：
+  - 用户明确选择`skip workspace instructions`
+  - 用户明确选择`decide later`
+  - 用户在选择`copy to a workspace path`后提供workspace路径
+- dry run中缺少workspace目标本身不是执行许可。
+- 当任何需要的`clarify`决策仍然未解决时，不要执行。
 
-Use these exact `clarify` payload shapes as the default pattern:
+使用这些确切的`clarify`有效载荷形状作为默认模式：
 
 - `{"question":"Your existing SOUL.md conflicts with the imported one. What should I do?","choices":["keep existing","overwrite with backup","review first"]}`
 - `{"question":"One or more imported OpenClaw skills already exist in KClaw. How should I handle those skill conflicts?","choices":["keep existing skills","overwrite conflicting skills with backup","import conflicting skills under renamed folders"]}`
@@ -163,49 +163,49 @@ Use these exact `clarify` payload shapes as the default pattern:
 - `{"question":"Do you want to copy the OpenClaw workspace instructions file into a KClaw workspace?","choices":["skip workspace instructions","copy to a workspace path","decide later"]}`
 - `{"question":"Please provide an absolute path where the workspace instructions should be copied."}`
 
-## Decision-to-command mapping
+## 决策到命令映射
 
-Map user decisions to command flags exactly:
+精确地将用户决策映射到命令标志：
 
-- If the user chooses `keep existing` for `SOUL.md`, do **not** add `--overwrite`.
-- If the user chooses `overwrite with backup`, add `--overwrite`.
-- If the user chooses `review first`, stop before execution and review the relevant files.
-- If the user chooses `keep existing skills`, add `--skill-conflict skip`.
-- If the user chooses `overwrite conflicting skills with backup`, add `--skill-conflict overwrite`.
-- If the user chooses `import conflicting skills under renamed folders`, add `--skill-conflict rename`.
-- If the user chooses `user-data only`, execute with `--preset user-data` and do **not** add `--migrate-secrets`.
-- If the user chooses `full compatible migration`, execute with `--preset full --migrate-secrets`.
-- Only add `--workspace-target` if the user explicitly provided an absolute workspace path.
-- If the user chooses `skip workspace instructions` or `decide later`, do not add `--workspace-target`.
+- 如果用户为`SOUL.md`选择`keep existing`，**不要**添加`--overwrite`。
+- 如果用户选择`overwrite with backup`，添加`--overwrite`。
+- 如果用户选择`review first`，在执行之前停止并审查相关文件。
+- 如果用户为技能冲突选择`keep existing skills`，添加`--skill-conflict skip`。
+- 如果用户选择`overwrite conflicting skills with backup`，添加`--skill-conflict overwrite`。
+- 如果用户选择`import conflicting skills under renamed folders`，添加`--skill-conflict rename`。
+- 如果用户选择`user-data only`，使用`--preset user-data`执行，**不要**添加`--migrate-secrets`。
+- 如果用户选择`full compatible migration`，使用`--preset full --migrate-secrets`执行。
+- 仅在用户明确提供绝对workspace路径时才添加`--workspace-target`。
+- 如果用户选择`skip workspace instructions`或`decide later`，不要添加`--workspace-target`。
 
-Before executing, restate the exact command plan in plain language and make sure it matches the user's choices.
+在执行之前，用纯语言重述确切的命令计划并确保它与用户的选择匹配。
 
-## Post-run reporting rules
+## 运行后报告规则
 
-After execution, treat the script's JSON output as the source of truth.
+执行后，将脚本的JSON输出视为真实来源。
 
-1. Base all counts on `report.summary`.
-2. Only list an item under "Successfully Migrated" if its `status` is exactly `migrated`.
-3. Do not claim a conflict was resolved unless the report shows that item as `migrated`.
-4. Do not say `SOUL.md` was overwritten unless the report item for `kind="soul"` has `status="migrated"`.
-5. If `report.summary.conflict > 0`, include a conflict section instead of silently implying success.
-6. If counts and listed items disagree, fix the list to match the report before responding.
-7. Include the `output_dir` path from the report when available so the user can inspect `report.json`, `summary.md`, backups, and archived files.
-8. For memory or user-profile overflow, do not say the entries were archived unless the report explicitly shows an archive path. If `details.overflow_file` exists, say the full overflow list was exported there.
-9. If a skill was imported under a renamed folder, report the final destination and mention `details.renamed_from`.
-10. If `report.skill_conflict_mode` is present, use it as the source of truth for the selected imported-skill conflict policy.
-11. If an item has `status="skipped"`, do not describe it as overwritten, backed up, migrated, or resolved.
-12. If `kind="soul"` has `status="skipped"` with reason `Target already matches source`, say it was left unchanged and do not mention a backup.
-13. If a renamed imported skill has an empty `details.backup`, do not imply the existing KClaw skill was renamed or backed up. Say only that the imported copy was placed in the new destination and reference `details.renamed_from` as the pre-existing folder that remained in place.
+1. 基于`report.summary`计算所有计数。
+2. 仅在项目状态正好是`migrated`时才将其列在"Successfully Migrated"下。
+3. 不要声称冲突被解决，除非报告将该项目显示为`migrated`。
+4. 不要说`SOUL.md`被覆盖，除非`kind="soul"`的报告项目有`status="migrated"`。
+5. 如果`report.summary.conflict > 0`，包含冲突部分而不是无声地暗示成功。
+6. 如果计数和列出的项目不一致，在回复之前修复列表以匹配报告。
+7. 当可用时包含报告中的`output_dir`路径，以便用户可以检查`report.json`、`summary.md`、备份和归档文件。
+8. 对于记忆或用户配置溢出，不要说条目被归档，除非报告明确显示归档路径。如果`details.overflow_file`存在，说完整的溢出列表已导出到那里。
+9. 如果技能在重命名文件夹下导入，报告最终目标并提及`details.renamed_from`。
+10. 如果`report.skill_conflict_mode`存在，使用它作为所选导入技能冲突策略的真实来源。
+11. 如果项目有`status="skipped"`，不要将其描述为覆盖、备份、迁移或解决。
+12. 如果`kind="soul"`有`status="skipped"`，原因为`Target already matches source`，说它保持不变，不要提及备份。
+13. 如果重命名的导入技能有空的`details.backup`，不要暗示现有的KClaw技能被重命名或备份。仅说导入的副本被放在新目标并引用`details.renamed_from`作为保留的原文件夹。
 
-## Migration presets
+## 迁移预设
 
-Prefer these two presets in normal use:
+在正常使用中优先使用这两个预设：
 
 - `user-data`
 - `full`
 
-`user-data` includes:
+`user-data`包括：
 
 - `soul`
 - `workspace-agents`
@@ -217,81 +217,81 @@ Prefer these two presets in normal use:
 - `tts-assets`
 - `archive`
 
-`full` includes everything in `user-data` plus:
+`full`包括`user-data`中的所有内容加上：
 
 - `secret-settings`
 
-The helper script still supports category-level `--include` / `--exclude`, but treat that as an advanced fallback rather than the default UX.
+辅助脚本仍然支持类别级`--include` / `--exclude`，但将其视为高级后备而不是正常UX。
 
-## Commands
+## 命令
 
-Dry run with full discovery:
+带完整发现的dry run：
 
 ```bash
 python3 ~/.kclaw/skills/migration/openclaw-migration/scripts/openclaw_to_kclaw.py
 ```
 
-When using the terminal tool, prefer an absolute invocation pattern such as:
+使用终端工具时，优先使用绝对调用模式如：
 
 ```json
 {"command":"python3 /home/USER/.kclaw/skills/migration/openclaw-migration/scripts/openclaw_to_kclaw.py","workdir":"/home/USER"}
 ```
 
-Dry run with the user-data preset:
+使用user-data预设的dry run：
 
 ```bash
 python3 ~/.kclaw/skills/migration/openclaw-migration/scripts/openclaw_to_kclaw.py --preset user-data
 ```
 
-Execute a user-data migration:
+执行user-data迁移：
 
 ```bash
 python3 ~/.kclaw/skills/migration/openclaw-migration/scripts/openclaw_to_kclaw.py --execute --preset user-data --skill-conflict skip
 ```
 
-Execute a full compatible migration:
+执行完全兼容迁移：
 
 ```bash
 python3 ~/.kclaw/skills/migration/openclaw-migration/scripts/openclaw_to_kclaw.py --execute --preset full --migrate-secrets --skill-conflict skip
 ```
 
-Execute with workspace instructions included:
+执行包括workspace指令：
 
 ```bash
 python3 ~/.kclaw/skills/migration/openclaw-migration/scripts/openclaw_to_kclaw.py --execute --preset user-data --skill-conflict rename --workspace-target "/absolute/workspace/path"
 ```
 
-Do not use `$PWD` or the home directory as the workspace target by default. Ask for an explicit workspace path first.
+不要默认使用`$PWD`或主目录作为workspace目标。先请求明确的workspace路径。
 
-## Important rules
+## 重要规则
 
-1. Run a dry run before writing unless the user explicitly says to proceed immediately.
-2. Do not migrate secrets by default. Tokens, auth blobs, device credentials, and raw gateway config should stay out of KClaw unless the user explicitly asks for secret migration.
-3. Do not silently overwrite non-empty KClaw targets unless the user explicitly wants that. The helper script will preserve backups when overwriting is enabled.
-4. Always give the user the skipped-items report. That report is part of the migration, not an optional extra.
-5. Prefer the primary OpenClaw workspace (`~/.openclaw/workspace/`) over `workspace.default/`. Only use the default workspace as fallback when the primary files are missing.
-6. Even in secret-migration mode, only migrate secrets with a clean KClaw destination. Unsupported auth blobs must still be reported as skipped.
-7. If the dry run shows a large asset copy, a conflicting `SOUL.md`, or overflowed memory entries, call those out separately before execution.
-8. Default to `user-data only` if the user is unsure.
-9. Only include `workspace-agents` when the user has explicitly provided a destination workspace path.
-10. Treat category-level `--include` / `--exclude` as an advanced escape hatch, not the normal flow.
-11. Do not end the dry-run summary with a vague “What would you like to do?” if `clarify` is available. Use structured follow-up prompts instead.
-12. Do not use an open-ended `clarify` prompt when a real choice prompt would work. Prefer selectable choices first, then free text only for absolute paths or file review requests.
-13. After a dry run, never stop after summarizing if there is still an unresolved decision. Use `clarify` immediately for the highest-priority blocking decision.
-14. Priority order for follow-up questions:
-    - `SOUL.md` conflict
-    - imported skill conflicts
-    - migration mode
-    - workspace instructions destination
-15. Do not promise to present choices later in the same message. Present them by actually calling `clarify`.
-16. After the migration-mode answer, explicitly check whether `workspace-agents` is still unresolved. If it is, your next action must be the workspace-instructions `clarify` call.
-17. After any `clarify` answer, if another required decision remains, do not narrate what was just decided. Ask the next required question immediately.
+1. 在写入之前运行dry run，除非用户明确表示立即继续。
+2. 默认不迁移密钥。令牌、auth blobs、设备凭证和原始网关配置应保持在KClaw之外，除非用户明确要求密钥迁移。
+3. 除非用户明确希望，否则不要无声地覆盖非空KClaw目标。覆盖启用时辅助脚本将保留备份。
+4. 始终为用户提供跳过项目报告。该报告是迁移的一部分，不是可选的附加项。
+5. 优先使用主要OpenClaw workspace（`~/.openclaw/workspace/`）而不是`workspace.default/`。仅在主文件缺失时使用默认workspace作为后备。
+6. 即使在密钥迁移模式下，也仅迁移有干净KClaw目标点的密钥。不支持的auth blobs仍必须报告为跳过。
+7. 如果dry run显示大型资产复制、冲突的`SOUL.md`或溢出的记忆条目，在执行之前分别指出。
+8. 如果用户不确定，默认`user-data only`。
+9. 仅在用户明确提供目标workspace路径时才包含`workspace-agents`。
+10. 将类别级`--include` / `--exclude`视为高级逃生舱，而不是正常流程。
+11. 不要用模糊的"你想怎么做？"结束dry run摘要。如果`clarify`可用，使用结构化后续提示代替。
+12. 当真正的选择提示可以工作时，不要使用开放式`clarify`提示。仅对绝对路径或文件审查请求使用自由文本。
+13. dry run后，如果在仍然有未解决的决策时不要停止。在最高优先级的阻止决策上立即使用`clarify`。
+14. 后续问题的优先顺序：
+    - `SOUL.md`冲突
+    - 导入技能冲突
+    - 迁移模式
+    - workspace指令目标
+15. 不要承诺在同一条消息中稍后呈现选择。通过实际调用`clarify`来呈现它们。
+16. 迁移模式答案后，明确检查`workspace-agents`是否仍然未解决。如果是，您的下一个行动必须是workspace-instructions `clarify`调用。
+17. 在任何`clarify`答案后，如果另一个需要的决策仍然存在，不要叙述刚刚决定的内容。立即问下一个需要的问题。
 
-## Expected result
+## 预期结果
 
-After a successful run, the user should have:
+成功运行后，用户应该拥有：
 
-- KClaw persona state imported
-- KClaw memory files populated with converted OpenClaw knowledge
-- OpenClaw skills available under `~/.kclaw/skills/openclaw-imports/`
-- a migration report showing any conflicts, omissions, or unsupported data
+- 导入的KClaw角色状态
+- 用转换后的OpenClaw知识填充的KClaw记忆文件
+- 在`~/.kclaw/skills/openclaw-imports/`下可用的OpenClaw技能
+- 显示任何冲突、遗漏或不支持数据的迁移报告

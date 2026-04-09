@@ -1,14 +1,14 @@
 ---
 sidebar_position: 2
-title: "Installation"
-description: "Install KClaw Agent on Linux, macOS, or WSL2"
+title: "安装"
+description: "在 Linux、macOS 或 WSL2 上安装 KClaw Agent"
 ---
 
-# Installation
+# 安装
 
-Get KClaw Agent up and running in under two minutes with the one-line installer, or follow the manual steps for full control.
+使用一键安装程序在两分钟内启动并运行 KClaw Agent，或按照手动步骤进行完全控制。
 
-## Quick Install
+## 快速安装
 
 ### Linux / macOS / WSL2
 
@@ -17,181 +17,181 @@ curl -fsSL https://raw.githubusercontent.com/NousResearch/kclaw/main/scripts/ins
 ```
 
 :::warning Windows
-Native Windows is **not supported**. Please install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) and run KClaw Agent from there. The install command above works inside WSL2.
+原生 Windows **不受支持**。请先安装 [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install)，然后从那里运行 KClaw Agent。上面的安装命令在 WSL2 内部有效。
 :::
 
-### What the Installer Does
+### 安装程序的作用
 
-The installer handles everything automatically — all dependencies (Python, Node.js, ripgrep, ffmpeg), the repo clone, virtual environment, global `kclaw` command setup, and LLM provider configuration. By the end, you're ready to chat.
+安装程序自动处理一切——所有依赖项（Python、Node.js、ripgrep、ffmpeg）、仓库克隆、虚拟环境、全局 `kclaw` 命令设置和 LLM 提供商配置。结束时，您已准备好聊天。
 
-### After Installation
+### 安装后
 
-Reload your shell and start chatting:
+重新加载 shell 并开始聊天：
 
 ```bash
-source ~/.bashrc   # or: source ~/.zshrc
-kclaw             # Start chatting!
+source ~/.bashrc   # 或：source ~/.zshrc
+kclaw             # 开始聊天！
 ```
 
-To reconfigure individual settings later, use the dedicated commands:
+以后要重新配置单个设置，请使用专用命令：
 
 ```bash
-kclaw model          # Choose your LLM provider and model
-kclaw tools          # Configure which tools are enabled
-kclaw gateway setup  # Set up messaging platforms
-kclaw config set     # Set individual config values
-kclaw setup          # Or run the full setup wizard to configure everything at once
+kclaw model          # 选择您的 LLM 提供商和模型
+kclaw tools          # 配置启用哪些工具
+kclaw gateway setup  # 设置消息平台
+kclaw config set     # 设置单个配置值
+kclaw setup          # 或运行完整设置向导一次配置所有内容
 ```
 
 ---
 
-## Prerequisites
+## 前置要求
 
-The only prerequisite is **Git**. The installer automatically handles everything else:
+唯一的前提条件是 **Git**。安装程序自动处理其他所有内容：
 
-- **uv** (fast Python package manager)
-- **Python 3.11** (via uv, no sudo needed)
-- **Node.js v22** (for browser automation and WhatsApp bridge)
-- **ripgrep** (fast file search)
-- **ffmpeg** (audio format conversion for TTS)
+- **uv**（快速 Python 包管理器）
+- **Python 3.11**（通过 uv，无需 sudo）
+- **Node.js v22**（用于浏览器自动化和 WhatsApp 桥接）
+- **ripgrep**（快速文件搜索）
+- **ffmpeg**（TTS 音频格式转换）
 
 :::info
-You do **not** need to install Python, Node.js, ripgrep, or ffmpeg manually. The installer detects what's missing and installs it for you. Just make sure `git` is available (`git --version`).
+您**不需要**手动安装 Python、Node.js、ripgrep 或 ffmpeg。安装程序检测缺失的内容并为您安装。只需确保 `git` 可用（`git --version`）。
 :::
 
-:::tip Nix users
-If you use Nix (on NixOS, macOS, or Linux), there's a dedicated setup path with a Nix flake, declarative NixOS module, and optional container mode. See the **[Nix & NixOS Setup](./nix-setup.md)** guide.
+:::tip Nix 用户
+如果您使用 Nix（NixOS、macOS 或 Linux），有一条专用设置路径，包含 Nix flake、声明式 NixOS 模块和可选容器模式。请参阅 **[Nix 和 NixOS 设置](./nix-setup.md)** 指南。
 :::
 
 ---
 
-## Manual Installation
+## 手动安装
 
-If you prefer full control over the installation process, follow these steps.
+如果您喜欢完全控制安装过程，请按照以下步骤操作。
 
-### Step 1: Clone the Repository
+### 步骤 1：克隆仓库
 
-Clone with `--recurse-submodules` to pull the required submodules:
+使用 `--recurse-submodules` 克隆以拉取所需的子模块：
 
 ```bash
 git clone --recurse-submodules https://github.com/NousResearch/kclaw.git
 cd kclaw
 ```
 
-If you already cloned without `--recurse-submodules`:
+如果已经克隆但没有 `--recurse-submodules`：
 ```bash
 git submodule update --init --recursive
 ```
 
-### Step 2: Install uv & Create Virtual Environment
+### 步骤 2：安装 uv 和创建虚拟环境
 
 ```bash
-# Install uv (if not already installed)
+# 安装 uv（如果尚未安装）
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Create venv with Python 3.11 (uv downloads it if not present — no sudo needed)
+# 使用 Python 3.11 创建 venv（uv 会下载它（如果不存在）——无需 sudo）
 uv venv venv --python 3.11
 ```
 
 :::tip
-You do **not** need to activate the venv to use `kclaw`. The entry point has a hardcoded shebang pointing to the venv Python, so it works globally once symlinked.
+您**不需要**激活 venv 来使用 `kclaw`。入口点有一个硬编码的 shebang 指向 venv Python，因此一旦符号链接，它就可以全局工作。
 :::
 
-### Step 3: Install Python Dependencies
+### 步骤 3：安装 Python 依赖
 
 ```bash
-# Tell uv which venv to install into
+# 告诉 uv 要安装到哪个 venv
 export VIRTUAL_ENV="$(pwd)/venv"
 
-# Install with all extras
+# 安装所有额外组件
 uv pip install -e ".[all]"
 ```
 
-If you only want the core agent (no Telegram/Discord/cron support):
+如果只需要核心代理（无 Telegram/Discord/cron 支持）：
 ```bash
 uv pip install -e "."
 ```
 
 <details>
-<summary><strong>Optional extras breakdown</strong></summary>
+<summary><strong>可选额外组件细分</strong></summary>
 
-| Extra | What it adds | Install command |
+| 额外组件 | 内容 | 安装命令 |
 |-------|-------------|-----------------|
-| `all` | Everything below | `uv pip install -e ".[all]"` |
-| `messaging` | Telegram & Discord gateway | `uv pip install -e ".[messaging]"` |
-| `cron` | Cron expression parsing for scheduled tasks | `uv pip install -e ".[cron]"` |
-| `cli` | Terminal menu UI for setup wizard | `uv pip install -e ".[cli]"` |
-| `modal` | Modal cloud execution backend | `uv pip install -e ".[modal]"` |
-| `tts-premium` | ElevenLabs premium voices | `uv pip install -e ".[tts-premium]"` |
-| `voice` | CLI microphone input + audio playback | `uv pip install -e ".[voice]"` |
-| `pty` | PTY terminal support | `uv pip install -e ".[pty]"` |
-| `honcho` | AI-native memory (Honcho integration) | `uv pip install -e ".[honcho]"` |
-| `mcp` | Model Context Protocol support | `uv pip install -e ".[mcp]"` |
-| `homeassistant` | Home Assistant integration | `uv pip install -e ".[homeassistant]"` |
-| `acp` | ACP editor integration support | `uv pip install -e ".[acp]"` |
-| `slack` | Slack messaging | `uv pip install -e ".[slack]"` |
-| `dev` | pytest & test utilities | `uv pip install -e ".[dev]"` |
+| `all` | 以下所有内容 | `uv pip install -e ".[all]"` |
+| `messaging` | Telegram 和 Discord 网关 | `uv pip install -e ".[messaging]"` |
+| `cron` | 计划任务的 Cron 表达式解析 | `uv pip install -e ".[cron]"` |
+| `cli` | 设置向导的终端菜单 UI | `uv pip install -e ".[cli]"` |
+| `modal` | Modal 云执行后端 | `uv pip install -e ".[modal]"` |
+| `tts-premium` | ElevenLabs 高级语音 | `uv pip install -e ".[tts-premium]"` |
+| `voice` | CLI 麦克风输入和音频播放 | `uv pip install -e ".[voice]"` |
+| `pty` | PTY 终端支持 | `uv pip install -e ".[pty]"` |
+| `honcho` | AI 原生记忆（Honcho 集成） | `uv pip install -e ".[honcho]"` |
+| `mcp` | 模型上下文协议支持 | `uv pip install -e ".[mcp]"` |
+| `homeassistant` | Home Assistant 集成 | `uv pip install -e ".[homeassistant]"` |
+| `acp` | ACP 编辑器集成支持 | `uv pip install -e ".[acp]"` |
+| `slack` | Slack 消息 | `uv pip install -e ".[slack]"` |
+| `dev` | pytest 和测试工具 | `uv pip install -e ".[dev]"` |
 
-You can combine extras: `uv pip install -e ".[messaging,cron]"`
+您可以组合额外组件：`uv pip install -e ".[messaging,cron]"`
 
 </details>
 
-### Step 4: Install Optional Submodules (if needed)
+### 步骤 4：安装可选子模块（如需要）
 
 ```bash
-# RL training backend (optional)
+# RL 训练后端（可选）
 uv pip install -e "./tinker-atropos"
 ```
 
-Both are optional — if you skip them, the corresponding toolsets simply won't be available.
+两者都是可选的——如果跳过它们，相应的工具集 simply 将不可用。
 
-### Step 5: Install Node.js Dependencies (Optional)
+### 步骤 5：安装 Node.js 依赖（可选）
 
-Only needed for **browser automation** (Browserbase-powered) and **WhatsApp bridge**:
+仅在**浏览器自动化**（Browserbase 支持）和**WhatsApp 桥接**时需要：
 
 ```bash
 npm install
 ```
 
-### Step 6: Create the Configuration Directory
+### 步骤 6：创建配置目录
 
 ```bash
-# Create the directory structure
+# 创建目录结构
 mkdir -p ~/.kclaw/{cron,sessions,logs,memories,skills,pairing,hooks,image_cache,audio_cache,whatsapp/session}
 
-# Copy the example config file
+# 复制示例配置文件
 cp cli-config.yaml.example ~/.kclaw/config.yaml
 
-# Create an empty .env file for API keys
+# 创建一个空的 .env 文件用于 API 密钥
 touch ~/.kclaw/.env
 ```
 
-### Step 7: Add Your API Keys
+### 步骤 7：添加您的 API 密钥
 
-Open `~/.kclaw/.env` and add at minimum an LLM provider key:
+打开 `~/.kclaw/.env` 并至少添加一个 LLM 提供商密钥：
 
 ```bash
-# Required — at least one LLM provider:
+# 必需——至少一个 LLM 提供商：
 OPENROUTER_API_KEY=sk-or-v1-your-key-here
 
-# Optional — enable additional tools:
-FIRECRAWL_API_KEY=fc-your-key          # Web search & scraping (or self-host, see docs)
-FAL_KEY=your-fal-key                   # Image generation (FLUX)
+# 可选——启用其他工具：
+FIRECRAWL_API_KEY=fc-your-key          # Web 搜索和抓取（或自托管，参见文档）
+FAL_KEY=your-fal-key                   # 图像生成（FLUX）
 ```
 
-Or set them via the CLI:
+或通过 CLI 设置它们：
 ```bash
 kclaw config set OPENROUTER_API_KEY sk-or-v1-your-key-here
 ```
 
-### Step 8: Add `kclaw` to Your PATH
+### 步骤 8：将 `kclaw` 添加到您的 PATH
 
 ```bash
 mkdir -p ~/.local/bin
 ln -sf "$(pwd)/venv/bin/kclaw" ~/.local/bin/kclaw
 ```
 
-If `~/.local/bin` isn't on your PATH, add it to your shell config:
+如果 `~/.local/bin` 不在您的 PATH 上，请将其添加到您的 shell 配置中：
 
 ```bash
 # Bash
@@ -204,67 +204,67 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 fish_add_path $HOME/.local/bin
 ```
 
-### Step 9: Configure Your Provider
+### 步骤 9：配置您的提供商
 
 ```bash
-kclaw model       # Select your LLM provider and model
+kclaw model       # 选择您的 LLM 提供商和模型
 ```
 
-### Step 10: Verify the Installation
+### 步骤 10：验证安装
 
 ```bash
-kclaw version    # Check that the command is available
-kclaw doctor     # Run diagnostics to verify everything is working
-kclaw status     # Check your configuration
-kclaw chat -q "Hello! What tools do you have available?"
+kclaw version    # 检查命令是否可用
+kclaw doctor     # 运行诊断以验证一切正常
+kclaw status     # 检查您的配置
+kclaw chat -q "你好！您有哪些可用工具？"
 ```
 
 ---
 
-## Quick-Reference: Manual Install (Condensed)
+## 快速参考：手动安装（精简版）
 
-For those who just want the commands:
+对于只想要命令的人：
 
 ```bash
-# Install uv
+# 安装 uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Clone & enter
+# 克隆并进入
 git clone --recurse-submodules https://github.com/NousResearch/kclaw.git
 cd kclaw
 
-# Create venv with Python 3.11
+# 使用 Python 3.11 创建 venv
 uv venv venv --python 3.11
 export VIRTUAL_ENV="$(pwd)/venv"
 
-# Install everything
+# 安装所有内容
 uv pip install -e ".[all]"
 uv pip install -e "./tinker-atropos"
-npm install  # optional, for browser tools and WhatsApp
+npm install  # 可选，用于浏览器工具和 WhatsApp
 
-# Configure
+# 配置
 mkdir -p ~/.kclaw/{cron,sessions,logs,memories,skills,pairing,hooks,image_cache,audio_cache,whatsapp/session}
 cp cli-config.yaml.example ~/.kclaw/config.yaml
 touch ~/.kclaw/.env
 echo 'OPENROUTER_API_KEY=sk-or-v1-your-key' >> ~/.kclaw/.env
 
-# Make kclaw available globally
+# 使 kclaw 全局可用
 mkdir -p ~/.local/bin
 ln -sf "$(pwd)/venv/bin/kclaw" ~/.local/bin/kclaw
 
-# Verify
+# 验证
 kclaw doctor
 kclaw
 ```
 
 ---
 
-## Troubleshooting
+## 故障排除
 
-| Problem | Solution |
+| 问题 | 解决方案 |
 |---------|----------|
-| `kclaw: command not found` | Reload your shell (`source ~/.bashrc`) or check PATH |
-| `API key not set` | Run `kclaw model` to configure your provider, or `kclaw config set OPENROUTER_API_KEY your_key` |
-| Missing config after update | Run `kclaw config check` then `kclaw config migrate` |
+| `kclaw: command not found` | 重新加载 shell（`source ~/.bashrc`）或检查 PATH |
+| `API key not set` | 运行 `kclaw model` 配置您的提供商，或 `kclaw config set OPENROUTER_API_KEY your_key` |
+| 更新后缺少配置 | 运行 `kclaw config check` 然后 `kclaw config migrate` |
 
-For more diagnostics, run `kclaw doctor` — it will tell you exactly what's missing and how to fix it.
+要获取更多诊断信息，请运行 `kclaw doctor`——它会准确告诉您缺少什么以及如何修复。

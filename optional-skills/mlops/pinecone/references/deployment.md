@@ -1,40 +1,45 @@
-# Pinecone Deployment Guide
+---
+name: deployment
+description: Pinecone生产部署指南，涵盖无服务器与Pod架构、混合搜索、命名空间和元数据过滤。
+---
 
-Production deployment patterns for Pinecone.
+# Pinecone部署指南
 
-## Serverless vs Pod-based
+Pinecone的生产部署模式。
 
-### Serverless (Recommended)
+## 无服务器与Pod架构
+
+### 无服务器（推荐）
 
 ```python
 from pinecone import Pinecone, ServerlessSpec
 
 pc = Pinecone(api_key="your-key")
 
-# Create serverless index
+# 创建无服务器索引
 pc.create_index(
     name="my-index",
     dimension=1536,
     metric="cosine",
     spec=ServerlessSpec(
-        cloud="aws",  # or "gcp", "azure"
+        cloud="aws",  # 或 "gcp", "azure"
         region="us-east-1"
     )
 )
 ```
 
-**Benefits:**
-- Auto-scaling
-- Pay per usage
-- No infrastructure management
-- Cost-effective for variable load
+**优势：**
+- 自动扩展
+- 按使用量付费
+- 无需基础设施管理
+- 成本效益高，适合可变负载
 
-**Use when:**
-- Variable traffic
-- Cost optimization important
-- Don't need consistent latency
+**适用场景：**
+- 流量波动
+- 注重成本优化
+- 不需要一致延迟
 
-### Pod-based
+### Pod架构
 
 ```python
 from pinecone import PodSpec
@@ -45,98 +50,98 @@ pc.create_index(
     metric="cosine",
     spec=PodSpec(
         environment="us-east1-gcp",
-        pod_type="p1.x1",  # or p1.x2, p1.x4, p1.x8
-        pods=2,  # Number of pods
-        replicas=2  # High availability
+        pod_type="p1.x1",  # 或 p1.x2, p1.x4, p1.x8
+        pods=2,  # Pod数量
+        replicas=2  # 高可用性
     )
 )
 ```
 
-**Benefits:**
-- Consistent performance
-- Predictable latency
-- Higher throughput
-- Dedicated resources
+**优势：**
+- 一致性能
+- 可预测延迟
+- 更高吞吐量
+- 专用资源
 
-**Use when:**
-- Production workloads
-- Need consistent p95 latency
-- High throughput required
+**适用场景：**
+- 生产工作负载
+- 需要一致的p95延迟
+- 需要高吞吐量
 
-## Hybrid search
+## 混合搜索
 
-### Dense + Sparse vectors
+### 稠密 + 稀疏向量
 
 ```python
-# Upsert with both dense and sparse vectors
+# 同时插入稠密和稀疏向量
 index.upsert(vectors=[
     {
         "id": "doc1",
-        "values": [0.1, 0.2, ...],  # Dense (semantic)
+        "values": [0.1, 0.2, ...],  # 稠密（语义）
         "sparse_values": {
-            "indices": [10, 45, 123],  # Token IDs
-            "values": [0.5, 0.3, 0.8]   # TF-IDF/BM25 scores
+            "indices": [10, 45, 123],  # 词元ID
+            "values": [0.5, 0.3, 0.8]   # TF-IDF/BM25分数
         },
         "metadata": {"text": "..."}
     }
 ])
 
-# Hybrid query
+# 混合查询
 results = index.query(
-    vector=[0.1, 0.2, ...],  # Dense query
+    vector=[0.1, 0.2, ...],  # 稠密查询
     sparse_vector={
         "indices": [10, 45],
         "values": [0.5, 0.3]
     },
     top_k=10,
-    alpha=0.5  # 0=sparse only, 1=dense only, 0.5=balanced
+    alpha=0.5  # 0=仅稀疏, 1=仅稠密, 0.5=平衡
 )
 ```
 
-**Benefits:**
-- Best of both worlds
-- Semantic + keyword matching
-- Better recall than either alone
+**优势：**
+- 兼两家之长
+- 语义 + 关键词匹配
+- 比单独使用任何一种更好的召回率
 
-## Namespaces for multi-tenancy
+## 用于多租户的命名空间
 
 ```python
-# Separate data by user/tenant
+# 按用户/租户隔离数据
 index.upsert(
     vectors=[{"id": "doc1", "values": [...]}],
     namespace="user-123"
 )
 
-# Query specific namespace
+# 查询特定命名空间
 results = index.query(
     vector=[...],
     namespace="user-123",
     top_k=5
 )
 
-# List namespaces
+# 列出命名空间
 stats = index.describe_index_stats()
 print(stats['namespaces'])
 ```
 
-**Use cases:**
-- Multi-tenant SaaS
-- User-specific data isolation
-- A/B testing (prod/staging namespaces)
+**使用场景：**
+- 多租户SaaS
+- 用户特定数据隔离
+- A/B测试（生产/预发布命名空间）
 
-## Metadata filtering
+## 元数据过滤
 
-### Exact match
+### 精确匹配
 
 ```python
 results = index.query(
     vector=[...],
-    filter={"category": "tutorial"},
+    filter={"category": "教程"},
     top_k=5
 )
 ```
 
-### Range queries
+### 范围查询
 
 ```python
 results = index.query(
@@ -146,14 +151,14 @@ results = index.query(
 )
 ```
 
-### Complex filters
+### 复杂过滤器
 
 ```python
 results = index.query(
     vector=[...],
     filter={
         "$and": [
-            {"category": {"$in": ["tutorial", "guide"]}},
+            {"category": {"$in": ["教程", "指南"]}},
             {"difficulty": {"$lte": 3}},
             {"published": {"$gte": "2024-01-01"}}
         ]
@@ -162,20 +167,20 @@ results = index.query(
 )
 ```
 
-## Best practices
+## 最佳实践
 
-1. **Use serverless for development** - Cost-effective
-2. **Switch to pods for production** - Consistent performance
-3. **Implement namespaces** - Multi-tenancy
-4. **Add metadata strategically** - Enable filtering
-5. **Use hybrid search** - Better quality
-6. **Batch upserts** - 100-200 vectors per batch
-7. **Monitor usage** - Check Pinecone dashboard
-8. **Set up alerts** - Usage/cost thresholds
-9. **Regular backups** - Export important data
-10. **Test filters** - Verify performance
+1. **开发环境使用无服务器** - 成本效益高
+2. **生产环境切换到Pod** - 一致性能
+3. **使用命名空间** - 多租户隔离
+4. **战略性添加元数据** - 启用过滤
+5. **使用混合搜索** - 更高质量
+6. **批量upsert** - 每批100-200个向量
+7. **监控使用量** - 查看Pinecone仪表板
+8. **设置警报** - 使用量/成本阈值
+9. **定期备份** - 导出重要数据
+10. **测试过滤器** - 验证性能
 
-## Resources
+## 资源
 
-- **Docs**: https://docs.pinecone.io
-- **Console**: https://app.pinecone.io
+- **文档**: https://docs.pinecone.io
+- **控制台**: https://app.pinecone.io

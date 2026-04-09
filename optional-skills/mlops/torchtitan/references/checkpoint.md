@@ -1,8 +1,8 @@
-# Checkpointing in TorchTitan
+# TorchTitan中的检查点
 
-TorchTitan uses PyTorch Distributed Checkpoint (DCP) for fault-tolerant, interoperable checkpointing.
+TorchTitan使用PyTorch分布式检查点（DCP）进行容错、可互操作的检查点保存。
 
-## Basic Configuration
+## 基本配置
 
 ```toml
 [checkpoint]
@@ -11,20 +11,20 @@ folder = "checkpoint"
 interval = 500
 ```
 
-## Save Model Only (Smaller Checkpoints)
+## 仅保存模型（更小检查点）
 
-Exclude optimizer state and training metadata:
+排除优化器状态和训练元数据：
 
 ```toml
 [checkpoint]
 enable = true
 last_save_model_only = true
-export_dtype = "bfloat16"  # Optional: export in lower precision
+export_dtype = "bfloat16"  # 可选：以更低精度导出
 ```
 
-## Excluding Keys from Loading
+## 从加载中排除键
 
-Partial checkpoint loading for modified settings:
+为修改的设置部分加载检查点：
 
 ```toml
 [checkpoint]
@@ -32,14 +32,14 @@ enable = true
 exclude_from_loading = ["data_loader", "lr_scheduler"]
 ```
 
-CLI equivalent:
+CLI等价物：
 ```bash
 --checkpoint.exclude_from_loading data_loader,lr_scheduler
 ```
 
-## Creating Seed Checkpoints
+## 创建种子检查点
 
-Required for Pipeline Parallelism to ensure consistent initialization:
+流水线并行必需，以确保一致的初始化：
 
 ```bash
 NGPU=1 CONFIG_FILE=<path_to_config> ./run_train.sh \
@@ -53,23 +53,23 @@ NGPU=1 CONFIG_FILE=<path_to_config> ./run_train.sh \
   --parallelism.expert_parallel_degree 1
 ```
 
-This initializes on single CPU for reproducible initialization across any GPU count.
+这在单个CPU上初始化，以实现跨任何GPU数量的可重现初始化。
 
-## Async Checkpointing
+## 异步检查点
 
-Reduce checkpoint overhead with async writes:
+使用异步写入减少检查点开销：
 
 ```toml
 [checkpoint]
 enable = true
-async_mode = "async"  # Options: "disabled", "async", "async_with_pinned_mem"
+async_mode = "async"  # 选项："disabled", "async", "async_with_pinned_mem"
 ```
 
-## HuggingFace Conversion
+## HuggingFace转换
 
-### During Training
+### 训练期间
 
-Save directly in HuggingFace format:
+直接以HuggingFace格式保存：
 
 ```toml
 [checkpoint]
@@ -77,7 +77,7 @@ last_save_in_hf = true
 last_save_model_only = true
 ```
 
-Load from HuggingFace:
+从HuggingFace加载：
 
 ```toml
 [checkpoint]
@@ -87,9 +87,9 @@ initial_load_in_hf = true
 hf_assets_path = "./path/to/hf/checkpoint"
 ```
 
-### Offline Conversion
+### 离线转换
 
-Convert without running training:
+在不运行训练的情况下转换：
 
 ```bash
 # HuggingFace -> TorchTitan
@@ -106,7 +106,7 @@ python ./scripts/checkpoint_conversion/convert_to_hf.py \
   --model_flavor 8B
 ```
 
-### Example
+### 示例
 
 ```bash
 python ./scripts/convert_from_hf.py \
@@ -116,9 +116,9 @@ python ./scripts/convert_from_hf.py \
   --model_flavor 8B
 ```
 
-## Converting to Single .pt File
+## 转换为单个.pt文件
 
-Convert DCP sharded checkpoint to single PyTorch file:
+将DCP分片检查点转换为单个PyTorch文件：
 
 ```bash
 python -m torch.distributed.checkpoint.format_utils \
@@ -127,9 +127,9 @@ python -m torch.distributed.checkpoint.format_utils \
   checkpoint.pt
 ```
 
-## Checkpoint Structure
+## 检查点结构
 
-DCP saves sharded checkpoints that can be resharded for different parallelism configurations:
+DCP保存可以重新分片为不同并行配置的分片检查点：
 
 ```
 checkpoint/
@@ -142,27 +142,27 @@ checkpoint/
     └── ...
 ```
 
-## Resume Training
+## 恢复训练
 
-Training auto-resumes from the latest checkpoint in the configured folder. To resume from a specific step:
+训练自动从配置文件夹中的最新检查点恢复。要从特定步骤恢复：
 
 ```toml
 [checkpoint]
-load_step = 500  # Resume from step 500
+load_step = 500  # 从步骤500恢复
 ```
 
-## Interoperability with TorchTune
+## 与TorchTune的互操作性
 
-Checkpoints saved with `last_save_model_only = true` can be loaded directly into [torchtune](https://github.com/pytorch/torchtune) for fine-tuning.
+使用`last_save_model_only = true`保存的检查点可以直接加载到[torchtune](https://github.com/pytorch/torchtune)进行微调。
 
-## Full Configuration Example
+## 完整配置示例
 
 ```toml
 [checkpoint]
 enable = true
 folder = "checkpoint"
 interval = 500
-load_step = -1  # -1 = latest, or specify step number
+load_step = -1  # -1 = 最新，或指定步骤号
 last_save_model_only = true
 export_dtype = "bfloat16"
 async_mode = "async"
@@ -172,10 +172,10 @@ initial_load_in_hf = false
 create_seed_checkpoint = false
 ```
 
-## Best Practices
+## 最佳实践
 
-1. **Large models**: Use `async_mode = "async"` to overlap checkpoint saves with training
-2. **Fine-tuning export**: Enable `last_save_model_only` and `export_dtype = "bfloat16"` for smaller files
-3. **Pipeline parallelism**: Always create seed checkpoint first
-4. **Debugging**: Save frequent checkpoints during development, reduce for production
-5. **HF interop**: Use conversion scripts for offline conversion, direct save/load for training workflows
+1. **大型模型**：使用`async_mode = "async"`以重叠检查点保存和训练
+2. **微调导出**：启用`last_save_model_only`和`export_dtype = "bfloat16"`以获得更小文件
+3. **流水线并行**：首先始终创建种子检查点
+4. **调试**：开发期间保存频繁检查点，生产时减少
+5. **HF互操作**：离线转换使用转换脚本，训练工作流使用直接保存/加载

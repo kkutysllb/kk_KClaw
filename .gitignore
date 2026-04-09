@@ -1,0 +1,115 @@
+# =============================================================================
+# 上传文件
+# =============================================================================
+# 用户上传的文件（头像、图片、文档等）
+uploads/
+upload/
+upload-files/
+uploaded/
+files/
+attachments/
+
+# 临时上传目录
+temp-uploads/
+tmp-uploads/
+*.tmp.upload
+*.uploading
+
+# 上传文件白名单模式（请根据实际需求调整）
+# !uploads/.gitkeep
+
+# =============================================================================
+# 缓存文件
+# =============================================================================
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+express/ng_temp/
+.pnp.
+.pnp.js
+
+# Java/Maven
+target/
+*.class
+*.jar
+*.war
+.Gradle/
+build/
+
+# Rust/Cargo
+target/
+Cargo.lock
+*.rlib
+
+# Go
+*.exe~
+*.exe
+
+# IDE/编辑器缓存
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python 虚拟环境
+venv/
+ENV/
+env/
+.venv/
+
+# =============================================================================
+# 隐藏文件和文件夹
+# =============================================================================
+# 常见的 . 开头的忽略项（根据项目需求取消注释）
+# .env.local
+# .env.*.local
+# .sass-cache/
+# .cache/
+# .tmp/
+# .temp/
+
+# KClaw 项目特定
+.kclaw/
+.kclaw/cache/
+.kclaw/logs/
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo

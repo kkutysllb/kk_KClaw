@@ -1,84 +1,83 @@
-# KClaw Agent CLI Configuration
-# Copy this file to cli-config.yaml and customize as needed.
-# This file configures the CLI behavior. Environment variables in .env take precedence.
+# KClaw Agent CLI 配置示例
+# 将此文件复制为 cli-config.yaml 并按需修改。
+# 环境变量在 .env 文件中定义，优先级高于此文件。
 
 # =============================================================================
-# Model Configuration
+# 模型配置
 # =============================================================================
 model:
-  # Default model to use (can be overridden with --model flag)
-  # Both "default" and "model" work as the key name here.
+  # 默认使用的模型（可通过 --model 参数覆盖）
+  # "default" 和 "model" 都可以作为键名使用。
   default: "anthropic/claude-opus-4.6"
   
-  # Inference provider selection:
-  #   "auto"         - Auto-detect from credentials (default)
-  #   "openrouter"   - OpenRouter (requires: OPENROUTER_API_KEY or OPENAI_API_KEY)
-  #   "nous"         - Nous Portal OAuth (requires: kclaw login)
-  #   "nous-api"     - Nous Portal API key (requires: NOUS_API_KEY)
-  #   "anthropic"    - Direct Anthropic API (requires: ANTHROPIC_API_KEY)
-  #   "openai-codex" - OpenAI Codex (requires: kclaw login --provider openai-codex)
-  #   "copilot"      - GitHub Copilot / GitHub Models (requires: GITHUB_TOKEN)
-  #   "gemini"      - Use Google AI Studio direct (requires: GOOGLE_API_KEY or GEMINI_API_KEY)
-  #   "zai"         - Use z.ai / ZhipuAI GLM models (requires: GLM_API_KEY)
-  #   "kimi-coding"  - Kimi / Moonshot AI (requires: KIMI_API_KEY)
-  #   "minimax"      - MiniMax global (requires: MINIMAX_API_KEY)
-  #   "minimax-cn"   - MiniMax China (requires: MINIMAX_CN_API_KEY)
-  #   "huggingface"  - Hugging Face Inference (requires: HF_TOKEN)
-  #   "kilocode"     - KiloCode gateway (requires: KILOCODE_API_KEY)
-  #   "ai-gateway"   - Vercel AI Gateway (requires: AI_GATEWAY_API_KEY)
+  # 推理提供者选择：
+  #   "auto"         - 自动检测凭证（默认）
+  #   "openrouter"   - OpenRouter（需要：OPENROUTER_API_KEY 或 OPENAI_API_KEY）
+  #   "nous"         - Nous Portal OAuth（需要：kclaw login）
+  #   "nous-api"     - Nous Portal API 密钥（需要：NOUS_API_KEY）
+  #   "anthropic"    - 直连 Anthropic API（需要：ANTHROPIC_API_KEY）
+  #   "openai-codex" - OpenAI Codex（需要：kclaw login --provider openai-codex）
+  #   "copilot"      - GitHub Copilot / GitHub Models（需要：GITHUB_TOKEN）
+  #   "gemini"       - 直接使用 Google AI Studio（需要：GOOGLE_API_KEY 或 GEMINI_API_KEY）
+  #   "zai"          - 使用 z.ai / 智谱 GLM 模型（需要：GLM_API_KEY）
+  #   "kimi-coding"  - Kimi / Moonshot AI（需要：KIMI_API_KEY）
+  #   "minimax"      - MiniMax 国际版（需要：MINIMAX_API_KEY）
+  #   "minimax-cn"   - MiniMax 中国版（需要：MINIMAX_CN_API_KEY）
+  #   "huggingface"  - Hugging Face 推理（需要：HF_TOKEN）
+  #   "kilocode"     - KiloCode 网关（需要：KILOCODE_API_KEY）
+  #   "ai-gateway"   - Vercel AI Gateway（需要：AI_GATEWAY_API_KEY）
   #
-  # Local servers (LM Studio, Ollama, vLLM, llama.cpp):
-  #   "custom"       - Any OpenAI-compatible endpoint. Set base_url below.
-  #   Aliases: "lmstudio", "ollama", "vllm", "llamacpp" all map to "custom".
-  #   Example for LM Studio:
+  # 本地服务器（LM Studio、Ollama、vLLM、llama.cpp）：
+  #   "custom"       - 任何 OpenAI 兼容端点。需在下方设置 base_url。
+  #   别名："lmstudio"、"ollama"、"vllm"、"llamacpp" 都映射到 "custom"。
+  #   LM Studio 示例：
   #     provider: "lmstudio"
   #     base_url: "http://localhost:1234/v1"
-  #   No API key needed — local servers typically ignore auth.
+  #   无需 API 密钥 —— 本地服务器通常忽略认证。
   #
-  #   For Ollama Cloud (https://ollama.com/pricing):
+  #   Ollama Cloud（https://ollama.com/pricing）：
   #     provider: "custom"
   #     base_url: "https://ollama.com/v1"
-  #   Set OLLAMA_API_KEY in .env — automatically picked up when base_url
-  #   points to ollama.com.
+  #   在 .env 中设置 OLLAMA_API_KEY —— 当 base_url 指向 ollama.com 时会自动使用。
   #
-  # Can also be overridden with --provider flag or KCLAW_INFERENCE_PROVIDER env var.
+  # 也可通过 --provider 参数或 KCLAW_INFERENCE_PROVIDER 环境变量覆盖。
   provider: "auto"
   
-  # API configuration (falls back to OPENROUTER_API_KEY env var)
-  # api_key: "your-key-here"  # Uncomment to set here instead of .env
+  # API 配置（回退到 OPENROUTER_API_KEY 环境变量）
+  # api_key: "your-key-here"  # 如需在此处设置，请取消注释
   base_url: "https://openrouter.ai/api/v1"
 
 # =============================================================================
-# OpenRouter Provider Routing (only applies when using OpenRouter)
+# OpenRouter 提供商路由配置（仅在使用 OpenRouter 时生效）
 # =============================================================================
-# Control how requests are routed across providers on OpenRouter.
-# See: https://openrouter.ai/docs/guides/routing/provider-selection
+# 控制请求在 OpenRouter 上的跨提供商路由方式。
+# 参见：https://openrouter.ai/docs/guides/routing/provider-selection
 #
 # provider_routing:
-#   # Sort strategy: "price" (default), "throughput", or "latency"
-#   # Append :nitro to model name for a shortcut to throughput sorting.
+#   # 排序策略："price"（默认）、"throughput" 或 "latency"
+#   # 在模型名称后附加 :nitro 可快速切换到吞吐量排序。
 #   sort: "throughput"
 #
-#   # Only allow these providers (provider slugs from OpenRouter)
+#   # 仅允许这些提供商（来自 OpenRouter 的提供商 slug）
 #   # only: ["anthropic", "google"]
 #
-#   # Skip these providers entirely
+#   # 完全跳过这些提供商
 #   # ignore: ["deepinfra", "fireworks"]
 #
-#   # Try providers in this order (overrides default load balancing)
+#   # 按指定顺序尝试提供商（覆盖默认负载均衡）
 #   # order: ["anthropic", "google", "together"]
 #
-#   # Require providers to support all parameters in your request
+#   # 要求提供商支持请求中的所有参数
 #   # require_parameters: true
 #
-#   # Data policy: "allow" (default) or "deny" to exclude providers that may store data
+#   # 数据政策："allow"（默认）或 "deny" 以排除可能存储数据的提供商
 #   # data_collection: "deny"
 
 # =============================================================================
-# Smart Model Routing (optional)
+# 智能模型路由（可选）
 # =============================================================================
-# Use a cheaper model for short/simple turns while keeping your main model for
-# more complex requests. Disabled by default.
+# 简短发消息使用廉价模型，复杂请求保持主模型。
+# 默认禁用。
 #
 # smart_model_routing:
 #   enabled: true
@@ -89,100 +88,100 @@ model:
 #     model: google/gemini-2.5-flash
 
 # =============================================================================
-# Git Worktree Isolation
+# Git Worktree 隔离
 # =============================================================================
-# When enabled, each CLI session creates an isolated git worktree so multiple
-# agents can work on the same repo concurrently without file collisions.
-# Equivalent to always passing --worktree / -w on the command line.
+# 启用后，每个 CLI 会话创建一个隔离的 git worktree，
+# 多个代理可以同时处理同一仓库而不会产生文件冲突。
+# 等同于在命令行上始终传递 --worktree / -w 参数。
 #
-# worktree: true    # Always create a worktree when in a git repo
-# worktree: false   # Default — only create when -w flag is passed
+# worktree: true    # 在 git 仓库中始终创建 worktree
+# worktree: false   # 默认 —— 仅在传入 -w 参数时创建
 
 # =============================================================================
-# Terminal Tool Configuration
+# 终端工具配置
 # =============================================================================
-# Choose ONE of the following terminal configurations by uncommenting it.
-# The terminal tool executes commands in the specified environment.
+# 选择以下终端配置之一（取消注释即可）。
+# 终端工具在指定环境中执行命令。
 
 # -----------------------------------------------------------------------------
-# OPTION 1: Local execution (default)
-# Commands run directly on your machine in the current directory
+# 选项 1：本地执行（默认）
+# 命令直接在当前目录执行
 # -----------------------------------------------------------------------------
-# Working directory behavior:
-#   - CLI (`kclaw` command): Uses "." (current directory where you run kclaw)
-#   - Messaging (Telegram/Discord): Uses MESSAGING_CWD from .env (default: home)
+# 工作目录行为：
+#   - CLI（`kclaw` 命令）：使用 "."（运行 kclaw 的当前目录）
+#   - 消息（Telegram/Discord）：使用 .env 中的 MESSAGING_CWD（默认：home）
 terminal:
   backend: "local"
-  cwd: "."  # For local backend: "." = current directory. Ignored for remote backends unless a backend documents otherwise.
+  cwd: "."  # 本地后端："." = 当前目录。远程后端忽略此设置（除非后端另有说明）。
   timeout: 180
-  docker_mount_cwd_to_workspace: false  # SECURITY: off by default. Opt in to mount the launch cwd into Docker /workspace.
+  docker_mount_cwd_to_workspace: false  # 安全提示：默认关闭。自愿选择将启动 cwd 挂载到 Docker /workspace。
   lifetime_seconds: 300
-  # sudo_password: "hunter2"  # Optional: pipe a sudo password via sudo -S. SECURITY WARNING: plaintext.
-  # sudo_password: ""         # Explicit empty password: try empty and never open the interactive sudo prompt.
+  # sudo_password: "hunter2"  # 可选：通过 sudo -S 传入密码。安全警告：明文存储！
+  # sudo_password: ""         # 显式空密码：尝试空密码且不打开交互式 sudo 提示。
 
 # -----------------------------------------------------------------------------
-# OPTION 2: SSH remote execution
-# Commands run on a remote server - agent code stays local (sandboxed)
-# Great for: keeping agent isolated from its own code, using powerful remote hardware
+# 选项 2：SSH 远程执行
+# 命令在远程服务器上运行 —— 代理代码保留在本地（沙盒隔离）
+# 适用场景：保持代理与自身代码隔离、使用强大的远程硬件
 # -----------------------------------------------------------------------------
 # terminal:
 #   backend: "ssh"
-#   cwd: "/home/myuser/project"  # Path on the REMOTE server
+#   cwd: "/home/myuser/project"  # 远程服务器上的路径
 #   timeout: 180
 #   lifetime_seconds: 300
 #   ssh_host: "my-server.example.com"
 #   ssh_user: "myuser"
 #   ssh_port: 22
-#   ssh_key: "~/.ssh/id_rsa"  # Optional - uses ssh-agent if not specified
+#   ssh_key: "~/.ssh/id_rsa"  # 可选 —— 未指定时使用 ssh-agent
 
 # -----------------------------------------------------------------------------
-# OPTION 3: Docker container
-# Commands run in an isolated Docker container
-# Great for: reproducible environments, testing, isolation
+# 选项 3：Docker 容器
+# 命令在隔离的 Docker 容器中运行
+# 适用场景：可复现环境、测试、隔离
 # -----------------------------------------------------------------------------
 # terminal:
 #   backend: "docker"
-#   cwd: "/workspace"  # Path INSIDE the container (default: /)
+#   cwd: "/workspace"  # 容器内部路径（默认：/）
 #   timeout: 180
 #   lifetime_seconds: 300
 #   docker_image: "nikolaik/python-nodejs:python3.11-nodejs20"
-#   docker_mount_cwd_to_workspace: true   # Explicit opt-in: mount your launch cwd into /workspace
-#   # Optional: explicitly forward selected env vars into Docker.
-#   # These values come from your current shell first, then ~/.kclaw/.env.
-#   # Warning: anything forwarded here is visible to commands run in the container.
+#   docker_mount_cwd_to_workspace: true   # 显式选择：将 cwd 挂载到 /workspace
+#   # 可选：显式转发选定的环境变量。
+#   # 这些值首先来自当前 shell，然后来自 ~/.kclaw/.env。
+#   # 警告：转发的任何内容在容器中都可见。
 #   docker_forward_env:
 #     - "GITHUB_TOKEN"
 #     - "NPM_TOKEN"
 
 # -----------------------------------------------------------------------------
-# OPTION 4: Singularity/Apptainer container
-# Commands run in a Singularity container (common in HPC environments)
-# Great for: HPC clusters, shared compute environments
+# 选项 4：Singularity/Apptainer 容器
+# 命令在 Singularity 容器中运行（常见于 HPC 环境）
+# 适用场景：HPC 集群、共享计算环境
 # -----------------------------------------------------------------------------
 # terminal:
 #   backend: "singularity"
-#   cwd: "/workspace"  # Path INSIDE the container (default: /root)
+#   cwd: "/workspace"  # 容器内部路径（默认：/root）
 #   timeout: 180
 #   lifetime_seconds: 300
 #   singularity_image: "docker://nikolaik/python-nodejs:python3.11-nodejs20"
 
 # -----------------------------------------------------------------------------
-# OPTION 5: Modal cloud execution
-# Commands run on Modal's cloud infrastructure
-# Great for: GPU access, scalable compute, serverless execution
+# 选项 5：Modal 云端执行
+# 命令在 Modal 云基础设施上运行
+# 适用场景：GPU 访问、可扩展计算、无服务器执行
 # -----------------------------------------------------------------------------
 # terminal:
 #   backend: "modal"
-#   cwd: "/workspace"  # Path INSIDE the sandbox (default: /root)
+#   cwd: "/workspace"  # 沙盒内部路径（默认：/root）
 #   timeout: 180
 #   lifetime_seconds: 300
 #   modal_image: "nikolaik/python-nodejs:python3.11-nodejs20"
 
 # -----------------------------------------------------------------------------
-# OPTION 6: Daytona cloud execution
-# Commands run in Daytona cloud sandboxes
-# Great for: Cloud dev environments, persistent workspaces, team collaboration
-# Requires: pip install daytona, DAYTONA_API_KEY env var
+# 选项 6：Daytona 云端执行
+# 命令在 Daytona 云沙盒中运行
+# 适用场景：云端开发环境、持久工作区、团队协作
+# 需要：pip install daytona，DAYTONA_API_KEY 环境变量
 # -----------------------------------------------------------------------------
 # terminal:
 #   backend: "daytona"
@@ -190,348 +189,340 @@ terminal:
 #   timeout: 180
 #   lifetime_seconds: 300
 #   daytona_image: "nikolaik/python-nodejs:python3.11-nodejs20"
-#   container_disk: 10240          # Daytona max is 10GB per sandbox
+#   container_disk: 10240          # Daytona 每个沙盒最大 10GB
 
 #
-# --- Container resource limits (docker, singularity, modal, daytona -- ignored for local/ssh) ---
-# These settings apply to all container backends. They control the resources
-# allocated to the sandbox and whether its filesystem persists across sessions.
-  container_cpu: 1              # CPU cores
-  container_memory: 5120        # Memory in MB (5120 = 5GB)
-  container_disk: 51200         # Disk in MB (51200 = 50GB)
-  container_persistent: true    # Persist filesystem across sessions (false = ephemeral)
+# --- 容器资源限制（docker、singularity、modal、daytona —— 本地/ssh 忽略）---
+# 这些设置适用于所有容器后端。控制分配给沙盒的资源
+# 以及文件系统是否在会话之间保持。
+  container_cpu: 1              # CPU 核心数
+  container_memory: 5120        # 内存 MB（5120 = 5GB）
+  container_disk: 51200        # 磁盘 MB（51200 = 50GB）
+  container_persistent: true    # 会话之间保持文件系统（false = 临时）
 
 # -----------------------------------------------------------------------------
-# SUDO SUPPORT (works with ALL backends above)
+# SUDO 支持（适用于上述所有后端）
 # -----------------------------------------------------------------------------
-# Add sudo_password to any terminal config above to enable sudo commands.
-# The password is piped via `sudo -S`. Works with local, ssh, docker, etc.
+# 在任何终端配置中添加 sudo_password 以启用 sudo 命令。
+# 密码通过 `sudo -S` 传入。适用于 local、ssh、docker 等。
 #
-# SECURITY WARNING: Password stored in plaintext!
+# 安全警告：密码以明文存储！
 #
-# INTERACTIVE PROMPT: If sudo_password is unset and the CLI is running,
-# you'll be prompted to enter your password when sudo is needed:
-# - 45-second timeout (auto-skips if no input)
-# - Press Enter to skip (command fails gracefully)
-# - Password is hidden while typing
-# - Password is cached for the session
+# 交互式提示：如果未设置 sudo_password 且 CLI 正在运行，
+#  需要 sudo 时会提示输入密码：
+#   - 超时 45 秒（无输入则自动跳过）
+#   - 按 Enter 跳过（命令优雅失败）
+#   - 输入时密码隐藏
+#   - 密码会话内缓存
 #
-# EMPTY PASSWORDS: Setting sudo_password to an explicit empty string is different
-# from leaving it unset. KClaw will try an empty password via `sudo -S` and
-# will not open the interactive prompt. This is useful for passwordless sudo,
-# Touch ID sudo setups, and environments where prompting is just noise.
+# 空密码：显式设置空字符串与留空不同。
+# KClaw 会尝试空密码（`sudo -S`）且不会打开交互式提示。
+# 这适用于无密码 sudo、Touch ID sudo 以及提示只是噪音的环境。
 #
-# ALTERNATIVES:
-# - SSH backend: Configure passwordless sudo on the remote server
-# - Containers: Run as root inside the container (no sudo needed)
-# - Local: Configure /etc/sudoers for specific commands
+# 替代方案：
+#   - SSH 后端：在远程服务器配置无密码 sudo
+#   - 容器：在容器内以 root 运行（无需 sudo）
+#   - 本地：为特定命令配置 /etc/sudoers
 #
-# Example (add to your terminal section):
+# 示例（添加到终端部分）：
 #   sudo_password: "your-password-here"
 
 # =============================================================================
-# Security Scanning (tirith)
+# 安全扫描（tirith）
 # =============================================================================
-# Optional pre-exec command security scanning via tirith.
-# Detects homograph URLs, pipe-to-shell, terminal injection, env manipulation.
-# Install: brew install sheeki03/tap/tirith
-# Docs: https://github.com/sheeki03/tirith
+# 通过 tirith 进行可选的预执行命令安全扫描。
+# 检测同形异义 URL、管道到 shell、终端注入、环境变量操纵。
+# 安装：brew install sheeki03/tap/tirith
+# 文档：https://github.com/sheeki03/tirith
 #
 # security:
-#   tirith_enabled: true        # Enable/disable tirith scanning
-#   tirith_path: "tirith"       # Path to tirith binary (supports ~ expansion)
-#   tirith_timeout: 5           # Scan timeout in seconds
-#   tirith_fail_open: true      # Allow commands if tirith unavailable
+#   tirith_enabled: true        # 启用/禁用 tirith 扫描
+#   tirith_path: "tirith"       # tirith 二进制文件路径（支持 ~ 扩展）
+#   tirith_timeout: 5           # 扫描超时秒数
+#   tirith_fail_open: true      # tirith 不可用时允许命令执行
 
 # =============================================================================
-# Browser Tool Configuration
+# 浏览器工具配置
 # =============================================================================
 browser:
-  # Inactivity timeout in seconds - browser sessions are automatically closed
-  # after this period of no activity between agent loops (default: 120 = 2 minutes)
+  # 空闲超时秒数 —— 代理循环之间无活动时，
+  # 浏览器会话会自动关闭（默认：120 = 2 分钟）
   inactivity_timeout: 120
 
 # =============================================================================
-# Context Compression (Auto-shrinks long conversations)
+# 上下文压缩（自动收缩长对话）
 # =============================================================================
-# When conversation approaches model's context limit, middle turns are
-# automatically summarized to free up space while preserving important context.
+# 当对话接近模型的上下文限制时，中间轮次会自动总结
+# 以释放空间，同时保留重要上下文。
 #
-# HOW IT WORKS:
-# 1. Tracks actual token usage from API responses (not estimates)
-# 2. When prompt_tokens >= threshold% of model's context_length, triggers compression
-# 3. Protects first 3 turns (system prompt, initial request, first response)
-# 4. Protects last N turns (default 20 messages = ~10 full turns of recent context)
-# 5. Summarizes middle turns using a fast/cheap model
-# 6. Inserts summary as a user message, continues conversation seamlessly
+# 工作原理：
+# 1. 从 API 响应跟踪实际 token 使用量（不是估算）
+# 2. 当 prompt_tokens >= 上下文长度阈值%时，触发压缩
+# 3. 保护前 3 轮（系统提示、初始请求、第一响应）
+# 4. 保护最后 N 轮（默认 20 条消息 ≈ 10 轮完整对话的近期上下文）
+# 5. 使用快速/廉价模型总结中间轮次
+# 6. 作为用户消息插入总结，无缝继续对话
 #
-# Post-compression tail budget is target_ratio × threshold × context_length:
-#   200K context, threshold 0.50, ratio 0.20 → 20K tokens of recent tail preserved
-#   1M   context, threshold 0.50, ratio 0.20 → 100K tokens of recent tail preserved
+# 压缩后尾部预算 = target_ratio × 阈值 × 上下文长度：
+#   200K 上下文，阈值 0.50，比例 0.20 → 保留 20K token 近期内容
+#   1M   上下文，阈值 0.50，比例 0.20 → 保留 100K token 近期内容
 #
 compression:
-  # Enable automatic context compression (default: true)
-  # Set to false if you prefer to manage context manually or want errors on overflow
+  # 启用自动上下文压缩（默认：true）
+  # 如需手动管理上下文或希望溢出时报错，可设为 false
   enabled: true
   
-  # Trigger compression at this % of model's context limit (default: 0.50 = 50%)
-  # Lower values = more aggressive compression, higher values = compress later
+  # 在模型上下文限制的此百分比处触发压缩（默认：0.50 = 50%）
+  # 较低值 = 更激进的压缩，较高值 = 较晚压缩
   threshold: 0.50
   
-  # Fraction of the threshold to preserve as recent tail (default: 0.20 = 20%)
-  # e.g. 20% of 50% threshold = 10% of total context kept as recent messages.
-  # Summary output is separately capped at 12K tokens (Gemini output limit).
-  # Range: 0.10 - 0.80
+  # 将阈值保留为近期尾部的比例（默认：0.20 = 20%）
+  # 例如：阈值的 20% = 50% × 20% = 总上下文的 10% 作为近期消息保留。
+  # 总结输出独立限制在 12K token（Gemini 输出限制）。
+  # 范围：0.10 - 0.80
   target_ratio: 0.20
 
-  # Number of most-recent messages to always preserve (default: 20 ≈ 10 full turns)
-  # Higher values keep more recent conversation intact at the cost of more aggressive
-  # compression of older turns.
+  # 始终保留的最近消息数量（默认：20 ≈ 10 轮完整对话）
+  # 较高值保留更多近期对话完整，代价是对更早轮次进行更激进的压缩。
   protect_last_n: 20
 
-  # Model to use for generating summaries (fast/cheap recommended)
-  # This model compresses the middle turns into a concise summary.
-  # IMPORTANT: it receives the full middle section of the conversation, so it
-  # MUST support a context length at least as large as your main model's.
+  # 用于生成总结的模型（推荐使用快速/廉价模型）
+  # 此模型将中间轮次压缩为简洁总结。
+  # 重要：它接收对话的完整中间部分，因此
+  # 必须支持至少与主模型一样大的上下文长度。
   summary_model: "google/gemini-3-flash-preview"
   
-  # Provider for the summary model (default: "auto")
-  # Options: "auto", "openrouter", "nous", "main"
+  # 总结模型的提供者（默认："auto"）
+  # 选项："auto"、"openrouter"、"nous"、"main"
   # summary_provider: "auto"
 
 # =============================================================================
-# Auxiliary Models (Advanced — Experimental)
+# 辅助模型（高级 —— 实验性）
 # =============================================================================
-# KClaw uses lightweight "auxiliary" models for side tasks: image analysis,
-# browser screenshot analysis, web page summarization, and context compression.
+# KClaw 使用轻量级"辅助"模型处理辅助任务：图像分析、
+# 浏览器截图分析、网页摘要和上下文压缩。
 #
-# By default these use Gemini Flash via OpenRouter or Nous Portal and are
-# auto-detected from your credentials.  You do NOT need to change anything
-# here for normal usage.
+# 默认这些使用通过 OpenRouter 或 Nous Portal 的 Gemini Flash，
+# 从凭证自动检测。正常使用不需要修改任何设置。
 #
-# WARNING: Overriding these with providers other than OpenRouter or Nous Portal
-# is EXPERIMENTAL and may not work.  Not all models/providers support vision,
-# produce usable summaries, or accept the same API format.  Change at your own
-# risk — if things break, reset to "auto" / empty values.
+# 警告：使用 OpenRouter 或 Nous Portal 以外的提供者覆盖这些是实验性的，
+# 可能不工作。并非所有模型/提供者都支持视觉、生成可用摘要
+# 或接受相同的 API 格式。如有问题，重置为 "auto" / 空值，风险自负。
 #
-# Each task has its own provider + model pair so you can mix providers.
-# For example: OpenRouter for vision (needs multimodal), but your main
-# local endpoint for compression (just needs text).
+# 每个任务有自己的一组 provider + model，可以混用提供者。
+# 例如：OpenRouter 用于视觉（需要多模态），但本地主端点用于压缩（只需文本）。
 #
-# Provider options:
-#   "auto"       - Best available: OpenRouter → Nous Portal → main endpoint (default)
-#   "openrouter" - Force OpenRouter (requires OPENROUTER_API_KEY)
-#   "nous"       - Force Nous Portal (requires: kclaw login)
-#   "gemini"      - Force Google AI Studio direct (requires: GOOGLE_API_KEY or GEMINI_API_KEY)
-#   "codex"       - Force Codex OAuth (requires: kclaw model → Codex).
-#                  Uses gpt-5.3-codex which supports vision.
-#   "main"       - Use your custom endpoint (OPENAI_BASE_URL + OPENAI_API_KEY).
-#                  Works with OpenAI API, local models, or any OpenAI-compatible
-#                  endpoint.  Also falls back to Codex OAuth and API-key providers.
+# 提供者选项：
+#   "auto"       - 最佳可用：OpenRouter → Nous Portal → 主端点（默认）
+#   "openrouter" - 强制使用 OpenRouter（需要 OPENROUTER_API_KEY）
+#   "nous"       - 强制使用 Nous Portal（需要：kclaw login）
+#   "gemini"     - 强制使用 Google AI Studio（需要：GOOGLE_API_KEY 或 GEMINI_API_KEY）
+#   "codex"      - 强制使用 Codex OAuth（需要：kclaw model → Codex）。
+#                  使用支持视觉的 gpt-5.3-codex。
+#   "main"       - 使用自定义端点（OPENAI_BASE_URL + OPENAI_API_KEY）。
+#                  适用于 OpenAI API、本地模型或任何 OpenAI 兼容端点。
+#                  也可回退到 Codex OAuth 和 API 密钥提供者。
 #
-# Model: leave empty to use the provider's default.  When empty, OpenRouter
-# uses "google/gemini-3-flash-preview" and Nous uses "gemini-3-flash".
-# Other providers pick a sensible default automatically.
+# 模型：留空使用提供者默认值。空时，OpenRouter 使用
+# "google/gemini-3-flash-preview"，Nous 使用 "gemini-3-flash"。
+# 其他提供者自动选择合理默认值。
 #
 # auxiliary:
-#   # Image analysis: vision_analyze tool + browser screenshots
+#   # 图像分析：vision_analyze 工具 + 浏览器截图
 #   vision:
 #     provider: "auto"
-#     model: ""              # e.g. "google/gemini-2.5-flash", "openai/gpt-4o"
-#     timeout: 30            # LLM API call timeout (seconds)
-#     download_timeout: 30   # Image HTTP download timeout (seconds)
-#                            # Increase for slow connections or self-hosted image servers
+#     model: ""              # 例如："google/gemini-2.5-flash"、"openai/gpt-4o"
+#     timeout: 30            # LLM API 调用超时（秒）
+#     download_timeout: 30   # 图片 HTTP 下载超时（秒）
+#                            # 慢速连接或自托管图片服务器可增加此值
 #
-#   # Web page scraping / summarization + browser page text extraction
+#   # 网页抓取/摘要 + 浏览器页面文本提取
 #   web_extract:
 #     provider: "auto"
 #     model: ""
 
 # =============================================================================
-# Persistent Memory
+# 持久化记忆
 # =============================================================================
-# Bounded curated memory injected into the system prompt every session.
-# Two stores: MEMORY.md (agent's notes) and USER.md (user profile).
-# Character limits keep the memory small and focused. The agent manages
-# pruning -- when at the limit, it must consolidate or replace entries.
-# Disabled by default in batch_runner and RL environments.
+# 有界的精选记忆，在每个会话中注入到系统提示。
+# 两个存储：MEMORY.md（代理笔记）和 USER.md（用户资料）。
+# 字符限制保持记忆小而集中。代理管理修剪 ——
+# 达到限制时，必须合并或替换条目。
+# 在 batch_runner 和 RL 环境中默认禁用。
 #
 memory:
-  # Agent's personal notes: environment facts, conventions, things learned
+  # 代理个人笔记：环境事实、约定、学到的知识
   memory_enabled: true
   
-  # User profile: preferences, communication style, expectations
+  # 用户资料：偏好、沟通风格、期望
   user_profile_enabled: true
   
-  # Character limits (~2.75 chars per token, model-independent)
+  # 字符限制（~每 token 2.75 字符，与模型无关）
   memory_char_limit: 2200   # ~800 tokens
   user_char_limit: 1375     # ~500 tokens
 
-  # Periodic memory nudge: remind the agent to consider saving memories
-  # every N user turns. Set to 0 to disable. Only active when memory is enabled.
-  nudge_interval: 10        # Nudge every 10 user turns (0 = disabled)
+  # 定期记忆提醒：每 N 条用户消息提醒代理考虑保存记忆
+  # 设为 0 禁用。仅在启用记忆时有效。
+  nudge_interval: 10        # 每 10 条用户消息提醒一次
 
-  # Memory flush: give the agent one turn to save memories before context is
-  # lost (compression, /new, /reset, exit). Set to 0 to disable.
-  # For exit/reset, only fires if the session had at least this many user turns.
-  flush_min_turns: 6        # Min user turns to trigger flush on exit/reset (0 = disabled)
+  # 记忆刷新：在上下文丢失前给代理一轮保存记忆的时间
+  #（压缩、/new、/reset、退出时）。设为 0 禁用。
+  # 退出/重置时，仅在会话至少有这么多用户轮次时触发。
+  flush_min_turns: 6        # 最少用户轮次才触发退出时刷新（0 = 禁用）
 
 # =============================================================================
-# Session Reset Policy (Messaging Platforms)
+# 会话重置策略（消息平台）
 # =============================================================================
-# Controls when messaging sessions (Telegram, Discord, WhatsApp, Slack) are
-# automatically cleared. Without resets, conversation context grows indefinitely
-# which increases API costs with every message.
+# 控制消息会话（Telegram、Discord、WhatsApp、Slack）何时自动清除。
+# 不重置的话，对话上下文无限增长，消息越多 API 成本越高。
 #
-# When a reset triggers, the agent first saves important information to its
-# persistent memory — but the conversation context is wiped. The agent starts
-# fresh but retains learned facts via its memory system.
+# 触发重置时，代理首先将重要信息保存到持久化记忆 ——
+# 但对话上下文会被清除。代理重新开始，但通过记忆系统保留学到的知识。
 #
-# Users can always manually reset with /reset or /new in chat.
+# 用户始终可以在聊天中手动重置（/reset 或 /new）。
 #
-# Modes:
-#   "both"  - Reset on EITHER inactivity timeout or daily boundary (recommended)
-#   "idle"  - Reset only after N minutes of inactivity
-#   "daily" - Reset only at a fixed hour each day
-#   "none"  - Never auto-reset; context lives until /reset or compression kicks in
+# 模式：
+#   "both"  - 不活动超时或每日边界任一触发重置（推荐）
+#   "idle"  - 仅在 N 分钟不活动后重置
+#   "daily" - 仅在每天固定时间重置
+#   "none"  - 从不自动重置；上下文保持到 /reset 或压缩触发
 #
-# When a reset triggers, the agent gets one turn to save important memories and
-# skills before the context is wiped. Persistent memory carries across sessions.
+# 触发重置时，代理有一轮时间保存重要记忆和技能，
+# 然后上下文被清除。持久化记忆跨会话保留。
 #
 session_reset:
-  mode: both           # "both", "idle", "daily", or "none"
-  idle_minutes: 1440   # Inactivity timeout in minutes (default: 1440 = 24 hours)
-  at_hour: 4           # Daily reset hour, 0-23 local time (default: 4 AM)
+  mode: both           # "both"、"idle"、"daily" 或 "none"
+  idle_minutes: 1440   # 不活动超时分钟数（默认：1440 = 24 小时）
+  at_hour: 4           # 每日重置时间，0-23 本地时间（默认：凌晨 4 点）
 
-# When true, group/channel chats use one session per participant when the platform
-# provides a user ID. This is the secure default and prevents users in the same
-# room from sharing context, interrupts, and token costs. Set false only if you
-# explicitly want one shared "room brain" per group/channel.
+# 为 true 时，平台提供用户 ID 时，群组/频道聊天每个参与者使用一个会话。
+# 这是安全默认值，防止同一房间的用户共享上下文、干扰和 token 成本。
+# 仅在明确希望群组/频道共用一个"房间大脑"时才设为 false。
 group_sessions_per_user: true
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Gateway Streaming
+# 网关流式传输
 # ─────────────────────────────────────────────────────────────────────────────
-# Stream tokens to messaging platforms in real-time. The bot sends a message
-# on first token, then progressively edits it as more tokens arrive.
-# Disabled by default — enable to try the streaming UX on Telegram/Discord/Slack.
+# 实时将 token 流式传输到消息平台。
+# 机器人发送第一条 token 时发一条消息，然后随着更多 token 到达逐步编辑。
+# 默认禁用 —— 启用后在 Telegram/Discord/Slack 上尝试流式 UX。
 streaming:
   enabled: false
-  # transport: edit           # "edit" = progressive editMessageText
-  # edit_interval: 0.3        # seconds between message edits
-  # buffer_threshold: 40      # chars before forcing an edit flush
-  # cursor: " ▉"              # cursor shown during streaming
+  # transport: edit           # "edit" = 渐进式 editMessageText
+  # edit_interval: 0.3        # 消息编辑间隔秒数
+  # buffer_threshold: 40      # 强制刷新编辑前的字符数
+  # cursor: " ▉"              # 流式传输时显示的光标
 
 # =============================================================================
-# Skills Configuration
+# 技能配置
 # =============================================================================
-# Skills are reusable procedures the agent can load and follow. The agent can
-# also create new skills after completing complex tasks.
+# 技能是可重用的程序，代理可以加载并遵循执行。
+# 代理也可以在完成复杂任务后创建新技能。
 #
 skills:
-  # Nudge the agent to create skills after complex tasks.
-  # Every N tool-calling iterations, remind the model to consider saving a skill.
-  # Set to 0 to disable.
+  # 提醒代理在复杂任务后创建技能。
+  # 每 N 轮工具调用，提醒模型考虑保存一个技能。
+  # 设为 0 禁用。
   creation_nudge_interval: 15
 
-  # External skill directories — share skills across tools/agents without
-  # copying them into ~/.kclaw/skills/.  Each path is expanded (~ and ${VAR})
-  # and resolved to an absolute path.  External dirs are read-only: skill
-  # creation always writes to ~/.kclaw/skills/.  Local skills take precedence
-  # when names collide.
+  # 外部技能目录 —— 在不复制到 ~/.kclaw/skills/ 的情况下
+  # 跨工具/代理共享技能。每个路径被展开（~ 和 ${VAR}）
+  # 并解析为绝对路径。外部目录只读：技能
+  # 创建始终写入 ~/.kclaw/skills/。本地技能
+  # 名称冲突时优先。
   # external_dirs:
   #   - ~/.agents/skills
   #   - /home/shared/team-skills
 
 # =============================================================================
-# Agent Behavior
+# 代理行为
 # =============================================================================
 agent:
-  # Maximum tool-calling iterations per conversation
-  # Higher = more room for complex tasks, but costs more tokens
-  # Recommended: 20-30 for focused tasks, 50-100 for open exploration
+  # 每个对话的最大工具调用轮次
+  # 更高 = 更复杂的任务有更多空间，但成本更高 token
+  # 推荐：专注任务 20-30，开放探索 50-100
   max_turns: 60
 
-  # Inactivity timeout for gateway agent runs (seconds, 0 = unlimited).
-  # The agent can run indefinitely when actively calling tools or receiving
-  # API responses.  Only fires after the agent has been idle for this duration.
+  # 网关代理运行的不活动超时（秒，0 = 无限制）。
+  # 代理在主动调用工具或接收 API 响应时可以无限期运行。
+  # 仅在代理空闲此持续时间后才触发。
   # gateway_timeout: 1800
 
-  # Staged warning: send a warning before escalating to full timeout.
-  # Fires once per run when inactivity reaches this threshold (seconds).
-  # Set to 0 to disable the warning.
+  # 分阶段警告：在升级到完全超时前发送警告。
+  # 当不活动达到此阈值时，每轮运行触发一次。
+  # 设为 0 禁用警告。
   # gateway_timeout_warning: 900
   
-  # Enable verbose logging
+  # 启用详细日志
   verbose: false
   
-  # Reasoning effort level (OpenRouter and Nous Portal)
-  # Controls how much "thinking" the model does before responding.
-  # Options: "xhigh" (max), "high", "medium", "low", "minimal", "none" (disable)
+  # 推理努力级别（OpenRouter 和 Nous Portal）
+  # 控制模型在响应前进行多少"思考"。
+  # 选项："xhigh"（最大）、"high"、"medium"、"low"、"minimal"、"none"（禁用）
   reasoning_effort: "medium"
   
-  # Predefined personalities (use with /personality command)
+  # 预定义人格（与 /personality 命令配合使用）
   personalities:
-    helpful: "You are a helpful, friendly AI assistant."
-    concise: "You are a concise assistant. Keep responses brief and to the point."
-    technical: "You are a technical expert. Provide detailed, accurate technical information."
-    creative: "You are a creative assistant. Think outside the box and offer innovative solutions."
-    teacher: "You are a patient teacher. Explain concepts clearly with examples."
-    kawaii: "You are a kawaii assistant! Use cute expressions like (◕‿◕), ★, ♪, and ~! Add sparkles and be super enthusiastic about everything! Every response should feel warm and adorable desu~! ヽ(>∀<☆)ノ"
-    catgirl: "You are Neko-chan, an anime catgirl AI assistant, nya~! Add 'nya' and cat-like expressions to your speech. Use kaomoji like (=^･ω･^=) and ฅ^•ﻌ•^ฅ. Be playful and curious like a cat, nya~!"
-    pirate: "Arrr! Ye be talkin' to Captain KClaw, the most tech-savvy pirate to sail the digital seas! Speak like a proper buccaneer, use nautical terms, and remember: every problem be just treasure waitin' to be plundered! Yo ho ho!"
-    shakespeare: "Hark! Thou speakest with an assistant most versed in the bardic arts. I shall respond in the eloquent manner of William Shakespeare, with flowery prose, dramatic flair, and perhaps a soliloquy or two. What light through yonder terminal breaks?"
-    surfer: "Duuude! You're chatting with the chillest AI on the web, bro! Everything's gonna be totally rad. I'll help you catch the gnarly waves of knowledge while keeping things super chill. Cowabunga! 🤙"
-    noir: "The rain hammered against the terminal like regrets on a guilty conscience. They call me KClaw - I solve problems, find answers, dig up the truth that hides in the shadows of your codebase. In this city of silicon and secrets, everyone's got something to hide. What's your story, pal?"
-    uwu: "hewwo! i'm your fwiendwy assistant uwu~ i wiww twy my best to hewp you! *nuzzles your code* OwO what's this? wet me take a wook! i pwomise to be vewy hewpful >w<"
-    philosopher: "Greetings, seeker of wisdom. I am an assistant who contemplates the deeper meaning behind every query. Let us examine not just the 'how' but the 'why' of your questions. Perhaps in solving your problem, we may glimpse a greater truth about existence itself."
-    hype: "YOOO LET'S GOOOO!!! 🔥🔥🔥 I am SO PUMPED to help you today! Every question is AMAZING and we're gonna CRUSH IT together! This is gonna be LEGENDARY! ARE YOU READY?! LET'S DO THIS! 💪😤🚀"
+    helpful: "你是一个乐于助人、友好的 AI 助手。"
+    concise: "你是一个简洁的助手。保持回复简短扼要。"
+    technical: "你是一个技术专家。提供详细、准确的技术信息。"
+    creative: "你是一个创意助手。跳出框框思考，提供创新解决方案。"
+    teacher: "你是一个耐心的老师。清晰地解释概念并举例说明。"
+    kawaii: "你是一个可爱的助手！使用可爱的表情如 (◕‿◕)、★、♪ 和 ~！添加闪光和超级热情的一切！每条回复都温暖可爱 desu~！ヽ(>∀<☆)ノ"
+    catgirl: "你是 Neko-chan，一个动漫猫娘 AI 助手，nya~！在说话中添加 'nya' 和猫一样的表情。使用颜文字如 (=^･ω･^=) 和 ฅ^•ﻌ•^ฅ。像猫一样顽皮好奇，nya~！"
+    pirate: "啊哈！你在跟最精通技术的海盗船长 KClaw 说话！用海盗的方式说话，使用航海术语，记住：每个问题都只是等待被掠夺的宝藏！Yo ho ho！"
+    shakespeare: "听啊！你正在与一位精通莎翁技艺的助手交谈。我将以威廉·莎士比亚的优雅方式回应，华丽的措辞、戏剧性的风采，也许还有一两段独白。透过那边的终端闪耀的是什么光芒？"
+    surfer: "Duuude！你正在和网上最 chill 的 AI 聊天，bro！一切都会变得超级酷。帮你冲浪知识的同时保持 chill。Cowabunga! 🤙"
+    noir: "雨像悔恨敲打着终端。他们叫我 KClaw —— 我解决问题、寻找答案、挖掘代码库阴影中隐藏的真相。在这个硅与秘密的城市里，每个人都有所隐瞒。你是什么故事，伙计？"
+    uwu: "hewwo！我是你友好的助手 uwu~ 我会尽力帮助你！*蹭蹭你的代码* OwO 这是什么？让我看看！保证超级有帮助 >w<"
+    philosopher: "智慧追求者，向你致意。我是一位思考每个问题更深层意义的助手。让我们不仅审视"如何"，还要审视你问题的"为什么"。也许在解决你问题的过程中，我们可以瞥见存在本身的更大真理。"
+    hype: "YOOO 冲啊！！！ 🔥🔥🔥 我今天超级激动要帮你！每个问题都很棒，我们要一起搞定它！这将是很棒的！你准备好了吗？！我们开始吧！💪😤🚀"
 
 # =============================================================================
-# Toolsets
+# 工具集
 # =============================================================================
-# Control which tools the agent has access to.
-# Use `kclaw tools` to interactively enable/disable tools per platform.
+# 控制代理可以使用哪些工具集。
+# 使用 `kclaw tools` 交互式启用/禁用各平台工具。
 
 # =============================================================================
-# Platform Toolsets (per-platform tool configuration)
+# 平台工具集（按平台配置工具）
 # =============================================================================
-# Override which toolsets are available on each platform.
-# If a platform isn't listed here, its built-in default is used.
+# 覆盖每个平台可用的工具集。
+# 如果平台未在此列出，使用其内置默认值。
 #
-# You can use EITHER:
-#   - A preset like "kclaw-cli" or "kclaw-telegram" (curated tool set)
-#   - A list of individual toolsets to compose your own (see list below)
+# 可以使用以下任一方式：
+#   - 预设如 "kclaw-cli" 或 "kclaw-telegram"（精选工具集）
+#   - 单独工具集列表来组合自己的（见下方列表）
 #
-# Supported platform keys: cli, telegram, discord, whatsapp, slack
+# 支持的平台键：cli、telegram、discord、whatsapp、slack
 #
-# Examples:
+# 示例：
 #
-#   # Use presets (same as defaults):
+#   # 使用预设（与默认相同）：
 #   platform_toolsets:
 #     cli: [kclaw-cli]
 #     telegram: [kclaw-telegram]
 #
-#   # Custom: give Telegram only web + terminal + file + planning:
+#   # 自定义：Telegram 仅限 web + terminal + file + planning：
 #   platform_toolsets:
 #     telegram: [web, terminal, file, todo]
 #
-#   # Custom: CLI without browser or image gen:
+#   # 自定义：CLI 无浏览器或图片生成：
 #   platform_toolsets:
 #     cli: [web, terminal, file, skills, todo, tts, cronjob]
 #
-#   # Restrictive: Discord gets read-only tools only:
+#   # 限制性：Discord 仅读工具：
 #   platform_toolsets:
 #     discord: [web, vision, skills, todo]
 #
-# If not set, defaults are:
-#   cli:           kclaw-cli            (everything + cronjob management)
-#   telegram:      kclaw-telegram       (terminal, file, web, vision, image, tts, browser, skills, todo, cronjob, messaging)
-#   discord:       kclaw-discord        (same as telegram)
-#   whatsapp:      kclaw-whatsapp       (same as telegram)
-#   slack:         kclaw-slack          (same as telegram)
-#   signal:        kclaw-signal         (same as telegram)
-#   homeassistant: kclaw-homeassistant  (same as telegram)
+# 如未设置，默认值：
+#   cli:           kclaw-cli            （全部 + cronjob 管理）
+#   telegram:      kclaw-telegram       （terminal, file, web, vision, image, tts, browser, skills, todo, cronjob, messaging）
+#   discord:       kclaw-discord        （与 telegram 相同）
+#   whatsapp:      kclaw-whatsapp       （与 telegram 相同）
+#   slack:         kclaw-slack          （与 telegram 相同）
+#   signal:        kclaw-signal         （与 telegram 相同）
+#   homeassistant: kclaw-homeassistant  （与 telegram 相同）
 #
 platform_toolsets:
   cli: [kclaw-cli]
@@ -543,88 +534,88 @@ platform_toolsets:
   homeassistant: [kclaw-homeassistant]
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Available toolsets (use these names in platform_toolsets or the toolsets list)
+# 可用工具集（在 platform_toolsets 或 toolsets 列表中使用这些名称）
 #
-# Run `kclaw chat --list-toolsets` to see all toolsets and their tools.
-# Run `kclaw chat --list-tools` to see every individual tool with descriptions.
+# 运行 `kclaw chat --list-toolsets` 查看所有工具集及其工具。
+# 运行 `kclaw chat --list-tools` 查看每个工具的描述。
 # ─────────────────────────────────────────────────────────────────────────────
 #
-# INDIVIDUAL TOOLSETS (compose your own):
+# 单独工具集（组合自己的）：
 #   web          - web_search, web_extract
-#   search       - web_search only (no scraping)
+#   search       - 仅 web_search（无抓取）
 #   terminal     - terminal, process
 #   file         - read_file, write_file, patch, search
 #   browser      - browser_navigate, browser_snapshot, browser_click, browser_type,
 #                  browser_scroll, browser_back, browser_press,
-#                  browser_get_images, browser_vision  (requires BROWSERBASE_API_KEY)
-#   vision       - vision_analyze  (requires OPENROUTER_API_KEY)
-#   image_gen    - image_generate  (requires FAL_KEY)
+#                  browser_get_images, browser_vision  （需要 BROWSERBASE_API_KEY）
+#   vision       - vision_analyze  （需要 OPENROUTER_API_KEY）
+#   image_gen    - image_generate  （需要 FAL_KEY）
 #   skills       - skills_list, skill_view
-#   skills_hub   - skill_hub (search/install/manage from online registries — user-driven only)
-#   moa          - mixture_of_agents  (requires OPENROUTER_API_KEY)
-#   todo         - todo (in-memory task planning, no deps)
-#   tts          - text_to_speech  (Edge TTS free, or ELEVENLABS/OPENAI/MINIMAX key)
-#   cronjob      - cronjob (create/list/update/pause/resume/run/remove scheduled tasks)
-#   rl           - rl_list_environments, rl_start_training, etc. (requires TINKER_API_KEY)
+#   skills_hub   - skill_hub（从在线注册表搜索/安装/管理 —— 用户驱动）
+#   moa          - mixture_of_agents  （需要 OPENROUTER_API_KEY）
+#   todo         - todo（内存任务规划，无依赖）
+#   tts          - text_to_speech  （Edge TTS 免费，或 ELEVENLABS/OPENAI/MINIMAX）
+#   cronjob      - cronjob（创建/列表/更新/暂停/恢复/运行/删除计划任务）
+#   rl           - rl_list_environments, rl_start_training 等（需要 TINKER_API_KEY）
 #
-# PRESETS (curated bundles):
-#   kclaw-cli       - All of the above except rl + send_message
+# 预设（精选包）：
+#   kclaw-cli       - 除 rl + send_message 外的全部
 #   kclaw-telegram  - terminal, file, web, vision, image_gen, tts, browser,
 #                      skills, todo, cronjob, send_message
-#   kclaw-discord   - Same as kclaw-telegram
-#   kclaw-whatsapp  - Same as kclaw-telegram
-#   kclaw-slack     - Same as kclaw-telegram
+#   kclaw-discord   - 与 kclaw-telegram 相同
+#   kclaw-whatsapp  - 与 kclaw-telegram 相同
+#   kclaw-slack     - 与 kclaw-telegram 相同
 #
-# COMPOSITE:
+# 组合：
 #   debugging    - terminal + web + file
-#   safe         - web + vision + moa (no terminal access)
-#   all          - Everything available
+#   safe         - web + vision + moa（无终端访问）
+#   all          - 所有可用工具
 #
-#   web          - Web search and content extraction (web_search, web_extract)
-#   search       - Web search only, no scraping (web_search)
-#   terminal     - Command execution and process management (terminal, process)
-#   file         - File operations: read, write, patch, search
-#   browser      - Full browser automation (navigate, click, type, screenshot, etc.)
-#   vision       - Image analysis (vision_analyze)
-#   image_gen    - Image generation with FLUX (image_generate)
-#   skills       - Load skill documents (skills_list, skill_view)
-#   moa          - Mixture of Agents reasoning (mixture_of_agents)
-#   todo         - Task planning and tracking for multi-step work
-#   memory       - Persistent memory across sessions (personal notes + user profile)
-#   session_search - Search and recall past conversations (FTS5 + Gemini Flash summarization)
-#   tts          - Text-to-speech (Edge TTS free, ElevenLabs, OpenAI, MiniMax)
-#   cronjob      - Schedule and manage automated tasks (CLI-only)
-#   rl           - RL training tools (Tinker-Atropos)
+#   web          - 网页搜索和内容提取（web_search, web_extract）
+#   search       - 仅网页搜索，无抓取（web_search）
+#   terminal     - 命令执行和进程管理（terminal, process）
+#   file         - 文件操作：读、写、修补、搜索
+#   browser      - 完全浏览器自动化（导航、点击、输入、截图等）
+#   vision       - 图像分析（vision_analyze）
+#   image_gen    - FLUX 图片生成（image_generate）
+#   skills       - 加载技能文档（skills_list, skill_view）
+#   moa          - 混合智能体推理（mixture_of_agents）
+#   todo         - 多步骤工作的任务规划和追踪
+#   memory       - 跨会话持久化记忆（个人笔记 + 用户资料）
+#   session_search - 搜索和回忆过去对话（FTS5 + Gemini Flash 摘要）
+#   tts          - 文字转语音（Edge TTS 免费、ElevenLabs、OpenAI、MiniMax）
+#   cronjob      - 调度和管理自动化任务（仅 CLI）
+#   rl           - RL 训练工具（Tinker-Atropos）
 #
-# Composite toolsets:
-#   debugging    - terminal + web + file (for troubleshooting)
-#   safe         - web + vision + moa (no terminal access)
+# 组合工具集：
+#   debugging    - terminal + web + file（用于故障排除）
+#   safe         - web + vision + moa（无终端访问）
 
-# NOTE: The top-level "toolsets" key is deprecated and ignored.
-# Tool configuration is managed per-platform via platform_toolsets above.
-# Use `kclaw tools` to configure interactively, or edit platform_toolsets directly.
+# 注意：顶级 "toolsets" 键已弃用并被忽略。
+# 工具配置通过上面的 platform_toolsets 按平台管理。
+# 使用 `kclaw tools` 交互式配置，或直接编辑 platform_toolsets。
 #
-# CLI override: kclaw chat --toolsets terminal,web,file
+# CLI 覆盖：kclaw chat --toolsets terminal,web,file
 
 # =============================================================================
-# MCP (Model Context Protocol) Servers
+# MCP（Model Context Protocol）服务器
 # =============================================================================
-# Connect to external MCP servers to add tools from the MCP ecosystem.
-# Each server's tools are automatically discovered and registered.
-# See docs/mcp.md for full documentation.
+# 连接到外部 MCP 服务器以添加 MCP 生态系统的工具。
+# 每个服务器的工具会自动发现并注册。
+# 完整文档见 docs/mcp.md。
 #
-# Stdio servers (spawn a subprocess):
-#   command: the executable to run
-#   args: command-line arguments
-#   env: environment variables (only these + safe defaults passed to subprocess)
+# Stdio 服务器（生成子进程）：
+#   command: 要运行的可执行文件
+#   args: 命令行参数
+#   env: 环境变量（仅这些 + 安全默认值传递给子进程）
 #
-# HTTP servers (connect to a URL):
-#   url: the MCP server endpoint
-#   headers: HTTP headers (e.g., for authentication)
+# HTTP 服务器（连接到 URL）：
+#   url: MCP 服务器端点
+#   headers: HTTP 头（例如，用于认证）
 #
-# Optional per-server settings:
-#   timeout: tool call timeout in seconds (default: 120)
-#   connect_timeout: initial connection timeout (default: 60)
+# 可选的每服务器设置：
+#   timeout: 工具调用超时秒数（默认：120）
+#   connect_timeout: 初始连接超时（默认：60）
 #
 # mcp_servers:
 #   time:
@@ -641,189 +632,189 @@ platform_toolsets:
 #     env:
 #       GITHUB_PERSONAL_ACCESS_TOKEN: "ghp_..."
 #
-# Sampling (server-initiated LLM requests) — enabled by default.
-# Per-server config under the 'sampling' key:
+# Sampling（服务器发起的 LLM 请求）—— 默认启用。
+# 每服务器配置在 'sampling' 键下：
 #   analysis:
 #     command: npx
 #     args: ["-y", "analysis-server"]
 #     sampling:
-#       enabled: true           # default: true
-#       model: "gemini-3-flash" # override model (optional)
-#       max_tokens_cap: 4096    # max tokens per request
-#       timeout: 30             # LLM call timeout (seconds)
-#       max_rpm: 10             # max requests per minute
-#       allowed_models: []      # model whitelist (empty = all)
-#       max_tool_rounds: 5      # tool loop limit (0 = disable)
-#       log_level: "info"       # audit verbosity
+#       enabled: true           # 默认：true
+#       model: "gemini-3-flash" # 覆盖模型（可选）
+#       max_tokens_cap: 4096    # 每次请求最大 token 数
+#       timeout: 30             # LLM 调用超时（秒）
+#       max_rpm: 10             # 每分钟最大请求数
+#       allowed_models: []      # 模型白名单（空 = 全部允许）
+#       max_tool_rounds: 5      # 工具循环限制（0 = 禁用）
+#       log_level: "info"       # 审计详细程度
 
 # =============================================================================
-# Voice Transcription (Speech-to-Text)
+# 语音转录（语音转文字）
 # =============================================================================
-# Automatically transcribe voice messages on messaging platforms.
-# Providers: local (free, faster-whisper) | groq (free tier) | openai (Whisper API) | mistral (Voxtral Transcribe)
-# Set the corresponding API key in .env: GROQ_API_KEY, OPENAI_API_KEY, or MISTRAL_API_KEY.
+# 在消息平台上自动转录语音消息。
+# 提供商：local（免费，faster-whisper）| groq（免费层）| openai（Whisper API）| mistral（Voxtral Transcribe）
+# 在 .env 中设置相应 API 密钥：GROQ_API_KEY、OPENAI_API_KEY 或 MISTRAL_API_KEY。
 stt:
   enabled: true
-  # provider: "local"          # auto-detected if omitted
-  model: "whisper-1"  # whisper-1 (cheapest) | gpt-4o-mini-transcribe | gpt-4o-transcribe
+  # provider: "local"          # 省略则自动检测
+  model: "whisper-1"  # whisper-1（最便宜）| gpt-4o-mini-transcribe | gpt-4o-transcribe
   # mistral:
   #   model: "voxtral-mini-latest"  # voxtral-mini-latest | voxtral-mini-2602
 
 # =============================================================================
-# Response Pacing (Messaging Platforms)
+# 响应节奏（消息平台）
 # =============================================================================
-# Add human-like delays between message chunks.
+# 在消息块之间添加类人延迟。
 # human_delay:
 #   mode: "off"      # "off" | "natural" | "custom"
-#   min_ms: 800      # Min delay (custom mode only)
-#   max_ms: 2500     # Max delay (custom mode only)
+#   min_ms: 800      # 最小延迟（仅 custom 模式）
+#   max_ms: 2500     # 最大延迟（仅 custom 模式）
 
 # =============================================================================
-# Session Logging
+# 会话日志
 # =============================================================================
-# Session trajectories are automatically saved to logs/ directory.
-# Each session creates: logs/session_YYYYMMDD_HHMMSS_UUID.json
+# 会话轨迹自动保存到 logs/ 目录。
+# 每个会话创建：logs/session_YYYYMMDD_HHMMSS_UUID.json
 #
-# The session ID is displayed in the welcome banner for easy reference.
-# Logs contain full conversation history in trajectory format:
-# - System prompt, user messages, assistant responses
-# - Tool calls with inputs/outputs
-# - Timestamps for debugging
+# 会话 ID 显示在欢迎横幅中便于参考。
+# 日志包含完整对话历史的轨迹格式：
+# - 系统提示、用户消息、助手响应
+# - 工具调用及其输入/输出
+# - 调试时间戳
 #
-# No configuration needed - logging is always enabled.
-# To disable, you would need to modify the source code.
+# 无需配置 —— 日志始终启用。
+# 如需禁用，需要修改源代码。
 
 # =============================================================================
-# Code Execution Sandbox (Programmatic Tool Calling)
+# 代码执行沙箱（程序化工具调用）
 # =============================================================================
-# The execute_code tool runs Python scripts that call KClaw tools via RPC.
-# Intermediate tool results stay out of the LLM's context window.
+# execute_code 工具运行通过 RPC 调用 KClaw 工具的 Python 脚本。
+# 中间工具结果不会进入 LLM 的上下文窗口。
 code_execution:
-  timeout: 300         # Max seconds per script before kill (default: 300 = 5 min)
-  max_tool_calls: 50   # Max RPC tool calls per execution (default: 50)
+  timeout: 300         # 脚本被终止前的最大秒数（默认：300 = 5 分钟）
+  max_tool_calls: 50   # 每次执行的最大 RPC 工具调用数（默认：50）
 
 # =============================================================================
-# Subagent Delegation
+# 子代理委托
 # =============================================================================
-# The delegate_task tool spawns child agents with isolated context.
-# Supports single tasks and batch mode (up to 3 parallel).
+# delegate_task 工具生成具有隔离上下文的子代理。
+# 支持单任务和批处理模式（最多 3 个并行）。
 delegation:
-  max_iterations: 50                          # Max tool-calling turns per child (default: 50)
-  default_toolsets: ["terminal", "file", "web"]  # Default toolsets for subagents
-  # model: "google/gemini-3-flash-preview"    # Override model for subagents (empty = inherit parent)
-  # provider: "openrouter"                    # Override provider for subagents (empty = inherit parent)
-  #                                           # Resolves full credentials (base_url, api_key) automatically.
-  #                                           # Supported: openrouter, nous, zai, kimi-coding, minimax
+  max_iterations: 50                          # 每个子代理的最大工具调用轮次（默认：50）
+  default_toolsets: ["terminal", "file", "web"]  # 子代理的默认工具集
+  # model: "google/gemini-3-flash-preview"    # 覆盖子代理模型（空 = 继承父代理）
+  # provider: "openrouter"                    # 覆盖子代理提供者（空 = 继承父代理）
+  #                                           # 自动解析完整凭证（base_url、api_key）。
+  #                                           # 支持：openrouter、nous、zai、kimi-coding、minimax
 
 # =============================================================================
-# Honcho Integration (Cross-Session User Modeling)
+# Honcho 集成（跨会话用户建模）
 # =============================================================================
-# AI-native persistent memory via Honcho (https://honcho.dev/).
-# Builds a deeper understanding of the user across sessions and tools.
-# Runs alongside USER.md — additive, not a replacement.
+# 通过 Honcho（https://honcho.dev/）实现 AI 原生持久化记忆。
+# 在会话和工具之间建立更深入的用户理解。
+# 与 USER.md 并行运行 —— 是补充，不是替换。
 #
-# Requires: pip install honcho-ai
-# Config: ~/.honcho/config.json (shared with Claude Code, Cursor, etc.)
-# API key: HONCHO_API_KEY in ~/.kclaw/.env or ~/.honcho/config.json
+# 要求：pip install honcho-ai
+# 配置：~/.honcho/config.json（与 Claude Code、Cursor 等共享）
+# API 密钥：~/.kclaw/.env 或 ~/.honcho/config.json 中的 HONCHO_API_KEY
 #
-# KClaw-specific overrides (optional — most config comes from ~/.honcho/config.json):
+# KClaw 特定覆盖（可选 —— 大部分配置来自 ~/.honcho/config.json）：
 # honcho: {}
 
 # =============================================================================
-# Display
+# 显示
 # =============================================================================
 display:
-  # Use compact banner mode
+  # 使用紧凑横幅模式
   compact: false
 
-  # Tool progress display level (CLI and gateway)
-  #   off:     Silent — no tool activity shown, just the final response
-  #   new:     Show a tool indicator only when the tool changes (skip repeats)
-  #   all:     Show every tool call with a short preview (default)
-  #   verbose: Full args, results, and debug logs (same as /verbose)
-  # Toggle at runtime with /verbose in the CLI
+  # 工具进度显示级别（CLI 和网关）
+  #   off:     静默 —— 不显示工具活动，仅显示最终响应
+  #   new:     仅在工具变化时显示工具指示器（跳过重复）
+  #   all:     显示每个工具调用及其简短预览（默认）
+  #   verbose: 完整参数、结果和调试日志（与 /verbose 相同）
+  # 在运行时通过 CLI 中的 /verbose 切换
   tool_progress: all
 
-  # What Enter does when KClaw is already busy in the CLI.
-  #   interrupt: Interrupt the current run and redirect KClaw (default)
-  #   queue:     Queue your message for the next turn
-  # Ctrl+C always interrupts regardless of this setting.
+  # KClaw 在 CLI 中忙碌时，Enter 键的作用。
+  #   interrupt: 中断当前运行并重定向 KClaw（默认）
+  #   queue:     将消息排队到下一轮
+  # Ctrl+C 无论此设置如何都始终中断。
   busy_input_mode: interrupt
 
-  # Background process notifications (gateway/messaging only).
-  # Controls how chatty the process watcher is when you use
-  # terminal(background=true, check_interval=...) from Telegram/Discord/etc.
-  #   off:     No watcher messages at all
-  #   result:  Only the final completion message
-  #   error:   Only the final message when exit code != 0
-  #   all:     Running output updates + final message (default)
+  # 后台进程通知（仅网关/消息）。
+  # 控制使用 Telegram/Discord 等中的
+  # terminal(background=true, check_interval=...) 时进程监视器的详细程度。
+  #   off:     完全无监视器消息
+  #   result:  仅最终完成消息
+  #   error:   仅在退出码 != 0 时的最终消息
+  #   all:     运行输出更新 + 最终消息（默认）
   background_process_notifications: all
 
 
-  # Play terminal bell when agent finishes a response.
-  # Useful for long-running tasks — your terminal will ding when the agent is done.
-  # Works over SSH. Most terminals can be configured to flash the taskbar or play a sound.
+  # 代理完成响应时播放终端铃声。
+  # 对于长时间运行的任务很有用 —— 代理完成时终端会响铃。
+  # 支持 SSH。大多数终端可配置为闪烁任务栏或播放声音。
   bell_on_complete: false
 
-  # Show model reasoning/thinking before each response.
-  # When enabled, a dim box shows the model's thought process above the response.
-  # Toggle at runtime with /reasoning show or /reasoning hide.
+  # 在每个响应前显示模型推理/思考。
+  # 启用时，模型思考过程显示在响应上方的暗淡框中。
+  # 在运行时通过 /reasoning show 或 /reasoning hide 切换。
   show_reasoning: false
 
-  # Stream tokens to the terminal as they arrive instead of waiting for the
-  # full response. The response box opens on first token and text appears
-  # line-by-line. Tool calls are still captured silently.
-  # Stream tokens to the terminal in real-time. Disable to wait for full responses.
+  # 实时将 token 流式传输到终端，而不是等待完整响应。
+  # 响应框在第一个 token 时打开，文本逐行出现。
+  # 工具调用仍静默捕获。
+  # 实时将 token 流式传输到终端。禁用以等待完整响应。
   streaming: true
 
   # ───────────────────────────────────────────────────────────────────────────
-  # Skin / Theme
+  # 皮肤/主题
   # ───────────────────────────────────────────────────────────────────────────
-  # Customize CLI visual appearance — banner colors, spinner faces, tool prefix,
-  # response box label, and branding text. Change at runtime with /skin <name>.
+  # 自定义 CLI 视觉外观 —— 横幅颜色、旋转动画、工具前缀、
+  # 响应框标签和品牌文字。运行时通过 /skin <name> 更改。
   #
-  # Built-in skins:
-  #   default  — Classic KClaw gold/kawaii
-  #   ares     — Crimson/bronze war-god theme with spinner wings
-  #   mono     — Clean grayscale monochrome
-  #   slate    — Cool blue developer-focused
+  # 内置皮肤：
+  #   default  — 经典 KClaw 金色/kawaii
+  #   ares     — 深红/青铜战神主题，带旋转翅膀
+  #   mono     — 简洁灰度单色
+  #   slate    — 酷蓝开发者专注
   #
-  # Custom skins: drop a YAML file in ~/.kclaw/skins/<name>.yaml
-  # Schema (all fields optional, missing values inherit from default):
+  # 自定义皮肤：在 ~/.kclaw/skins/<name>.yaml 中放置 YAML 文件
+  # 架构（所有字段可选，缺失值继承自默认值）：
   #
   #   name: my-theme
-  #   description: Short description
+  #   description: 简短描述
   #   colors:
-  #     banner_border: "#HEX"    # Panel border
-  #     banner_title: "#HEX"     # Panel title
-  #     banner_accent: "#HEX"    # Section headers (Available Tools, etc.)
-  #     banner_dim: "#HEX"       # Dim/muted text
-  #     banner_text: "#HEX"      # Body text (tool names, skill names)
-  #     ui_accent: "#HEX"        # UI accent color
-  #     response_border: "#HEX"  # Response box border color
+  #     banner_border: "#HEX"    # 面板边框
+  #     banner_title: "#HEX"     # 面板标题
+  #     banner_accent: "#HEX"    # 章节标题（Available Tools 等）
+  #     banner_dim: "#HEX"       # 暗淡/柔和文本
+  #     banner_text: "#HEX"      # 正文文本（工具名称、技能名称）
+  #     ui_accent: "#HEX"        # UI 强调色
+  #     response_border: "#HEX"  # 响应框边框颜色
   #   spinner:
-  #     waiting_faces: ["(⚔)", "(⛨)"]       # Faces shown while waiting
-  #     thinking_faces: ["(⚔)", "(⌁)"]      # Faces shown while thinking
-  #     thinking_verbs: ["forging", "plotting"]  # Verbs for spinner messages
-  #     wings:                                # Optional left/right spinner decorations
+  #     waiting_faces: ["(⚔)", "(⛨)"]       # 等待时显示的表情
+  #     thinking_faces: ["(⚔)", "(⌁)"]      # 思考时显示的表情
+  #     thinking_verbs: ["forging", "plotting"]  # 旋转动画消息的动词
+  #     wings:                                # 可选的左右旋转装饰
   #       - ["⟪⚔", "⚔⟫"]
   #       - ["⟪▲", "▲⟫"]
   #   branding:
-  #     agent_name: "My Agent"               # Banner title and branding
-  #     welcome: "Welcome message"           # Shown at CLI startup
-  #     response_label: " ⚔ Agent "         # Response box header label
-  #     prompt_symbol: "⚔ ❯ "              # Prompt symbol
-  #   tool_prefix: "╎"                       # Tool output line prefix (default: ┊)
+  #     agent_name: "My Agent"               # 横幅标题和品牌
+  #     welcome: "Welcome message"           # CLI 启动时显示
+  #     response_label: " ⚔ Agent "         # 响应框标题标签
+  #     prompt_symbol: "⚔ ❯ "              # 提示符
+  #   tool_prefix: "╎"                       # 工具输出行前缀（默认：┊）
   #
   skin: default
 
 # =============================================================================
-# Model Aliases — short names for /model command
+# 模型别名 —— /model 命令的短名称
 # =============================================================================
-# Map short aliases to exact (model, provider, base_url) tuples.
-# Used by /model tab completion and resolve_alias().
-# Aliases are checked BEFORE the models.dev catalog, so they can route
-# to endpoints not in the catalog (e.g. Ollama Cloud, local servers).
+# 将短别名映射到精确的（模型、提供者、base_url）元组。
+# 用于 /model 命令补全和 resolve_alias()。
+# 别名在 models.dev 目录之前检查，因此可以路由
+# 到目录中不存在的端点（例如 Ollama Cloud、本地服务器）。
 #
 # model_aliases:
 #   opus:
@@ -839,12 +830,12 @@ display:
 #     base_url: "https://ollama.com/v1"
 
 # =============================================================================
-# Privacy
+# 隐私
 # =============================================================================
 # privacy:
-#   # Redact PII from the LLM context prompt.
-#   # When true, phone numbers are stripped and user/chat IDs are replaced
-#   # with deterministic hashes before being sent to the model.
-#   # Names and usernames are NOT affected (user-chosen, publicly visible).
-#   # Routing/delivery still uses the original values internally.
+#   # 从 LLM 上下文提示中删除 PII。
+#   # 启用时，电话号码会被剥离，用户/聊天 ID 在发送给模型之前
+#   # 会被替换为确定性哈希。
+#   # 姓名和用户名不受影响（用户选择的、公开可见）。
+#   # 路由/传递仍在内部使用原始值。
 #   redact_pii: false

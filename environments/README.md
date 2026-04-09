@@ -1,131 +1,131 @@
-# KClaw-Agent Atropos Environments
+# KClaw-Agent Atropos 环境
 
-This directory contains the integration layer between **kclaw's** tool-calling capabilities and the **Atropos** RL training framework. It provides everything needed to run agentic LLMs through multi-turn tool-calling loops, score their output with arbitrary reward functions, and feed results into Atropos for training or evaluation.
+本目录包含 **kclaw** 工具调用能力与 **Atropos** RL 训练框架之间的集成层。它提供了通过多轮工具调用循环运行代理 LLMs、用任意奖励函数对输出进行评分以及将结果输入 Atropos 进行训练或评估所需的一切。
 
-## Architecture Overview
+## 架构概述
 
 ```
-                        Atropos Framework
+                        Atropos 框架
                     ┌───────────────────────┐
                     │       BaseEnv          │  (atroposlib)
-                    │  - Server management   │
-                    │  - Worker scheduling   │
-                    │  - Wandb logging       │
-                    │  - CLI (serve/process/ │
+                    │  - 服务器管理   │
+                    │  - 工作器调度   │
+                    │  - Wandb 日志   │
+                    │  - CLI (serve/process/
                     │    evaluate)           │
                     └───────────┬───────────┘
-                                │ inherits
+                                │ 继承
                     ┌───────────┴───────────┐
                     │  KClawAgentBaseEnv    │  kclaw_base_env.py
-                    │  - Terminal backend    │
-                    │  - Tool resolution     │
-                    │  - Agent loop          │
+                    │  - 终端后端    │
+                    │  - 工具解析     │
+                    │  - 代理循环     │
                     │  - ToolContext          │
-                    │  - Async patches       │
+                    │  - 异步补丁     │
                     └───────────┬───────────┘
-                                │ inherits
+                                │ 继承
               ┌─────────────────┼─────────────────┐
               │                 │                  │
      TerminalTestEnv     KClawSweEnv    TerminalBench2EvalEnv
-     (stack testing)     (SWE training)   (TB2 benchmark eval)
+     (堆栈测试)     (SWE 训练)   (TB2 基准评估)
 ```
 
-### Inheritance Chain
+### 继承链
 
-**BaseEnv** (from `atroposlib`) is the Atropos base class. It provides:
-- Server management (OpenAI-compatible API servers, VLLM, SGLang)
-- Worker scheduling for parallel rollouts
-- Wandb integration for metrics and rollout logging
-- CLI interface with three subcommands: `serve`, `process`, `evaluate`
-- `evaluate_log()` for saving eval results to JSON + samples.jsonl
+**BaseEnv**（来自 `atroposlib`）是 Atropos 基类。它提供：
+- 服务器管理（OpenAI 兼容 API 服务器、VLLM、SGLang）
+- 并行 rollouts 的工作器调度
+- 用于指标和 rollout 日志的 Wandb 集成
+- 带有三个子命令的 CLI 接口：`serve`、`process`、`evaluate`
+- `evaluate_log()` 用于将评估结果保存到 JSON + samples.jsonl
 
-**KClawAgentBaseEnv** (`kclaw_base_env.py`) extends BaseEnv with kclaw specifics:
-- Sets `os.environ["TERMINAL_ENV"]` to configure the terminal backend (local, docker, modal, daytona, ssh, singularity)
-- Resolves kclaw toolsets via `_resolve_tools_for_group()` (calls `get_tool_definitions()` which queries `tools/registry.py`)
-- Implements `collect_trajectory()` which runs the full agent loop and computes rewards
-- Supports two-phase operation (Phase 1: OpenAI server, Phase 2: VLLM ManagedServer)
-- Applies monkey patches for async-safe tool operation at import time
+**KClawAgentBaseEnv**（`kclaw_base_env.py`）用 kclaw 特性扩展 BaseEnv：
+- 设置 `os.environ["TERMINAL_ENV"]` 以配置终端后端（local、docker、modal、daytona、ssh、singularity）
+- 通过 `_resolve_tools_for_group()` 解析 kclaw 工具集（调用 `get_tool_definitions()`，查询 `tools/registry.py`）
+- 实现 `collect_trajectory()`，运行完整代理循环并计算奖励
+- 支持两阶段操作（阶段 1：OpenAI 服务器，阶段 2：VLLM ManagedServer）
+- 在导入时应用异步安全工具操作的猴子补丁
 
-Concrete environments inherit from `KClawAgentBaseEnv` and implement:
-- `setup()` -- Load dataset, initialize state
-- `get_next_item()` -- Return the next item for rollout
-- `format_prompt()` -- Convert a dataset item into the user message
-- `compute_reward()` -- Score the rollout using ToolContext
-- `evaluate()` -- Periodic evaluation logic
+具体环境继承自 `KClawAgentBaseEnv` 并实现：
+- `setup()` -- 加载数据集，初始化状态
+- `get_next_item()` -- 返回下一个 rollout 项目
+- `format_prompt()` -- 将数据集项目转换为用户消息
+- `compute_reward()` -- 使用 ToolContext 对 rollout 进行评分
+- `evaluate()` -- 周期性评估逻辑
 
-## Core Components
+## 核心组件
 
-### Agent Loop (`agent_loop.py`)
+### 代理循环（`agent_loop.py`）
 
-`KClawAgentLoop` is the reusable multi-turn agent engine. It runs the same pattern as kclaw's `run_agent.py`:
+`KClawAgentLoop` 是可重用的多轮代理引擎。它运行与 kclaw 的 `run_agent.py` 相同的模式：
 
-1. Send messages + tools to the API via `server.chat_completion()`
-2. If the response contains `tool_calls`, execute each one via `handle_function_call()` (which delegates to `tools/registry.py`'s `dispatch()`)
-3. Append tool results to the conversation and go back to step 1
-4. If the response has no tool_calls, the agent is done
+1. 通过 `server.chat_completion()` 发送消息 + 工具到 API
+2. 如果响应包含 `tool_calls`，通过 `handle_function_call()` 执行每个工具（委托给 `tools/registry.py` 的 `dispatch()`）
+3. 将工具结果追加到对话并返回步骤 1
+4. 如果响应没有 tool_calls，代理完成
 
-Tool calls are executed in a thread pool (`run_in_executor`) so backends that use `asyncio.run()` internally (Modal, Docker) don't deadlock inside Atropos's event loop.
+工具调用在线程池（`run_in_executor`）中执行，因此内部使用 `asyncio.run()` 的后端（Modal、Docker）在 Atropos 的事件循环内部不会死锁。
 
-Returns an `AgentResult` containing the full conversation history, turn count, reasoning content per turn, tool errors, and optional ManagedServer state (for Phase 2).
+返回一个包含完整对话历史、轮次计数、每轮推理内容、工具错误和可选 ManagedServer 状态（阶段 2）的 `AgentResult`。
 
-### Tool Context (`tool_context.py`)
+### 工具上下文（`tool_context.py`）
 
-`ToolContext` is a per-rollout handle that gives reward/verification functions direct access to **all** kclaw tools, scoped to the rollout's `task_id`. The same `task_id` means the terminal/browser session is the SAME one the model used during its rollout -- all state (files, processes, browser tabs) is preserved.
+`ToolContext` 是每个 rollout 的句柄，让奖励/验证函数直接访问 **所有** kclaw 工具，作用域限定为 rollout 的 `task_id`。相同的 `task_id` 意味着终端/浏览器会话与模型在 rollout 期间使用的会话 **相同**——所有状态（文件、进程、浏览器标签页）都被保留。
 
 ```python
 async def compute_reward(self, item, result, ctx: ToolContext):
-    # Run tests in the model's terminal sandbox
+    # 在模型的终端沙盒中运行测试
     test = ctx.terminal("pytest -v")
     if test["exit_code"] == 0:
         return 1.0
 
-    # Check if a file was created
+    # 检查是否创建了文件
     content = ctx.read_file("/workspace/solution.py")
     if content.get("content"):
         return 0.5
 
-    # Download files locally for verification (binary-safe)
+    # 下载文件到本地进行验证（二进制安全）
     ctx.download_file("/remote/output.bin", "/local/output.bin")
 
     return 0.0
 ```
 
-Available methods:
-- **Terminal**: `terminal(command, timeout)` -- run shell commands
-- **Files**: `read_file(path)`, `write_file(path, content)`, `search(query, path)`
-- **Transfers**: `upload_file()`, `upload_dir()`, `download_file()`, `download_dir()` -- binary-safe file transfers between host and sandbox
-- **Web**: `web_search(query)`, `web_extract(urls)`
-- **Browser**: `browser_navigate(url)`, `browser_snapshot()`
-- **Generic**: `call_tool(name, args)` -- call any kclaw tool by name
-- **Cleanup**: `cleanup()` -- release all resources (called automatically after `compute_reward`)
+可用方法：
+- **终端**：`terminal(command, timeout)` -- 运行 shell 命令
+- **文件**：`read_file(path)`、`write_file(path, content)`、`search(query, path)`
+- **传输**：`upload_file()`、`upload_dir()`、`download_file()`、`download_dir()` -- 主机和沙盒之间的二进制安全文件传输
+- **Web**：`web_search(query)`、`web_extract(urls)`
+- **浏览器**：`browser_navigate(url)`、`browser_snapshot()`
+- **通用**：`call_tool(name, args)` -- 按名称调用任何 kclaw 工具
+- **清理**：`cleanup()` -- 释放所有资源（在 `compute_reward` 后自动调用）
 
-### Patches (`patches.py`)
+### 补丁（`patches.py`）
 
-**Problem**: Some kclaw tools use `asyncio.run()` internally (e.g., the Modal backend). This crashes when called from inside Atropos's event loop because `asyncio.run()` cannot be nested.
+**问题**：一些 kclaw 工具在内部使用 `asyncio.run()`（例如 Modal 后端）。当从 Atropos 的事件循环内部调用时，这会崩溃，因为 `asyncio.run()` 不能嵌套。
 
-**Solution**: `ModalEnvironment` uses a dedicated `_AsyncWorker` background thread with its own event loop. The calling code sees a sync interface, but internally all async Modal SDK calls happen on the worker thread so they don't conflict with Atropos's loop. This is built directly into `tools/environments/modal.py` — no monkey-patching required.
+**解决方案**：`ModalEnvironment` 使用专用的 `_AsyncWorker` 后台线程和自己的事件循环。调用代码看到同步接口，但内部所有异步 Modal SDK 调用都发生在线程上，因此不会与 Atropos 的循环冲突。这直接构建在 `tools/environments/modal.py` 中——不需要猴子补丁。
 
-`patches.py` is now a no-op (kept for backward compatibility with imports).
+`patches.py` 现在是一个无操作（为保持与导入的向后兼容性而保留）。
 
-### Tool Call Parsers (`tool_call_parsers/`)
+### 工具调用解析器（`tool_call_parsers/`）
 
-Client-side parsers that extract structured `tool_calls` from raw model output text. Used in **Phase 2** (VLLM server type) where ManagedServer's `/generate` endpoint returns raw text without tool call parsing.
+客户端解析器，从原始模型输出文本中提取结构化 `tool_calls`。在**阶段 2**（VLLM 服务器类型）中使用，其中 ManagedServer 的 `/generate` 端点返回不带工具调用解析的原始文本。
 
-Each parser is a standalone reimplementation of the corresponding VLLM parser's `extract_tool_calls()` logic. No VLLM dependency -- only standard library (`re`, `json`, `uuid`) and `openai` types.
+每个解析器是对应 VLLM 解析器 `extract_tool_calls()` 逻辑的独立重新实现。不需要 VLLM 依赖——仅使用标准库（`re`、`json`、`uuid`）和 `openai` 类型。
 
-Available parsers:
-- `kclaw` -- KClaw/ChatML `<tool_call>` XML format
-- `mistral` -- Mistral `[TOOL_CALLS]` format
-- `llama3_json` -- Llama 3 JSON tool calling
-- `qwen` -- Qwen tool calling format
-- `qwen3_coder` -- Qwen3 Coder format
-- `deepseek_v3` -- DeepSeek V3 format
-- `deepseek_v3_1` -- DeepSeek V3.1 format
-- `kimi_k2` -- Kimi K2 format
-- `longcat` -- Longcat format
-- `glm45` / `glm47` -- GLM model formats
+可用解析器：
+- `kclaw` -- KClaw/ChatML `<tool_call>` XML 格式
+- `mistral` -- Mistral `[TOOL_CALLS]` 格式
+- `llama3_json` -- Llama 3 JSON 工具调用
+- `qwen` -- Qwen 工具调用格式
+- `qwen3_coder` -- Qwen3 Coder 格式
+- `deepseek_v3` -- DeepSeek V3 格式
+- `deepseek_v3_1` -- DeepSeek V3.1 格式
+- `kimi_k2` -- Kimi K2 格式
+- `longcat` -- Longcat 格式
+- `glm45` / `glm47` -- GLM 模型格式
 
-Usage:
+用法：
 ```python
 from environments.tool_call_parsers import get_parser
 
@@ -133,39 +133,39 @@ parser = get_parser("kclaw")
 content, tool_calls = parser.parse(raw_model_output)
 ```
 
-In Phase 1 (OpenAI server type), these parsers are not needed -- the server handles tool call parsing natively.
+在阶段 1（OpenAI 服务器类型）中，不需要这些解析器——服务器本地处理工具调用解析。
 
-## Two-Phase Operation
+## 两阶段操作
 
-### Phase 1: OpenAI Server (Evaluation / SFT Data Generation)
+### 阶段 1：OpenAI 服务器（评估 / SFT 数据生成）
 
-Uses `server.chat_completion()` with `tools=` parameter. The server (VLLM, SGLang, OpenRouter, OpenAI) handles tool call parsing natively. Returns `ChatCompletion` objects with structured `tool_calls`.
+使用 `server.chat_completion()` 和 `tools=` 参数。服务器（VLLM、SGLang、OpenRouter、OpenAI）本地处理工具调用解析。返回带有结构化 `tool_calls` 的 `ChatCompletion` 对象。
 
-- Good for: evaluation, SFT data generation, testing
-- Run with: `serve` (with `run-api`), `process`, or `evaluate` subcommands
-- Placeholder tokens are created for the Atropos pipeline
+- 适用于：评估、SFT 数据生成、测试
+- 运行方式：`serve`（带 `run-api`）、`process` 或 `evaluate` 子命令
+- 为 Atropos 管道创建占位符令牌
 
-### Phase 2: VLLM ManagedServer (Full RL Training)
+### 阶段 2：VLLM ManagedServer（完整 RL 训练）
 
-Uses ManagedServer for exact token IDs + logprobs via `/generate`. Client-side tool call parser (from `tool_call_parsers/`) reconstructs structured `tool_calls` from raw output.
+使用 ManagedServer 获取精确令牌 ID + logprobs（通过 `/generate`）。客户端工具调用解析器（来自 `tool_call_parsers/`）从原始输出重建结构化 `tool_calls`。
 
-- Good for: full RL training with GRPO/PPO
-- Run with: `serve` subcommand
-- Real tokens, masks, and logprobs flow through the pipeline
+- 适用于：带 GRPO/PPO 的完整 RL 训练
+- 运行方式：`serve` 子命令
+- 真实令牌、掩码和 logprobs 流经管道
 
-## Directory Structure
+## 目录结构
 
 ```
 environments/
-├── README.md                     # This file
-├── __init__.py                   # Package exports
-├── kclaw_base_env.py            # Abstract base (KClawAgentBaseEnv)
-├── agent_loop.py                 # Multi-turn agent engine (KClawAgentLoop)
-├── tool_context.py               # Per-rollout tool access for reward functions
-├── patches.py                    # Async-safety patches for Modal backend
+├── README.md                     # 本文件
+├── __init__.py                   # 包导出
+├── kclaw_base_env.py            # 抽象基类（KClawAgentBaseEnv）
+├── agent_loop.py                 # 多轮代理引擎（KClawAgentLoop）
+├── tool_context.py               # rollout 奖励函数的工具访问
+├── patches.py                    # Modal 后端的异步安全补丁
 │
-├── tool_call_parsers/            # Phase 2 client-side parsers
-│   ├── __init__.py               # Registry + base class
+├── tool_call_parsers/            # 阶段 2 客户端解析器
+│   ├── __init__.py               # 注册表 + 基类
 │   ├── kclaw_parser.py
 │   ├── mistral_parser.py
 │   ├── llama_parser.py
@@ -178,40 +178,40 @@ environments/
 │   ├── glm45_parser.py
 │   └── glm47_parser.py
 │
-├── terminal_test_env/            # Stack validation environment
+├── terminal_test_env/            # 堆栈验证环境
 │   └── terminal_test_env.py
 │
-├── kclaw_swe_env/               # SWE-bench style training environment
+├── kclaw_swe_env/               # SWE-bench 风格训练环境
 │   └── kclaw_swe_env.py
 │
-└── benchmarks/                   # Evaluation benchmarks
-    ├── terminalbench_2/          # 89 terminal tasks, Modal sandboxes
+└── benchmarks/                   # 评估基准
+    ├── terminalbench_2/          # 89 个终端任务，Modal 沙盒
     │   └── terminalbench2_env.py
-    ├── tblite/                   # 100 calibrated tasks (fast TB2 proxy)
+    ├── tblite/                   # 100 个校准任务（快速 TB2 代理）
     │   └── tblite_env.py
-    └── yc_bench/                 # Long-horizon strategic benchmark
+    └── yc_bench/                 # 长时战略基准
         └── yc_bench_env.py
 ```
 
-## Concrete Environments
+## 具体环境
 
-### TerminalTestEnv (`terminal_test_env/`)
+### TerminalTestEnv（`terminal_test_env/`）
 
-A self-contained environment with inline tasks (no external dataset needed) for validating the full stack end-to-end. Each task asks the model to create a file at a known path, and the verifier checks the content matches.
+一个自包含的环境，包含内联任务（无需外部数据集），用于验证完整堆栈端到端。每个任务要求模型在已知路径创建文件，验证器检查内容是否匹配。
 
 ```bash
-# Serve mode (needs run-api)
+# 服务模式（需要 run-api）
 run-api
 python environments/terminal_test_env/terminal_test_env.py serve
 
-# Process mode (no run-api, saves to JSONL)
+# 处理模式（无 run-api，保存到 JSONL）
 python environments/terminal_test_env/terminal_test_env.py process \
     --env.data_path_to_save_groups terminal_test_output.jsonl
 ```
 
-### KClawSweEnv (`kclaw_swe_env/`)
+### KClawSweEnv（`kclaw_swe_env/`）
 
-SWE-bench style training environment. The model gets a coding task, uses terminal + file + web tools to solve it, and the reward function runs tests in the same Modal sandbox.
+SWE-bench 风格训练环境。模型获得编码任务，使用终端 + 文件 + Web 工具来解决问题，奖励函数在相同的 Modal 沙盒中运行测试。
 
 ```bash
 python environments/kclaw_swe_env/kclaw_swe_env.py serve \
@@ -220,45 +220,45 @@ python environments/kclaw_swe_env/kclaw_swe_env.py serve \
     --env.terminal_backend modal
 ```
 
-### TerminalBench2EvalEnv (`benchmarks/terminalbench_2/`)
+### TerminalBench2EvalEnv（`benchmarks/terminalbench_2/`）
 
-**Eval-only** environment for the Terminal-Bench 2.0 benchmark (89 tasks). Each task gets a pre-built Docker Hub image, a natural language instruction, and a test suite. The agent uses terminal + file tools to solve the task, then the test suite verifies correctness.
+Terminal-Bench 2.0 基准（89 个任务）的**仅评估**环境。每个任务获得一个预构建的 Docker Hub 镜像、一个自然语言指令和一个测试套件。代理使用终端 + 文件工具来解决问题，然后测试套件验证正确性。
 
-Follows the standard Atropos eval pattern (like GPQA, MMLU, etc.):
-- Run via `evaluate` subcommand (no `run-api` needed)
-- `setup()` loads the dataset, `evaluate()` runs all tasks
-- `rollout_and_score_eval()` handles per-task agent loop + test verification
-- Downloads verifier output locally for reliable reward checking (Harbor pattern)
+遵循标准 Atropos 评估模式（如 GPQA、MMLU 等）：
+- 通过 `evaluate` 子命令运行（不需要 `run-api`）
+- `setup()` 加载数据集，`evaluate()` 运行所有任务
+- `rollout_and_score_eval()` 处理每个任务的代理循环 + 测试验证
+- 将验证器输出下载到本地以进行可靠的奖励检查（Harbor 模式）
 
 ```bash
-# Run full benchmark
+# 运行完整基准
 python environments/benchmarks/terminalbench_2/terminalbench2_env.py evaluate \
     --openai.model_name anthropic/claude-opus-4.6
 
-# Run subset of tasks
+# 运行任务子集
 python environments/benchmarks/terminalbench_2/terminalbench2_env.py evaluate \
     --openai.model_name anthropic/claude-opus-4.6 \
     --env.task_filter fix-git,git-multibranch
 
-# Skip specific tasks
+# 跳过特定任务
 python environments/benchmarks/terminalbench_2/terminalbench2_env.py evaluate \
     --openai.model_name anthropic/claude-opus-4.6 \
     --env.skip_tasks heavy-task,slow-task
 ```
 
-## Creating a New Environment
+## 创建新环境
 
-### Training Environment
+### 训练环境
 
-1. Create a new directory under `environments/`
-2. Create your env file inheriting from `KClawAgentBaseEnv`
-3. Implement the four abstract methods + `evaluate()`
+1. 在 `environments/` 下创建一个新目录
+2. 创建继承自 `KClawAgentBaseEnv` 的环境文件
+3. 实现四个抽象方法 + `evaluate()`
 
 ```python
 from environments.kclaw_base_env import KClawAgentBaseEnv, KClawAgentEnvConfig
 
 class MyEnvConfig(KClawAgentEnvConfig):
-    pass  # Add custom fields as needed
+    pass  # 根据需要添加自定义字段
 
 class MyEnv(KClawAgentBaseEnv):
     name = "my-env"
@@ -269,7 +269,7 @@ class MyEnv(KClawAgentBaseEnv):
         env_config = MyEnvConfig(
             enabled_toolsets=["terminal", "file"],
             terminal_backend="modal",
-            # ... other config
+            # ... 其他配置
         )
         server_configs = [APIServerConfig(...)]
         return env_config, server_configs
@@ -287,38 +287,38 @@ class MyEnv(KClawAgentBaseEnv):
         return item["instruction"]
 
     async def compute_reward(self, item, result, ctx):
-        # ctx gives you full tool access to the rollout's sandbox
+        # ctx 为您提供对 rollout 沙盒的完整工具访问
         test = ctx.terminal("pytest -v")
         return 1.0 if test["exit_code"] == 0 else 0.0
 
     async def evaluate(self, *args, **kwargs):
-        # Periodic evaluation logic
+        # 周期性评估逻辑
         ...
 
 if __name__ == "__main__":
     MyEnv.cli()
 ```
 
-### Eval-Only Environment (Benchmark)
+### 仅评估环境（基准）
 
-For eval benchmarks, follow the pattern in `terminalbench2_env.py`:
-1. Create under `environments/benchmarks/your-benchmark/`
-2. Inherit from `KClawAgentBaseEnv`
-3. Set eval-only config: `eval_handling=STOP_TRAIN`, `steps_per_eval=1`, `total_steps=1`
-4. Stub the training methods (`collect_trajectories`, `score`)
-5. Implement `rollout_and_score_eval()` and `evaluate()`
-6. Run with `evaluate` subcommand
+对于评估基准，请遵循 `terminalbench2_env.py` 中的模式：
+1. 在 `environments/benchmarks/your-benchmark/` 下创建
+2. 继承自 `KClawAgentBaseEnv`
+3. 设置仅评估配置：`eval_handling=STOP_TRAIN`、`steps_per_eval=1`、`total_steps=1`
+4. 存根训练方法（`collect_trajectories`、`score`）
+5. 实现 `rollout_and_score_eval()` 和 `evaluate()`
+6. 使用 `evaluate` 子命令运行
 
-## Key Config Fields
+## 关键配置字段
 
-| Field | Description | Default |
+| 字段 | 描述 | 默认 |
 |-------|-------------|---------|
-| `enabled_toolsets` | Which kclaw toolsets to enable | `None` (all) |
-| `disabled_toolsets` | Toolsets to disable | `None` |
-| `distribution` | Probabilistic toolset distribution name | `None` |
-| `max_agent_turns` | Max LLM calls per rollout | `30` |
-| `agent_temperature` | Sampling temperature | `1.0` |
-| `terminal_backend` | `local`, `docker`, `modal`, `daytona`, `ssh`, `singularity` | `local` |
-| `system_prompt` | System message for the agent | `None` |
-| `tool_call_parser` | Parser name for Phase 2 | `kclaw` |
-| `eval_handling` | `STOP_TRAIN`, `LIMIT_TRAIN`, `NONE` | `STOP_TRAIN` |
+| `enabled_toolsets` | 启用哪些 kclaw 工具集 | `None`（全部） |
+| `disabled_toolsets` | 禁用的工具集 | `None` |
+| `distribution` | 概率工具集分发名称 | `None` |
+| `max_agent_turns` | 每个 rollout 的最大 LLM 调用次数 | `30` |
+| `agent_temperature` | 采样温度 | `1.0` |
+| `terminal_backend` | `local`、`docker`、`modal`、`daytona`、`ssh`、`singularity` | `local` |
+| `system_prompt` | 代理的系统消息 | `None` |
+| `tool_call_parser` | 阶段 2 的解析器名称 | `kclaw` |
+| `eval_handling` | `STOP_TRAIN`、`LIMIT_TRAIN`、`NONE` | `STOP_TRAIN` |

@@ -1,530 +1,529 @@
-# Lambda Labs Troubleshooting Guide
+# Lambda Labs故障排除指南
 
-## Instance Launch Issues
+## 实例启动问题
 
-### No instances available
+### 没有可用实例
 
-**Error**: "No capacity available" or instance type not listed
+**错误**："No capacity available"或实例类型未列出
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Check availability via API
+# 通过API检查可用性
 curl -u $LAMBDA_API_KEY: \
   https://cloud.lambdalabs.com/api/v1/instance-types | jq '.data | to_entries[] | select(.value.regions_with_capacity_available | length > 0) | .key'
 
-# Try different regions
-# US regions: us-west-1, us-east-1, us-south-1
-# International: eu-west-1, asia-northeast-1, etc.
+# 尝试不同区域
+# 美国区域: us-west-1, us-east-1, us-south-1
+# 国际: eu-west-1, asia-northeast-1, 等
 
-# Try alternative GPU types
-# H100 not available? Try A100
-# A100 not available? Try A10 or A6000
+# 尝试替代GPU类型
+# H100不可用？尝试A100
+# A100不可用？尝试A10或A6000
 ```
 
-### Instance stuck launching
+### 实例启动卡住
 
-**Problem**: Instance shows "booting" for over 20 minutes
+**问题**：实例显示"booting"超过20分钟
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Single-GPU: Should be ready in 3-5 minutes
-# Multi-GPU (8x): May take 10-15 minutes
+# 单GPU：应在3-5分钟内就绪
+# 多GPU（8x）：可能需要10-15分钟
 
-# If stuck longer:
-# 1. Terminate the instance
-# 2. Try a different region
-# 3. Try a different instance type
-# 4. Contact Lambda support if persistent
+# 如果卡住更久：
+# 1. 终止实例
+# 2. 尝试不同区域
+# 3. 尝试不同实例类型
+# 4. 如果持续，联系Lambda支持
 ```
 
-### API authentication fails
+### API认证失败
 
-**Error**: `401 Unauthorized` or `403 Forbidden`
+**错误**：`401 Unauthorized`或`403 Forbidden`
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Verify API key format (should start with specific prefix)
+# 验证API密钥格式（应以特定前缀开头）
 echo $LAMBDA_API_KEY
 
-# Test API key
+# 测试API密钥
 curl -u $LAMBDA_API_KEY: \
   https://cloud.lambdalabs.com/api/v1/instance-types
 
-# Generate new API key from Lambda console if needed
-# Settings > API keys > Generate
+# 如需要，从Lambda控制台生成新API密钥
+# 设置 > API密钥 > 生成
 ```
 
-### Quota limits reached
+### 达到配额限制
 
-**Error**: "Instance limit reached" or "Quota exceeded"
+**错误**："Instance limit reached"或"Quota exceeded"
 
-**Solutions**:
-- Check current running instances in console
-- Terminate unused instances
-- Contact Lambda support to request quota increase
-- Use 1-Click Clusters for large-scale needs
+**解决方案**：
+- 在控制台检查当前运行实例
+- 终止未使用的实例
+- 联系Lambda支持请求增加配额
+- 大规模需求使用1-Click集群
 
-## SSH Connection Issues
+## SSH连接问题
 
-### Connection refused
+### 连接被拒绝
 
-**Error**: `ssh: connect to host <IP> port 22: Connection refused`
+**错误**：`ssh: connect to host <IP> port 22: Connection refused`
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Wait for instance to fully initialize
-# Single-GPU: 3-5 minutes
-# Multi-GPU: 10-15 minutes
+# 等待实例完全初始化
+# 单GPU：3-5分钟
+# 多GPU：10-15分钟
 
-# Check instance status in console (should be "active")
+# 在控制台检查实例状态（应为"active"）
 
-# Verify correct IP address
+# 验证正确的IP地址
 curl -u $LAMBDA_API_KEY: \
   https://cloud.lambdalabs.com/api/v1/instances | jq '.data[].ip'
 ```
 
-### Permission denied
+### 权限被拒绝
 
-**Error**: `Permission denied (publickey)`
+**错误**：`Permission denied (publickey)`
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Verify SSH key matches
+# 验证SSH密钥匹配
 ssh -v -i ~/.ssh/lambda_key ubuntu@<IP>
 
-# Check key permissions
+# 检查密钥权限
 chmod 600 ~/.ssh/lambda_key
 chmod 644 ~/.ssh/lambda_key.pub
 
-# Verify key was added to Lambda console before launch
-# Keys must be added BEFORE launching instance
+# 验证密钥在启动前已添加到Lambda控制台
+# 密钥必须在启动前添加
 
-# Check authorized_keys on instance (if you have another way in)
+# 检查实例上的authorized_keys（如有其他方式进入）
 cat ~/.ssh/authorized_keys
 ```
 
-### Host key verification failed
+### 主机密钥验证失败
 
-**Error**: `WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!`
+**错误**：`WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!`
 
-**Solutions**:
+**解决方案**：
 ```bash
-# This happens when IP is reused by different instance
-# Remove old key
+# 当IP被不同实例重用时会发生
+# 移除旧密钥
 ssh-keygen -R <IP>
 
-# Then connect again
+# 然后重新连接
 ssh ubuntu@<IP>
 ```
 
-### Timeout during SSH
+### SSH超时
 
-**Error**: `ssh: connect to host <IP> port 22: Operation timed out`
+**错误**：`ssh: connect to host <IP> port 22: Operation timed out`
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Check if instance is in "active" state
+# 检查实例是否为"active"状态
 
-# Verify firewall allows SSH (port 22)
-# Lambda console > Firewall
+# 验证防火墙允许SSH（端口22）
+# Lambda控制台 > 防火墙
 
-# Check your local network allows outbound SSH
+# 检查本地网络允许出站SSH
 
-# Try from different network/VPN
+# 从不同网络/ VPN尝试
 ```
 
-## GPU Issues
+## GPU问题
 
-### GPU not detected
+### GPU未检测到
 
-**Error**: `nvidia-smi: command not found` or no GPUs shown
+**错误**：`nvidia-smi: command not found`或不显示GPU
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Reboot instance
+# 重启实例
 sudo reboot
 
-# Reinstall NVIDIA drivers (if needed)
+# 如需要，重新安装NVIDIA驱动程序
 wget -nv -O- https://lambdalabs.com/install-lambda-stack.sh | sh -
 sudo reboot
 
-# Check driver status
+# 检查驱动程序状态
 nvidia-smi
 lsmod | grep nvidia
 ```
 
-### CUDA out of memory
+### CUDA内存不足
 
-**Error**: `torch.cuda.OutOfMemoryError: CUDA out of memory`
+**错误**：`torch.cuda.OutOfMemoryError: CUDA out of memory`
 
-**Solutions**:
+**解决方案**：
 ```python
-# Check GPU memory
+# 检查GPU内存
 import torch
 print(torch.cuda.get_device_properties(0).total_memory / 1e9, "GB")
 
-# Clear cache
+# 清除缓存
 torch.cuda.empty_cache()
 
-# Reduce batch size
+# 减少批量大小
 batch_size = batch_size // 2
 
-# Enable gradient checkpointing
+# 启用梯度检查点
 model.gradient_checkpointing_enable()
 
-# Use mixed precision
+# 使用混合精度
 from torch.cuda.amp import autocast
 with autocast():
     outputs = model(**inputs)
 
-# Use larger GPU instance
+# 使用更大GPU实例
 # A100-40GB → A100-80GB → H100
 ```
 
-### CUDA version mismatch
+### CUDA版本不匹配
 
-**Error**: `CUDA driver version is insufficient for CUDA runtime version`
+**错误**：`CUDA driver version is insufficient for CUDA runtime version`
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Check versions
-nvidia-smi  # Shows driver CUDA version
-nvcc --version  # Shows toolkit version
+# 检查版本
+nvidia-smi  # 显示驱动CUDA版本
+nvcc --version  # 显示工具包版本
 
-# Lambda Stack should have compatible versions
-# If mismatch, reinstall Lambda Stack
+# Lambda Stack应该有兼容版本
+# 如不匹配，重新安装Lambda Stack
 wget -nv -O- https://lambdalabs.com/install-lambda-stack.sh | sh -
 sudo reboot
 
-# Or install specific PyTorch version
+# 或安装特定PyTorch版本
 pip install torch==2.1.0+cu121 -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
-### Multi-GPU not working
+### 多GPU不工作
 
-**Error**: Only one GPU being used
+**错误**：仅使用一个GPU
 
-**Solutions**:
+**解决方案**：
 ```python
-# Check all GPUs visible
+# 检查所有可见GPU
 import torch
-print(f"GPUs available: {torch.cuda.device_count()}")
+print(f"可用GPU: {torch.cuda.device_count()}")
 
-# Verify CUDA_VISIBLE_DEVICES not set restrictively
+# 验证CUDA_VISIBLE_DEVICES未限制性设置
 import os
 print(os.environ.get("CUDA_VISIBLE_DEVICES", "not set"))
 
-# Use DataParallel or DistributedDataParallel
+# 使用DataParallel或DistributedDataParallel
 model = torch.nn.DataParallel(model)
-# or
+# 或
 model = torch.nn.parallel.DistributedDataParallel(model)
 ```
 
-## Filesystem Issues
+## 文件系统问题
 
-### Filesystem not mounted
+### 文件系统未挂载
 
-**Error**: `/lambda/nfs/<name>` doesn't exist
+**错误**：`/lambda/nfs/<name>`不存在
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Filesystem must be attached at launch time
-# Cannot attach to running instance
+# 文件系统必须在启动时附加
+# 无法附加到运行中的实例
 
-# Verify filesystem was selected during launch
+# 验证启动时选择了文件系统
 
-# Check mount points
+# 检查挂载点
 df -h | grep lambda
 
-# If missing, terminate and relaunch with filesystem
+# 如缺失，终止并使用文件系统重新启动
 ```
 
-### Slow filesystem performance
+### 文件系统性能慢
 
-**Problem**: Reading/writing to filesystem is slow
+**问题**：读写文件系统慢
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Use local SSD for temporary/intermediate files
-# /home/ubuntu has fast NVMe storage
+# 使用本地SSD用于临时/中间文件
+# /home/ubuntu有快速NVMe存储
 
-# Copy frequently accessed data to local storage
+# 将频繁访问的数据复制到本地存储
 cp -r /lambda/nfs/storage/dataset /home/ubuntu/dataset
 
-# Use filesystem for checkpoints and final outputs only
+# 仅将文件系统用于检查点和最终输出
 
-# Check network bandwidth
+# 检查网络带宽
 iperf3 -c <filesystem_server>
 ```
 
-### Data lost after termination
+### 终止后数据丢失
 
-**Problem**: Files disappeared after instance terminated
+**问题**：实例终止后文件消失
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Root volume (/home/ubuntu) is EPHEMERAL
-# Data there is lost on termination
+# 根卷（/home/ubuntu）是临时的
+# 终止时那里的数据会丢失
 
-# ALWAYS use filesystem for persistent data
+# 始终使用文件系统用于持久数据
 /lambda/nfs/<filesystem_name>/
 
-# Sync important local files before terminating
+# 终止前同步重要的本地文件
 rsync -av /home/ubuntu/outputs/ /lambda/nfs/storage/outputs/
 ```
 
-### Filesystem full
+### 文件系统满
 
-**Error**: `No space left on device`
+**错误**：`No space left on device`
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Check filesystem usage
+# 检查文件系统使用情况
 df -h /lambda/nfs/storage
 
-# Find large files
+# 查找大文件
 du -sh /lambda/nfs/storage/* | sort -h
 
-# Clean up old checkpoints
+# 清理旧检查点
 find /lambda/nfs/storage/checkpoints -mtime +7 -delete
 
-# Increase filesystem size in Lambda console
-# (may require support request)
+# 在Lambda控制台增加文件系统大小
+# （可能需要支持请求）
 ```
 
-## Network Issues
+## 网络问题
 
-### Port not accessible
+### 端口不可访问
 
-**Error**: Cannot connect to service (TensorBoard, Jupyter, etc.)
+**错误**：无法连接到服务（TensorBoard、Jupyter等）
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Lambda default: Only port 22 is open
-# Configure firewall in Lambda console
+# Lambda默认：仅端口22开放
+# 在Lambda控制台配置防火墙
 
-# Or use SSH tunneling (recommended)
+# 或使用SSH隧道（推荐）
 ssh -L 6006:localhost:6006 ubuntu@<IP>
-# Access at http://localhost:6006
+# 访问 http://localhost:6006
 
-# For Jupyter
+# 对于Jupyter
 ssh -L 8888:localhost:8888 ubuntu@<IP>
 ```
 
-### Slow data download
+### 数据下载慢
 
-**Problem**: Downloading datasets is slow
+**问题**：下载数据集慢
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Check available bandwidth
+# 检查可用带宽
 speedtest-cli
 
-# Use multi-threaded download
+# 使用多线程下载
 aria2c -x 16 <URL>
 
-# For HuggingFace models
+# 对于HuggingFace模型
 export HF_HUB_ENABLE_HF_TRANSFER=1
 pip install hf_transfer
 
-# For S3, use parallel transfer
+# 对于S3，使用并行传输
 aws s3 sync s3://bucket/data /local/data --quiet
 ```
 
-### Inter-node communication fails
+### 节点间通信失败
 
-**Error**: Distributed training can't connect between nodes
+**错误**：分布式训练无法连接节点
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Verify nodes in same region (required)
+# 验证节点在同一区域（必需）
 
-# Check private IPs can communicate
+# 检查私有IP可以通信
 ping <other_node_private_ip>
 
-# Verify NCCL settings
+# 验证NCCL设置
 export NCCL_DEBUG=INFO
-export NCCL_IB_DISABLE=0  # Enable InfiniBand if available
+export NCCL_IB_DISABLE=0  # 如可用，启用InfiniBand
 
-# Check firewall allows distributed ports
-# Need: 29500 (PyTorch), or configured MASTER_PORT
+# 检查防火墙允许分布式端口
+# 需要: 29500（PyTorch）或配置的MASTER_PORT
 ```
 
-## Software Issues
+## 软件问题
 
-### Package installation fails
+### 包安装失败
 
-**Error**: `pip install` errors
+**错误**：`pip install`错误
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Use virtual environment (don't modify system Python)
+# 使用虚拟环境（不要修改系统Python）
 python -m venv ~/myenv
 source ~/myenv/bin/activate
 pip install <package>
 
-# For CUDA packages, match CUDA version
+# 对于CUDA包，匹配CUDA版本
 pip install torch --index-url https://download.pytorch.org/whl/cu121
 
-# Clear pip cache if corrupted
+# 如果pip缓存损坏，清除
 pip cache purge
 ```
 
-### Python version issues
+### Python版本问题
 
-**Error**: Package requires different Python version
+**错误**：包需要不同Python版本
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Install alternate Python (don't replace system Python)
+# 安装替代Python（不要替换系统Python）
 sudo apt install python3.11 python3.11-venv python3.11-dev
 
-# Create venv with specific Python
+# 使用特定Python创建venv
 python3.11 -m venv ~/py311env
 source ~/py311env/bin/activate
 ```
 
-### ImportError or ModuleNotFoundError
+### ImportError或ModuleNotFoundError
 
-**Error**: Module not found despite installation
+**错误**：尽管已安装但找不到模块
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Verify correct Python environment
+# 验证正确的Python环境
 which python
 pip list | grep <module>
 
-# Ensure virtual environment is activated
+# 确保虚拟环境已激活
 source ~/myenv/bin/activate
 
-# Reinstall in correct environment
+# 在正确环境中重新安装
 pip uninstall <package>
 pip install <package>
 ```
 
-## Training Issues
+## 训练问题
 
-### Training hangs
+### 训练挂起
 
-**Problem**: Training stops progressing, no output
+**问题**：训练停止进展，无输出
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Check GPU utilization
+# 检查GPU利用率
 watch -n 1 nvidia-smi
 
-# If GPUs at 0%, likely data loading bottleneck
-# Increase num_workers in DataLoader
+# 如果GPU为0%，可能是数据加载瓶颈
+# 增加DataLoader中的num_workers
 
-# Check for deadlocks in distributed training
+# 检查分布式训练中的死锁
 export NCCL_DEBUG=INFO
 
-# Add timeouts
+# 添加超时
 dist.init_process_group(..., timeout=timedelta(minutes=30))
 ```
 
-### Checkpoint corruption
+### 检查点损坏
 
-**Error**: `RuntimeError: storage has wrong size` or similar
+**错误**：`RuntimeError: storage has wrong size`或类似
 
-**Solutions**:
+**解决方案**：
 ```python
-# Use safe saving pattern
+# 使用安全保存模式
 checkpoint_path = "/lambda/nfs/storage/checkpoint.pt"
 temp_path = checkpoint_path + ".tmp"
 
-# Save to temp first
+# 先保存到临时文件
 torch.save(state_dict, temp_path)
-# Then atomic rename
+# 然后原子重命名
 os.rename(temp_path, checkpoint_path)
 
-# For loading corrupted checkpoint
+# 对于加载损坏的检查点
 try:
     state = torch.load(checkpoint_path)
 except:
-    # Fall back to previous checkpoint
+    # 回退到上一个检查点
     state = torch.load(checkpoint_path + ".backup")
 ```
 
-### Memory leak
+### 内存泄漏
 
-**Problem**: Memory usage grows over time
+**问题**：内存使用随时间增长
 
-**Solutions**:
+**解决方案**：
 ```python
-# Clear CUDA cache periodically
+# 定期清除CUDA缓存
 torch.cuda.empty_cache()
 
-# Detach tensors when logging
+# 记录时分离张量
 loss_value = loss.detach().cpu().item()
 
-# Don't accumulate gradients unintentionally
+# 不要无意中累积梯度
 optimizer.zero_grad(set_to_none=True)
 
-# Use gradient accumulation properly
+# 正确使用梯度累积
 if (step + 1) % accumulation_steps == 0:
     optimizer.step()
     optimizer.zero_grad()
 ```
 
-## Billing Issues
+## 计费问题
 
-### Unexpected charges
+### 意外收费
 
-**Problem**: Bill higher than expected
+**问题**：账单高于预期
 
-**Solutions**:
+**解决方案**：
 ```bash
-# Check for forgotten running instances
+# 检查遗忘的运行实例
 curl -u $LAMBDA_API_KEY: \
   https://cloud.lambdalabs.com/api/v1/instances | jq '.data[].id'
 
-# Terminate all instances
-# Lambda console > Instances > Terminate all
+# 终止所有实例
+# Lambda控制台 > 实例 > 终止全部
 
-# Lambda charges by the minute
-# No charge for stopped instances (but no "stop" feature - only terminate)
+# Lambda按分钟计费
+# 停止的实例不收费（但没有"停止"功能 - 只能终止）
 ```
 
-### Instance terminated unexpectedly
+### 实例意外终止
 
-**Problem**: Instance disappeared without manual termination
+**问题**：实例在未手动终止的情况下消失
 
-**Possible causes**:
-- Payment issue (card declined)
-- Account suspension
-- Instance health check failure
+**可能原因**：
+- 付款问题（卡被拒）
+- 账户暂停
+- 实例健康检查失败
 
-**Solutions**:
-- Check email for Lambda notifications
-- Verify payment method in console
-- Contact Lambda support
-- Always checkpoint to filesystem
+**解决方案**：
+- 检查Lambda通知邮件
+- 在控制台验证付款方式
+- 联系Lambda支持
+- 始终保存检查点到文件系统
 
-## Common Error Messages
+## 常见错误消息
 
-| Error | Cause | Solution |
+| 错误 | 原因 | 解决方案 |
 |-------|-------|----------|
-| `No capacity available` | Region/GPU sold out | Try different region or GPU type |
-| `Permission denied (publickey)` | SSH key mismatch | Re-add key, check permissions |
-| `CUDA out of memory` | Model too large | Reduce batch size, use larger GPU |
-| `No space left on device` | Disk full | Clean up or use filesystem |
-| `Connection refused` | Instance not ready | Wait 3-15 minutes for boot |
-| `Module not found` | Wrong Python env | Activate correct virtualenv |
+| `No capacity available` | 区域/GPU售罄 | 尝试不同区域或GPU类型 |
+| `Permission denied (publickey)` | SSH密钥不匹配 | 重新添加密钥，检查权限 |
+| `CUDA out of memory` | 模型太大 | 减少批量大小，使用更大GPU |
+| `No space left on device` | 磁盘满 | 清理或使用文件系统 |
+| `Connection refused` | 实例未就绪 | 等待3-15分钟启动 |
+| `Module not found` | 错误Python环境 | 激活正确的虚拟环境 |
 
-## Getting Help
+## 获取帮助
 
-1. **Documentation**: https://docs.lambda.ai
-2. **Support**: https://support.lambdalabs.com
-3. **Email**: support@lambdalabs.com
-4. **Status**: Check Lambda status page for outages
+1. **文档**：https://docs.lambda.ai
+2. **支持**：https://support.lambdalabs.com
+3. **邮箱**：support@lambdalabs.com
+4. **状态**：检查Lambda状态页面了解中断
 
-### Information to Include
+### 联系支持时包含的信息
 
-When contacting support, include:
-- Instance ID
-- Region
-- Instance type
-- Error message (full traceback)
-- Steps to reproduce
-- Time of occurrence
+- 实例ID
+- 区域
+- 实例类型
+- 错误消息（完整traceback）
+- 重现步骤
+- 发生时间

@@ -1,30 +1,30 @@
-# Training Custom Tokenizers
+# 训练自定义分词器
 
-Complete guide to training tokenizers from scratch.
+从头开始训练分词器的完整指南。
 
-## Training workflow
+## 训练工作流程
 
-### Step 1: Choose tokenization algorithm
+### 步骤1：选择分词算法
 
-**Decision tree**:
-- **GPT-style model** → BPE
-- **BERT-style model** → WordPiece
-- **Multilingual/No word boundaries** → Unigram
+**决策树**：
+- **GPT风格模型** → BPE
+- **BERT风格模型** → WordPiece
+- **多语言/无词边界** → Unigram
 
-### Step 2: Prepare training data
+### 步骤2：准备训练数据
 
 ```python
-# Option 1: From files
+# 选项1：从文件
 files = ["train.txt", "validation.txt"]
 
-# Option 2: From Python list
+# 选项2：从Python列表
 texts = [
     "This is the first sentence.",
     "This is the second sentence.",
-    # ... more texts
+    # ... 更多文本
 ]
 
-# Option 3: From dataset iterator
+# 选项3：从数据集迭代器
 from datasets import load_dataset
 
 dataset = load_dataset("wikitext", "wikitext-103-raw-v1", split="train")
@@ -34,9 +34,9 @@ def batch_iterator(batch_size=1000):
         yield dataset[i:i + batch_size]["text"]
 ```
 
-### Step 3: Initialize tokenizer
+### 步骤3：初始化分词器
 
-**BPE example**:
+**BPE示例**：
 ```python
 from tokenizers import Tokenizer
 from tokenizers.models import BPE
@@ -56,7 +56,7 @@ trainer = BpeTrainer(
 )
 ```
 
-**WordPiece example**:
+**WordPiece示例**：
 ```python
 from tokenizers.models import WordPiece
 from tokenizers.trainers import WordPieceTrainer
@@ -76,7 +76,7 @@ trainer = WordPieceTrainer(
 )
 ```
 
-**Unigram example**:
+**Unigram示例**：
 ```python
 from tokenizers.models import Unigram
 from tokenizers.trainers import UnigramTrainer
@@ -91,32 +91,32 @@ trainer = UnigramTrainer(
 )
 ```
 
-### Step 4: Train
+### 步骤4：训练
 
 ```python
-# From files
+# 从文件
 tokenizer.train(files=files, trainer=trainer)
 
-# From iterator (recommended for large datasets)
+# 从迭代器（推荐用于大数据集）
 tokenizer.train_from_iterator(
     batch_iterator(),
     trainer=trainer,
-    length=len(dataset)  # Optional, for progress bar
+    length=len(dataset)  # 可选，用于进度条
 )
 ```
 
-**Training time** (30k vocab on 16-core CPU):
-- 10 MB: 15-30 seconds
-- 100 MB: 1-3 minutes
-- 1 GB: 15-30 minutes
-- 10 GB: 2-4 hours
+**训练时间**（16核CPU上30k词表）：
+- 10 MB: 15-30秒
+- 100 MB: 1-3分钟
+- 1 GB: 15-30分钟
+- 10 GB: 2-4小时
 
-### Step 5: Add post-processing
+### 步骤5：添加后处理
 
 ```python
 from tokenizers.processors import TemplateProcessing
 
-# BERT-style
+# BERT风格
 tokenizer.post_processor = TemplateProcessing(
     single="[CLS] $A [SEP]",
     pair="[CLS] $A [SEP] $B [SEP]",
@@ -126,7 +126,7 @@ tokenizer.post_processor = TemplateProcessing(
     ],
 )
 
-# GPT-2 style
+# GPT-2风格
 tokenizer.post_processor = TemplateProcessing(
     single="$A <|endoftext|>",
     special_tokens=[
@@ -135,16 +135,16 @@ tokenizer.post_processor = TemplateProcessing(
 )
 ```
 
-### Step 6: Save
+### 步骤6：保存
 
 ```python
-# Save to JSON
+# 保存为JSON
 tokenizer.save("my-tokenizer.json")
 
-# Save to directory (for transformers)
+# 保存到目录（用于transformers）
 tokenizer.save("my-tokenizer-dir/tokenizer.json")
 
-# Convert to transformers format
+# 转换为transformers格式
 from transformers import PreTrainedTokenizerFast
 
 transformers_tokenizer = PreTrainedTokenizerFast(
@@ -159,64 +159,64 @@ transformers_tokenizer = PreTrainedTokenizerFast(
 transformers_tokenizer.save_pretrained("my-tokenizer-dir")
 ```
 
-## Trainer configuration
+## 训练器配置
 
-### BpeTrainer parameters
+### BpeTrainer参数
 
 ```python
 from tokenizers.trainers import BpeTrainer
 
 trainer = BpeTrainer(
-    vocab_size=30000,              # Target vocabulary size
-    min_frequency=2,               # Minimum frequency for merges
-    special_tokens=["[UNK]"],      # Special tokens (added first)
-    limit_alphabet=1000,           # Limit initial alphabet size
-    initial_alphabet=[],           # Pre-defined initial characters
-    show_progress=True,            # Show progress bar
-    continuing_subword_prefix="",  # Prefix for continuing subwords
-    end_of_word_suffix=""          # Suffix for end of words
+    vocab_size=30000,              # 目标词表大小
+    min_frequency=2,               # 合并的最小频率
+    special_tokens=["[UNK]"],      # 特殊token（首先添加）
+    limit_alphabet=1000,           # 限制初始字母表大小
+    initial_alphabet=[],           # 预定义的初始字符
+    show_progress=True,            # 显示进度条
+    continuing_subword_prefix="",  # 连续子词的前缀
+    end_of_word_suffix=""          # 词尾的后缀
 )
 ```
 
-**Parameter tuning**:
-- **vocab_size**: Start with 30k for English, 50k for multilingual
-- **min_frequency**: 2-5 for large corpora, 1 for small
-- **limit_alphabet**: Reduce for non-English (CJK languages)
+**参数调优**：
+- **vocab_size**：英语从30k开始，多语言50k
+- **min_frequency**：大语料库2-5，小语料库1
+- **limit_alphabet**：非英语（CJK语言）减少
 
-### WordPieceTrainer parameters
+### WordPieceTrainer参数
 
 ```python
 from tokenizers.trainers import WordPieceTrainer
 
 trainer = WordPieceTrainer(
-    vocab_size=30522,              # BERT uses 30,522
+    vocab_size=30522,              # BERT使用30,522
     min_frequency=2,
     special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"],
     limit_alphabet=1000,
-    continuing_subword_prefix="##", # BERT-style prefix
+    continuing_subword_prefix="##", # BERT风格前缀
     show_progress=True
 )
 ```
 
-### UnigramTrainer parameters
+### UnigramTrainer参数
 
 ```python
 from tokenizers.trainers import UnigramTrainer
 
 trainer = UnigramTrainer(
-    vocab_size=8000,               # Typically smaller than BPE/WordPiece
+    vocab_size=8000,               # 通常小于BPE/WordPiece
     special_tokens=["<unk>", "<s>", "</s>"],
     unk_token="<unk>",
-    max_piece_length=16,           # Maximum token length
-    n_sub_iterations=2,            # EM algorithm iterations
-    shrinking_factor=0.75,         # Vocabulary reduction rate
+    max_piece_length=16,           # 最大token长度
+    n_sub_iterations=2,            # EM算法迭代
+    shrinking_factor=0.75,         # 每次迭代词表减少率
     show_progress=True
 )
 ```
 
-## Training from large datasets
+## 从大数据集训练
 
-### Memory-efficient training
+### 内存高效训练
 
 ```python
 from datasets import load_dataset
@@ -224,10 +224,10 @@ from tokenizers import Tokenizer
 from tokenizers.models import BPE
 from tokenizers.trainers import BpeTrainer
 
-# Load dataset
+# 加载数据集
 dataset = load_dataset("wikipedia", "20220301.en", split="train", streaming=True)
 
-# Create iterator (yields batches)
+# 创建迭代器（产生批次）
 def batch_iterator(batch_size=1000):
     batch = []
     for sample in dataset:
@@ -238,63 +238,63 @@ def batch_iterator(batch_size=1000):
     if batch:
         yield batch
 
-# Initialize tokenizer
+# 初始化分词器
 tokenizer = Tokenizer(BPE())
 trainer = BpeTrainer(vocab_size=50000, special_tokens=["<|endoftext|>"])
 
-# Train (memory efficient - streams data)
+# 训练（内存高效 - 流式数据）
 tokenizer.train_from_iterator(
     batch_iterator(),
     trainer=trainer
 )
 ```
 
-**Memory usage**: ~200 MB (vs 10+ GB loading full dataset)
+**内存使用**：约200 MB（对比加载完整数据集10+ GB）
 
-### Multi-file training
+### 多文件训练
 
 ```python
 import glob
 
-# Find all training files
+# 查找所有训练文件
 files = glob.glob("data/train/*.txt")
-print(f"Training on {len(files)} files")
+print(f"训练 {len(files)} 个文件")
 
-# Train on all files
+# 在所有文件上训练
 tokenizer.train(files=files, trainer=trainer)
 ```
 
-### Parallel training (multi-processing)
+### 并行训练（多处理）
 
 ```python
 from multiprocessing import Pool, cpu_count
 import os
 
 def train_shard(shard_files):
-    """Train tokenizer on a shard of files."""
+    """在文件分片上训练分词器。"""
     tokenizer = Tokenizer(BPE())
     trainer = BpeTrainer(vocab_size=50000)
     tokenizer.train(files=shard_files, trainer=trainer)
     return tokenizer.get_vocab()
 
-# Split files into shards
+# 将文件分割成分片
 num_shards = cpu_count()
 file_shards = [files[i::num_shards] for i in range(num_shards)]
 
-# Train shards in parallel
+# 并行训练分片
 with Pool(num_shards) as pool:
     vocab_shards = pool.map(train_shard, file_shards)
 
-# Merge vocabularies (custom logic needed)
-# This is a simplified example - real implementation would merge intelligently
+# 合并词表（需要自定义逻辑）
+# 这是一个简化示例 - 实际实现需要智能合并
 final_vocab = {}
 for vocab in vocab_shards:
     final_vocab.update(vocab)
 ```
 
-## Domain-specific tokenizers
+## 领域特定分词器
 
-### Code tokenizer
+### 代码分词器
 
 ```python
 from tokenizers import Tokenizer
@@ -303,16 +303,16 @@ from tokenizers.trainers import BpeTrainer
 from tokenizers.pre_tokenizers import ByteLevel
 from tokenizers.normalizers import Sequence, NFC
 
-# Code-optimized configuration
+# 代码优化配置
 tokenizer = Tokenizer(BPE())
 
-# Minimal normalization (preserve case, whitespace)
-tokenizer.normalizer = NFC()  # Only normalize Unicode
+# 最小标准化（保留大小写、空白）
+tokenizer.normalizer = NFC()  # 仅标准化Unicode
 
-# Byte-level pre-tokenization (handles all characters)
+# 字节级预分词（处理所有字符）
 tokenizer.pre_tokenizer = ByteLevel()
 
-# Train on code corpus
+# 在代码语料上训练
 trainer = BpeTrainer(
     vocab_size=50000,
     special_tokens=["<|endoftext|>", "<|pad|>"],
@@ -322,88 +322,88 @@ trainer = BpeTrainer(
 tokenizer.train(files=["code_corpus.txt"], trainer=trainer)
 ```
 
-### Medical/scientific tokenizer
+### 医学/科学分词器
 
 ```python
-# Preserve case and special characters
+# 保留大小写和特殊字符
 from tokenizers.normalizers import NFKC
 from tokenizers.pre_tokenizers import Whitespace, Punctuation, Sequence
 
 tokenizer = Tokenizer(BPE())
 
-# Minimal normalization
+# 最小标准化
 tokenizer.normalizer = NFKC()
 
-# Preserve medical terms
+# 保留医学术语
 tokenizer.pre_tokenizer = Sequence([
     Whitespace(),
-    Punctuation(behavior="isolated")  # Keep punctuation separate
+    Punctuation(behavior="isolated")  # 保持标点分离
 ])
 
 trainer = BpeTrainer(
     vocab_size=50000,
     special_tokens=["[UNK]", "[CLS]", "[SEP]"],
-    min_frequency=3  # Higher threshold for rare medical terms
+    min_frequency=3  # 对罕见医学术语更高阈值
 )
 
 tokenizer.train(files=["pubmed_corpus.txt"], trainer=trainer)
 ```
 
-### Multilingual tokenizer
+### 多语言分词器
 
 ```python
-# Handle multiple scripts
+# 处理多种脚本
 from tokenizers.normalizers import NFKC, Lowercase, Sequence
 
 tokenizer = Tokenizer(BPE())
 
-# Normalize but don't lowercase (preserves script differences)
+# 标准化但不小写（保留脚本差异）
 tokenizer.normalizer = NFKC()
 
-# Byte-level handles all Unicode
+# 字节级处理所有Unicode
 from tokenizers.pre_tokenizers import ByteLevel
 tokenizer.pre_tokenizer = ByteLevel()
 
 trainer = BpeTrainer(
-    vocab_size=100000,  # Larger vocab for multiple languages
+    vocab_size=100000,  # 多语言需要更大词表
     special_tokens=["<unk>", "<s>", "</s>"],
-    limit_alphabet=None  # No limit (handles all scripts)
+    limit_alphabet=None  # 无限制（处理所有脚本）
 )
 
-# Train on multilingual corpus
+# 在多语言语料上训练
 tokenizer.train(files=["multilingual_corpus.txt"], trainer=trainer)
 ```
 
-## Vocabulary size selection
+## 词表大小选择
 
-### Guidelines by task
+### 按任务的指南
 
-| Task                  | Recommended Vocab Size | Rationale |
+| 任务                  | 推荐词表大小 | 理由 |
 |-----------------------|------------------------|-----------|
-| English (monolingual) | 30,000 - 50,000       | Balanced coverage |
-| Multilingual          | 50,000 - 250,000      | More languages = more tokens |
-| Code                  | 30,000 - 50,000       | Similar to English |
-| Domain-specific       | 10,000 - 30,000       | Smaller, focused vocabulary |
-| Character-level tasks | 1,000 - 5,000         | Only characters + subwords |
+| 英语（单语言） | 30,000 - 50,000       | 平衡覆盖 |
+| 多语言          | 50,000 - 250,000      | 更多语言 = 更多token |
+| 代码                  | 30,000 - 50,000       | 与英语相似 |
+| 领域特定       | 10,000 - 30,000       | 更小，专注词表 |
+| 字符级任务 | 1,000 - 5,000         | 仅字符 + 子词 |
 
-### Vocabulary size impact
+### 词表大小影响
 
-**Small vocab (10k)**:
-- Pros: Faster training, smaller model, less memory
-- Cons: More tokens per sentence, worse OOV handling
+**小词表（10k）**：
+- 优点：训练更快，模型更小，内存更少
+- 缺点：每句更多token，OOV处理更差
 
-**Medium vocab (30k-50k)**:
-- Pros: Good balance, standard choice
-- Cons: None (recommended default)
+**中等词表（30k-50k）**：
+- 优点：良好平衡，标准选择
+- 缺点：无（推荐默认）
 
-**Large vocab (100k+)**:
-- Pros: Fewer tokens per sentence, better OOV
-- Cons: Slower training, larger embedding table
+**大词表（100k+）**：
+- 优点：每句token更少，OOV更好
+- 缺点：训练更慢，嵌入表更大
 
-### Empirical testing
+### 经验测试
 
 ```python
-# Train multiple tokenizers with different vocab sizes
+# 用不同词表大小训练多个分词器
 vocab_sizes = [10000, 30000, 50000, 100000]
 
 for vocab_size in vocab_sizes:
@@ -411,25 +411,25 @@ for vocab_size in vocab_sizes:
     trainer = BpeTrainer(vocab_size=vocab_size)
     tokenizer.train(files=["sample.txt"], trainer=trainer)
 
-    # Evaluate on test set
+    # 在测试集上评估
     test_text = "Test sentence for evaluation..."
     tokens = tokenizer.encode(test_text).ids
 
-    print(f"Vocab: {vocab_size:6d} | Tokens: {len(tokens):3d} | Avg: {len(test_text)/len(tokens):.2f} chars/token")
+    print(f"词表: {vocab_size:6d} | Tokens: {len(tokens):3d} | Avg: {len(test_text)/len(tokens):.2f} chars/token")
 
-# Example output:
-# Vocab:  10000 | Tokens:  12 | Avg: 2.33 chars/token
-# Vocab:  30000 | Tokens:   8 | Avg: 3.50 chars/token
-# Vocab:  50000 | Tokens:   7 | Avg: 4.00 chars/token
-# Vocab: 100000 | Tokens:   6 | Avg: 4.67 chars/token
+# 示例输出:
+# 词表:  10000 | Tokens:  12 | Avg: 2.33 chars/token
+# 词表:  30000 | Tokens:   8 | Avg: 3.50 chars/token
+# 词表:  50000 | Tokens:   7 | Avg: 4.00 chars/token
+# 词表: 100000 | Tokens:   6 | Avg: 4.67 chars/token
 ```
 
-## Testing tokenizer quality
+## 测试分词器质量
 
-### Coverage test
+### 覆盖率测试
 
 ```python
-# Test on held-out data
+# 在保留数据上测试
 test_corpus = load_dataset("wikitext", "wikitext-103-raw-v1", split="test")
 
 total_tokens = 0
@@ -443,17 +443,17 @@ for text in test_corpus["text"]:
         unk_tokens += encoding.ids.count(unk_id)
 
 unk_rate = unk_tokens / total_tokens
-print(f"Unknown token rate: {unk_rate:.2%}")
+print(f"未知token率: {unk_rate:.2%}")
 
-# Good quality: <1% unknown tokens
-# Acceptable: 1-5%
-# Poor: >5%
+# 良好质量：<1%未知token
+# 可接受：1-5%
+# 差：>5%
 ```
 
-### Compression test
+### 压缩测试
 
 ```python
-# Measure tokenization efficiency
+# 测量分词效率
 import numpy as np
 
 token_lengths = []
@@ -465,17 +465,17 @@ for text in test_corpus["text"][:1000]:
         token_lengths.append(chars_per_token)
 
 avg_chars_per_token = np.mean(token_lengths)
-print(f"Average characters per token: {avg_chars_per_token:.2f}")
+print(f"每token平均字符数: {avg_chars_per_token:.2f}")
 
-# Good: 4-6 chars/token (English)
-# Acceptable: 3-4 chars/token
-# Poor: <3 chars/token (under-compression)
+# 良好：4-6 chars/token（英语）
+# 可接受：3-4 chars/token
+# 差：<3 chars/token（压缩不足）
 ```
 
-### Semantic test
+### 语义测试
 
 ```python
-# Manually inspect tokenization of common words/phrases
+# 手动检查常用词/短语的分词
 test_phrases = [
     "tokenization",
     "machine learning",
@@ -488,78 +488,78 @@ for phrase in test_phrases:
     tokens = tokenizer.encode(phrase).tokens
     print(f"{phrase:25s} → {tokens}")
 
-# Good tokenization:
+# 良好分词：
 # tokenization              → ['token', 'ization']
 # machine learning          → ['machine', 'learning']
 # artificial intelligence   → ['artificial', 'intelligence']
 ```
 
-## Troubleshooting
+## 故障排除
 
-### Issue: Training too slow
+### 问题：训练太慢
 
-**Solutions**:
-1. Reduce vocabulary size
-2. Increase `min_frequency`
-3. Use `limit_alphabet` to reduce initial alphabet
-4. Train on subset first
+**解决方案**：
+1. 减小词表大小
+2. 增加`min_frequency`
+3. 使用`limit_alphabet`减少初始字母表
+4. 先在子集上训练
 
 ```python
-# Fast training configuration
+# 快速训练配置
 trainer = BpeTrainer(
-    vocab_size=20000,      # Smaller vocab
-    min_frequency=5,       # Higher threshold
-    limit_alphabet=500,    # Limit alphabet
+    vocab_size=20000,      # 更小词表
+    min_frequency=5,       # 更高阈值
+    limit_alphabet=500,    # 限制字母表
     show_progress=True
 )
 ```
 
-### Issue: High unknown token rate
+### 问题：未知token率高
 
-**Solutions**:
-1. Increase vocabulary size
-2. Decrease `min_frequency`
-3. Check normalization (might be too aggressive)
+**解决方案**：
+1. 增加词表大小
+2. 减小`min_frequency`
+3. 检查标准化（可能太激进）
 
 ```python
-# Better coverage configuration
+# 更好覆盖配置
 trainer = BpeTrainer(
-    vocab_size=50000,      # Larger vocab
-    min_frequency=1,       # Lower threshold
+    vocab_size=50000,      # 更大词表
+    min_frequency=1,       # 更低阈值
 )
 ```
 
-### Issue: Poor quality tokenization
+### 问题：分词质量差
 
-**Solutions**:
-1. Verify normalization matches your use case
-2. Check pre-tokenization splits correctly
-3. Ensure training data is representative
-4. Try different algorithm (BPE vs WordPiece vs Unigram)
+**解决方案**：
+1. 验证标准化符合你的用例
+2. 检查预分词正确分割
+3. 确保训练数据有代表性
+4. 尝试不同算法（BPE vs WordPiece vs Unigram）
 
 ```python
-# Debug tokenization pipeline
+# 调试分词管道
 text = "Sample text to debug"
 
-# Check normalization
+# 检查标准化
 normalized = tokenizer.normalizer.normalize_str(text)
-print(f"Normalized: {normalized}")
+print(f"标准化后: {normalized}")
 
-# Check pre-tokenization
+# 检查预分词
 pre_tokens = tokenizer.pre_tokenizer.pre_tokenize_str(text)
-print(f"Pre-tokens: {pre_tokens}")
+print(f"预分词: {pre_tokens}")
 
-# Check final tokenization
+# 检查最终分词
 tokens = tokenizer.encode(text).tokens
-print(f"Tokens: {tokens}")
+print(f"Token: {tokens}")
 ```
 
-## Best practices
+## 最佳实践
 
-1. **Use representative training data** - Match your target domain
-2. **Start with standard configs** - BERT WordPiece or GPT-2 BPE
-3. **Test on held-out data** - Measure unknown token rate
-4. **Iterate on vocabulary size** - Test 30k, 50k, 100k
-5. **Save tokenizer with model** - Ensure reproducibility
-6. **Version your tokenizers** - Track changes for reproducibility
-7. **Document special tokens** - Critical for model training
+1. **使用有代表性的训练数据** - 匹配你的目标领域
+2. **从标准配置开始** - BERT WordPiece或GPT-2 BPE
+3. **在保留数据上测试** - 测量未知token率
+4. **迭代词表大小** - 测试30k、50k、100k
+5. **与模型一起保存分词器** - 确保可重现性
+6. **版本控制你的分词器** - 跟踪变化以确保可重现
+7. **记录特殊token** - 对模型训练至关重要

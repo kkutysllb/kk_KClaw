@@ -1,166 +1,166 @@
 ---
 name: lambda-labs-gpu-cloud
-description: Reserved and on-demand GPU cloud instances for ML training and inference. Use when you need dedicated GPU instances with simple SSH access, persistent filesystems, or high-performance multi-node clusters for large-scale training.
+description: 用于ML训练和推理的预留和按需GPU云实例。当需要具有简单SSH访问、持久文件系统或高性能多节点集群的大规模训练专用GPU实例时使用。
 version: 1.0.0
 author: Orchestra Research
 license: MIT
 dependencies: [lambda-cloud-client>=1.0.0]
 metadata:
   kclaw:
-    tags: [Infrastructure, GPU Cloud, Training, Inference, Lambda Labs]
+    tags: [基础设施, GPU云, 训练, 推理, Lambda Labs]
 
 ---
 
-# Lambda Labs GPU Cloud
+# Lambda Labs GPU云
 
-Comprehensive guide to running ML workloads on Lambda Labs GPU cloud with on-demand instances and 1-Click Clusters.
+在Lambda Labs GPU云上运行ML工作负载的完整指南，提供按需实例和1-Click集群。
 
-## When to use Lambda Labs
+## 何时使用Lambda Labs
 
-**Use Lambda Labs when:**
-- Need dedicated GPU instances with full SSH access
-- Running long training jobs (hours to days)
-- Want simple pricing with no egress fees
-- Need persistent storage across sessions
-- Require high-performance multi-node clusters (16-512 GPUs)
-- Want pre-installed ML stack (Lambda Stack with PyTorch, CUDA, NCCL)
+**在以下情况下使用Lambda Labs：**
+- 需要具有完全SSH访问权限的专用GPU实例
+- 运行长时间训练任务（数小时到数天）
+- 想要简单的定价且无出口费
+- 需要跨会话的持久存储
+- 需要高性能多节点集群（16-512 GPU）
+- 想要预安装的ML堆栈（带PyTorch、CUDA、NCCL的Lambda Stack）
 
-**Key features:**
-- **GPU variety**: B200, H100, GH200, A100, A10, A6000, V100
-- **Lambda Stack**: Pre-installed PyTorch, TensorFlow, CUDA, cuDNN, NCCL
-- **Persistent filesystems**: Keep data across instance restarts
-- **1-Click Clusters**: 16-512 GPU Slurm clusters with InfiniBand
-- **Simple pricing**: Pay-per-minute, no egress fees
-- **Global regions**: 12+ regions worldwide
+**关键特性：**
+- **GPU种类**：B200、H100、GH200、A100、A10、A6000、V100
+- **Lambda Stack**：预安装PyTorch、TensorFlow、CUDA、cuDNN、NCCL
+- **持久文件系统**：跨实例重启保持数据
+- **1-Click集群**：带InfiniBand的16-512 GPU Slurm集群
+- **简单定价**：按分钟付费，无出口费
+- **全球区域**：全球12+个区域
 
-**Use alternatives instead:**
-- **Modal**: For serverless, auto-scaling workloads
-- **SkyPilot**: For multi-cloud orchestration and cost optimization
-- **RunPod**: For cheaper spot instances and serverless endpoints
-- **Vast.ai**: For GPU marketplace with lowest prices
+**使用替代方案：**
+- **Modal**：用于无服务器、自动扩展工作负载
+- **SkyPilot**：用于多云编排和成本优化
+- **RunPod**：用于更便宜的spot实例和无服务器端点
+- **Vast.ai**：用于具有最低价格的GPU市场
 
-## Quick start
+## 快速开始
 
-### Account setup
+### 账户设置
 
-1. Create account at https://lambda.ai
-2. Add payment method
-3. Generate API key from dashboard
-4. Add SSH key (required before launching instances)
+1. 在https://lambda.ai创建账户
+2. 添加付款方式
+3. 从仪表板生成API密钥
+4. 添加SSH密钥（启动实例前必需）
 
-### Launch via console
+### 通过控制台启动
 
-1. Go to https://cloud.lambda.ai/instances
-2. Click "Launch instance"
-3. Select GPU type and region
-4. Choose SSH key
-5. Optionally attach filesystem
-6. Launch and wait 3-15 minutes
+1. 转到https://cloud.lambda.ai/instances
+2. 点击"启动实例"
+3. 选择GPU类型和区域
+4. 选择SSH密钥
+5. 可选附加文件系统
+6. 启动并等待3-15分钟
 
-### Connect via SSH
+### 通过SSH连接
 
 ```bash
-# Get instance IP from console
-ssh ubuntu@<INSTANCE-IP>
+# 从控制台获取实例IP
+ssh ubuntu@<实例IP>
 
-# Or with specific key
-ssh -i ~/.ssh/lambda_key ubuntu@<INSTANCE-IP>
+# 或使用特定密钥
+ssh -i ~/.ssh/lambda_key ubuntu@<实例IP>
 ```
 
-## GPU instances
+## GPU实例
 
-### Available GPUs
+### 可用GPU
 
-| GPU | VRAM | Price/GPU/hr | Best For |
+| GPU | VRAM | 价格/GPU/小时 | 最佳用途 |
 |-----|------|--------------|----------|
-| B200 SXM6 | 180 GB | $4.99 | Largest models, fastest training |
-| H100 SXM | 80 GB | $2.99-3.29 | Large model training |
-| H100 PCIe | 80 GB | $2.49 | Cost-effective H100 |
-| GH200 | 96 GB | $1.49 | Single-GPU large models |
-| A100 80GB | 80 GB | $1.79 | Production training |
-| A100 40GB | 40 GB | $1.29 | Standard training |
-| A10 | 24 GB | $0.75 | Inference, fine-tuning |
-| A6000 | 48 GB | $0.80 | Good VRAM/price ratio |
-| V100 | 16 GB | $0.55 | Budget training |
+| B200 SXM6 | 180 GB | $4.99 | 最大模型，最快训练 |
+| H100 SXM | 80 GB | $2.99-3.29 | 大模型训练 |
+| H100 PCIe | 80 GB | $2.49 | 成本效益H100 |
+| GH200 | 96 GB | $1.49 | 单GPU大模型 |
+| A100 80GB | 80 GB | $1.79 | 生产训练 |
+| A100 40GB | 40 GB | $1.29 | 标准训练 |
+| A10 | 24 GB | $0.75 | 推理、微调 |
+| A6000 | 48 GB | $0.80 | 良好VRAM/价格比 |
+| V100 | 16 GB | $0.55 | 预算训练 |
 
-### Instance configurations
+### 实例配置
 
 ```
-8x GPU: Best for distributed training (DDP, FSDP)
-4x GPU: Large models, multi-GPU training
-2x GPU: Medium workloads
-1x GPU: Fine-tuning, inference, development
+8x GPU：分布式训练最佳（DDP、FSDP）
+4x GPU：大模型、多GPU训练
+2x GPU：中等工作负载
+1x GPU：微调、推理、开发
 ```
 
-### Launch times
+### 启动时间
 
-- Single-GPU: 3-5 minutes
-- Multi-GPU: 10-15 minutes
+- 单GPU：3-5分钟
+- 多GPU：10-15分钟
 
 ## Lambda Stack
 
-All instances come with Lambda Stack pre-installed:
+所有实例都预装了Lambda Stack：
 
 ```bash
-# Included software
+# 包含的软件
 - Ubuntu 22.04 LTS
-- NVIDIA drivers (latest)
+- NVIDIA驱动程序（最新）
 - CUDA 12.x
 - cuDNN 8.x
-- NCCL (for multi-GPU)
-- PyTorch (latest)
-- TensorFlow (latest)
+- NCCL（用于多GPU）
+- PyTorch（最新）
+- TensorFlow（最新）
 - JAX
 - JupyterLab
 ```
 
-### Verify installation
+### 验证安装
 
 ```bash
-# Check GPU
+# 检查GPU
 nvidia-smi
 
-# Check PyTorch
+# 检查PyTorch
 python -c "import torch; print(torch.cuda.is_available())"
 
-# Check CUDA version
+# 检查CUDA版本
 nvcc --version
 ```
 
 ## Python API
 
-### Installation
+### 安装
 
 ```bash
 pip install lambda-cloud-client
 ```
 
-### Authentication
+### 认证
 
 ```python
 import os
 import lambda_cloud_client
 
-# Configure with API key
+# 使用API密钥配置
 configuration = lambda_cloud_client.Configuration(
     host="https://cloud.lambdalabs.com/api/v1",
     access_token=os.environ["LAMBDA_API_KEY"]
 )
 ```
 
-### List available instances
+### 列出可用实例
 
 ```python
 with lambda_cloud_client.ApiClient(configuration) as api_client:
     api = lambda_cloud_client.DefaultApi(api_client)
 
-    # Get available instance types
+    # 获取可用实例类型
     types = api.instance_types()
     for name, info in types.data.items():
         print(f"{name}: {info.instance_type.description}")
 ```
 
-### Launch instance
+### 启动实例
 
 ```python
 from lambda_cloud_client.models import LaunchInstanceRequest
@@ -169,16 +169,16 @@ request = LaunchInstanceRequest(
     region_name="us-west-1",
     instance_type_name="gpu_1x_h100_sxm5",
     ssh_key_names=["my-ssh-key"],
-    file_system_names=["my-filesystem"],  # Optional
+    file_system_names=["my-filesystem"],  # 可选
     name="training-job"
 )
 
 response = api.launch_instance(request)
 instance_id = response.data.instance_ids[0]
-print(f"Launched: {instance_id}")
+print(f"已启动: {instance_id}")
 ```
 
-### List running instances
+### 列出运行中的实例
 
 ```python
 instances = api.list_instances()
@@ -186,7 +186,7 @@ for instance in instances.data:
     print(f"{instance.name}: {instance.ip} ({instance.status})")
 ```
 
-### Terminate instance
+### 终止实例
 
 ```python
 from lambda_cloud_client.models import TerminateInstanceRequest
@@ -197,35 +197,35 @@ request = TerminateInstanceRequest(
 api.terminate_instance(request)
 ```
 
-### SSH key management
+### SSH密钥管理
 
 ```python
 from lambda_cloud_client.models import AddSshKeyRequest
 
-# Add SSH key
+# 添加SSH密钥
 request = AddSshKeyRequest(
     name="my-key",
     public_key="ssh-rsa AAAA..."
 )
 api.add_ssh_key(request)
 
-# List keys
+# 列出密钥
 keys = api.list_ssh_keys()
 
-# Delete key
+# 删除密钥
 api.delete_ssh_key(key_id)
 ```
 
-## CLI with curl
+## 使用curl的CLI
 
-### List instance types
+### 列出实例类型
 
 ```bash
 curl -u $LAMBDA_API_KEY: \
   https://cloud.lambdalabs.com/api/v1/instance-types | jq
 ```
 
-### Launch instance
+### 启动实例
 
 ```bash
 curl -u $LAMBDA_API_KEY: \
@@ -238,135 +238,135 @@ curl -u $LAMBDA_API_KEY: \
   }' | jq
 ```
 
-### Terminate instance
+### 终止实例
 
 ```bash
 curl -u $LAMBDA_API_KEY: \
   -X POST https://cloud.lambdalabs.com/api/v1/instance-operations/terminate \
   -H "Content-Type: application/json" \
-  -d '{"instance_ids": ["<INSTANCE-ID>"]}' | jq
+  -d '{"instance_ids": ["<实例ID>"]}' | jq
 ```
 
-## Persistent storage
+## 持久存储
 
-### Filesystems
+### 文件系统
 
-Filesystems persist data across instance restarts:
+文件系统跨实例重启保持数据：
 
 ```bash
-# Mount location
-/lambda/nfs/<FILESYSTEM_NAME>
+# 挂载位置
+/lambda/nfs/<文件系统名称>
 
-# Example: save checkpoints
+# 示例：保存检查点
 python train.py --checkpoint-dir /lambda/nfs/my-storage/checkpoints
 ```
 
-### Create filesystem
+### 创建文件系统
 
-1. Go to Storage in Lambda console
-2. Click "Create filesystem"
-3. Select region (must match instance region)
-4. Name and create
+1. 转到Lambda控制台中的存储
+2. 点击"创建文件系统"
+3. 选择区域（必须与实例区域匹配）
+4. 命名并创建
 
-### Attach to instance
+### 附加到实例
 
-Filesystems must be attached at instance launch time:
-- Via console: Select filesystem when launching
-- Via API: Include `file_system_names` in launch request
+文件系统必须在实例启动时附加：
+- 通过控制台：启动时选择文件系统
+- 通过API：在启动请求中包含`file_system_names`
 
-### Best practices
+### 最佳实践
 
 ```bash
-# Store on filesystem (persists)
+# 存储在文件系统（持久）
 /lambda/nfs/storage/
   ├── datasets/
   ├── checkpoints/
   ├── models/
   └── outputs/
 
-# Local SSD (faster, ephemeral)
+# 本地SSD（更快，临时）
 /home/ubuntu/
-  └── working/  # Temporary files
+  └── working/  # 临时文件
 ```
 
-## SSH configuration
+## SSH配置
 
-### Add SSH key
+### 添加SSH密钥
 
 ```bash
-# Generate key locally
+# 本地生成密钥
 ssh-keygen -t ed25519 -f ~/.ssh/lambda_key
 
-# Add public key to Lambda console
-# Or via API
+# 添加公钥到Lambda控制台
+# 或通过API
 ```
 
-### Multiple keys
+### 多密钥
 
 ```bash
-# On instance, add more keys
+# 在实例上，添加更多密钥
 echo 'ssh-rsa AAAA...' >> ~/.ssh/authorized_keys
 ```
 
-### Import from GitHub
+### 从GitHub导入
 
 ```bash
-# On instance
+# 在实例上
 ssh-import-id gh:username
 ```
 
-### SSH tunneling
+### SSH隧道
 
 ```bash
-# Forward Jupyter
+# 转发Jupyter
 ssh -L 8888:localhost:8888 ubuntu@<IP>
 
-# Forward TensorBoard
+# 转发TensorBoard
 ssh -L 6006:localhost:6006 ubuntu@<IP>
 
-# Multiple ports
+# 多端口
 ssh -L 8888:localhost:8888 -L 6006:localhost:6006 ubuntu@<IP>
 ```
 
 ## JupyterLab
 
-### Launch from console
+### 从控制台启动
 
-1. Go to Instances page
-2. Click "Launch" in Cloud IDE column
-3. JupyterLab opens in browser
+1. 转到实例页面
+2. 点击Cloud IDE列中的"启动"
+3. JupyterLab在浏览器中打开
 
-### Manual access
+### 手动访问
 
 ```bash
-# On instance
+# 在实例上
 jupyter lab --ip=0.0.0.0 --port=8888
 
-# From local machine with tunnel
+# 从本地机器通过隧道
 ssh -L 8888:localhost:8888 ubuntu@<IP>
-# Open http://localhost:8888
+# 打开 http://localhost:8888
 ```
 
-## Training workflows
+## 训练工作流程
 
-### Single-GPU training
+### 单GPU训练
 
 ```bash
-# SSH to instance
+# SSH到实例
 ssh ubuntu@<IP>
 
-# Clone repo
+# 克隆仓库
 git clone https://github.com/user/project
 cd project
 
-# Install dependencies
+# 安装依赖
 pip install -r requirements.txt
 
-# Train
+# 训练
 python train.py --epochs 100 --checkpoint-dir /lambda/nfs/storage/checkpoints
 ```
 
-### Multi-GPU training (single node)
+### 多GPU训练（单节点）
 
 ```python
 # train_ddp.py
@@ -382,18 +382,18 @@ def main():
     model = MyModel().to(device)
     model = DDP(model, device_ids=[device])
 
-    # Training loop...
+    # 训练循环...
 
 if __name__ == "__main__":
     main()
 ```
 
 ```bash
-# Launch with torchrun (8 GPUs)
+# 使用torchrun启动（8 GPU）
 torchrun --nproc_per_node=8 train_ddp.py
 ```
 
-### Checkpoint to filesystem
+### 检查点到文件系统
 
 ```python
 import os
@@ -401,7 +401,7 @@ import os
 checkpoint_dir = "/lambda/nfs/my-storage/checkpoints"
 os.makedirs(checkpoint_dir, exist_ok=True)
 
-# Save checkpoint
+# 保存检查点
 torch.save({
     'epoch': epoch,
     'model_state_dict': model.state_dict(),
@@ -410,139 +410,139 @@ torch.save({
 }, f"{checkpoint_dir}/checkpoint_{epoch}.pt")
 ```
 
-## 1-Click Clusters
+## 1-Click集群
 
-### Overview
+### 概述
 
-High-performance Slurm clusters with:
-- 16-512 NVIDIA H100 or B200 GPUs
+高性能Slurm集群，具有：
+- 16-512 NVIDIA H100或B200 GPU
 - NVIDIA Quantum-2 400 Gb/s InfiniBand
-- GPUDirect RDMA at 3200 Gb/s
-- Pre-installed distributed ML stack
+- 3200 Gb/s GPUDirect RDMA
+- 预安装的分布式ML堆栈
 
-### Included software
+### 包含软件
 
 - Ubuntu 22.04 LTS + Lambda Stack
-- NCCL, Open MPI
-- PyTorch with DDP and FSDP
+- NCCL、Open MPI
+- 带DDP和FSDP的PyTorch
 - TensorFlow
-- OFED drivers
+- OFED驱动程序
 
-### Storage
+### 存储
 
-- 24 TB NVMe per compute node (ephemeral)
-- Lambda filesystems for persistent data
+- 每计算节点24 TB NVMe（临时）
+- Lambda文件系统用于持久数据
 
-### Multi-node training
+### 多节点训练
 
 ```bash
-# On Slurm cluster
+# 在Slurm集群上
 srun --nodes=4 --ntasks-per-node=8 --gpus-per-node=8 \
   torchrun --nnodes=4 --nproc_per_node=8 \
   --rdzv_backend=c10d --rdzv_endpoint=$MASTER_ADDR:29500 \
   train.py
 ```
 
-## Networking
+## 网络
 
-### Bandwidth
+### 带宽
 
-- Inter-instance (same region): up to 200 Gbps
-- Internet outbound: 20 Gbps max
+- 跨实例（同区域）：最高200 Gbps
+- 互联网出口：最高20 Gbps
 
-### Firewall
+### 防火墙
 
-- Default: Only port 22 (SSH) open
-- Configure additional ports in Lambda console
-- ICMP traffic allowed by default
+- 默认：仅端口22（SSH）开放
+- 在Lambda控制台配置其他端口
+- 默认允许ICMP流量
 
-### Private IPs
+### 私有IP
 
 ```bash
-# Find private IP
+# 查找私有IP
 ip addr show | grep 'inet '
 ```
 
-## Common workflows
+## 常见工作流程
 
-### Workflow 1: Fine-tuning LLM
+### 工作流程1：微调LLM
 
 ```bash
-# 1. Launch 8x H100 instance with filesystem
+# 1. 使用文件系统启动8x H100实例
 
-# 2. SSH and setup
+# 2. SSH并设置
 ssh ubuntu@<IP>
 pip install transformers accelerate peft
 
-# 3. Download model to filesystem
+# 3. 下载模型到文件系统
 python -c "
 from transformers import AutoModelForCausalLM
 model = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-2-7b-hf')
 model.save_pretrained('/lambda/nfs/storage/models/llama-2-7b')
 "
 
-# 4. Fine-tune with checkpoints on filesystem
+# 4. 在文件系统中使用检查点微调
 accelerate launch --num_processes 8 train.py \
   --model_path /lambda/nfs/storage/models/llama-2-7b \
   --output_dir /lambda/nfs/storage/outputs \
   --checkpoint_dir /lambda/nfs/storage/checkpoints
 ```
 
-### Workflow 2: Batch inference
+### 工作流程2：批量推理
 
 ```bash
-# 1. Launch A10 instance (cost-effective for inference)
+# 1. 启动A10实例（推理成本效益高）
 
-# 2. Run inference
+# 2. 运行推理
 python inference.py \
   --model /lambda/nfs/storage/models/fine-tuned \
   --input /lambda/nfs/storage/data/inputs.jsonl \
   --output /lambda/nfs/storage/data/outputs.jsonl
 ```
 
-## Cost optimization
+## 成本优化
 
-### Choose right GPU
+### 选择正确的GPU
 
-| Task | Recommended GPU |
-|------|-----------------|
-| LLM fine-tuning (7B) | A100 40GB |
-| LLM fine-tuning (70B) | 8x H100 |
-| Inference | A10, A6000 |
-| Development | V100, A10 |
-| Maximum performance | B200 |
+| 任务 | 推荐GPU |
+|------|---------|
+| LLM微调（7B） | A100 40GB |
+| LLM微调（70B） | 8x H100 |
+| 推理 | A10、A6000 |
+| 开发 | V100、A10 |
+| 最大性能 | B200 |
 
-### Reduce costs
+### 降低成本
 
-1. **Use filesystems**: Avoid re-downloading data
-2. **Checkpoint frequently**: Resume interrupted training
-3. **Right-size**: Don't over-provision GPUs
-4. **Terminate idle**: No auto-stop, manually terminate
+1. **使用文件系统**：避免重新下载数据
+2. **经常检查点**：恢复中断的训练
+3. **合理大小**：不要过度配置GPU
+4. **终止空闲**：无自动停止，手动终止
 
-### Monitor usage
+### 监控使用
 
-- Dashboard shows real-time GPU utilization
-- API for programmatic monitoring
+- 仪表板显示实时GPU利用率
+- API用于编程监控
 
-## Common issues
+## 常见问题
 
-| Issue | Solution |
-|-------|----------|
-| Instance won't launch | Check region availability, try different GPU |
-| SSH connection refused | Wait for instance to initialize (3-15 min) |
-| Data lost after terminate | Use persistent filesystems |
-| Slow data transfer | Use filesystem in same region |
-| GPU not detected | Reboot instance, check drivers |
+| 问题 | 解决方案 |
+|------|----------|
+| 实例无法启动 | 检查区域可用性，尝试不同GPU |
+| SSH连接被拒绝 | 等待实例初始化（3-15分钟） |
+| 终止后数据丢失 | 使用持久文件系统 |
+| 数据传输慢 | 使用同区域文件系统 |
+| GPU未检测到 | 重启实例，检查驱动程序 |
 
-## References
+## 参考
 
-- **[Advanced Usage](references/advanced-usage.md)** - Multi-node training, API automation
-- **[Troubleshooting](references/troubleshooting.md)** - Common issues and solutions
+- **[高级用法](references/advanced-usage.md)** - 多节点训练、API自动化
+- **[故障排除](references/troubleshooting.md)** - 常见问题和解决方案
 
-## Resources
+## 资源
 
-- **Documentation**: https://docs.lambda.ai
-- **Console**: https://cloud.lambda.ai
-- **Pricing**: https://lambda.ai/instances
-- **Support**: https://support.lambdalabs.com
-- **Blog**: https://lambda.ai/blog
+- **文档**：https://docs.lambda.ai
+- **控制台**：https://cloud.lambda.ai
+- **定价**：https://lambda.ai/instances
+- **支持**：https://support.lambdalabs.com
+- **博客**：https://lambda.ai/blog

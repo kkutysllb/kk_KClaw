@@ -1,152 +1,152 @@
 ---
 sidebar_position: 3
-title: 'Learning Path'
-description: 'Choose your learning path through the KClaw Agent documentation based on your experience level and goals.'
+title: "学习路径"
+description: "根据您的经验水平和目标选择 KClaw Agent 文档的学习路径。"
 ---
 
-# Learning Path
+# 学习路径
 
-KClaw Agent can do a lot — CLI assistant, Telegram/Discord bot, task automation, RL training, and more. This page helps you figure out where to start and what to read based on your experience level and what you're trying to accomplish.
+KClaw Agent 可以做很多事情——CLI 助手、Telegram/Discord 机器人、任务自动化、RL 训练等。本页面帮助您根据经验水平和您想要完成的目标确定从哪里开始以及应该阅读什么。
 
-:::tip Start Here
-If you haven't installed KClaw Agent yet, begin with the [Installation guide](/docs/getting-started/installation) and then run through the [Quickstart](/docs/getting-started/quickstart). Everything below assumes you have a working installation.
+:::tip 从这里开始
+如果您还没有安装 KClaw Agent，请从 [安装指南](/docs/getting-started/installation) 开始，然后运行 [快速入门](/docs/getting-started/quickstart)。以下所有内容都假设您有一个可工作的安装。
 :::
 
-## How to Use This Page
+## 如何使用此页面
 
-- **Know your level?** Jump to the [experience-level table](#by-experience-level) and follow the reading order for your tier.
-- **Have a specific goal?** Skip to [By Use Case](#by-use-case) and find the scenario that matches.
-- **Just browsing?** Check the [Key Features](#key-features-at-a-glance) table for a quick overview of everything KClaw Agent can do.
+- **知道您的级别？** 跳转到 [经验级别表](#by-experience-level) 并按照您所在层的阅读顺序进行。
+- **有特定目标？** 跳转到 [按用例](#by-use-case) 并找到匹配的场景。
+- **只是浏览？** 查看 [关键功能一览](#key-features-at-a-glance) 表以快速了解 KClaw Agent 的所有功能。
 
-## By Experience Level
+## 按经验级别
 
-| Level | Goal | Recommended Reading | Time Estimate |
+| 级别 | 目标 | 推荐的阅读内容 | 时间估计 |
 |---|---|---|---|
-| **Beginner** | Get up and running, have basic conversations, use built-in tools | [Installation](/docs/getting-started/installation) → [Quickstart](/docs/getting-started/quickstart) → [CLI Usage](/docs/user-guide/cli) → [Configuration](/docs/user-guide/configuration) | ~1 hour |
-| **Intermediate** | Set up messaging bots, use advanced features like memory, cron jobs, and skills | [Sessions](/docs/user-guide/sessions) → [Messaging](/docs/user-guide/messaging) → [Tools](/docs/user-guide/features/tools) → [Skills](/docs/user-guide/features/skills) → [Memory](/docs/user-guide/features/memory) → [Cron](/docs/user-guide/features/cron) | ~2–3 hours |
-| **Advanced** | Build custom tools, create skills, train models with RL, contribute to the project | [Architecture](/docs/developer-guide/architecture) → [Adding Tools](/docs/developer-guide/adding-tools) → [Creating Skills](/docs/developer-guide/creating-skills) → [RL Training](/docs/user-guide/features/rl-training) → [Contributing](/docs/developer-guide/contributing) | ~4–6 hours |
+| **初学者** | 启动并运行，进行基本对话，使用内置工具 | [安装](/docs/getting-started/installation) → [快速入门](/docs/getting-started/quickstart) → [CLI 使用](/docs/user-guide/cli) → [配置](/docs/user-guide/configuration) | 约 1 小时 |
+| **中级** | 设置消息机器人，使用内存、cron 作业和技能等高级功能 | [会话](/docs/user-guide/sessions) → [消息](/docs/user-guide/messaging) → [工具](/docs/user-guide/features/tools) → [技能](/docs/user-guide/features/skills) → [记忆](/docs/user-guide/features/memory) → [Cron](/docs/user-guide/features/cron) | 约 2-3 小时 |
+| **高级** | 构建自定义工具、创建技能、使用 RL 训练模型、为项目做贡献 | [架构](/docs/developer-guide/architecture) → [添加工具](/docs/developer-guide/adding-tools) → [创建技能](/docs/developer-guide/creating-skills) → [RL 训练](/docs/user-guide/features/rl-training) → [贡献](/docs/developer-guide/contributing) | 约 4-6 小时 |
 
-## By Use Case
+## 按用例
 
-Pick the scenario that matches what you want to do. Each one links you to the relevant docs in the order you should read them.
+选择与您想要做的事情匹配的场景。每个场景都链接到您应该按顺序阅读的相关文档。
 
-### "I want a CLI coding assistant"
+### "我想要一个 CLI 编码助手"
 
-Use KClaw Agent as an interactive terminal assistant for writing, reviewing, and running code.
+将 KClaw Agent 用作交互式终端助手，用于编写、审查和运行代码。
 
-1. [Installation](/docs/getting-started/installation)
-2. [Quickstart](/docs/getting-started/quickstart)
-3. [CLI Usage](/docs/user-guide/cli)
-4. [Code Execution](/docs/user-guide/features/code-execution)
-5. [Context Files](/docs/user-guide/features/context-files)
-6. [Tips & Tricks](/docs/guides/tips)
-
-:::tip
-Pass files directly into your conversation with context files. KClaw Agent can read, edit, and run code in your projects.
-:::
-
-### "I want a Telegram/Discord bot"
-
-Deploy KClaw Agent as a bot on your favorite messaging platform.
-
-1. [Installation](/docs/getting-started/installation)
-2. [Configuration](/docs/user-guide/configuration)
-3. [Messaging Overview](/docs/user-guide/messaging)
-4. [Telegram Setup](/docs/user-guide/messaging/telegram)
-5. [Discord Setup](/docs/user-guide/messaging/discord)
-6. [Voice Mode](/docs/user-guide/features/voice-mode)
-7. [Use Voice Mode with KClaw](/docs/guides/use-voice-mode-with-kclaw)
-8. [Security](/docs/user-guide/security)
-
-For full project examples, see:
-- [Daily Briefing Bot](/docs/guides/daily-briefing-bot)
-- [Team Telegram Assistant](/docs/guides/team-telegram-assistant)
-
-### "I want to automate tasks"
-
-Schedule recurring tasks, run batch jobs, or chain agent actions together.
-
-1. [Quickstart](/docs/getting-started/quickstart)
-2. [Cron Scheduling](/docs/user-guide/features/cron)
-3. [Batch Processing](/docs/user-guide/features/batch-processing)
-4. [Delegation](/docs/user-guide/features/delegation)
-5. [Hooks](/docs/user-guide/features/hooks)
+1. [安装](/docs/getting-started/installation)
+2. [快速入门](/docs/getting-started/quickstart)
+3. [CLI 使用](/docs/user-guide/cli)
+4. [代码执行](/docs/user-guide/features/code-execution)
+5. [上下文文件](/docs/user-guide/features/context-files)
+6. [提示和技巧](/docs/guides/tips)
 
 :::tip
-Cron jobs let KClaw Agent run tasks on a schedule — daily summaries, periodic checks, automated reports — without you being present.
+将文件直接传递到您的对话中作为上下文文件。KClaw Agent 可以读取、编辑和运行您项目中的代码。
 :::
 
-### "I want to build custom tools/skills"
+### "我想要一个 Telegram/Discord 机器人"
 
-Extend KClaw Agent with your own tools and reusable skill packages.
+将 KClaw Agent 部署为您喜爱的消息平台上的机器人。
 
-1. [Tools Overview](/docs/user-guide/features/tools)
-2. [Skills Overview](/docs/user-guide/features/skills)
-3. [MCP (Model Context Protocol)](/docs/user-guide/features/mcp)
-4. [Architecture](/docs/developer-guide/architecture)
-5. [Adding Tools](/docs/developer-guide/adding-tools)
-6. [Creating Skills](/docs/developer-guide/creating-skills)
+1. [安装](/docs/getting-started/installation)
+2. [配置](/docs/user-guide/configuration)
+3. [消息概述](/docs/user-guide/messaging)
+4. [Telegram 设置](/docs/user-guide/messaging/telegram)
+5. [Discord 设置](/docs/user-guide/messaging/discord)
+6. [语音模式](/docs/user-guide/features/voice-mode)
+7. [在 KClaw 中使用语音模式](/docs/guides/use-voice-mode-with-kclaw)
+8. [安全](/docs/user-guide/security)
+
+有关完整项目示例，请参阅：
+- [每日简报机器人](/docs/guides/daily-briefing-bot)
+- [团队 Telegram 助手](/docs/guides/team-telegram-assistant)
+
+### "我想要自动化任务"
+
+计划重复任务、运行批处理作业或将代理操作链接在一起。
+
+1. [快速入门](/docs/getting-started/quickstart)
+2. [Cron 计划](/docs/user-guide/features/cron)
+3. [批处理](/docs/user-guide/features/batch-processing)
+4. [委托](/docs/user-guide/features/delegation)
+5. [钩子](/docs/user-guide/features/hooks)
 
 :::tip
-Tools are individual functions the agent can call. Skills are bundles of tools, prompts, and configuration packaged together. Start with tools, graduate to skills.
+Cron 作业让 KClaw Agent 按计划运行任务——每日摘要、周期性检查、自动报告——即使您不在场也可以。
 :::
 
-### "I want to train models"
+### "我想要构建自定义工具/技能"
 
-Use reinforcement learning to fine-tune model behavior with KClaw Agent's built-in RL training pipeline.
+用您自己的工具和可重用的技能包扩展 KClaw Agent。
 
-1. [Quickstart](/docs/getting-started/quickstart)
-2. [Configuration](/docs/user-guide/configuration)
-3. [RL Training](/docs/user-guide/features/rl-training)
-4. [Provider Routing](/docs/user-guide/features/provider-routing)
-5. [Architecture](/docs/developer-guide/architecture)
+1. [工具概述](/docs/user-guide/features/tools)
+2. [技能概述](/docs/user-guide/features/skills)
+3. [MCP（模型上下文协议）](/docs/user-guide/features/mcp)
+4. [架构](/docs/developer-guide/architecture)
+5. [添加工具](/docs/developer-guide/adding-tools)
+6. [创建技能](/docs/developer-guide/creating-skills)
 
 :::tip
-RL training works best when you already understand the basics of how KClaw Agent handles conversations and tool calls. Run through the Beginner path first if you're new.
+工具是代理可以调用的单个函数。技能是捆绑在一起的工具、提示和配置的包。先从工具开始，然后升格到技能。
 :::
 
-### "I want to use it as a Python library"
+### "我想要训练模型"
 
-Integrate KClaw Agent into your own Python applications programmatically.
+使用强化学习通过 KClaw Agent 内置的 RL 训练管道微调模型行为。
 
-1. [Installation](/docs/getting-started/installation)
-2. [Quickstart](/docs/getting-started/quickstart)
-3. [Python Library Guide](/docs/guides/python-library)
-4. [Architecture](/docs/developer-guide/architecture)
-5. [Tools](/docs/user-guide/features/tools)
-6. [Sessions](/docs/user-guide/sessions)
+1. [快速入门](/docs/getting-started/quickstart)
+2. [配置](/docs/user-guide/configuration)
+3. [RL 训练](/docs/user-guide/features/rl-training)
+4. [提供商路由](/docs/user-guide/features/provider-routing)
+5. [架构](/docs/developer-guide/architecture)
 
-## Key Features at a Glance
+:::tip
+RL 训练在您已经了解 KClaw Agent 如何处理对话和工具调用的基本原理时效果最佳。如果您是新手，请先完成初学者路径。
+:::
 
-Not sure what's available? Here's a quick directory of major features:
+### "我想将它用作 Python 库"
 
-| Feature | What It Does | Link |
+以编程方式将 KClaw Agent 集成到您自己的 Python 应用程序中。
+
+1. [安装](/docs/getting-started/installation)
+2. [快速入门](/docs/getting-started/quickstart)
+3. [Python 库指南](/docs/guides/python-library)
+4. [架构](/docs/developer-guide/architecture)
+5. [工具](/docs/user-guide/features/tools)
+6. [会话](/docs/user-guide/sessions)
+
+## 关键功能一览
+
+不确定有什么可用？这是所有主要功能的快速目录：
+
+| 功能 | 功能 | 链接 |
 |---|---|---|
-| **Tools** | Built-in tools the agent can call (file I/O, search, shell, etc.) | [Tools](/docs/user-guide/features/tools) |
-| **Skills** | Installable plugin packages that add new capabilities | [Skills](/docs/user-guide/features/skills) |
-| **Memory** | Persistent memory across sessions | [Memory](/docs/user-guide/features/memory) |
-| **Context Files** | Feed files and directories into conversations | [Context Files](/docs/user-guide/features/context-files) |
-| **MCP** | Connect to external tool servers via Model Context Protocol | [MCP](/docs/user-guide/features/mcp) |
-| **Cron** | Schedule recurring agent tasks | [Cron](/docs/user-guide/features/cron) |
-| **Delegation** | Spawn sub-agents for parallel work | [Delegation](/docs/user-guide/features/delegation) |
-| **Code Execution** | Run code in sandboxed environments | [Code Execution](/docs/user-guide/features/code-execution) |
-| **Browser** | Web browsing and scraping | [Browser](/docs/user-guide/features/browser) |
-| **Hooks** | Event-driven callbacks and middleware | [Hooks](/docs/user-guide/features/hooks) |
-| **Batch Processing** | Process multiple inputs in bulk | [Batch Processing](/docs/user-guide/features/batch-processing) |
-| **RL Training** | Fine-tune models with reinforcement learning | [RL Training](/docs/user-guide/features/rl-training) |
-| **Provider Routing** | Route requests across multiple LLM providers | [Provider Routing](/docs/user-guide/features/provider-routing) |
+| **工具** | 代理可以调用的内置工具（文件 I/O、搜索、shell 等） | [工具](/docs/user-guide/features/tools) |
+| **技能** | 可安装的插件包，添加新功能 | [技能](/docs/user-guide/features/skills) |
+| **记忆** | 跨会话持久记忆 | [记忆](/docs/user-guide/features/memory) |
+| **上下文文件** | 将文件和目录输入对话 | [上下文文件](/docs/user-guide/features/context-files) |
+| **MCP** | 通过模型上下文协议连接到外部工具服务器 | [MCP](/docs/user-guide/features/mcp) |
+| **Cron** | 计划重复代理任务 | [Cron](/docs/user-guide/features/cron) |
+| **委托** | 生成子代理进行并行工作 | [委托](/docs/user-guide/features/delegation) |
+| **代码执行** | 在沙盒环境中运行代码 | [代码执行](/docs/user-guide/features/code-execution) |
+| **浏览器** | Web 浏览和抓取 | [浏览器](/docs/user-guide/features/browser) |
+| **钩子** | 事件驱动的回调和中间件 | [钩子](/docs/user-guide/features/hooks) |
+| **批处理** | 批量处理多个输入 | [批处理](/docs/user-guide/features/batch-processing) |
+| **RL 训练** | 使用强化学习微调模型 | [RL 训练](/docs/user-guide/features/rl-training) |
+| **提供商路由** | 跨多个 LLM 提供商路由请求 | [提供商路由](/docs/user-guide/features/provider-routing) |
 
-## What to Read Next
+## 接下来阅读什么
 
-Based on where you are right now:
+根据您现在的位置：
 
-- **Just finished installing?** → Head to the [Quickstart](/docs/getting-started/quickstart) to run your first conversation.
-- **Completed the Quickstart?** → Read [CLI Usage](/docs/user-guide/cli) and [Configuration](/docs/user-guide/configuration) to customize your setup.
-- **Comfortable with the basics?** → Explore [Tools](/docs/user-guide/features/tools), [Skills](/docs/user-guide/features/skills), and [Memory](/docs/user-guide/features/memory) to unlock the full power of the agent.
-- **Setting up for a team?** → Read [Security](/docs/user-guide/security) and [Sessions](/docs/user-guide/sessions) to understand access control and conversation management.
-- **Ready to build?** → Jump into the [Developer Guide](/docs/developer-guide/architecture) to understand the internals and start contributing.
-- **Want practical examples?** → Check out the [Guides](/docs/guides/tips) section for real-world projects and tips.
+- **刚完成安装？** → 前往 [快速入门](/docs/getting-started/quickstart) 运行您的第一次对话。
+- **完成了快速入门？** → 阅读 [CLI 使用](/docs/user-guide/cli) 和 [配置](/docs/user-guide/configuration) 来自定义您的设置。
+- **对基础知识感到舒适？** → 探索 [工具](/docs/user-guide/features/tools)、[技能](/docs/user-guide/features/skills) 和 [记忆](/docs/user-guide/features/memory) 以释放代理的全部能力。
+- **为团队设置？** → 阅读 [安全](/docs/user-guide/security) 和 [会话](/docs/user-guide/sessions) 了解访问控制和对话管理。
+- **准备好构建？** → 跳转到 [开发者指南](/docs/developer-guide/architecture) 了解内部结构并开始贡献。
+- **想要实际示例？** → 查看 [指南](/docs/guides/tips) 部分获取实际项目和小技巧。
 
 :::tip
-You don't need to read everything. Pick the path that matches your goal, follow the links in order, and you'll be productive quickly. You can always come back to this page to find your next step.
+您不需要阅读所有内容。选择与您的目标匹配的路径，按顺序关注链接，您将很快变得高效。您可以随时返回此页面找到您的下一步。
 :::

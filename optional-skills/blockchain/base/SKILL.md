@@ -1,54 +1,53 @@
 ---
 name: base
-description: Query Base (Ethereum L2) blockchain data with USD pricing — wallet balances, token info, transaction details, gas analysis, contract inspection, whale detection, and live network stats. Uses Base RPC + CoinGecko. No API key required.
+description: 使用USD定价查询Base（以太坊L2）区块链数据 — 钱包余额、代币信息、交易详情、gas分析、合约检查、鲸鱼检测和实时网络统计。使用Base RPC + CoinGecko。无需API密钥。
 version: 0.1.0
 author: youssefea
 license: MIT
 metadata:
   kclaw:
-    tags: [Base, Blockchain, Crypto, Web3, RPC, DeFi, EVM, L2, Ethereum]
+    tags: [Base, 区块链, 加密, Web3, RPC, DeFi, EVM, L2, 以太坊]
     related_skills: []
 ---
 
-# Base Blockchain Skill
+# Base区块链技能
 
-Query Base (Ethereum L2) on-chain data enriched with USD pricing via CoinGecko.
-8 commands: wallet portfolio, token info, transactions, gas analysis,
-contract inspection, whale detection, network stats, and price lookup.
+通过CoinGecko的USD定价丰富查询Base（以太坊L2）链上数据。
+8个命令：钱包投资组合、代币信息、交易、gas分析、
+合约检查、鲸鱼检测、网络统计和价格查询。
 
-No API key needed. Uses only Python standard library (urllib, json, argparse).
-
----
-
-## When to Use
-
-- User asks for a Base wallet balance, token holdings, or portfolio value
-- User wants to inspect a specific transaction by hash
-- User wants ERC-20 token metadata, price, supply, or market cap
-- User wants to understand Base gas costs and L1 data fees
-- User wants to inspect a contract (ERC type detection, proxy resolution)
-- User wants to find large ETH transfers (whale detection)
-- User wants Base network health, gas price, or ETH price
-- User asks "what's the price of USDC/AERO/DEGEN/ETH?"
+无需API密钥。仅使用Python标准库（urllib、json、argparse）。
 
 ---
 
-## Prerequisites
+## 何时使用
 
-The helper script uses only Python standard library (urllib, json, argparse).
-No external packages required.
-
-Pricing data comes from CoinGecko's free API (no key needed, rate-limited
-to ~10-30 requests/minute). For faster lookups, use `--no-prices` flag.
+- 用户询问Base钱包余额、代币持有量或投资组合价值
+- 用户想要通过哈希检查特定交易
+- 用户想要ERC-20代币元数据、价格、供应量或市值
+- 用户想要了解Base gas成本和L1数据费用
+- 用户想要检查合约（ERC类型检测、代理解析）
+- 用户想要找到大额ETH转账（鲸鱼检测）
+- 用户想要Base网络健康状况、gas价格或ETH价格
+- 用户问"USDC/AERO/DEGEN/ETH的价格是多少？"
 
 ---
 
-## Quick Reference
+## 前置要求
 
-RPC endpoint (default): https://mainnet.base.org
-Override: export BASE_RPC_URL=https://your-private-rpc.com
+辅助脚本仅使用Python标准库（urllib、json、argparse）。
+无需外部包。
 
-Helper script path: ~/.kclaw/skills/blockchain/base/scripts/base_client.py
+定价数据来自CoinGecko的免费API（无需密钥，速率限制约为10-30请求/分钟）。要更快查询，使用`--no-prices`标志。
+
+---
+
+## 快速参考
+
+RPC端点（默认）：https://mainnet.base.org
+覆盖：`export BASE_RPC_URL=https://your-private-rpc.com`
+
+辅助脚本路径：`~/.kclaw/skills/blockchain/base/scripts/base_client.py`
 
 ```
 python3 base_client.py wallet   <address> [--limit N] [--all] [--no-prices]
@@ -63,126 +62,123 @@ python3 base_client.py price    <contract_address_or_symbol>
 
 ---
 
-## Procedure
+## 程序
 
-### 0. Setup Check
+### 0. 设置检查
 
 ```bash
 python3 --version
 
-# Optional: set a private RPC for better rate limits
+# 可选：设置私有RPC以获得更好的速率限制
 export BASE_RPC_URL="https://mainnet.base.org"
 
-# Confirm connectivity
+# 确认连接
 python3 ~/.kclaw/skills/blockchain/base/scripts/base_client.py stats
 ```
 
-### 1. Wallet Portfolio
+### 1. 钱包投资组合
 
-Get ETH balance and ERC-20 token holdings with USD values.
-Checks ~15 well-known Base tokens (USDC, WETH, AERO, DEGEN, etc.)
-via on-chain `balanceOf` calls. Tokens sorted by value, dust filtered.
+获取ETH余额和带USD价值的ERC-20代币持有量。
+通过链上`balanceOf`调用检查约15个知名Base代币（USDC、WETH、AERO、DEGEN等）。
+代币按价值排序，过滤灰尘。
 
 ```bash
 python3 ~/.kclaw/skills/blockchain/base/scripts/base_client.py \
   wallet 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
 ```
 
-Flags:
-- `--limit N` — show top N tokens (default: 20)
-- `--all` — show all tokens, no dust filter, no limit
-- `--no-prices` — skip CoinGecko price lookups (faster, RPC-only)
+标志：
+- `--limit N` — 显示前N个代币（默认：20）
+- `--all` — 显示所有代币，不过滤灰尘，无限制
+- `--no-prices` — 跳过CoinGecko价格查询（更快，仅RPC）
 
-Output includes: ETH balance + USD value, token list with prices sorted
-by value, dust count, total portfolio value in USD.
+输出包括：ETH余额 + USD价值、按价值排序的带价格代币列表、灰尘计数、USD投资组合总额。
 
-Note: Only checks known tokens. Unknown ERC-20s are not discovered.
-Use the `token` command with a specific contract address for any token.
+注意：仅检查已知代币。未知ERC-20不会被发现。
+对任何代币使用带有特定合约地址的`token`命令。
 
-### 2. Transaction Details
+### 2. 交易详情
 
-Inspect a full transaction by its hash. Shows ETH value transferred,
-gas used, fee in ETH/USD, status, and decoded ERC-20/ERC-721 transfers.
+通过哈希检查完整交易。显示ETH价值转移、
+gas使用、ETH/USD费用、状态和解码的ERC-20/ERC-721转账。
 
 ```bash
 python3 ~/.kclaw/skills/blockchain/base/scripts/base_client.py \
   tx 0xabc123...your_tx_hash_here
 ```
 
-Output: hash, block, from, to, value (ETH + USD), gas price, gas used,
-fee, status, contract creation address (if any), token transfers.
+输出：哈希、区块、from、to、价值（ETH + USD）、gas价格、gas使用、
+费用、状态、合约创建地址（如果有）、代币转账。
 
-### 3. Token Info
+### 3. 代币信息
 
-Get ERC-20 token metadata: name, symbol, decimals, total supply, price,
-market cap, and contract code size.
+获取ERC-20代币元数据：名称、符号、小数位、总供应量、价格、
+市值和合约代码大小。
 
 ```bash
 python3 ~/.kclaw/skills/blockchain/base/scripts/base_client.py \
   token 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
 ```
 
-Output: name, symbol, decimals, total supply, price, market cap.
-Reads name/symbol/decimals directly from the contract via eth_call.
+输出：名称、符号、小数位、总供应量、价格、市值。
+通过eth_call直接从合约读取名称/符号/小数位。
 
-### 4. Gas Analysis
+### 4. Gas分析
 
-Detailed gas analysis with cost estimates for common operations.
-Shows current gas price, base fee trends over 10 blocks, block
-utilization, and estimated costs for ETH transfers, ERC-20 transfers,
-and swaps.
+详细gas分析，包括常见操作的成本估算。
+显示当前gas价格、过去10个区块的base费用趋势、区块
+利用率和ETH转账、ERC-20转账及swap的估计成本。
 
 ```bash
 python3 ~/.kclaw/skills/blockchain/base/scripts/base_client.py gas
 ```
 
-Output: current gas price, base fee, block utilization, 10-block trend,
-cost estimates in ETH and USD.
+输出：当前gas价格、base费用、区块利用率、10个区块趋势、
+ETH和USD成本估算。
 
-Note: Base is an L2 — actual transaction costs include an L1 data
-posting fee that depends on calldata size and L1 gas prices. The
-estimates shown are for L2 execution only.
+注意：Base是L2 — 实际交易成本包括L1数据
+发布费用，取决于calldata大小和L1 gas价格。显示的估算是仅L2执行成本。
 
-### 5. Contract Inspection
+### 5. 合约检查
 
-Inspect an address: determine if it's an EOA or contract, detect
-ERC-20/ERC-721/ERC-1155 interfaces, resolve EIP-1967 proxy
-implementation addresses.
+检查地址：确定是EOA还是合约、检测
+ERC-20/ERC-721/ERC-1155接口、解析EIP-1967代理
+实现地址。
 
 ```bash
 python3 ~/.kclaw/skills/blockchain/base/scripts/base_client.py \
   contract 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
 ```
 
-Output: is_contract, code size, ETH balance, detected interfaces
-(ERC-20, ERC-721, ERC-1155), ERC-20 metadata, proxy implementation
-address.
+输出：is_contract、代码大小、ETH余额、检测到的接口
+（ERC-20、ERC-721、ERC-1155）、ERC-20元数据、代理实现
+地址。
 
-### 6. Whale Detector
+### 6. 鲸鱼检测器
 
-Scan the most recent block for large ETH transfers with USD values.
+扫描最新区块的大额ETH转账及USD价值。
 
 ```bash
 python3 ~/.kclaw/skills/blockchain/base/scripts/base_client.py \
   whales --min-eth 1.0
 ```
 
-Note: scans the latest block only — point-in-time snapshot, not historical.
-Default threshold is 1.0 ETH (lower than Solana's default since ETH
-values are higher).
+注意：仅扫描最新区块 — 时间点快照，不是历史数据。
+默认阈值是1.0 ETH（低于Solana的默认阈值，因为ETH
+价值更高）。
 
-### 7. Network Stats
+### 7. 网络统计
 
-Live Base network health: latest block, chain ID, gas price, base fee,
-block utilization, transaction count, and ETH price.
+实时Base网络健康状况：最新区块、链ID、gas价格、base费用、
+区块利用率、交易计数和ETH价格。
 
 ```bash
 python3 ~/.kclaw/skills/blockchain/base/scripts/base_client.py stats
 ```
 
-### 8. Price Lookup
+### 8. 价格查询
 
-Quick price check for any token by contract address or known symbol.
+通过合约地址或已知符号快速查询任何代币价格。
 
 ```bash
 python3 ~/.kclaw/skills/blockchain/base/scripts/base_client.py price ETH
@@ -192,40 +188,40 @@ python3 ~/.kclaw/skills/blockchain/base/scripts/base_client.py price DEGEN
 python3 ~/.kclaw/skills/blockchain/base/scripts/base_client.py price 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
 ```
 
-Known symbols: ETH, WETH, USDC, cbETH, AERO, DEGEN, TOSHI, BRETT,
-WELL, wstETH, rETH, cbBTC.
+已知符号：ETH、WETH、USDC、cbETH、AERO、DEGEN、TOSHI、BRETT、
+WELL、wstETH、rETH、cbBTC。
 
 ---
 
-## Pitfalls
+## 陷阱
 
-- **CoinGecko rate-limits** — free tier allows ~10-30 requests/minute.
-  Price lookups use 1 request per token. Use `--no-prices` for speed.
-- **Public RPC rate-limits** — Base's public RPC limits requests.
-  For production use, set BASE_RPC_URL to a private endpoint
-  (Alchemy, QuickNode, Infura).
-- **Wallet shows known tokens only** — unlike Solana, EVM chains have no
-  built-in "get all tokens" RPC. The wallet command checks ~15 popular
-  Base tokens via `balanceOf`. Unknown ERC-20s won't appear. Use the
-  `token` command for any specific contract.
-- **Token names read from contract** — if a contract doesn't implement
-  `name()` or `symbol()`, these fields may be empty. Known tokens have
-  hardcoded labels as fallback.
-- **Gas estimates are L2 only** — Base transaction costs include an L1
-  data posting fee (depends on calldata size and L1 gas prices). The gas
-  command estimates L2 execution cost only.
-- **Whale detector scans latest block only** — not historical. Results
-  vary by the moment you query. Default threshold is 1.0 ETH.
-- **Proxy detection** — only EIP-1967 proxies are detected. Other proxy
-  patterns (EIP-1167 minimal proxy, custom storage slots) are not checked.
-- **Retry on 429** — both RPC and CoinGecko calls retry up to 2 times
-  with exponential backoff on rate-limit errors.
+- **CoinGecko速率限制** — 免费层允许约10-30请求/分钟。
+  价格查询每个代币使用1个请求。使用`--no-prices`提高速度。
+- **公共RPC速率限制** — Base的公共RPC限制请求。
+  对于生产使用，将BASE_RPC_URL设置为私有端点
+  （Alchemy、QuickNode、Infura）。
+- **钱包仅显示已知代币** — 与Solana不同，EVM链没有
+  内置的"获取所有代币"RPC。钱包命令通过`balanceOf`检查约15个流行
+  Base代币。未知ERC-20不会出现。使用
+  `token`命令获取任何特定合约。
+- **代币名称从合约读取** — 如果合约没有实现
+  `name()`或`symbol()`，这些字段可能为空。已知代币有
+  硬编码标签作为后备。
+- **Gas估算是仅L2** — Base交易成本包括L1
+  数据发布费用（取决于calldata大小和L1 gas价格）。gas
+  命令仅估算L2执行成本。
+- **鲸鱼检测器仅扫描最新区块** — 不是历史数据。结果
+  因查询时刻而异。默认阈值是1.0 ETH。
+- **代理检测** — 仅检测EIP-1967代理。其他代理
+  模式（EIP-1167最小代理、自定义存储槽）不检查。
+- **429时重试** — RPC和CoinGecko调用在速率限制错误时最多重试2次
+  指数退避。
 
 ---
 
-## Verification
+## 验证
 
 ```bash
-# Should print Base chain ID (8453), latest block, gas price, and ETH price
+# 应打印Base链ID（8453）、最新区块、gas价格和ETH价格
 python3 ~/.kclaw/skills/blockchain/base/scripts/base_client.py stats
 ```

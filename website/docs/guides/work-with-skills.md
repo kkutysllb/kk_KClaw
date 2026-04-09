@@ -1,166 +1,166 @@
 ---
 sidebar_position: 12
-title: "Working with Skills"
-description: "Find, install, use, and create skills — on-demand knowledge that teaches KClaw new workflows"
+title: "使用技能"
+description: "查找、安装、使用和创建技能——按需知识，教 KClaw 新工作流程"
 ---
 
-# Working with Skills
+# 使用技能
 
-Skills are on-demand knowledge documents that teach KClaw how to handle specific tasks — from generating ASCII art to managing GitHub PRs. This guide walks you through using them day to day.
+技能是按需知识文档，教 KClaw 如何处理特定任务——从生成 ASCII 艺术到管理 GitHub PR。本指南引导您日常使用它们。
 
-For the full technical reference, see [Skills System](/docs/user-guide/features/skills).
+有关完整技术参考，请参阅[技能系统](/docs/user-guide/features/skills)。
 
 ---
 
-## Finding Skills
+## 查找技能
 
-Every KClaw installation ships with bundled skills. See what's available:
+每个 KClaw 安装都附带捆绑技能。查看可用内容：
 
 ```bash
-# In any chat session:
+# 在任何聊天会话中：
 /skills
 
-# Or from the CLI:
+# 或从 CLI：
 kclaw skills list
 ```
 
-This shows a compact list with names and descriptions:
+这显示带有名称和描述的紧凑列表：
 
 ```
-ascii-art         Generate ASCII art using pyfiglet, cowsay, boxes...
-arxiv             Search and retrieve academic papers from arXiv...
-github-pr-workflow Full PR lifecycle — create branches, commit...
-plan              Plan mode — inspect context, write a markdown...
-excalidraw        Create hand-drawn style diagrams using Excalidraw...
+ascii-art         使用 pyfiglet、cowsay、boxes... 生成 ASCII 艺术
+arxiv             从 arXiv 搜索和检索学术论文...
+github-pr-workflow 完整 PR 生命周期——创建分支、提交...
+plan              计划模式——检查上下文，编写 markdown...
+excalidraw        使用 Excalidraw 创建手绘风格图表...
 ```
 
-### Searching for a Skill
+### 搜索技能
 
 ```bash
-# Search by keyword
+# 按关键字搜索
 /skills search docker
 /skills search music
 ```
 
-### The Skills Hub
+### 技能中心
 
-Official optional skills (heavier or niche skills not active by default) are available via the Hub:
+官方可选技能（默认不活跃的较重或专业技能）可通过中心获得：
 
 ```bash
-# Browse official optional skills
+# 浏览官方可选技能
 /skills browse
 
-# Search the hub
+# 搜索中心
 /skills search blockchain
 ```
 
 ---
 
-## Using a Skill
+## 使用技能
 
-Every installed skill is automatically a slash command. Just type its name:
+每个已安装的技能都会自动成为斜杠命令。只需输入它的名称：
 
 ```bash
-# Load a skill and give it a task
-/ascii-art Make a banner that says "HELLO WORLD"
-/plan Design a REST API for a todo app
-/github-pr-workflow Create a PR for the auth refactor
+# 加载技能并给它一个任务
+/ascii-art 制作一个说 "HELLO WORLD" 的横幅
+/plan 为待办事项应用设计 REST API
+/github-pr-workflow 为身份验证重构创建 PR
 
-# Just the skill name (no task) loads it and lets you describe what you need
+# 只需技能名称（无任务）加载它并让您描述您需要的内容
 /excalidraw
 ```
 
-You can also trigger skills through natural conversation — ask KClaw to use a specific skill, and it will load it via the `skill_view` tool.
+您也可以通过自然对话触发技能——要求 KClaw 使用特定技能，它会通过 `skill_view` 工具加载它。
 
-### Progressive Disclosure
+### 渐进式披露
 
-Skills use a token-efficient loading pattern. The agent doesn't load everything at once:
+技能使用令牌高效加载模式。代理不会一次性加载所有内容：
 
-1. **`skills_list()`** — compact list of all skills (~3k tokens). Loaded at session start.
-2. **`skill_view(name)`** — full SKILL.md content for one skill. Loaded when the agent decides it needs that skill.
-3. **`skill_view(name, file_path)`** — a specific reference file within the skill. Only loaded if needed.
+1. **`skills_list()`** — 所有技能的紧凑列表（~3k 令牌）。在会话开始时加载。
+2. **`skill_view(name)`** — 一个技能的完整 SKILL.md 内容。当代理决定需要该技能时加载。
+3. **`skill_view(name, file_path)`** — 技能内的特定参考文件。仅在需要时加载。
 
-This means skills don't cost tokens until they're actually used.
+这意味着技能在实际使用之前不会消耗令牌。
 
 ---
 
-## Installing from the Hub
+## 从中心安装
 
-Official optional skills ship with KClaw but aren't active by default. Install them explicitly:
+官方可选技能随 KClaw 附带，但默认不活跃。显式安装：
 
 ```bash
-# Install an official optional skill
+# 安装官方可选技能
 kclaw skills install official/research/arxiv
 
-# Install from the hub in a chat session
+# 在聊天会话中从中心安装
 /skills install official/creative/songwriting-and-ai-music
 ```
 
-What happens:
-1. The skill directory is copied to `~/.kclaw/skills/`
-2. It appears in your `skills_list` output
-3. It becomes available as a slash command
+发生的事情：
+1. 技能目录复制到 `~/.kclaw/skills/`
+2. 它出现在您的 `skills_list` 输出中
+3. 它作为斜杠命令可用
 
 :::tip
-Installed skills take effect in new sessions. If you want it available in the current session, use `/reset` to start fresh, or add `--now` to invalidate the prompt cache immediately (costs more tokens on the next turn).
+已安装的技能在新会话中生效。如果您在当前会话中想要它可用，使用 `/reset` 开始新的，或添加 `--now` 立即使提示缓存失效（下次turn成本更高）。
 :::
 
-### Verifying Installation
+### 验证安装
 
 ```bash
-# Check it's there
+# 检查它在那里
 kclaw skills list | grep arxiv
 
-# Or in chat
+# 或在聊天中
 /skills search arxiv
 ```
 
 ---
 
-## Configuring Skill Settings
+## 配置技能设置
 
-Some skills declare configuration they need in their frontmatter:
+一些技能在其 frontmatter 中声明它们需要的配置：
 
 ```yaml
 metadata:
   kclaw:
     config:
       - key: tenor.api_key
-        description: "Tenor API key for GIF search"
-        prompt: "Enter your Tenor API key"
+        description: "Tenor API 密钥，用于 GIF 搜索"
+        prompt: "输入您的 Tenor API 密钥"
         url: "https://developers.google.com/tenor/guides/quickstart"
 ```
 
-When a skill with config is first loaded, KClaw prompts you for the values. They're stored in `config.yaml` under `skills.config.*`.
+当首次加载带有配置的技能时，KClaw 提示您输入值。它们存储在 `config.yaml` 下的 `skills.config.*` 中。
 
-Manage skill config from the CLI:
+从 CLI 管理技能配置：
 
 ```bash
-# Interactive config for a specific skill
+# 交互式配置特定技能
 kclaw skills config gif-search
 
-# View all skill config
+# 查看所有技能配置
 kclaw config get skills.config
 ```
 
 ---
 
-## Creating Your Own Skill
+## 创建您自己的技能
 
-Skills are just markdown files with YAML frontmatter. Creating one takes under five minutes.
+技能只是带有 YAML frontmatter 的 markdown 文件。创建一个需要不到五分钟。
 
-### 1. Create the Directory
+### 1. 创建目录
 
 ```bash
 mkdir -p ~/.kclaw/skills/my-category/my-skill
 ```
 
-### 2. Write SKILL.md
+### 2. 编写 SKILL.md
 
 ```markdown title="~/.kclaw/skills/my-category/my-skill/SKILL.md"
 ---
 name: my-skill
-description: Brief description of what this skill does
+description: 简短描述此技能的用途
 version: 1.0.0
 metadata:
   kclaw:
@@ -168,101 +168,101 @@ metadata:
     category: my-category
 ---
 
-# My Skill
+# 我的技能
 
-## When to Use
-Use this skill when the user asks about [specific topic] or needs to [specific task].
+## 何时使用
+当用户询问[特定主题]或需要[特定任务]时使用此技能。
 
-## Procedure
-1. First, check if [prerequisite] is available
-2. Run `command --with-flags`
-3. Parse the output and present results
+## 程序
+1. 首先，检查[先决条件]是否可用
+2. 运行 `command --with-flags`
+3. 解析输出并呈现结果
 
-## Pitfalls
-- Common failure: [description]. Fix: [solution]
-- Watch out for [edge case]
+## 陷阱
+- 常见失败：[描述]。修复：[解决方案]
+- 注意[边缘情况]
 
-## Verification
-Run `check-command` to confirm the result is correct.
+## 验证
+运行 `check-command` 确认结果正确。
 ```
 
-### 3. Add Reference Files (Optional)
+### 3. 添加参考文件（可选）
 
-Skills can include supporting files the agent loads on demand:
+技能可以包括代理按需加载的支持文件：
 
 ```
 my-skill/
-├── SKILL.md                    # Main skill document
+├── SKILL.md                    # 主技能文档
 ├── references/
-│   ├── api-docs.md             # API reference the agent can consult
-│   └── examples.md             # Example inputs/outputs
+│   ├── api-docs.md             # 代理可以查阅的 API 参考
+│   └── examples.md             # 示例输入/输出
 ├── templates/
-│   └── config.yaml             # Template files the agent can use
+│   └── config.yaml             # 代理可以使用的模板文件
 └── scripts/
-    └── setup.sh                # Scripts the agent can execute
+    └── setup.sh                # 代理可以执行的脚本
 ```
 
-Reference these in your SKILL.md:
+在您的 SKILL.md 中引用这些：
 
 ```markdown
-For API details, load the reference: `skill_view("my-skill", "references/api-docs.md")`
+有关 API 详细信息，加载参考：`skill_view("my-skill", "references/api-docs.md")`
 ```
 
-### 4. Test It
+### 4. 测试它
 
-Start a new session and try your skill:
+开始新会话并尝试您的技能：
 
 ```bash
 kclaw chat -q "/my-skill help me with the thing"
 ```
 
-The skill appears automatically — no registration needed. Drop it in `~/.kclaw/skills/` and it's live.
+技能自动出现——无需注册。将其放入 `~/.kclaw/skills/` 即可生效。
 
 :::info
-The agent can also create and update skills itself using `skill_manage`. After solving a complex problem, KClaw may offer to save the approach as a skill for next time.
+代理也可以使用 `skill_manage` 创建和更新技能。在解决复杂问题之后，KClaw 可能提供将方法保存为技能以便下次使用。
 :::
 
 ---
 
-## Per-Platform Skill Management
+## 每个平台的技能管理
 
-Control which skills are available on which platforms:
+控制哪些技能在哪些平台上可用：
 
 ```bash
 kclaw skills
 ```
 
-This opens an interactive TUI where you can enable or disable skills per platform (CLI, Telegram, Discord, etc.). Useful when you want certain skills only available in specific contexts — for example, keeping development skills off Telegram.
+这会打开一个交互式 TUI，您可以在其中为每个平台（CLI、Telegram、Discord 等）启用或禁用技能。当您希望某些技能仅在特定上下文中可用时，这很有用——例如，将开发技能保持在 Telegram 之外。
 
 ---
 
-## Skills vs Memory
+## 技能与记忆
 
-Both are persistent across sessions, but they serve different purposes:
+两者都在会话之间持久化，但它们服务不同目的：
 
-| | Skills | Memory |
+| | 技能 | 记忆 |
 |---|---|---|
-| **What** | Procedural knowledge — how to do things | Factual knowledge — what things are |
-| **When** | Loaded on demand, only when relevant | Injected into every session automatically |
-| **Size** | Can be large (hundreds of lines) | Should be compact (key facts only) |
-| **Cost** | Zero tokens until loaded | Small but constant token cost |
-| **Examples** | "How to deploy to Kubernetes" | "User prefers dark mode, lives in PST" |
-| **Who creates** | You, the agent, or installed from Hub | The agent, based on conversations |
+| **内容** | 程序性知识——如何做事情 | 事实性知识——事物是什么 |
+| **何时** | 按需加载，仅在相关时 | 自动注入每个会话 |
+| **大小** | 可以很大（数百行） | 应该紧凑（仅关键事实） |
+| **成本** | 加载前零令牌 | 小但恒定的令牌成本 |
+| **示例** | "如何部署到 Kubernetes" | "用户偏好深色模式，位于 PST" |
+| **创建者** | 您、代理或从中心安装 | 基于对话的代理 |
 
-**Rule of thumb:** If you'd put it in a reference document, it's a skill. If you'd put it on a sticky note, it's memory.
-
----
-
-## Tips
-
-**Keep skills focused.** A skill that tries to cover "all of DevOps" will be too long and too vague. A skill that covers "deploy a Python app to Fly.io" is specific enough to be genuinely useful.
-
-**Let the agent create skills.** After a complex multi-step task, KClaw will often offer to save the approach as a skill. Say yes — these agent-authored skills capture the exact workflow including pitfalls that were discovered along the way.
-
-**Use categories.** Organize skills into subdirectories (`~/.kclaw/skills/devops/`, `~/.kclaw/skills/research/`, etc.). This keeps the list manageable and helps the agent find relevant skills faster.
-
-**Update skills when they go stale.** If you use a skill and hit issues not covered by it, tell KClaw to update the skill with what you learned. Skills that aren't maintained become liabilities.
+**经验法则：** 如果您会把它放在参考文档中，那就是技能。如果您会把它放在便签上，那就是记忆。
 
 ---
 
-*For the complete skills reference — frontmatter fields, conditional activation, external directories, and more — see [Skills System](/docs/user-guide/features/skills).*
+## 提示
+
+**保持技能专注。** 试图涵盖"所有 DevOps"的技能会太长太模糊。涵盖"将 Python 应用部署到 Fly.io"的技能足够具体，是真正有用的。
+
+**让代理创建技能。** 在复杂的多步骤任务之后，KClaw 通常会提供将方法保存为技能。说 yes——这些代理编写的技能捕获了包括沿途发现的陷阱的确切工作流程。
+
+**使用分类。** 将技能组织到子目录中（`~/.kclaw/skills/devops/`、`~/.kclaw/skills/research/` 等）。这保持列表可管理，并帮助代理更快找到相关技能。
+
+**技能过时时要更新。** 如果您使用技能但遇到未涵盖的问题，告诉 KClaw 用您学到的内容更新技能。不维护的技能会成为负担。
+
+---
+
+*有关完整的技能参考——frontmatter 字段、条件激活、外部目录等——请参阅[技能系统](/docs/user-guide/features/skills)。*

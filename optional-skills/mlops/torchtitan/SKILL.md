@@ -1,59 +1,59 @@
 ---
 name: distributed-llm-pretraining-torchtitan
-description: Provides PyTorch-native distributed LLM pretraining using torchtitan with 4D parallelism (FSDP2, TP, PP, CP). Use when pretraining Llama 3.1, DeepSeek V3, or custom models at scale from 8 to 512+ GPUs with Float8, torch.compile, and distributed checkpointing.
+description: 使用torchtitan提供PyTorch原生的分布式LLM预训练，支持4D并行（FSDP2、TP、PP、CP）。用于在8到512+ GPU上预训练Llama 3.1、DeepSeek V3或自定义模型，支持Float8、torch.compile和分布式检查点。
 version: 1.0.0
 author: Orchestra Research
 license: MIT
 dependencies: [torch>=2.6.0, torchtitan>=0.2.0, torchao>=0.5.0]
 metadata:
   kclaw:
-    tags: [Model Architecture, Distributed Training, TorchTitan, FSDP2, Tensor Parallel, Pipeline Parallel, Context Parallel, Float8, Llama, Pretraining]
+    tags: [模型架构, 分布式训练, TorchTitan, FSDP2, 张量并行, 流水线并行, 上下文并行, Float8, Llama, 预训练]
 
 ---
 
-# TorchTitan - PyTorch Native Distributed LLM Pretraining
+# TorchTitan - PyTorch原生分布式LLM预训练
 
-## Quick start
+## 快速开始
 
-TorchTitan is PyTorch's official platform for large-scale LLM pretraining with composable 4D parallelism (FSDP2, TP, PP, CP), achieving 65%+ speedups over baselines on H100 GPUs.
+TorchTitan是PyTorch官方的大规模LLM预训练平台，支持可组合的4D并行（FSDP2、TP、PP、CP），在H100 GPU上实现超过65%的加速。
 
-**Installation**:
+**安装**：
 ```bash
-# From PyPI (stable)
+# 从PyPI（稳定版）
 pip install torchtitan
 
-# From source (latest features, requires PyTorch nightly)
+# 从源码（最新功能，需要PyTorch nightly）
 git clone https://github.com/pytorch/torchtitan
 cd torchtitan
 pip install -r requirements.txt
 ```
 
-**Download tokenizer**:
+**下载分词器**：
 ```bash
-# Get HF token from https://huggingface.co/settings/tokens
+# 从https://huggingface.co/settings/tokens获取HF token
 python scripts/download_hf_assets.py --repo_id meta-llama/Llama-3.1-8B --assets tokenizer --hf_token=...
 ```
 
-**Start training on 8 GPUs**:
+**在8个GPU上开始训练**：
 ```bash
 CONFIG_FILE="./torchtitan/models/llama3/train_configs/llama3_8b.toml" ./run_train.sh
 ```
 
-## Common workflows
+## 常见工作流
 
-### Workflow 1: Pretrain Llama 3.1 8B on single node
+### 工作流1：在单节点上预训练Llama 3.1 8B
 
-Copy this checklist:
+复制此检查清单：
 
 ```
-Single Node Pretraining:
-- [ ] Step 1: Download tokenizer
-- [ ] Step 2: Configure training
-- [ ] Step 3: Launch training
-- [ ] Step 4: Monitor and checkpoint
+单节点预训练：
+- [ ] 步骤1：下载分词器
+- [ ] 步骤2：配置训练
+- [ ] 步骤3：启动训练
+- [ ] 步骤4：监控和检查点
 ```
 
-**Step 1: Download tokenizer**
+**步骤1：下载分词器**
 
 ```bash
 python scripts/download_hf_assets.py \
@@ -62,15 +62,15 @@ python scripts/download_hf_assets.py \
   --hf_token=YOUR_HF_TOKEN
 ```
 
-**Step 2: Configure training**
+**步骤2：配置训练**
 
-Edit or create a TOML config file:
+编辑或创建TOML配置文件：
 
 ```toml
 # llama3_8b_custom.toml
 [job]
 dump_folder = "./outputs"
-description = "Llama 3.1 8B training"
+description = "Llama 3.1 8B训练"
 
 [model]
 name = "llama3"
@@ -92,7 +92,7 @@ steps = 1000
 dataset = "c4"
 
 [parallelism]
-data_parallel_shard_degree = -1  # Use all GPUs for FSDP
+data_parallel_shard_degree = -1  # 使用所有GPU用于FSDP
 
 [activation_checkpoint]
 mode = "selective"
@@ -104,47 +104,47 @@ folder = "checkpoint"
 interval = 500
 ```
 
-**Step 3: Launch training**
+**步骤3：启动训练**
 
 ```bash
-# 8 GPUs on single node
+# 单节点8个GPU
 CONFIG_FILE="./llama3_8b_custom.toml" ./run_train.sh
 
-# Or explicitly with torchrun
+# 或使用torchrun显式指定
 torchrun --nproc_per_node=8 \
   -m torchtitan.train \
   --job.config_file ./llama3_8b_custom.toml
 ```
 
-**Step 4: Monitor and checkpoint**
+**步骤4：监控和检查点**
 
-TensorBoard logs are saved to `./outputs/tb/`:
+TensorBoard日志保存到`./outputs/tb/`：
 ```bash
 tensorboard --logdir ./outputs/tb
 ```
 
-### Workflow 2: Multi-node training with SLURM
+### 工作流2：使用SLURM进行多节点训练
 
 ```
-Multi-Node Training:
-- [ ] Step 1: Configure parallelism for scale
-- [ ] Step 2: Set up SLURM script
-- [ ] Step 3: Submit job
-- [ ] Step 4: Resume from checkpoint
+多节点训练：
+- [ ] 步骤1：配置并行以实现规模
+- [ ] 步骤2：设置SLURM脚本
+- [ ] 步骤3：提交作业
+- [ ] 步骤4：从检查点恢复
 ```
 
-**Step 1: Configure parallelism for scale**
+**步骤1：配置并行以实现规模**
 
-For 70B model on 256 GPUs (32 nodes):
+对于256个GPU上的70B模型：
 ```toml
 [parallelism]
-data_parallel_shard_degree = 32  # FSDP across 32 ranks
-tensor_parallel_degree = 8        # TP within node
-pipeline_parallel_degree = 1      # No PP for 70B
-context_parallel_degree = 1       # Increase for long sequences
+data_parallel_shard_degree = 32  # 跨32个等级FSDP
+tensor_parallel_degree = 8        # 节点内TP
+pipeline_parallel_degree = 1      # 70B不需要PP
+context_parallel_degree = 1       # 为长序列增加
 ```
 
-**Step 2: Set up SLURM script**
+**步骤2：设置SLURM脚本**
 
 ```bash
 #!/bin/bash
@@ -162,36 +162,36 @@ srun torchrun \
   --job.config_file ./llama3_70b.toml
 ```
 
-**Step 3: Submit job**
+**步骤3：提交作业**
 
 ```bash
 sbatch multinode_trainer.slurm
 ```
 
-**Step 4: Resume from checkpoint**
+**步骤4：从检查点恢复**
 
-Training auto-resumes if checkpoint exists in configured folder.
+如果检查点存在于配置的文件夹中，训练会自动恢复。
 
-### Workflow 3: Enable Float8 training for H100s
+### 工作流3：为H100启用Float8训练
 
-Float8 provides 30-50% speedup on H100 GPUs.
+Float8在H100 GPU上提供30-50%加速。
 
 ```
-Float8 Training:
-- [ ] Step 1: Install torchao
-- [ ] Step 2: Configure Float8
-- [ ] Step 3: Launch with compile
+Float8训练：
+- [ ] 步骤1：安装torchao
+- [ ] 步骤2：配置Float8
+- [ ] 步骤3：使用compile启动
 ```
 
-**Step 1: Install torchao**
+**步骤1：安装torchao**
 
 ```bash
 USE_CPP=0 pip install git+https://github.com/pytorch/ao.git
 ```
 
-**Step 2: Configure Float8**
+**步骤2：配置Float8**
 
-Add to your TOML config:
+添加到TOML配置：
 ```toml
 [model]
 converters = ["quantize.linear.float8"]
@@ -199,14 +199,14 @@ converters = ["quantize.linear.float8"]
 [quantize.linear.float8]
 enable_fsdp_float8_all_gather = true
 precompute_float8_dynamic_scale_for_fsdp = true
-filter_fqns = ["output"]  # Exclude output layer
+filter_fqns = ["output"]  # 排除输出层
 
 [compile]
 enable = true
 components = ["model", "loss"]
 ```
 
-**Step 3: Launch with compile**
+**步骤3：使用compile启动**
 
 ```bash
 CONFIG_FILE="./llama3_8b.toml" ./run_train.sh \
@@ -215,18 +215,18 @@ CONFIG_FILE="./llama3_8b.toml" ./run_train.sh \
   --compile.enable
 ```
 
-### Workflow 4: 4D parallelism for 405B models
+### 工作流4：405B模型的4D并行
 
 ```
-4D Parallelism (FSDP + TP + PP + CP):
-- [ ] Step 1: Create seed checkpoint
-- [ ] Step 2: Configure 4D parallelism
-- [ ] Step 3: Launch on 512 GPUs
+4D并行（FSDP + TP + PP + CP）：
+- [ ] 步骤1：创建种子检查点
+- [ ] 步骤2：配置4D并行
+- [ ] 步骤3：在512个GPU上启动
 ```
 
-**Step 1: Create seed checkpoint**
+**步骤1：创建种子检查点**
 
-Required for consistent initialization across PP stages:
+跨PP阶段一致初始化所需：
 ```bash
 NGPU=1 CONFIG_FILE=./llama3_405b.toml ./run_train.sh \
   --checkpoint.enable \
@@ -236,126 +236,125 @@ NGPU=1 CONFIG_FILE=./llama3_405b.toml ./run_train.sh \
   --parallelism.pipeline_parallel_degree 1
 ```
 
-**Step 2: Configure 4D parallelism**
+**步骤2：配置4D并行**
 
 ```toml
 [parallelism]
 data_parallel_shard_degree = 8   # FSDP
-tensor_parallel_degree = 8       # TP within node
-pipeline_parallel_degree = 8     # PP across nodes
-context_parallel_degree = 1      # CP for long sequences
+tensor_parallel_degree = 8       # 节点内TP
+pipeline_parallel_degree = 8     # 跨节点PP
+context_parallel_degree = 1      # 长序列CP
 
 [training]
 local_batch_size = 32
 seq_len = 8192
 ```
 
-**Step 3: Launch on 512 GPUs**
+**步骤3：在512个GPU上启动**
 
 ```bash
-# 64 nodes x 8 GPUs = 512 GPUs
+# 64节点 × 8 GPU = 512 GPU
 srun torchrun --nnodes=64 --nproc_per_node=8 \
   -m torchtitan.train \
   --job.config_file ./llama3_405b.toml
 ```
 
-## When to use vs alternatives
+## 与替代方案的比较
 
-**Use TorchTitan when:**
-- Pretraining LLMs from scratch (8B to 405B+)
-- Need PyTorch-native solution without third-party dependencies
-- Require composable 4D parallelism (FSDP2, TP, PP, CP)
-- Training on H100s with Float8 support
-- Want interoperable checkpoints with torchtune/HuggingFace
+**在以下情况下使用TorchTitan：**
+- 从头预训练LLM（8B到405B+）
+- 需要PyTorch原生解决方案，无第三方依赖
+- 需要可组合的4D并行（FSDP2、TP、PP、CP）
+- 在具有Float8支持的H100上训练
+- 想要与torchtune/HuggingFace互操作的检查点
 
-**Use alternatives instead:**
-- **Megatron-LM**: Maximum performance for NVIDIA-only deployments
-- **DeepSpeed**: Broader ZeRO optimization ecosystem, inference support
-- **Axolotl/TRL**: Fine-tuning rather than pretraining
-- **LitGPT**: Educational, smaller-scale training
+**在以下情况下使用替代方案：**
+- **Megatron-LM**：NVIDIA仅部署的最高性能
+- **DeepSpeed**：更广泛的ZeRO优化生态系统，推理支持
+- **Axolotl/TRL**：微调而非预训练
+- **LitGPT**：教育目的，小规模训练
 
-## Common issues
+## 常见问题
 
-**Issue: Out of memory on large models**
+**问题：大型模型内存不足**
 
-Enable activation checkpointing and reduce batch size:
+启用激活检查点并减少批大小：
 ```toml
 [activation_checkpoint]
-mode = "full"  # Instead of "selective"
+mode = "full"  # 而不是"selective"
 
 [training]
 local_batch_size = 1
 ```
 
-Or use gradient accumulation:
+或使用梯度累积：
 ```toml
 [training]
 local_batch_size = 1
-global_batch_size = 32  # Accumulates gradients
+global_batch_size = 32  # 累积梯度
 ```
 
-**Issue: TP causes high memory with async collectives**
+**问题：TP导致异步聚合高内存**
 
-Set environment variable:
+设置环境变量：
 ```bash
 export TORCH_NCCL_AVOID_RECORD_STREAMS=1
 ```
 
-**Issue: Float8 training not faster**
+**问题：Float8训练没有更快**
 
-Float8 only benefits large GEMMs. Filter small layers:
+Float8仅对大型GEMM有益。过滤小层：
 ```toml
 [quantize.linear.float8]
 filter_fqns = ["attention.wk", "attention.wv", "output", "auto_filter_small_kn"]
 ```
 
-**Issue: Checkpoint loading fails after parallelism change**
+**问题：并行性改变后检查点加载失败**
 
-Use DCP's resharding capability:
+使用DCP的重分片功能：
 ```bash
-# Convert sharded checkpoint to single file
+# 将分片检查点转换为单个文件
 python -m torch.distributed.checkpoint.format_utils \
   dcp_to_torch checkpoint/step-1000 checkpoint.pt
 ```
 
-**Issue: Pipeline parallelism initialization**
+**问题：流水线并行初始化**
 
-Create seed checkpoint first (see Workflow 4, Step 1).
+首先创建种子检查点（参见工作流4，步骤1）。
 
-## Supported models
+## 支持的模型
 
-| Model | Sizes | Status |
+| 模型 | 规模 | 状态 |
 |-------|-------|--------|
-| Llama 3.1 | 8B, 70B, 405B | Production |
-| Llama 4 | Various | Experimental |
-| DeepSeek V3 | 16B, 236B, 671B (MoE) | Experimental |
-| GPT-OSS | 20B, 120B (MoE) | Experimental |
-| Qwen 3 | Various | Experimental |
-| Flux | Diffusion | Experimental |
+| Llama 3.1 | 8B、70B、405B | 生产 |
+| Llama 4 | 各种 | 实验 |
+| DeepSeek V3 | 16B、236B、671B（MoE） | 实验 |
+| GPT-OSS | 20B、120B（MoE） | 实验 |
+| Qwen 3 | 各种 | 实验 |
+| Flux | Diffusion | 实验 |
 
-## Performance benchmarks (H100)
+## 性能基准（H100）
 
-| Model | GPUs | Parallelism | TPS/GPU | Techniques |
+| 模型 | GPU数 | 并行性 | TPS/GPU | 技术 |
 |-------|------|-------------|---------|------------|
-| Llama 8B | 8 | FSDP | 5,762 | Baseline |
+| Llama 8B | 8 | FSDP | 5,762 | 基线 |
 | Llama 8B | 8 | FSDP+compile+FP8 | 8,532 | +48% |
-| Llama 70B | 256 | FSDP+TP+AsyncTP | 876 | 2D parallel |
-| Llama 405B | 512 | FSDP+TP+PP | 128 | 3D parallel |
+| Llama 70B | 256 | FSDP+TP+AsyncTP | 876 | 2D并行 |
+| Llama 405B | 512 | FSDP+TP+PP | 128 | 3D并行 |
 
-## Advanced topics
+## 高级主题
 
-**FSDP2 configuration**: See [references/fsdp.md](references/fsdp.md) for detailed FSDP2 vs FSDP1 comparison and ZeRO equivalents.
+**FSDP2配置**：参见[references/fsdp.md](references/fsdp.md)获取详细的FSDP2 vs FSDP1比较和ZeRO等价物。
 
-**Float8 training**: See [references/float8.md](references/float8.md) for tensorwise vs rowwise scaling recipes.
+**Float8训练**：参见[references/float8.md](references/float8.md)获取张量级vs行级缩放配方。
 
-**Checkpointing**: See [references/checkpoint.md](references/checkpoint.md) for HuggingFace conversion and async checkpointing.
+**检查点**：参见[references/checkpoint.md](references/checkpoint.md)获取HuggingFace转换和异步检查点。
 
-**Adding custom models**: See [references/custom-models.md](references/custom-models.md) for TrainSpec protocol.
+**添加自定义模型**：参见[references/custom-models.md](references/custom-models.md)获取TrainSpec协议。
 
-## Resources
+## 资源
 
 - GitHub: https://github.com/pytorch/torchtitan
-- Paper: https://arxiv.org/abs/2410.06511
+- 论文: https://arxiv.org/abs/2410.06511
 - ICLR 2025: https://iclr.cc/virtual/2025/poster/29620
-- PyTorch Forum: https://discuss.pytorch.org/c/distributed/torchtitan/44
-
+- PyTorch论坛: https://discuss.pytorch.org/c/distributed/torchtitan/44

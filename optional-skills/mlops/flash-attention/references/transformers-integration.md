@@ -1,17 +1,17 @@
-# HuggingFace Transformers Integration
+# HuggingFace Transformers集成
 
-## Contents
-- Enabling Flash Attention in Transformers
-- Supported model architectures
-- Configuration examples
-- Performance comparisons
-- Troubleshooting model-specific issues
+## 目录
+- 在Transformers中启用Flash Attention
+- 支持的模型架构
+- 配置示例
+- 性能对比
+- 故障排除特定模型问题
 
-## Enabling Flash Attention in Transformers
+## 在Transformers中启用Flash Attention
 
-HuggingFace Transformers (v4.36+) supports Flash Attention 2 natively.
+HuggingFace Transformers（v4.36+）原生支持Flash Attention 2。
 
-**Simple enable for any supported model**:
+**为任何支持的模型简单启用**：
 ```python
 from transformers import AutoModel
 
@@ -23,17 +23,17 @@ model = AutoModel.from_pretrained(
 )
 ```
 
-**Install requirements**:
+**安装要求**：
 ```bash
 pip install transformers>=4.36
 pip install flash-attn --no-build-isolation
 ```
 
-## Supported model architectures
+## 支持的模型架构
 
-As of Transformers 4.40:
+截至Transformers 4.40：
 
-**Fully supported**:
+**完全支持**：
 - Llama / Llama 2 / Llama 3
 - Mistral / Mixtral
 - Falcon
@@ -46,23 +46,23 @@ As of Transformers 4.40:
 - OPT
 - BLOOM
 
-**Partially supported** (encoder-decoder):
+**部分支持**（编码器-解码器）：
 - BART
 - T5 / Flan-T5
 - Whisper
 
-**Check support**:
+**检查支持**：
 ```python
 from transformers import AutoConfig
 
 config = AutoConfig.from_pretrained("model-name")
 print(config._attn_implementation_internal)
-# 'flash_attention_2' if supported
+# 如果支持则为'flash_attention_2'
 ```
 
-## Configuration examples
+## 配置示例
 
-### Llama 2 with Flash Attention
+### 带Flash Attention的Llama 2
 
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -79,13 +79,13 @@ model = AutoModelForCausalLM.from_pretrained(
 
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 
-# Generate
-inputs = tokenizer("Once upon a time", return_tensors="pt").to("cuda")
+# 生成
+inputs = tokenizer("从前有座山", return_tensors="pt").to("cuda")
 outputs = model.generate(**inputs, max_length=100)
 print(tokenizer.decode(outputs[0]))
 ```
 
-### Mistral with Flash Attention for long context
+### 带Flash Attention处理长上下文的Mistral
 
 ```python
 from transformers import AutoModelForCausalLM
@@ -94,18 +94,18 @@ import torch
 model = AutoModelForCausalLM.from_pretrained(
     "mistralai/Mistral-7B-v0.1",
     attn_implementation="flash_attention_2",
-    torch_dtype=torch.bfloat16,  # Better for long context
+    torch_dtype=torch.bfloat16,  # 长上下文更好
     device_map="auto",
-    max_position_embeddings=32768  # Extended context
+    max_position_embeddings=32768  # 扩展上下文
 )
 
-# Process long document (32K tokens)
-long_text = "..." * 10000
-inputs = tokenizer(long_text, return_tensors="pt", truncation=False).to("cuda")
+# 处理长文档（32K词元）
+长文本 = "..." * 10000
+inputs = tokenizer(长文本, return_tensors="pt", truncation=False).to("cuda")
 outputs = model.generate(**inputs, max_new_tokens=512)
 ```
 
-### Fine-tuning with Flash Attention
+### 使用Flash Attention微调
 
 ```python
 from transformers import Trainer, TrainingArguments
@@ -122,8 +122,8 @@ training_args = TrainingArguments(
     per_device_train_batch_size=4,
     gradient_accumulation_steps=4,
     num_train_epochs=3,
-    fp16=True,  # Must match model dtype
-    optim="adamw_torch_fused"  # Fast optimizer
+    fp16=True,  # 必须匹配模型dtype
+    optim="adamw_torch_fused"  # 快速优化器
 )
 
 trainer = Trainer(
@@ -135,66 +135,66 @@ trainer = Trainer(
 trainer.train()
 ```
 
-### Multi-GPU training
+### 多GPU训练
 
 ```python
 from transformers import AutoModelForCausalLM
 import torch
 
-# Model parallelism with Flash Attention
+# 带Flash Attention的模型并行
 model = AutoModelForCausalLM.from_pretrained(
     "meta-llama/Llama-2-13b-hf",
     attn_implementation="flash_attention_2",
     torch_dtype=torch.float16,
-    device_map="auto",  # Automatic multi-GPU placement
-    max_memory={0: "20GB", 1: "20GB"}  # Limit per GPU
+    device_map="auto",  # 自动多GPU放置
+    max_memory={0: "20GB", 1: "20GB"}  # 限制每GPU
 )
 ```
 
-## Performance comparisons
+## 性能对比
 
-### Memory usage (Llama 2 7B, batch=1)
+### 内存使用（Llama 2 7B，batch=1）
 
-| Sequence Length | Standard Attention | Flash Attention 2 | Reduction |
+| 序列长度 | 标准注意力 | Flash Attention 2 | 减少 |
 |-----------------|-------------------|-------------------|-----------|
 | 512 | 1.2 GB | 0.9 GB | 25% |
 | 2048 | 3.8 GB | 1.4 GB | 63% |
 | 8192 | 14.2 GB | 3.2 GB | 77% |
-| 32768 | OOM (>24GB) | 10.8 GB | Fits! |
+| 32768 | OOM（>24GB） | 10.8 GB | 可容纳！ |
 
-### Speed (tokens/sec, A100 80GB)
+### 速度（词元/秒，A100 80GB）
 
-| Model | Standard | Flash Attn 2 | Speedup |
+| 模型 | 标准 | Flash Attn 2 | 加速 |
 |-------|----------|--------------|---------|
-| Llama 2 7B (seq=2048) | 42 | 118 | 2.8x |
-| Llama 2 13B (seq=4096) | 18 | 52 | 2.9x |
-| Llama 2 70B (seq=2048) | 4 | 11 | 2.75x |
+| Llama 2 7B (seq=2048) | 42 | 118 | 2.8倍 |
+| Llama 2 13B (seq=4096) | 18 | 52 | 2.9倍 |
+| Llama 2 70B (seq=2048) | 4 | 11 | 2.75倍 |
 
-### Training throughput (samples/sec)
+### 训练吞吐量（样本/秒）
 
-| Model | Batch Size | Standard | Flash Attn 2 | Speedup |
+| 模型 | 批大小 | 标准 | Flash Attn 2 | 加速 |
 |-------|------------|----------|--------------|---------|
-| Llama 2 7B | 4 | 1.2 | 3.1 | 2.6x |
-| Llama 2 7B | 8 | 2.1 | 5.8 | 2.8x |
-| Llama 2 13B | 2 | 0.6 | 1.7 | 2.8x |
+| Llama 2 7B | 4 | 1.2 | 3.1 | 2.6倍 |
+| Llama 2 7B | 8 | 2.1 | 5.8 | 2.8倍 |
+| Llama 2 13B | 2 | 0.6 | 1.7 | 2.8倍 |
 
-## Troubleshooting model-specific issues
+## 故障排除特定模型问题
 
-### Issue: Model doesn't support Flash Attention
+### 问题：模型不支持Flash Attention
 
-Check support list above. If not supported, use PyTorch SDPA as fallback:
+检查上面的支持列表。如果不支持，使用PyTorch SDPA作为后备：
 
 ```python
 model = AutoModelForCausalLM.from_pretrained(
     "model-name",
-    attn_implementation="sdpa",  # PyTorch native (still faster)
+    attn_implementation="sdpa",  # PyTorch原生（仍然更快）
     torch_dtype=torch.float16
 )
 ```
 
-### Issue: CUDA out of memory during loading
+### 问题：加载期间CUDA内存不足
 
-Reduce memory footprint:
+减少内存占用：
 
 ```python
 model = AutoModelForCausalLM.from_pretrained(
@@ -202,29 +202,29 @@ model = AutoModelForCausalLM.from_pretrained(
     attn_implementation="flash_attention_2",
     torch_dtype=torch.float16,
     device_map="auto",
-    max_memory={0: "18GB"},  # Reserve memory for KV cache
+    max_memory={0: "18GB"},  # 为KV缓存保留内存
     low_cpu_mem_usage=True
 )
 ```
 
-### Issue: Slower inference than expected
+### 问题：推理比预期慢
 
-Ensure dtype matches:
+确保dtype匹配：
 
 ```python
-# Model and inputs must both be float16/bfloat16
+# 模型和输入都必须为float16/bfloat16
 model = model.to(torch.float16)
 inputs = tokenizer(..., return_tensors="pt").to("cuda")
 inputs = {k: v.to(torch.float16) if v.dtype == torch.float32 else v
           for k, v in inputs.items()}
 ```
 
-### Issue: Different outputs vs standard attention
+### 问题：与标准注意力输出不同
 
-Flash Attention is numerically equivalent but uses different computation order. Small differences (<1e-3) are normal:
+Flash Attention数值等价但使用不同的计算顺序。微小差异（<1e-3）是正常的：
 
 ```python
-# Compare outputs
+# 比较输出
 model_standard = AutoModelForCausalLM.from_pretrained("model-name", torch_dtype=torch.float16)
 model_flash = AutoModelForCausalLM.from_pretrained(
     "model-name",
@@ -232,61 +232,61 @@ model_flash = AutoModelForCausalLM.from_pretrained(
     torch_dtype=torch.float16
 )
 
-inputs = tokenizer("Test", return_tensors="pt").to("cuda")
+inputs = tokenizer("测试", return_tensors="pt").to("cuda")
 
 with torch.no_grad():
     out_standard = model_standard(**inputs).logits
     out_flash = model_flash(**inputs).logits
 
 diff = (out_standard - out_flash).abs().max()
-print(f"Max diff: {diff:.6f}")  # Should be ~1e-3 to 1e-4
+print(f"最大差异：{diff:.6f}")  # 应该约1e-3到1e-4
 ```
 
-### Issue: ImportError during model loading
+### 问题：模型加载期间ImportError
 
-Install flash-attn:
+安装flash-attn：
 ```bash
 pip install flash-attn --no-build-isolation
 ```
 
-Or disable Flash Attention:
+或禁用Flash Attention：
 ```python
 model = AutoModelForCausalLM.from_pretrained(
     "model-name",
-    attn_implementation="eager",  # Standard PyTorch
+    attn_implementation="eager",  # 标准PyTorch
     torch_dtype=torch.float16
 )
 ```
 
-## Best practices
+## 最佳实践
 
-1. **Always use float16/bfloat16** with Flash Attention (not float32)
-2. **Set device_map="auto"** for automatic memory management
-3. **Use bfloat16 for long context** (better numerical stability)
-4. **Enable gradient checkpointing** for training large models
-5. **Monitor memory** with `torch.cuda.max_memory_allocated()`
+1. **始终使用float16/bfloat16**配合Flash Attention（不是float32）
+2. **设置device_map="auto"**以实现自动内存管理
+3. **长上下文使用bfloat16**（更好的数值稳定性）
+4. **为大型模型训练启用梯度检查点**
+5. **使用`torch.cuda.max_memory_allocated()`监控内存**
 
-**Example with all best practices**:
+**包含所有最佳实践的示例**：
 ```python
 from transformers import AutoModelForCausalLM, TrainingArguments
 
 model = AutoModelForCausalLM.from_pretrained(
     "meta-llama/Llama-2-7b-hf",
     attn_implementation="flash_attention_2",
-    torch_dtype=torch.bfloat16,  # Better for training
+    torch_dtype=torch.bfloat16,  # 训练更好
     device_map="auto",
     low_cpu_mem_usage=True
 )
 
-# Enable gradient checkpointing for memory
+# 为内存启用梯度检查点
 model.gradient_checkpointing_enable()
 
-# Training with optimizations
+# 带优化的训练
 training_args = TrainingArguments(
     output_dir="./results",
     per_device_train_batch_size=8,
     gradient_accumulation_steps=2,
-    bf16=True,  # Match model dtype
+    bf16=True,  # 匹配模型dtype
     optim="adamw_torch_fused",
     gradient_checkpointing=True
 )

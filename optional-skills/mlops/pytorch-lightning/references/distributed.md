@@ -1,82 +1,82 @@
-# PyTorch Lightning Distributed Training
+# PyTorch Lightning分布式训练
 
-## Distributed Strategies
+## 分布式策略
 
-Lightning supports multiple distributed strategies with a single parameter change.
+Lightning通过单个参数更改支持多种分布式策略。
 
-### 1. DDP (DistributedDataParallel)
+### 1. DDP（DistributedDataParallel）
 
-**Default strategy for multi-GPU**:
+**多GPU的默认策略**：
 
 ```python
-# Automatic DDP on all available GPUs
+# 在所有可用GPU上自动DDP
 trainer = L.Trainer(accelerator='gpu', devices=4, strategy='ddp')
 
-# Or auto-detect
+# 或自动检测
 trainer = L.Trainer(accelerator='gpu', devices='auto')
 ```
 
-**How DDP works**:
-- Replicates model on each GPU
-- Each GPU processes different batch
-- Gradients all-reduced across GPUs
-- Model weights synchronized
+**DDP工作原理**：
+- 在每个GPU上复制模型
+- 每个GPU处理不同的batch
+- 梯度在GPU之间all-reduced
+- 模型权重同步
 
-**Launch**:
+**启动**：
 ```bash
-# Lightning handles spawning processes automatically
+# Lightning自动处理生成进程
 python train.py
 ```
 
-**DDP Configuration**:
+**DDP配置**：
 ```python
 from lightning.pytorch.strategies import DDPStrategy
 
 strategy = DDPStrategy(
-    find_unused_parameters=False,  # Set True if model has unused params
-    gradient_as_bucket_view=True,  # Memory optimization
-    static_graph=False,  # Set True if graph doesn't change
+    find_unused_parameters=False,  # 如果模型有未使用的参数则设为True
+    gradient_as_bucket_view=True,  # 内存优化
+    static_graph=False,  # 如果图不变则设为True
 )
 
 trainer = L.Trainer(strategy=strategy)
 ```
 
-### 2. FSDP (Fully Sharded Data Parallel)
+### 2. FSDP（Fully Sharded Data Parallel）
 
-**For large models (7B+ parameters)**:
+**用于大型模型（7B+参数）**：
 
 ```python
 from lightning.pytorch.strategies import FSDPStrategy
 
 strategy = FSDPStrategy(
-    sharding_strategy="FULL_SHARD",  # ZeRO-3 equivalent
-    activation_checkpointing=None,   # Or specify layer types
-    cpu_offload=False,               # CPU offload for memory
+    sharding_strategy="FULL_SHARD",  # ZeRO-3等价物
+    activation_checkpointing=None,   # 或指定层类型
+    cpu_offload=False,               # CPU卸载以节省内存
 )
 
 trainer = L.Trainer(
     accelerator='gpu',
     devices=8,
     strategy=strategy,
-    precision='bf16'  # Recommended with FSDP
+    precision='bf16'  # 与FSDP一起推荐
 )
 
 trainer.fit(model, train_loader)
 ```
 
-**FSDP Sharding Strategies**:
+**FSDP分片策略**：
 ```python
-# FULL_SHARD (most memory efficient, equivalent to ZeRO-3)
+# FULL_SHARD（最高内存效率，等价于ZeRO-3）
 strategy = FSDPStrategy(sharding_strategy="FULL_SHARD")
 
-# SHARD_GRAD_OP (less memory efficient, equivalent to ZeRO-2)
+# SHARD_GRAD_OP（较低内存效率，等价于ZeRO-2）
 strategy = FSDPStrategy(sharding_strategy="SHARD_GRAD_OP")
 
-# NO_SHARD (no sharding, like DDP)
+# NO_SHARD（无分片，类似DDP）
 strategy = FSDPStrategy(sharding_strategy="NO_SHARD")
 ```
 
-**Auto-wrap policy** (wrap transformer blocks):
+**自动包装策略**（包装transformer块）：
 ```python
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from transformers.models.gpt2.modeling_gpt2 import GPT2Block
@@ -89,23 +89,23 @@ auto_wrap_policy = functools.partial(
 
 strategy = FSDPStrategy(
     auto_wrap_policy=auto_wrap_policy,
-    activation_checkpointing_policy={GPT2Block}  # Checkpoint these blocks
+    activation_checkpointing_policy={GPT2Block}  # 检查这些块
 )
 ```
 
 ### 3. DeepSpeed
 
-**For massive models (70B+ parameters)**:
+**用于超大型模型（70B+参数）**：
 
 ```python
 from lightning.pytorch.strategies import DeepSpeedStrategy
 
-# DeepSpeed ZeRO-3 with CPU offload
+# 带CPU卸载的DeepSpeed ZeRO-3
 strategy = DeepSpeedStrategy(
     stage=3,                       # ZeRO-3
-    offload_optimizer=True,        # CPU offload optimizer
-    offload_parameters=True,       # CPU offload parameters
-    cpu_checkpointing=True,        # Checkpoint to CPU
+    offload_optimizer=True,        # CPU卸载优化器
+    offload_parameters=True,       # CPU卸载参数
+    cpu_checkpointing=True,        # 检查点到CPU
 )
 
 trainer = L.Trainer(
@@ -118,7 +118,7 @@ trainer = L.Trainer(
 trainer.fit(model, train_loader)
 ```
 
-**DeepSpeed configuration file**:
+**DeepSpeed配置文件**：
 ```json
 {
   "train_batch_size": "auto",
@@ -146,7 +146,7 @@ trainer.fit(model, train_loader)
 }
 ```
 
-**Use config file**:
+**使用配置文件**：
 ```python
 strategy = DeepSpeedStrategy(config='deepspeed_config.json')
 trainer = L.Trainer(strategy=strategy)
@@ -154,34 +154,34 @@ trainer = L.Trainer(strategy=strategy)
 
 ### 4. DDP Spawn
 
-**Windows-compatible DDP**:
+**Windows兼容的DDP**：
 
 ```python
-# Use when DDP doesn't work (e.g., Windows, Jupyter)
+# 当DDP不工作时使用（例如Windows、Jupyter）
 trainer = L.Trainer(
     accelerator='gpu',
     devices=2,
-    strategy='ddp_spawn'  # Spawns new processes
+    strategy='ddp_spawn'  # 生成新进程
 )
 ```
 
-**Note**: Slower than DDP due to process spawning overhead
+**注意**：由于进程生成开销，比DDP慢
 
-## Multi-Node Training
+## 多节点训练
 
-### Setup Multi-Node Cluster
+### 设置多节点集群
 
-**Node 0 (master)**:
+**节点0（主节点）**：
 ```bash
 export MASTER_ADDR=192.168.1.100
 export MASTER_PORT=12355
-export WORLD_SIZE=16  # 2 nodes × 8 GPUs
+export WORLD_SIZE=16  # 2节点 × 8 GPU
 export NODE_RANK=0
 
 python train.py
 ```
 
-**Node 1 (worker)**:
+**节点1（工作节点）**：
 ```bash
 export MASTER_ADDR=192.168.1.100
 export MASTER_PORT=12355
@@ -191,21 +191,21 @@ export NODE_RANK=1
 python train.py
 ```
 
-**Training script**:
+**训练脚本**：
 ```python
 trainer = L.Trainer(
     accelerator='gpu',
-    devices=8,              # GPUs per node
-    num_nodes=2,            # Total nodes
+    devices=8,              # 每节点GPU数
+    num_nodes=2,            # 总节点数
     strategy='ddp'
 )
 
 trainer.fit(model, train_loader)
 ```
 
-### SLURM Integration
+### SLURM集成
 
-**SLURM job script**:
+**SLURM作业脚本**：
 ```bash
 #!/bin/bash
 #SBATCH --nodes=4
@@ -213,28 +213,28 @@ trainer.fit(model, train_loader)
 #SBATCH --gres=gpu:8
 #SBATCH --time=24:00:00
 
-# Lightning auto-detects SLURM environment
+# Lightning自动检测SLURM环境
 srun python train.py
 ```
 
-**Training script** (no changes needed):
+**训练脚本**（无需更改）：
 ```python
-# Lightning automatically reads SLURM environment variables
+# Lightning自动读取SLURM环境变量
 trainer = L.Trainer(
     accelerator='gpu',
     devices=8,
-    num_nodes=4,  # From SBATCH --nodes
+    num_nodes=4,  # 来自SBATCH --nodes
     strategy='ddp'
 )
 ```
 
-### Kubernetes (KubeFlow)
+### Kubernetes（KubeFlow）
 
-**Training script**:
+**训练脚本**：
 ```python
 import os
 
-# Lightning auto-detects Kubernetes
+# Lightning自动检测Kubernetes
 trainer = L.Trainer(
     accelerator='gpu',
     devices=int(os.getenv('WORLD_SIZE', 1)),
@@ -242,37 +242,37 @@ trainer = L.Trainer(
 )
 ```
 
-## Mixed Precision Training
+## 混合精度训练
 
-### BF16 (A100/H100)
+### BF16（A100/H100）
 
 ```python
 trainer = L.Trainer(
-    precision='bf16',  # Or 'bf16-mixed'
+    precision='bf16',  # 或'bf16-mixed'
     accelerator='gpu'
 )
 ```
 
-**Advantages**:
-- No gradient scaler needed
-- Same dynamic range as FP32
-- 2× speedup, 50% memory reduction
+**优势**：
+- 不需要梯度缩放器
+- 与FP32相同的动态范围
+- 2倍加速，50%内存减少
 
-### FP16 (V100, older GPUs)
+### FP16（V100、旧GPU）
 
 ```python
 trainer = L.Trainer(
-    precision='16-mixed',  # Or just '16'
+    precision='16-mixed',  # 或只是'16'
     accelerator='gpu'
 )
 ```
 
-**Automatic gradient scaling** handled by Lightning
+**自动梯度缩放**由Lightning处理
 
-### FP8 (H100)
+### FP8（H100）
 
 ```python
-# Requires transformer_engine
+# 需要transformer_engine
 # pip install transformer-engine[pytorch]
 
 trainer = L.Trainer(
@@ -281,42 +281,42 @@ trainer = L.Trainer(
 )
 ```
 
-**Benefits**: 2× faster than BF16 on H100
+**优势**：比H100上BF16快2倍
 
-## Gradient Accumulation
+## 梯度累积
 
-**Simulate larger batch size**:
+**模拟更大的batch大小**：
 
 ```python
 trainer = L.Trainer(
-    accumulate_grad_batches=4,  # Accumulate 4 batches
+    accumulate_grad_batches=4,  # 累积4个batch
     precision='bf16'
 )
 
-# Effective batch = batch_size × accumulate_grad_batches × num_gpus
-# Example: 32 × 4 × 8 = 1024
+# 有效batch = batch_size × accumulate_grad_batches × num_gpus
+# 示例：32 × 4 × 8 = 1024
 ```
 
-**Dynamic accumulation**:
+**动态累积**：
 ```python
-# Accumulate more early in training
+# 训练早期累积更多
 trainer = L.Trainer(
     accumulate_grad_batches={
-        0: 8,   # Epochs 0-4: accumulate 8
-        5: 4,   # Epochs 5-9: accumulate 4
-        10: 2   # Epochs 10+: accumulate 2
+        0: 8,   # Epoch 0-4：累积8
+        5: 4,   # Epoch 5-9：累积4
+        10: 2   # Epoch 10+：累积2
     }
 )
 ```
 
-## Checkpointing in Distributed
+## 分布式中的检查点
 
-### Save Checkpoint
+### 保存检查点
 
 ```python
 from lightning.pytorch.callbacks import ModelCheckpoint
 
-# Only rank 0 saves by default
+# 默认仅rank 0保存
 checkpoint = ModelCheckpoint(
     dirpath='checkpoints/',
     filename='model-{epoch:02d}',
@@ -327,48 +327,48 @@ trainer = L.Trainer(callbacks=[checkpoint], strategy='ddp')
 trainer.fit(model, train_loader)
 ```
 
-**Manual save**:
+**手动保存**：
 ```python
 class MyModel(L.LightningModule):
     def training_step(self, batch, batch_idx):
-        # Training...
+        # 训练...
         loss = ...
 
-        # Save every 1000 steps (only rank 0)
+        # 每1000步保存一次（仅rank 0）
         if batch_idx % 1000 == 0 and self.trainer.is_global_zero:
             self.trainer.save_checkpoint(f'checkpoint_step_{batch_idx}.ckpt')
 
         return loss
 ```
 
-### Load Checkpoint
+### 加载检查点
 
 ```python
-# Resume training
+# 恢复训练
 trainer = L.Trainer(strategy='ddp')
 trainer.fit(model, train_loader, ckpt_path='checkpoints/last.ckpt')
 
-# Load for inference
+# 加载用于推理
 model = MyModel.load_from_checkpoint('checkpoints/best.ckpt')
 model.eval()
 ```
 
-## Strategy Comparison
+## 策略对比
 
-| Strategy | Memory Efficiency | Speed | Use Case |
+| 策略 | 内存效率 | 速度 | 用例 |
 |----------|------------------|-------|----------|
-| DDP | Low | Fast | Small models (<7B), single node |
-| FSDP | High | Medium | Large models (7-70B) |
-| DeepSpeed ZeRO-2 | Medium | Fast | Medium models (1-13B) |
-| DeepSpeed ZeRO-3 | Very High | Slower | Massive models (70B+) |
-| DDP Spawn | Low | Slow | Windows, debugging |
+| DDP | 低 | 快 | 小模型（<7B），单节点 |
+| FSDP | 高 | 中 | 大模型（7-70B） |
+| DeepSpeed ZeRO-2 | 中 | 快 | 中型模型（1-13B） |
+| DeepSpeed ZeRO-3 | 非常高 | 较慢 | 超大型模型（70B+） |
+| DDP Spawn | 低 | 慢 | Windows、调试 |
 
-## Best Practices
+## 最佳实践
 
-### 1. Choose Right Strategy
+### 1. 选择正确的策略
 
 ```python
-# Model size guide
+# 模型大小指南
 if model_params < 1e9:  # <1B
     strategy = 'ddp'
 elif model_params < 7e9:  # 1-7B
@@ -381,110 +381,110 @@ else:  # 70B+
 trainer = L.Trainer(strategy=strategy)
 ```
 
-### 2. Avoid Sync Issues
+### 2. 避免同步问题
 
 ```python
 class MyModel(L.LightningModule):
     def training_step(self, batch, batch_idx):
-        # WRONG: This runs on all GPUs independently
+        # 错误：这在所有GPU上独立运行
         if batch_idx % 100 == 0:
-            self.log_something()  # Logged 8 times on 8 GPUs!
+            self.log_something()  # 在8个GPU上记录8次！
 
-        # CORRECT: Use is_global_zero
+        # 正确：使用is_global_zero
         if batch_idx % 100 == 0 and self.trainer.is_global_zero:
-            self.log_something()  # Logged once
+            self.log_something()  # 只记录一次
 
         loss = ...
         return loss
 ```
 
-### 3. Efficient Data Loading
+### 3. 高效数据加载
 
 ```python
 from torch.utils.data import DataLoader, DistributedSampler
 
-# Lightning handles DistributedSampler automatically
+# Lightning自动处理DistributedSampler
 train_loader = DataLoader(
     dataset,
     batch_size=32,
-    num_workers=4,  # 4 workers per GPU
+    num_workers=4,  # 每GPU 4个工作进程
     pin_memory=True,
     persistent_workers=True
 )
 
-# Lightning automatically wraps with DistributedSampler in DDP
+# Lightning在DDP中自动用DistributedSampler包装
 trainer.fit(model, train_loader)
 ```
 
-### 4. Reduce Communication Overhead
+### 4. 减少通信开销
 
 ```python
 from lightning.pytorch.strategies import DDPStrategy
 
 strategy = DDPStrategy(
-    gradient_as_bucket_view=True,  # Reduce memory copies
-    static_graph=True,  # If model graph doesn't change (faster)
+    gradient_as_bucket_view=True,  # 减少内存拷贝
+    static_graph=True,  # 如果模型图不变（更快）
 )
 
 trainer = L.Trainer(strategy=strategy)
 ```
 
-## Common Issues
+## 常见问题
 
-### Issue: NCCL Timeout
+### 问题：NCCL超时
 
-**Symptom**: Training hangs with `NCCL timeout` error
+**症状**：训练挂起并显示`NCCL timeout`错误
 
-**Solution 1**: Increase timeout
+**解决方案1**：增加超时
 ```bash
-export NCCL_TIMEOUT=3600  # 1 hour
+export NCCL_TIMEOUT=3600  # 1小时
 python train.py
 ```
 
-**Solution 2**: Check network
+**解决方案2**：检查网络
 ```bash
-# Test inter-node communication
+# 测试节点间通信
 nvidia-smi nvlink -s
 
-# Verify all nodes can ping each other
+# 验证所有节点可以相互ping
 ping <node-2-ip>
 ```
 
-### Issue: OOM with FSDP
+### 问题：FSDP OOM
 
-**Solution**: Enable CPU offload
+**解决方案**：启用CPU卸载
 ```python
 strategy = FSDPStrategy(
     sharding_strategy="FULL_SHARD",
-    cpu_offload=True  # Offload to CPU
+    cpu_offload=True  # 卸载到CPU
 )
 ```
 
-### Issue: Different Results with DDP
+### 问题：DDP结果不同
 
-**Cause**: Different random seeds per GPU
+**原因**：每个GPU随机种子不同
 
-**Solution**: Set seed in LightningModule
+**解决方案**：在LightningModule中设置种子
 ```python
 class MyModel(L.LightningModule):
     def __init__(self):
         super().__init__()
-        L.seed_everything(42, workers=True)  # Same seed everywhere
+        L.seed_everything(42, workers=True)  # 到处相同种子
 ```
 
-### Issue: DeepSpeed Config Errors
+### 问题：DeepSpeed配置错误
 
-**Solution**: Use Lightning's auto config
+**解决方案**：使用Lightning的自动配置
 ```python
 strategy = DeepSpeedStrategy(
     stage=3,
-    # Don't specify config file, Lightning generates automatically
+    # 不指定配置文件，Lightning自动生成
 )
 ```
 
-## Resources
+## 资源
 
-- Distributed strategies: https://lightning.ai/docs/pytorch/stable/accelerators/gpu_intermediate.html
-- FSDP guide: https://lightning.ai/docs/pytorch/stable/advanced/model_parallel/fsdp.html
-- DeepSpeed: https://lightning.ai/docs/pytorch/stable/advanced/model_parallel/deepspeed.html
-- Multi-node: https://lightning.ai/docs/pytorch/stable/clouds/cluster.html
+- 分布式策略：https://lightning.ai/docs/pytorch/stable/accelerators/gpu_intermediate.html
+- FSDP指南：https://lightning.ai/docs/pytorch/stable/advanced/model_parallel/fsdp.html
+- DeepSpeed：https://lightning.ai/docs/pytorch/stable/advanced/model_parallel/deepspeed.html
+- 多节点：https://lightning.ai/docs/pytorch/stable/clouds/cluster.html

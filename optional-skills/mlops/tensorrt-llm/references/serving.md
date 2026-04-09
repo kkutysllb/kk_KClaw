@@ -1,19 +1,19 @@
-# Production Serving Guide
+# 生产服务指南
 
-Comprehensive guide to deploying TensorRT-LLM in production environments.
+在生产环境中部署TensorRT-LLM的完整指南。
 
-## Server Modes
+## 服务器模式
 
-### trtllm-serve (Recommended)
+### trtllm-serve（推荐）
 
-**Features**:
-- OpenAI-compatible API
-- Automatic model download and compilation
-- Built-in load balancing
-- Prometheus metrics
-- Health checks
+**特性**：
+- OpenAI兼容API
+- 自动模型下载和编译
+- 内置负载均衡
+- Prometheus指标
+- 健康检查
 
-**Basic usage**:
+**基础用法**：
 ```bash
 trtllm-serve meta-llama/Meta-Llama-3-8B \
     --tp_size 1 \
@@ -21,7 +21,7 @@ trtllm-serve meta-llama/Meta-Llama-3-8B \
     --port 8000
 ```
 
-**Advanced configuration**:
+**高级配置**：
 ```bash
 trtllm-serve meta-llama/Meta-Llama-3-70B \
     --tp_size 4 \
@@ -31,10 +31,10 @@ trtllm-serve meta-llama/Meta-Llama-3-70B \
     --enable_chunked_context \
     --scheduler_policy max_utilization \
     --port 8000 \
-    --api_key $API_KEY  # Optional authentication
+    --api_key $API_KEY  # 可选认证
 ```
 
-### Python LLM API (For embedding)
+### Python LLM API（用于嵌入）
 
 ```python
 from tensorrt_llm import LLM
@@ -56,7 +56,7 @@ class LLMService:
         outputs = self.llm.generate([prompt], params)
         return outputs[0].text
 
-# Use in FastAPI, Flask, etc
+# 在FastAPI、Flask等中使用
 from fastapi import FastAPI
 app = FastAPI()
 service = LLMService()
@@ -66,9 +66,9 @@ def generate(prompt: str):
     return {"response": service.generate(prompt)}
 ```
 
-## OpenAI-Compatible API
+## OpenAI兼容API
 
-### Chat Completions
+### 聊天补全
 
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
@@ -76,8 +76,8 @@ curl -X POST http://localhost:8000/v1/chat/completions \
   -d '{
     "model": "meta-llama/Meta-Llama-3-8B",
     "messages": [
-      {"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "Explain quantum computing"}
+      {"role": "system", "content": "你是一个有用的助手。"},
+      {"role": "user", "content": "解释量子计算"}
     ],
     "temperature": 0.7,
     "max_tokens": 500,
@@ -85,7 +85,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \
   }'
 ```
 
-**Response**:
+**响应**：
 ```json
 {
   "id": "chat-abc123",
@@ -96,7 +96,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \
     "index": 0,
     "message": {
       "role": "assistant",
-      "content": "Quantum computing is..."
+      "content": "量子计算是..."
     },
     "finish_reason": "stop"
   }],
@@ -108,19 +108,19 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 }
 ```
 
-### Streaming
+### 流式传输
 
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "meta-llama/Meta-Llama-3-8B",
-    "messages": [{"role": "user", "content": "Count to 10"}],
+    "messages": [{"role": "user", "content": "数到10"}],
     "stream": true
   }'
 ```
 
-**Response** (SSE stream):
+**响应**（SSE流）：
 ```
 data: {"choices":[{"delta":{"content":"1"}}]}
 
@@ -131,59 +131,59 @@ data: {"choices":[{"delta":{"content":", 3"}}]}
 data: [DONE]
 ```
 
-### Completions
+### 补全
 
 ```bash
 curl -X POST http://localhost:8000/v1/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "meta-llama/Meta-Llama-3-8B",
-    "prompt": "The capital of France is",
+    "prompt": "法国的首都是",
     "max_tokens": 10,
     "temperature": 0.0
   }'
 ```
 
-## Monitoring
+## 监控
 
-### Prometheus Metrics
+### Prometheus指标
 
-**Enable metrics**:
+**启用指标**：
 ```bash
 trtllm-serve meta-llama/Meta-Llama-3-8B \
     --enable_metrics \
     --metrics_port 9090
 ```
 
-**Key metrics**:
+**关键指标**：
 ```bash
-# Scrape metrics
+# 抓取指标
 curl http://localhost:9090/metrics
 
-# Important metrics:
-# - trtllm_request_success_total - Total successful requests
-# - trtllm_request_latency_seconds - Request latency histogram
-# - trtllm_tokens_generated_total - Total tokens generated
-# - trtllm_active_requests - Current active requests
-# - trtllm_queue_size - Requests waiting in queue
-# - trtllm_gpu_memory_usage_bytes - GPU memory usage
-# - trtllm_kv_cache_usage_ratio - KV cache utilization
+# 重要指标：
+# - trtllm_request_success_total - 成功请求总数
+# - trtllm_request_latency_seconds - 请求延迟直方图
+# - trtllm_tokens_generated_total - 生成的词元总数
+# - trtllm_active_requests - 当前活动请求
+# - trtllm_queue_size - 队列中等待的请求
+# - trtllm_gpu_memory_usage_bytes - GPU内存使用
+# - trtllm_kv_cache_usage_ratio - KV缓存利用率
 ```
 
-### Health Checks
+### 健康检查
 
 ```bash
-# Readiness probe
+# 就绪探针
 curl http://localhost:8000/health/ready
 
-# Liveness probe
+# 存活探针
 curl http://localhost:8000/health/live
 
-# Model info
+# 模型信息
 curl http://localhost:8000/v1/models
 ```
 
-**Kubernetes probes**:
+**Kubernetes探针**：
 ```yaml
 livenessProbe:
   httpGet:
@@ -200,21 +200,21 @@ readinessProbe:
   periodSeconds: 5
 ```
 
-## Production Deployment
+## 生产部署
 
-### Docker Deployment
+### Docker部署
 
-**Dockerfile**:
+**Dockerfile**：
 ```dockerfile
 FROM nvidia/tensorrt_llm:latest
 
-# Copy any custom configs
+# 复制任何自定义配置
 COPY config.yaml /app/config.yaml
 
-# Expose ports
+# 暴露端口
 EXPOSE 8000 9090
 
-# Start server
+# 启动服务器
 CMD ["trtllm-serve", "meta-llama/Meta-Llama-3-8B", \
      "--tp_size", "4", \
      "--dtype", "fp8", \
@@ -223,22 +223,22 @@ CMD ["trtllm-serve", "meta-llama/Meta-Llama-3-8B", \
      "--metrics_port", "9090"]
 ```
 
-**Run container**:
+**运行容器**：
 ```bash
 docker run --gpus all -p 8000:8000 -p 9090:9090 \
     tensorrt-llm:latest
 ```
 
-### Kubernetes Deployment
+### Kubernetes部署
 
-**Complete deployment**:
+**完整部署**：
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tensorrt-llm
 spec:
-  replicas: 2  # Multiple replicas for HA
+  replicas: 2  # 多个副本以实现高可用性
   selector:
     matchLabels:
       app: tensorrt-llm
@@ -291,12 +291,12 @@ spec:
   type: LoadBalancer
 ```
 
-### Load Balancing
+### 负载均衡
 
-**NGINX configuration**:
+**NGINX配置**：
 ```nginx
 upstream tensorrt_llm {
-    least_conn;  # Route to least busy server
+    least_conn;  # 路由到最空闲的服务器
     server trtllm-1:8000 max_fails=3 fail_timeout=30s;
     server trtllm-2:8000 max_fails=3 fail_timeout=30s;
     server trtllm-3:8000 max_fails=3 fail_timeout=30s;
@@ -306,15 +306,15 @@ server {
     listen 80;
     location / {
         proxy_pass http://tensorrt_llm;
-        proxy_read_timeout 300s;  # Long timeout for slow generations
+        proxy_read_timeout 300s;  # 长时间生成的更长超时
         proxy_connect_timeout 10s;
     }
 }
 ```
 
-## Autoscaling
+## 自动扩展
 
-### Horizontal Pod Autoscaler (HPA)
+### 水平Pod自动扩展器（HPA）
 
 ```yaml
 apiVersion: autoscaling/v2
@@ -335,13 +335,13 @@ spec:
         name: trtllm_active_requests
       target:
         type: AverageValue
-        averageValue: "50"  # Scale when avg >50 active requests
+        averageValue: "50"  # 当平均>50个活动请求时扩展
 ```
 
-### Custom Metrics
+### 自定义指标
 
 ```yaml
-# Scale based on queue size
+# 基于队列大小扩展
 - type: Pods
   pods:
     metric:
@@ -351,54 +351,54 @@ spec:
       averageValue: "10"
 ```
 
-## Cost Optimization
+## 成本优化
 
-### GPU Selection
+### GPU选择
 
-**A100 80GB** ($3-4/hour):
-- Use for: 70B models with FP8
-- Throughput: 10,000-15,000 tok/s (TP=4)
-- Cost per 1M tokens: $0.20-0.30
+**A100 80GB**（$3-4/小时）：
+- 用于：带FP8的70B模型
+- 吞吐量：10,000-15,000词元/秒（TP=4）
+- 每100万词元成本：$0.20-0.30
 
-**H100 80GB** ($6-8/hour):
-- Use for: 70B models with FP8, 405B models
-- Throughput: 20,000-30,000 tok/s (TP=4)
-- Cost per 1M tokens: $0.15-0.25 (2× faster = lower cost)
+**H100 80GB**（$6-8/小时）：
+- 用于：带FP8的70B模型、405B模型
+- 吞吐量：20,000-30,000词元/秒（TP=4）
+- 每100万词元成本：$0.15-0.25（2倍更快=更低成本）
 
-**L4** ($0.50-1/hour):
-- Use for: 7-8B models
-- Throughput: 1,000-2,000 tok/s
-- Cost per 1M tokens: $0.25-0.50
+**L4**（$0.50-1/小时）：
+- 用于：7-8B模型
+- 吞吐量：1,000-2,000词元/秒
+- 每100万词元成本：$0.25-0.50
 
-### Batch Size Tuning
+### 批大小调优
 
-**Impact on cost**:
-- Batch size 1: 1,000 tok/s → $3/hour per 1M = $3/M tokens
-- Batch size 64: 5,000 tok/s → $3/hour per 5M = $0.60/M tokens
-- **5× cost reduction** with batching
+**对成本的影响**：
+- 批大小1：1,000词元/秒 → 每100万词元$3/小时 = $3/M词元
+- 批大小64：5,000词元/秒 → 每100万词元$0.60/小时 = $0.60/M词元
+- **使用批处理降低成本5倍**
 
-**Recommendation**: Target batch size 32-128 for cost efficiency.
+**建议**：以32-128的批大小为目标以实现成本效率。
 
-## Security
+## 安全性
 
-### API Authentication
+### API认证
 
 ```bash
-# Generate API key
+# 生成API密钥
 export API_KEY=$(openssl rand -hex 32)
 
-# Start server with authentication
+# 使用认证启动服务器
 trtllm-serve meta-llama/Meta-Llama-3-8B \
     --api_key $API_KEY
 
-# Client request
+# 客户端请求
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"model": "...", "messages": [...]}'
 ```
 
-### Network Policies
+### 网络策略
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -415,56 +415,56 @@ spec:
   - from:
     - podSelector:
         matchLabels:
-          app: api-gateway  # Only allow from gateway
+          app: api-gateway  # 仅允许来自网关
     ports:
     - protocol: TCP
       port: 8000
 ```
 
-## Troubleshooting
+## 故障排除
 
-### High latency
+### 高延迟
 
-**Diagnosis**:
+**诊断**：
 ```bash
-# Check queue size
+# 检查队列大小
 curl http://localhost:9090/metrics | grep queue_size
 
-# Check active requests
+# 检查活动请求
 curl http://localhost:9090/metrics | grep active_requests
 ```
 
-**Solutions**:
-- Scale horizontally (more replicas)
-- Increase batch size (if GPU underutilized)
-- Enable chunked context (if long prompts)
-- Use FP8 quantization
+**解决方案**：
+- 水平扩展（更多副本）
+- 增加批大小（如果GPU未充分利用）
+- 启用分块上下文（如果提示很长）
+- 使用FP8量化
 
-### OOM crashes
+### OOM崩溃
 
-**Solutions**:
-- Reduce `max_batch_size`
-- Reduce `max_num_tokens`
-- Enable FP8 or INT4 quantization
-- Increase `tensor_parallel_size`
+**解决方案**：
+- 减少`max_batch_size`
+- 减少`max_num_tokens`
+- 启用FP8或INT4量化
+- 增加`tensor_parallel_size`
 
-### Timeout errors
+### 超时错误
 
-**NGINX config**:
+**NGINX配置**：
 ```nginx
-proxy_read_timeout 600s;  # 10 minutes for very long generations
+proxy_read_timeout 600s;  # 非常长的生成10分钟
 proxy_send_timeout 600s;
 ```
 
-## Best Practices
+## 最佳实践
 
-1. **Use FP8 on H100** for 2× speedup and 50% cost reduction
-2. **Monitor metrics** - Set up Prometheus + Grafana
-3. **Set readiness probes** - Prevent routing to unhealthy pods
-4. **Use load balancing** - Distribute load across replicas
-5. **Tune batch size** - Balance latency and throughput
-6. **Enable streaming** - Better UX for chat applications
-7. **Set up autoscaling** - Handle traffic spikes
-8. **Use persistent volumes** - Cache compiled models
-9. **Implement retries** - Handle transient failures
-10. **Monitor costs** - Track cost per token
+1. **在H100上使用FP8**可获得2倍加速和50%成本降低
+2. **监控指标**- 设置Prometheus + Grafana
+3. **设置就绪探针**- 防止路由到不健康的Pod
+4. **使用负载均衡**- 跨副本分配负载
+5. **调优批大小**- 平衡延迟和吞吐量
+6. **启用流式传输**- 改善聊天应用的UX
+7. **设置自动扩展**- 处理流量峰值
+8. **使用持久卷**- 缓存编译的模型
+9. **实现重试**- 处理瞬态故障
+10. **监控成本**- 跟踪每词元成本

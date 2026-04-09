@@ -1,53 +1,53 @@
 ---
 sidebar_position: 3
-title: "Nix & NixOS Setup"
-description: "Install and deploy KClaw Agent with Nix — from quick `nix run` to fully declarative NixOS module with container mode"
+title: "Nix 和 NixOS 设置"
+description: "使用 Nix 安装和部署 KClaw Agent——从快速的 `nix run` 到完全声明式的 NixOS 模块和容器模式"
 ---
 
-# Nix & NixOS Setup
+# Nix 和 NixOS 设置
 
-KClaw Agent ships a Nix flake with three levels of integration:
+KClaw Agent 附带一个 Nix flake，具有三个集成级别：
 
-| Level | Who it's for | What you get |
+| 级别 | 适用对象 | 您获得的内容 |
 |-------|-------------|--------------|
-| **`nix run` / `nix profile install`** | Any Nix user (macOS, Linux) | Pre-built binary with all deps — then use the standard CLI workflow |
-| **NixOS module (native)** | NixOS server deployments | Declarative config, hardened systemd service, managed secrets |
-| **NixOS module (container)** | Agents that need self-modification | Everything above, plus a persistent Ubuntu container where the agent can `apt`/`pip`/`npm install` |
+| **`nix run` / `nix profile install`** | 任何 Nix 用户（macOS、Linux） | 预构建二进制文件，包含所有依赖项——然后使用标准 CLI 工作流程 |
+| **NixOS 模块（原生）** | NixOS 服务器部署 | 声明式配置、强化 systemd 服务、托管密钥 |
+| **NixOS 模块（容器）** | 需要自我修改的代理 | 以上所有内容，加上一个持久化 Ubuntu 容器，代理可以在其中 `apt`/`pip`/`npm install` |
 
-:::info What's different from the standard install
-The `curl | bash` installer manages Python, Node, and dependencies itself. The Nix flake replaces all of that — every Python dependency is a Nix derivation built by [uv2nix](https://github.com/pyproject-nix/uv2nix), and runtime tools (Node.js, git, ripgrep, ffmpeg) are wrapped into the binary's PATH. There is no runtime pip, no venv activation, no `npm install`.
+:::info 与标准安装有什么不同
+`curl | bash` 安装程序自行管理 Python、Node 和依赖项。Nix flake 取代了所有这些——每个 Python 依赖都是通过 [uv2nix](https://github.com/pyproject-nix/uv2nix) 构建的 Nix 派生项，运行时工具（Node.js、git、ripgrep、ffmpeg）被包装到二进制文件的 PATH 中。没有运行时 pip，没有 venv 激活，没有 `npm install`。
 
-**For non-NixOS users**, this only changes the install step. Everything after (`kclaw setup`, `kclaw gateway install`, config editing) works identically to the standard install.
+**对于非 NixOS 用户**，这仅更改安装步骤。之后的所有内容（`kclaw setup`、`kclaw gateway install`、配置编辑）与标准安装完全相同。
 
-**For NixOS module users**, the entire lifecycle is different: configuration lives in `configuration.nix`, secrets go through sops-nix/agenix, the service is a systemd unit, and CLI config commands are blocked. You manage kclaw the same way you manage any other NixOS service.
+**对于 NixOS 模块用户**，整个生命周期是不同的：配置位于 `configuration.nix` 中，密钥通过 sops-nix/agenix 处理，服务是 systemd 单元，CLI 配置命令被阻止。您以与管理任何其他 NixOS 服务相同的方式管理 kclaw。
 :::
 
-## Prerequisites
+## 前置要求
 
-- **Nix with flakes enabled** — [Determinate Nix](https://install.determinate.systems) recommended (enables flakes by default)
-- **API keys** for the services you want to use (at minimum: an OpenRouter or Anthropic key)
+- **启用 flakes 的 Nix** — 推荐 [Determinate Nix](https://install.determinate.systems)（默认启用 flakes）
+- **您想要使用的服务的 API 密钥**（至少需要一个 OpenRouter 或 Anthropic 密钥）
 
 ---
 
-## Quick Start (Any Nix User)
+## 快速开始（任何 Nix 用户）
 
-No clone needed. Nix fetches, builds, and runs everything:
+无需克隆。Nix 获取、构建并运行一切：
 
 ```bash
-# Run directly (builds on first use, cached after)
+# 直接运行（首次使用时构建，之后缓存）
 nix run github:NousResearch/kclaw -- setup
 nix run github:NousResearch/kclaw -- chat
 
-# Or install persistently
+# 或持久安装
 nix profile install github:NousResearch/kclaw
 kclaw setup
 kclaw chat
 ```
 
-After `nix profile install`, `kclaw`, `kclaw`, and `kclaw-acp` are on your PATH. From here, the workflow is identical to the [standard installation](./installation.md) — `kclaw setup` walks you through provider selection, `kclaw gateway install` sets up a launchd (macOS) or systemd user service, and config lives in `~/.kclaw/`.
+`nix profile install` 后，`kclaw`、`kclaw` 和 `kclaw-acp` 在您的 PATH 上。从这里开始，工作流程与 [标准安装](./installation.md) 相同——`kclaw setup` 引导您完成提供商选择，`kclaw gateway install` 设置 launchd（macOS）或 systemd 用户服务，配置位于 `~/.kclaw/`。
 
 <details>
-<summary><strong>Building from a local clone</strong></summary>
+<summary><strong>从本地克隆构建</strong></summary>
 
 ```bash
 git clone https://github.com/NousResearch/kclaw.git
@@ -60,18 +60,18 @@ nix build
 
 ---
 
-## NixOS Module
+## NixOS 模块
 
-The flake exports `nixosModules.default` — a full NixOS service module that declaratively manages user creation, directories, config generation, secrets, documents, and service lifecycle.
+flake 导出 `nixosModules.default`——一个完整的 NixOS 服务模块，声明式管理用户创建、目录、配置生成、密钥、文档和服务生命周期。
 
 :::note
-This module requires NixOS. For non-NixOS systems (macOS, other Linux distros), use `nix profile install` and the standard CLI workflow above.
+此模块需要 NixOS。对于非 NixOS 系统（macOS、其他 Linux 发行版），使用 `nix profile install` 和上面的标准 CLI 工作流程。
 :::
 
-### Add the Flake Input
+### 添加 Flake 输入
 
 ```nix
-# /etc/nixos/flake.nix (or your system flake)
+# /etc/nixos/flake.nix（或您的系统 flake）
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
@@ -90,7 +90,7 @@ This module requires NixOS. For non-NixOS systems (macOS, other Linux distros), 
 }
 ```
 
-### Minimal Configuration
+### 最小配置
 
 ```nix
 # configuration.nix
@@ -104,10 +104,10 @@ This module requires NixOS. For non-NixOS systems (macOS, other Linux distros), 
 }
 ```
 
-That's it. `nixos-rebuild switch` creates the `kclaw` user, generates `config.yaml`, wires up secrets, and starts the gateway — a long-running service that connects the agent to messaging platforms (Telegram, Discord, etc.) and listens for incoming messages.
+就这样。`nixos-rebuild switch` 创建 `kclaw` 用户，生成 `config.yaml`，连接密钥，并启动网关——一个长期运行的服务，将代理连接到消息平台（Telegram、Discord 等）并监听传入消息。
 
-:::warning Secrets are required
-The `environmentFiles` line above assumes you have [sops-nix](https://github.com/Mic92/sops-nix) or [agenix](https://github.com/ryantm/agenix) configured. The file should contain at least one LLM provider key (e.g., `OPENROUTER_API_KEY=sk-or-...`). See [Secrets Management](#secrets-management) for full setup. If you don't have a secrets manager yet, you can use a plain file as a starting point — just ensure it's not world-readable:
+:::warning 密钥是必需的
+上面的 `environmentFiles` 行假设您已配置 [sops-nix](https://github.com/Mic92/sops-nix) 或 [agenix](https://github.com/ryantm/agenix)。文件应至少包含一个 LLM 提供商密钥（例如 `OPENROUTER_API_KEY=sk-or-...`）。请参阅 [密钥管理](#secrets-management) 了解完整设置。如果您还没有密钥管理器，您可以使用普通文件作为起点——只需确保它不是全局可读的：
 
 ```bash
 echo "OPENROUTER_API_KEY=sk-or-your-key" | sudo install -m 0600 -o kclaw /dev/stdin /var/lib/kclaw/env
@@ -119,38 +119,38 @@ services.kclaw.environmentFiles = [ "/var/lib/kclaw/env" ];
 :::
 
 :::tip addToSystemPackages
-Setting `addToSystemPackages = true` does two things: puts the `kclaw` CLI on your system PATH **and** sets `KCLAW_HOME` system-wide so the interactive CLI shares state (sessions, skills, cron) with the gateway service. Without it, running `kclaw` in your shell creates a separate `~/.kclaw/` directory.
+设置 `addToSystemPackages = true` 会做两件事：将 `kclaw` CLI 放在系统 PATH 上**并且**系统范围内设置 `KCLAW_HOME`，以便交互式 CLI 与网关服务共享状态（会话、技能、cron）。如果没有它，在 shell 中运行 `kclaw` 会创建一个单独的 `~/.kclaw/` 目录。
 :::
 
-### Verify It Works
+### 验证它是否工作
 
-After `nixos-rebuild switch`, check that the service is running:
+`nixos-rebuild switch` 后，检查服务是否正在运行：
 
 ```bash
-# Check service status
+# 检查服务状态
 systemctl status kclaw
 
-# Watch logs (Ctrl+C to stop)
+# 观看日志（Ctrl+C 停止）
 journalctl -u kclaw -f
 
-# If addToSystemPackages is true, test the CLI
+# 如果 addToSystemPackages 为 true，测试 CLI
 kclaw version
-kclaw config       # shows the generated config
+kclaw config       # 显示生成的配置
 ```
 
-### Choosing a Deployment Mode
+### 选择部署模式
 
-The module supports two modes, controlled by `container.enable`:
+模块支持两种模式，由 `container.enable` 控制：
 
-| | **Native** (default) | **Container** |
+| | **原生**（默认） | **容器** |
 |---|---|---|
-| How it runs | Hardened systemd service on the host | Persistent Ubuntu container with `/nix/store` bind-mounted |
-| Security | `NoNewPrivileges`, `ProtectSystem=strict`, `PrivateTmp` | Container isolation, runs as unprivileged user inside |
-| Agent can self-install packages | No — only tools on the Nix-provided PATH | Yes — `apt`, `pip`, `npm` installs persist across restarts |
-| Config surface | Same | Same |
-| When to choose | Standard deployments, maximum security, reproducibility | Agent needs runtime package installation, mutable environment, experimental tools |
+| 如何运行 | 主机上的强化 systemd 服务 | 具有 `/nix/store` 挂载的持久化 Ubuntu 容器 |
+| 安全性 | `NoNewPrivileges`、`ProtectSystem=strict`、`PrivateTmp` | 容器隔离，以非特权用户身份运行 |
+| 代理可以自我安装包 | 否——只有 Nix 提供的 PATH 上的工具 | 是——`apt`、`pip`、`npm` 安装在重启之间持久化 |
+| 配置表面 | 相同 | 相同 |
+| 何时选择 | 标准部署、最大安全性、可重现性 | 代理需要运行时包安装、可变环境、实验性工具 |
 
-To enable container mode, add one line:
+要启用容器模式，添加一行：
 
 ```nix
 {
@@ -163,16 +163,16 @@ To enable container mode, add one line:
 ```
 
 :::info
-Container mode auto-enables `virtualisation.docker.enable` via `mkDefault`. If you use Podman instead, set `container.backend = "podman"` and `virtualisation.docker.enable = false`.
+容器模式通过 `mkDefault` 自动启用 `virtualisation.docker.enable`。如果您使用 Podman，请设置 `container.backend = "podman"` 和 `virtualisation.docker.enable = false`。
 :::
 
 ---
 
-## Configuration
+## 配置
 
-### Declarative Settings
+### 声明式设置
 
-The `settings` option accepts an arbitrary attrset that is rendered as `config.yaml`. It supports deep merging across multiple module definitions (via `lib.recursiveUpdate`), so you can split config across files:
+`settings` 选项接受任意属性集，渲染为 `config.yaml`。它支持跨多个模块定义的深度合并（通过 `lib.recursiveUpdate`），因此您可以将配置拆分到多个文件中：
 
 ```nix
 # base.nix
@@ -189,18 +189,18 @@ services.kclaw.settings = {
 };
 ```
 
-Both are deep-merged at evaluation time. Nix-declared keys always win over keys in an existing `config.yaml` on disk, but **user-added keys that Nix doesn't touch are preserved**. This means if the agent or a manual edit adds keys like `skills.disabled` or `streaming.enabled`, they survive `nixos-rebuild switch`.
+两者在评估时深度合并。Nix 声明的键总是优先于磁盘上现有 `config.yaml` 中的键，但 **Nix 不触及的用户添加的键会被保留**。这意味着如果代理或手动编辑添加了像 `skills.disabled` 或 `streaming.enabled` 这样的键，它们会在 `nixos-rebuild switch` 中保留。
 
-:::note Model naming
-`settings.model.default` uses the model identifier your provider expects. With [OpenRouter](https://openrouter.ai) (the default), these look like `"anthropic/claude-sonnet-4"` or `"google/gemini-3-flash"`. If you're using a provider directly (Anthropic, OpenAI), set `settings.model.base_url` to point at their API and use their native model IDs (e.g., `"claude-sonnet-4-20250514"`). When no `base_url` is set, KClaw defaults to OpenRouter.
+:::note 模型命名
+`settings.model.default` 使用您的提供商期望的模型标识符。使用 [OpenRouter](https://openrouter.ai)（默认），这些看起来像 `"anthropic/claude-sonnet-4"` 或 `"google/gemini-3-flash"`。如果您直接使用提供商（Anthropic、OpenAI），请设置 `settings.model.base_url` 指向他们的 API 并使用他们原生的模型 ID（例如 `"claude-sonnet-4-20250514"`）。当没有设置 `base_url` 时，KClaw 默认为 OpenRouter。
 :::
 
-:::tip Discovering available config keys
-Run `nix build .#configKeys && cat result` to see every leaf config key extracted from Python's `DEFAULT_CONFIG`. You can paste your existing `config.yaml` into the `settings` attrset — the structure maps 1:1.
+:::tip 发现可用的配置键
+运行 `nix build .#configKeys && cat result` 查看从 Python 的 `DEFAULT_CONFIG` 提取的每个叶配置键。您可以将现有的 `config.yaml` 粘贴到 `settings` 属性集中——结构一一映射。
 :::
 
 <details>
-<summary><strong>Full example: all commonly customized settings</strong></summary>
+<summary><strong>完整示例：所有常用自定义设置</strong></summary>
 
 ```nix
 { config, ... }: {
@@ -261,45 +261,45 @@ Run `nix build .#configKeys && cat result` to see every leaf config key extracte
 
 </details>
 
-### Escape Hatch: Bring Your Own Config
+### 逃生舱：自带配置
 
-If you'd rather manage `config.yaml` entirely outside Nix, use `configFile`:
+如果您宁愿完全在 Nix 之外管理 `config.yaml`，请使用 `configFile`：
 
 ```nix
 services.kclaw.configFile = /etc/kclaw/config.yaml;
 ```
 
-This bypasses `settings` entirely — no merge, no generation. The file is copied as-is to `$KCLAW_HOME/config.yaml` on each activation.
+这完全绕过 `settings`——无合并，无生成。文件在每次激活时原样复制到 `$KCLAW_HOME/config.yaml`。
 
-### Customization Cheatsheet
+### 自定义速查表
 
-Quick reference for the most common things Nix users want to customize:
+Nix 用户最常自定义的内容的快速参考：
 
-| I want to... | Option | Example |
+| 我想要... | 选项 | 示例 |
 |---|---|---|
-| Change the LLM model | `settings.model.default` | `"anthropic/claude-sonnet-4"` |
-| Use a different provider endpoint | `settings.model.base_url` | `"https://openrouter.ai/api/v1"` |
-| Add API keys | `environmentFiles` | `[ config.sops.secrets."kclaw-env".path ]` |
-| Give the agent a personality | `documents."SOUL.md"` | `builtins.readFile ./my-soul.md` |
-| Add MCP tool servers | `mcpServers.<name>` | See [MCP Servers](#mcp-servers) |
-| Mount host directories into container | `container.extraVolumes` | `[ "/data:/data:rw" ]` |
-| Pass GPU access to container | `container.extraOptions` | `[ "--gpus" "all" ]` |
-| Use Podman instead of Docker | `container.backend` | `"podman"` |
-| Add tools to the service PATH (native only) | `extraPackages` | `[ pkgs.pandoc pkgs.imagemagick ]` |
-| Use a custom base image | `container.image` | `"ubuntu:24.04"` |
-| Override the kclaw package | `package` | `inputs.kclaw.packages.${system}.default.override { ... }` |
-| Change state directory | `stateDir` | `"/opt/kclaw"` |
-| Set the agent's working directory | `workingDirectory` | `"/home/user/projects"` |
+| 更改 LLM 模型 | `settings.model.default` | `"anthropic/claude-sonnet-4"` |
+| 使用不同的提供商端点 | `settings.model.base_url` | `"https://openrouter.ai/api/v1"` |
+| 添加 API 密钥 | `environmentFiles` | `[ config.sops.secrets."kclaw-env".path ]` |
+| 给代理一个人格 | `documents."SOUL.md"` | `builtins.readFile ./my-soul.md` |
+| 添加 MCP 工具服务器 | `mcpServers.<name>` | 请参阅 [MCP 服务器](#mcp-servers) |
+| 将主机目录挂载到容器 | `container.extraVolumes` | `[ "/data:/data:rw" ]` |
+| 传递 GPU 访问权限到容器 | `container.extraOptions` | `[ "--gpus" "all" ]` |
+| 使用 Podman 而不是 Docker | `container.backend` | `"podman"` |
+| 将工具添加到服务 PATH（仅原生） | `extraPackages` | `[ pkgs.pandoc pkgs.imagemagick ]` |
+| 使用自定义基础镜像 | `container.image` | `"ubuntu:24.04"` |
+| 覆盖 kclaw 包 | `package` | `inputs.kclaw.packages.${system}.default.override { ... }` |
+| 更改状态目录 | `stateDir` | `"/opt/kclaw"` |
+| 设置代理的工作目录 | `workingDirectory` | `"/home/user/projects"` |
 
 ---
 
-## Secrets Management
+## 密钥管理
 
-:::danger Never put API keys in `settings` or `environment`
-Values in Nix expressions end up in `/nix/store`, which is world-readable. Always use `environmentFiles` with a secrets manager.
+:::danger 永远不要将 API 密钥放在 `settings` 或 `environment` 中
+Nix 表达式中的值最终进入 `/nix/store`，这是全局可读的。始终使用带有密钥管理器的 `environmentFiles`。
 :::
 
-Both `environment` (non-secret vars) and `environmentFiles` (secret files) are merged into `$KCLAW_HOME/.env` at activation time (`nixos-rebuild switch`). KClaw reads this file on every startup, so changes take effect with a `systemctl restart kclaw` — no container recreation needed.
+`environment`（非密钥变量）和 `environmentFiles`（密钥文件）都在激活时（`nixos-rebuild switch`）合并到 `$KCLAW_HOME/.env`。KClaw 在每次启动时读取此文件，因此更改需要 `systemctl restart kclaw`——无需重新创建容器。
 
 ### sops-nix
 
@@ -317,10 +317,10 @@ Both `environment` (non-secret vars) and `environmentFiles` (secret files) are m
 }
 ```
 
-The secrets file contains key-value pairs:
+密钥文件包含键值对：
 
 ```yaml
-# secrets/kclaw.yaml (encrypted with sops)
+# secrets/kclaw.yaml（用 sops 加密）
 kclaw-env: |
     OPENROUTER_API_KEY=sk-or-...
     TELEGRAM_BOT_TOKEN=123456:ABC...
@@ -339,30 +339,30 @@ kclaw-env: |
 }
 ```
 
-### OAuth / Auth Seeding
+### OAuth / Auth 种子
 
-For platforms requiring OAuth (e.g., Discord), use `authFile` to seed credentials on first deploy:
+对于需要 OAuth 的平台（例如 Discord），使用 `authFile` 在首次部署时植入凭证：
 
 ```nix
 {
   services.kclaw = {
     authFile = config.sops.secrets."kclaw/auth.json".path;
-    # authFileForceOverwrite = true;  # overwrite on every activation
+    # authFileForceOverwrite = true;  # 每次激活时覆盖
   };
 }
 ```
 
-The file is only copied if `auth.json` doesn't already exist (unless `authFileForceOverwrite = true`). Runtime OAuth token refreshes are written to the state directory and preserved across rebuilds.
+文件仅在 `auth.json` 不存在时被复制（除非 `authFileForceOverwrite = true`）。运行时 OAuth 令牌刷新写入状态目录并在重建之间保留。
 
 ---
 
-## Documents
+## 文档
 
-The `documents` option installs files into the agent's working directory (the `workingDirectory`, which the agent reads as its workspace). KClaw looks for specific filenames by convention:
+`documents` 选项将文件安装到代理的工作目录（`workingDirectory`，代理将其作为 workspace 读取）。KClaw 按约定查找特定文件名：
 
-- **`SOUL.md`** — the agent's system prompt / personality. KClaw reads this on startup and uses it as persistent instructions that shape its behavior across all conversations.
-- **`USER.md`** — context about the user the agent is interacting with.
-- Any other files you place here are visible to the agent as workspace files.
+- **`SOUL.md`** — 代理的系统提示/人格。KClaw 在启动时读取此文件，并将其用作持久指令，在所有对话中塑造其行为。
+- **`USER.md`** — 代理正在与之交互的用户的相关上下文。
+- 您在此处放置的任何其他文件对代理可见为 workspace 文件。
 
 ```nix
 {
@@ -371,20 +371,20 @@ The `documents` option installs files into the agent's working directory (the `w
       You are a helpful research assistant specializing in NixOS packaging.
       Always cite sources and prefer reproducible solutions.
     '';
-    "USER.md" = ./documents/USER.md;  # path reference, copied from Nix store
+    "USER.md" = ./documents/USER.md;  # 路径引用，从 Nix store 复制
   };
 }
 ```
 
-Values can be inline strings or path references. Files are installed on every `nixos-rebuild switch`.
+值可以是内联字符串或路径引用。文件在每次 `nixos-rebuild switch` 时安装。
 
 ---
 
-## MCP Servers
+## MCP 服务器
 
-The `mcpServers` option declaratively configures [MCP (Model Context Protocol)](https://modelcontextprotocol.io) servers. Each server uses either **stdio** (local command) or **HTTP** (remote URL) transport.
+`mcpServers` 选项声明式配置 [MCP（模型上下文协议）](https://modelcontextprotocol.io) 服务器。每个服务器使用 **stdio**（本地命令）或 **HTTP**（远程 URL）传输。
 
-### Stdio Transport (Local Servers)
+### Stdio 传输（本地服务器）
 
 ```nix
 {
@@ -396,17 +396,17 @@ The `mcpServers` option declaratively configures [MCP (Model Context Protocol)](
     github = {
       command = "npx";
       args = [ "-y" "@modelcontextprotocol/server-github" ];
-      env.GITHUB_PERSONAL_ACCESS_TOKEN = "\${GITHUB_TOKEN}"; # resolved from .env
+      env.GITHUB_PERSONAL_ACCESS_TOKEN = "\${GITHUB_TOKEN}"; # 从 .env 解析
     };
   };
 }
 ```
 
 :::tip
-Environment variables in `env` values are resolved from `$KCLAW_HOME/.env` at runtime. Use `environmentFiles` to inject secrets — never put tokens directly in Nix config.
+`env` 值中的环境变量在运行时从 `$KCLAW_HOME/.env` 解析。使用 `environmentFiles` 注入密钥——永远不要将令牌直接放在 Nix 配置中。
 :::
 
-### HTTP Transport (Remote Servers)
+### HTTP 传输（远程服务器）
 
 ```nix
 {
@@ -418,9 +418,9 @@ Environment variables in `env` values are resolved from `$KCLAW_HOME/.env` at ru
 }
 ```
 
-### HTTP Transport with OAuth
+### 带 OAuth 的 HTTP 传输
 
-Set `auth = "oauth"` for servers using OAuth 2.1. KClaw implements the full PKCE flow — metadata discovery, dynamic client registration, token exchange, and automatic refresh.
+对使用 OAuth 2.1 的服务器设置 `auth = "oauth"`。KClaw 实现完整的 PKCE 流程——元数据发现、动态客户端注册、令牌交换和自动刷新。
 
 ```nix
 {
@@ -431,41 +431,41 @@ Set `auth = "oauth"` for servers using OAuth 2.1. KClaw implements the full PKCE
 }
 ```
 
-Tokens are stored in `$KCLAW_HOME/mcp-tokens/<server-name>.json` and persist across restarts and rebuilds.
+令牌存储在 `$KCLAW_HOME/mcp-tokens/<server-name>.json` 中，并在重启和重建之间保留。
 
 <details>
-<summary><strong>Initial OAuth authorization on headless servers</strong></summary>
+<summary><strong>在无头服务器上进行初始 OAuth 授权</strong></summary>
 
-The first OAuth authorization requires a browser-based consent flow. In a headless deployment, KClaw prints the authorization URL to stdout/logs instead of opening a browser.
+首次 OAuth 授权需要基于浏览器的同意流程。在无头部署中，KClaw 将授权 URL 打印到 stdout/日志而不是打开浏览器。
 
-**Option A: Interactive bootstrap** — run the flow once via `docker exec` (container) or `sudo -u kclaw` (native):
+**选项 A：交互式引导**——通过 `docker exec`（容器）或 `sudo -u kclaw`（原生）运行一次流程：
 
 ```bash
-# Container mode
+# 容器模式
 docker exec -it kclaw \
   kclaw mcp add my-oauth-server --url https://mcp.example.com/mcp --auth oauth
 
-# Native mode
+# 原生模式
 sudo -u kclaw KCLAW_HOME=/var/lib/kclaw/.kclaw \
   kclaw mcp add my-oauth-server --url https://mcp.example.com/mcp --auth oauth
 ```
 
-The container uses `--network=host`, so the OAuth callback listener on `127.0.0.1` is reachable from the host browser.
+容器使用 `--network=host`，因此 `127.0.0.1` 上的 OAuth 回调监听器可从主机浏览器访问。
 
-**Option B: Pre-seed tokens** — complete the flow on a workstation, then copy tokens:
+**选项 B：预植入令牌**——在工作站的浏览器中完成流程，然后复制令牌：
 
 ```bash
 kclaw mcp add my-oauth-server --url https://mcp.example.com/mcp --auth oauth
 scp ~/.kclaw/mcp-tokens/my-oauth-server{,.client}.json \
     server:/var/lib/kclaw/.kclaw/mcp-tokens/
-# Ensure: chown kclaw:kclaw, chmod 0600
+# 确保：chown kclaw:kclaw, chmod 0600
 ```
 
 </details>
 
-### Sampling (Server-Initiated LLM Requests)
+### 采样（服务器发起的 LLM 请求）
 
-Some MCP servers can request LLM completions from the agent:
+一些 MCP 服务器可以向代理请求 LLM 完成：
 
 ```nix
 {
@@ -485,291 +485,291 @@ Some MCP servers can request LLM completions from the agent:
 
 ---
 
-## Managed Mode
+## 托管模式
 
-When kclaw runs via the NixOS module, the following CLI commands are **blocked** with a descriptive error pointing you to `configuration.nix`:
+当 kclaw 通过 NixOS 模块运行时，以下 CLI 命令被**阻止**，并显示指向 `configuration.nix` 的描述性错误：
 
-| Blocked command | Why |
+| 阻止的命令 | 原因 |
 |---|---|
-| `kclaw setup` | Config is declarative — edit `settings` in your Nix config |
-| `kclaw config edit` | Config is generated from `settings` |
-| `kclaw config set <key> <value>` | Config is generated from `settings` |
-| `kclaw gateway install` | The systemd service is managed by NixOS |
-| `kclaw gateway uninstall` | The systemd service is managed by NixOS |
+| `kclaw setup` | 配置是声明式的——在 Nix 配置中编辑 `settings` |
+| `kclaw config edit` | 配置是从 `settings` 生成的 |
+| `kclaw config set <key> <value>` | 配置是从 `settings` 生成的 |
+| `kclaw gateway install` | systemd 服务由 NixOS 管理 |
+| `kclaw gateway uninstall` | systemd 服务由 NixOS 管理 |
 
-This prevents drift between what Nix declares and what's on disk. Detection uses two signals:
+这防止了 Nix 声明的内容与磁盘上的内容之间的漂移。检测使用两个信号：
 
-1. **`KCLAW_MANAGED=true`** environment variable — set by the systemd service, visible to the gateway process
-2. **`.managed` marker file** in `KCLAW_HOME` — set by the activation script, visible to interactive shells (e.g., `docker exec -it kclaw kclaw config set ...` is also blocked)
+1. **`KCLAW_MANAGED=true`** 环境变量——由 systemd 服务设置，对网关进程可见
+2. **`KCLAW_HOME` 中的 `.managed`** 标记文件——由激活脚本设置，对交互式 shell 可见（例如，`docker exec -it kclaw kclaw config set ...` 也被阻止）
 
-To change configuration, edit your Nix config and run `sudo nixos-rebuild switch`.
+要更改配置，请编辑您的 Nix 配置并运行 `sudo nixos-rebuild switch`。
 
 ---
 
-## Container Architecture
+## 容器架构
 
 :::info
-This section is only relevant if you're using `container.enable = true`. Skip it for native mode deployments.
+本节仅在您使用 `container.enable = true` 时相关。对于原生模式部署，请跳过。
 :::
 
-When container mode is enabled, kclaw runs inside a persistent Ubuntu container with the Nix-built binary bind-mounted read-only from the host:
+启用容器模式时，kclaw 在持久化 Ubuntu 容器内运行，Nix 构建的二进制文件从主机以只读方式挂载：
 
 ```
-Host                                    Container
+主机                                    容器
 ────                                    ─────────
 /nix/store/...-kclaw-0.1.0  ──►  /nix/store/... (ro)
 /var/lib/kclaw/                    ──►  /data/          (rw)
-  ├── current-package -> /nix/store/...    (symlink, updated each rebuild)
-  ├── .gc-root -> /nix/store/...           (prevents nix-collect-garbage)
-  ├── .container-identity                  (sha256 hash, triggers recreation)
+  ├── current-package -> /nix/store/...    (符号链接，每次重建时更新)
+  ├── .gc-root -> /nix/store/...           (防止 nix-collect-garbage)
+  ├── .container-identity                  (sha256 哈希，触发重新创建)
   ├── .kclaw/                             (KCLAW_HOME)
-  │   ├── .env                             (merged from environment + environmentFiles)
-  │   ├── config.yaml                      (Nix-generated, deep-merged by activation)
-  │   ├── .managed                         (marker file)
-  │   ├── state.db, sessions/, memories/   (runtime state)
-  │   └── mcp-tokens/                      (OAuth tokens for MCP servers)
+  │   ├── .env                             (从 environment + environmentFiles 合并)
+  │   ├── config.yaml                      (Nix 生成，由激活深度合并)
+  │   ├── .managed                         (标记文件)
+  │   ├── state.db, sessions/, memories/   (运行时状态)
+  │   └── mcp-tokens/                      (MCP 服务器的 OAuth 令牌)
   ├── home/                                ──►  /home/kclaw    (rw)
   └── workspace/                           (MESSAGING_CWD)
-      ├── SOUL.md                          (from documents option)
-      └── (agent-created files)
+      ├── SOUL.md                          (来自 documents 选项)
+      └── (代理创建的文件)
 
-Container writable layer (apt/pip/npm):   /usr, /usr/local, /tmp
+容器可写层（apt/pip/npm）：   /usr, /usr/local, /tmp
 ```
 
-The Nix-built binary works inside the Ubuntu container because `/nix/store` is bind-mounted — it brings its own interpreter and all dependencies, so there's no reliance on the container's system libraries. The container entrypoint resolves through a `current-package` symlink: `/data/current-package/bin/kclaw gateway run --replace`. On `nixos-rebuild switch`, only the symlink is updated — the container keeps running.
+Nix 构建的二进制文件在 Ubuntu 容器内工作，因为 `/nix/store` 是挂载的——它带来自己的解释器和所有依赖项，因此不依赖容器的系统库。容器入口点通过 `current-package` 符号链接解析：`/data/current-package/bin/kclaw gateway run --replace`。在 `nixos-rebuild switch` 时，只有符号链接被更新——容器继续运行。
 
-### What Persists Across What
+### 什么跨什么持久化
 
-| Event | Container recreated? | `/data` (state) | `/home/kclaw` | Writable layer (`apt`/`pip`/`npm`) |
+| 事件 | 容器重新创建？ | `/data`（状态） | `/home/kclaw` | 可写层（`apt`/`pip`/`npm`） |
 |---|---|---|---|---|
-| `systemctl restart kclaw` | No | Persists | Persists | Persists |
-| `nixos-rebuild switch` (code change) | No (symlink updated) | Persists | Persists | Persists |
-| Host reboot | No | Persists | Persists | Persists |
-| `nix-collect-garbage` | No (GC root) | Persists | Persists | Persists |
-| Image change (`container.image`) | **Yes** | Persists | Persists | **Lost** |
-| Volume/options change | **Yes** | Persists | Persists | **Lost** |
-| `environment`/`environmentFiles` change | No | Persists | Persists | Persists |
+| `systemctl restart kclaw` | 否 | 持久化 | 持久化 | 持久化 |
+| `nixos-rebuild switch`（代码更改） | 否（符号链接已更新） | 持久化 | 持久化 | 持久化 |
+| 主机重启 | 否 | 持久化 | 持久化 | 持久化 |
+| `nix-collect-garbage` | 否（GC 根） | 持久化 | 持久化 | 持久化 |
+| 镜像更改（`container.image`） | **是** | 持久化 | 持久化 | **丢失** |
+| 卷/选项更改 | **是** | 持久化 | 持久化 | **丢失** |
+| `environment`/`environmentFiles` 更改 | 否 | 持久化 | 持久化 | 持久化 |
 
-The container is only recreated when its **identity hash** changes. The hash covers: schema version, image, `extraVolumes`, `extraOptions`, and the entrypoint script. Changes to environment variables, settings, documents, or the kclaw package itself do **not** trigger recreation.
+容器仅在其**身份哈希**更改时重新创建。哈希涵盖：架构版本、镜像、`extraVolumes`、`extraOptions` 和入口点脚本。更改环境变量、设置、文档或 kclaw 包本身**不会**触发重新创建。
 
-:::warning Writable layer loss
-When the identity hash changes (image upgrade, new volumes, new container options), the container is destroyed and recreated from a fresh pull of `container.image`. Any `apt install`, `pip install`, or `npm install` packages in the writable layer are lost. State in `/data` and `/home/kclaw` is preserved (these are bind mounts).
+:::warning 可写层丢失
+当身份哈希更改时（镜像升级、新卷、新容器选项），容器被销毁并从 `container.image` 的全新拉取重新创建。可写层中的任何 `apt install`、`pip install` 或 `npm install` 包都会丢失。`/data` 和 `/home/kclaw` 中的状态被保留（这些是挂载绑定）。
 
-If the agent relies on specific packages, consider baking them into a custom image (`container.image = "my-registry/kclaw-base:latest"`) or scripting their installation in the agent's SOUL.md.
+如果代理依赖特定包，请考虑将它们烘焙到自定义镜像中（`container.image = "my-registry/kclaw-base:latest"`），或在代理的 SOUL.md 中编写它们的安装脚本。
 :::
 
-### GC Root Protection
+### GC 根保护
 
-The `preStart` script creates a GC root at `${stateDir}/.gc-root` pointing to the current kclaw package. This prevents `nix-collect-garbage` from removing the running binary. If the GC root somehow breaks, restarting the service recreates it.
+`preStart` 脚本在 `${stateDir}/.gc-root` 创建一个 GC 根，指向当前 kclaw 包。这防止 `nix-collect-garbage` 移除运行的二进制文件。如果 GC 根以某种方式损坏，重启服务会重新创建它。
 
 ---
 
-## Development
+## 开发
 
-### Dev Shell
+### 开发 Shell
 
-The flake provides a development shell with Python 3.11, uv, Node.js, and all runtime tools:
+flake 提供一个带有 Python 3.11、uv、Node.js 和所有运行时工具的开发 shell：
 
 ```bash
 cd kclaw
 nix develop
 
-# Shell provides:
-#   - Python 3.11 + uv (deps installed into .venv on first entry)
-#   - Node.js 20, ripgrep, git, openssh, ffmpeg on PATH
-#   - Stamp-file optimization: re-entry is near-instant if deps haven't changed
+# Shell 提供：
+#   - Python 3.11 + uv（首次进入时依赖安装到 .venv）
+#   - Node.js 20、ripgrep、git、openssh、ffmpeg 在 PATH 上
+#   - Stamp-file 优化：如果依赖未更改，重新进入几乎是即时的
 
 kclaw setup
 kclaw chat
 ```
 
-### direnv (Recommended)
+### direnv（推荐）
 
-The included `.envrc` activates the dev shell automatically:
+包含的 `.envrc` 自动激活开发 shell：
 
 ```bash
 cd kclaw
-direnv allow    # one-time
-# Subsequent entries are near-instant (stamp file skips dep install)
+direnv allow    # 一次性的
+# 后续进入几乎是即时的（stamp 文件跳过依赖安装）
 ```
 
-### Flake Checks
+### Flake 检查
 
-The flake includes build-time verification that runs in CI and locally:
+flake 包含在 CI 中运行的构建时验证，也在本地运行：
 
 ```bash
-# Run all checks
+# 运行所有检查
 nix flake check
 
-# Individual checks
-nix build .#checks.x86_64-linux.package-contents   # binaries exist + version
-nix build .#checks.x86_64-linux.entry-points-sync  # pyproject.toml ↔ Nix package sync
-nix build .#checks.x86_64-linux.cli-commands        # gateway/config subcommands
-nix build .#checks.x86_64-linux.managed-guard       # KCLAW_MANAGED blocks mutation
-nix build .#checks.x86_64-linux.bundled-skills      # skills present in package
-nix build .#checks.x86_64-linux.config-roundtrip    # merge script preserves user keys
+# 单个检查
+nix build .#checks.x86_64-linux.package-contents   # 二进制文件存在 + 版本
+nix build .#checks.x86_64-linux.entry-points-sync  # pyproject.toml ↔ Nix 包同步
+nix build .#checks.x86_64-linux.cli-commands        # gateway/config 子命令
+nix build .#checks.x86_64-linux.managed-guard       # KCLAW_MANAGED 阻止变更
+nix build .#checks.x86_64-linux.bundled-skills      # 包中的技能存在
+nix build .#checks.x86_64-linux.config-roundtrip    # 合并脚本保留用户键
 ```
 
 <details>
-<summary><strong>What each check verifies</strong></summary>
+<summary><strong>每个检查验证什么</strong></summary>
 
-| Check | What it tests |
+| 检查 | 测试内容 |
 |---|---|
-| `package-contents` | `kclaw` and `kclaw` binaries exist and `kclaw version` runs |
-| `entry-points-sync` | Every `[project.scripts]` entry in `pyproject.toml` has a wrapped binary in the Nix package |
-| `cli-commands` | `kclaw --help` exposes `gateway` and `config` subcommands |
-| `managed-guard` | `KCLAW_MANAGED=true kclaw config set ...` prints the NixOS error |
-| `bundled-skills` | Skills directory exists, contains SKILL.md files, `KCLAW_BUNDLED_SKILLS` is set in wrapper |
-| `config-roundtrip` | 7 merge scenarios: fresh install, Nix override, user key preservation, mixed merge, MCP additive merge, nested deep merge, idempotency |
+| `package-contents` | `kclaw` 和 `kclaw` 二进制文件存在且 `kclaw version` 运行 |
+| `entry-points-sync` | `pyproject.toml` 中的每个 `[project.scripts]` 条目在 Nix 包中有一个包装二进制文件 |
+| `cli-commands` | `kclaw --help` 暴露 `gateway` 和 `config` 子命令 |
+| `managed-guard` | `KCLAW_MANAGED=true kclaw config set ...` 打印 NixOS 错误 |
+| `bundled-skills` | 技能目录存在，包含 SKILL.md 文件，`KCLAW_BUNDLED_SKILLS` 在包装器中设置 |
+| `config-roundtrip` | 7 个合并场景：全新安装、Nix 覆盖、用户键保留、混合合并、MCP 添加性合并、嵌套深度合并、幂等性 |
 
 </details>
 
 ---
 
-## Options Reference
+## 选项参考
 
-### Core
+### 核心
 
-| Option | Type | Default | Description |
+| 选项 | 类型 | 默认 | 描述 |
 |---|---|---|---|
-| `enable` | `bool` | `false` | Enable the kclaw service |
-| `package` | `package` | `kclaw` | The kclaw package to use |
-| `user` | `str` | `"kclaw"` | System user |
-| `group` | `str` | `"kclaw"` | System group |
-| `createUser` | `bool` | `true` | Auto-create user/group |
-| `stateDir` | `str` | `"/var/lib/kclaw"` | State directory (`KCLAW_HOME` parent) |
-| `workingDirectory` | `str` | `"${stateDir}/workspace"` | Agent working directory (`MESSAGING_CWD`) |
-| `addToSystemPackages` | `bool` | `false` | Add `kclaw` CLI to system PATH and set `KCLAW_HOME` system-wide |
+| `enable` | `bool` | `false` | 启用 kclaw 服务 |
+| `package` | `package` | `kclaw` | 要使用的 kclaw 包 |
+| `user` | `str` | `"kclaw"` | 系统用户 |
+| `group` | `str` | `"kclaw"` | 系统组 |
+| `createUser` | `bool` | `true` | 自动创建用户/组 |
+| `stateDir` | `str` | `"/var/lib/kclaw"` | 状态目录（`KCLAW_HOME` 父级） |
+| `workingDirectory` | `str` | `"${stateDir}/workspace"` | 代理工作目录（`MESSAGING_CWD`） |
+| `addToSystemPackages` | `bool` | `false` | 将 `kclaw` CLI 添加到系统 PATH 并系统范围内设置 `KCLAW_HOME` |
 
-### Configuration
+### 配置
 
-| Option | Type | Default | Description |
+| 选项 | 类型 | 默认 | 描述 |
 |---|---|---|---|
-| `settings` | `attrs` (deep-merged) | `{}` | Declarative config rendered as `config.yaml`. Supports arbitrary nesting; multiple definitions are merged via `lib.recursiveUpdate` |
-| `configFile` | `null` or `path` | `null` | Path to an existing `config.yaml`. Overrides `settings` entirely if set |
+| `settings` | `attrs`（深度合并） | `{}` | 声明式配置，渲染为 `config.yaml`。支持任意嵌套；多个定义通过 `lib.recursiveUpdate` 合并 |
+| `configFile` | `null` 或 `path` | `null` | 现有 `config.yaml` 的路径。如果设置，则完全覆盖 `settings` |
 
-### Secrets & Environment
+### 密钥和环境
 
-| Option | Type | Default | Description |
+| 选项 | 类型 | 默认 | 描述 |
 |---|---|---|---|
-| `environmentFiles` | `listOf str` | `[]` | Paths to env files with secrets. Merged into `$KCLAW_HOME/.env` at activation time |
-| `environment` | `attrsOf str` | `{}` | Non-secret env vars. **Visible in Nix store** — do not put secrets here |
-| `authFile` | `null` or `path` | `null` | OAuth credentials seed. Only copied on first deploy |
-| `authFileForceOverwrite` | `bool` | `false` | Always overwrite `auth.json` from `authFile` on activation |
+| `environmentFiles` | `listOf str` | `[]` | 带有密钥的环境文件路径。在激活时合并到 `$KCLAW_HOME/.env` |
+| `environment` | `attrsOf str` | `{}` | 非密钥环境变量。**在 Nix store 中可见**——不要将密钥放在这里 |
+| `authFile` | `null` 或 `path` | `null` | OAuth 凭证种子。仅在首次部署时复制 |
+| `authFileForceOverwrite` | `bool` | `false` | 每次激活时从 `authFile` 强制覆盖 `auth.json` |
 
-### Documents
+### 文档
 
-| Option | Type | Default | Description |
+| 选项 | 类型 | 默认 | 描述 |
 |---|---|---|---|
-| `documents` | `attrsOf (either str path)` | `{}` | Workspace files. Keys are filenames, values are inline strings or paths. Installed into `workingDirectory` on activation |
+| `documents` | `attrsOf (either str path)` | `{}` | Workspace 文件。键是文件名，值是内联字符串或路径。在激活时安装到 `workingDirectory` |
 
-### MCP Servers
+### MCP 服务器
 
-| Option | Type | Default | Description |
+| 选项 | 类型 | 默认 | 描述 |
 |---|---|---|---|
-| `mcpServers` | `attrsOf submodule` | `{}` | MCP server definitions, merged into `settings.mcp_servers` |
-| `mcpServers.<name>.command` | `null` or `str` | `null` | Server command (stdio transport) |
-| `mcpServers.<name>.args` | `listOf str` | `[]` | Command arguments |
-| `mcpServers.<name>.env` | `attrsOf str` | `{}` | Environment variables for the server process |
-| `mcpServers.<name>.url` | `null` or `str` | `null` | Server endpoint URL (HTTP/StreamableHTTP transport) |
-| `mcpServers.<name>.headers` | `attrsOf str` | `{}` | HTTP headers, e.g. `Authorization` |
-| `mcpServers.<name>.auth` | `null` or `"oauth"` | `null` | Authentication method. `"oauth"` enables OAuth 2.1 PKCE |
-| `mcpServers.<name>.enabled` | `bool` | `true` | Enable or disable this server |
-| `mcpServers.<name>.timeout` | `null` or `int` | `null` | Tool call timeout in seconds (default: 120) |
-| `mcpServers.<name>.connect_timeout` | `null` or `int` | `null` | Connection timeout in seconds (default: 60) |
-| `mcpServers.<name>.tools` | `null` or `submodule` | `null` | Tool filtering (`include`/`exclude` lists) |
-| `mcpServers.<name>.sampling` | `null` or `submodule` | `null` | Sampling config for server-initiated LLM requests |
+| `mcpServers` | `attrsOf submodule` | `{}` | MCP 服务器定义，合并到 `settings.mcp_servers` |
+| `mcpServers.<name>.command` | `null` 或 `str` | `null` | 服务器命令（stdio 传输） |
+| `mcpServers.<name>.args` | `listOf str` | `[]` | 命令参数 |
+| `mcpServers.<name>.env` | `attrsOf str` | `{}` | 服务器进程的环境变量 |
+| `mcpServers.<name>.url` | `null` 或 `str` | `null` | 服务器端点 URL（HTTP/StreamableHTTP 传输） |
+| `mcpServers.<name>.headers` | `attrsOf str` | `{}` | HTTP 头，例如 `Authorization` |
+| `mcpServers.<name>.auth` | `null` 或 `"oauth"` | `null` | 认证方法。`"oauth"` 启用 OAuth 2.1 PKCE |
+| `mcpServers.<name>.enabled` | `bool` | `true` | 启用或禁用此服务器 |
+| `mcpServers.<name>.timeout` | `null` 或 `int` | `null` | 工具调用超时秒数（默认：120） |
+| `mcpServers.<name>.connect_timeout` | `null` 或 `int` | `null` | 连接超时秒数（默认：60） |
+| `mcpServers.<name>.tools` | `null` 或 `submodule` | `null` | 工具过滤（`include`/`exclude` 列表） |
+| `mcpServers.<name>.sampling` | `null` 或 `submodule` | `null` | 服务器发起的 LLM 请求的采样配置 |
 
-### Service Behavior
+### 服务行为
 
-| Option | Type | Default | Description |
+| 选项 | 类型 | 默认 | 描述 |
 |---|---|---|---|
-| `extraArgs` | `listOf str` | `[]` | Extra args for `kclaw gateway` |
-| `extraPackages` | `listOf package` | `[]` | Extra packages on service PATH (native mode only) |
-| `restart` | `str` | `"always"` | systemd `Restart=` policy |
-| `restartSec` | `int` | `5` | systemd `RestartSec=` value |
+| `extraArgs` | `listOf str` | `[]` | `kclaw gateway` 的额外参数 |
+| `extraPackages` | `listOf package` | `[]` | 服务 PATH 上的额外包（仅原生模式） |
+| `restart` | `str` | `"always"` | systemd `Restart=` 策略 |
+| `restartSec` | `int` | `5` | systemd `RestartSec=` 值 |
 
-### Container
+### 容器
 
-| Option | Type | Default | Description |
+| 选项 | 类型 | 默认 | 描述 |
 |---|---|---|---|
-| `container.enable` | `bool` | `false` | Enable OCI container mode |
-| `container.backend` | `enum ["docker" "podman"]` | `"docker"` | Container runtime |
-| `container.image` | `str` | `"ubuntu:24.04"` | Base image (pulled at runtime) |
-| `container.extraVolumes` | `listOf str` | `[]` | Extra volume mounts (`host:container:mode`) |
-| `container.extraOptions` | `listOf str` | `[]` | Extra args passed to `docker create` |
+| `container.enable` | `bool` | `false` | 启用 OCI 容器模式 |
+| `container.backend` | `enum ["docker" "podman"]` | `"docker"` | 容器运行时 |
+| `container.image` | `str` | `"ubuntu:24.04"` | 基础镜像（运行时拉取） |
+| `container.extraVolumes` | `listOf str` | `[]` | 额外卷挂载（`host:container:mode`） |
+| `container.extraOptions` | `listOf str` | `[]` | 传递给 `docker create` 的额外参数 |
 
 ---
 
-## Directory Layout
+## 目录布局
 
-### Native Mode
+### 原生模式
 
 ```
-/var/lib/kclaw/                     # stateDir (owned by kclaw:kclaw, 0750)
+/var/lib/kclaw/                     # stateDir（由 kclaw:kclaw 拥有，0750）
 ├── .kclaw/                         # KCLAW_HOME
-│   ├── config.yaml                  # Nix-generated (deep-merged each rebuild)
-│   ├── .managed                     # Marker: CLI config mutation blocked
-│   ├── .env                         # Merged from environment + environmentFiles
-│   ├── auth.json                    # OAuth credentials (seeded, then self-managed)
+│   ├── config.yaml                  # Nix 生成（每次重建时深度合并）
+│   ├── .managed                     # 标记：CLI 配置变更被阻止
+│   ├── .env                         # 从 environment + environmentFiles 合并
+│   ├── auth.json                    # OAuth 凭证（种子，然后自我管理）
 │   ├── gateway.pid
 │   ├── state.db
-│   ├── mcp-tokens/                  # OAuth tokens for MCP servers
+│   ├── mcp-tokens/                  # MCP 服务器的 OAuth 令牌
 │   ├── sessions/
 │   ├── memories/
 │   ├── skills/
 │   ├── cron/
 │   └── logs/
-├── home/                            # Agent HOME
+├── home/                            # 代理 HOME
 └── workspace/                       # MESSAGING_CWD
-    ├── SOUL.md                      # From documents option
-    └── (agent-created files)
+    ├── SOUL.md                      # 来自 documents 选项
+    └── (代理创建的文件)
 ```
 
-### Container Mode
+### 容器模式
 
-Same layout, mounted into the container:
+相同的布局，挂载到容器中：
 
-| Container path | Host path | Mode | Notes |
+| 容器路径 | 主机路径 | 模式 | 备注 |
 |---|---|---|---|
-| `/nix/store` | `/nix/store` | `ro` | KClaw binary + all Nix deps |
-| `/data` | `/var/lib/kclaw` | `rw` | All state, config, workspace |
-| `/home/kclaw` | `${stateDir}/home` | `rw` | Persistent agent home — `pip install --user`, tool caches |
-| `/usr`, `/usr/local`, `/tmp` | (writable layer) | `rw` | `apt`/`pip`/`npm` installs — persists across restarts, lost on recreation |
+| `/nix/store` | `/nix/store` | `ro` | KClaw 二进制文件 + 所有 Nix 依赖项 |
+| `/data` | `/var/lib/kclaw` | `rw` | 所有状态、配置、workspace |
+| `/home/kclaw` | `${stateDir}/home` | `rw` | 持久化代理主目录——`pip install --user`、工具缓存 |
+| `/usr`、`/usr/local`、`/tmp` | （可写层） | `rw` | `apt`/`pip`/`npm` 安装——在重启之间持久化，重新创建时丢失 |
 
 ---
 
-## Updating
+## 更新
 
 ```bash
-# Update the flake input
+# 更新 flake 输入
 nix flake update kclaw --flake /etc/nixos
 
-# Rebuild
+# 重建
 sudo nixos-rebuild switch
 ```
 
-In container mode, the `current-package` symlink is updated and the agent picks up the new binary on restart. No container recreation, no loss of installed packages.
+在容器模式下，`current-package` 符号链接被更新，代理在重启时获取新的二进制文件。不重新创建容器，不丢失已安装的包。
 
 ---
 
-## Troubleshooting
+## 故障排除
 
-:::tip Podman users
-All `docker` commands below work the same with `podman`. Substitute accordingly if you set `container.backend = "podman"`.
+:::tip Podman 用户
+下面的所有 `docker` 命令在 `podman` 中也一样工作。如果您设置 `container.backend = "podman"`，请相应替换。
 :::
 
-### Service Logs
+### 服务日志
 
 ```bash
-# Both modes use the same systemd unit
+# 两种模式使用相同的 systemd 单元
 journalctl -u kclaw -f
 
-# Container mode: also available directly
+# 容器模式：也可直接使用
 docker logs -f kclaw
 ```
 
-### Container Inspection
+### 容器检查
 
 ```bash
 systemctl status kclaw
@@ -780,9 +780,9 @@ docker exec kclaw readlink /data/current-package
 docker exec kclaw cat /data/.container-identity
 ```
 
-### Force Container Recreation
+### 强制容器重新创建
 
-If you need to reset the writable layer (fresh Ubuntu):
+如果您需要重置可写层（全新的 Ubuntu）：
 
 ```bash
 sudo systemctl stop kclaw
@@ -791,30 +791,30 @@ sudo rm /var/lib/kclaw/.container-identity
 sudo systemctl start kclaw
 ```
 
-### Verify Secrets Are Loaded
+### 验证密钥是否已加载
 
-If the agent starts but can't authenticate with the LLM provider, check that the `.env` file was merged correctly:
+如果代理启动但无法与 LLM 提供商进行身份验证，请检查 `.env` 文件是否正确合并：
 
 ```bash
-# Native mode
+# 原生模式
 sudo -u kclaw cat /var/lib/kclaw/.kclaw/.env
 
-# Container mode
+# 容器模式
 docker exec kclaw cat /data/.kclaw/.env
 ```
 
-### GC Root Verification
+### GC 根验证
 
 ```bash
 nix-store --query --roots $(docker exec kclaw readlink /data/current-package)
 ```
 
-### Common Issues
+### 常见问题
 
-| Symptom | Cause | Fix |
+| 症状 | 原因 | 修复 |
 |---|---|---|
-| `Cannot save configuration: managed by NixOS` | CLI guards active | Edit `configuration.nix` and `nixos-rebuild switch` |
-| Container recreated unexpectedly | `extraVolumes`, `extraOptions`, or `image` changed | Expected — writable layer resets. Reinstall packages or use a custom image |
-| `kclaw version` shows old version | Container not restarted | `systemctl restart kclaw` |
-| Permission denied on `/var/lib/kclaw` | State dir is `0750 kclaw:kclaw` | Use `docker exec` or `sudo -u kclaw` |
-| `nix-collect-garbage` removed kclaw | GC root missing | Restart the service (preStart recreates the GC root) |
+| `Cannot save configuration: managed by NixOS` | CLI 守卫激活 | 编辑 `configuration.nix` 并 `nixos-rebuild switch` |
+| 容器意外重新创建 | `extraVolumes`、`extraOptions` 或 `image` 更改 | 预期——可写层重置。重新安装包或使用自定义镜像 |
+| `kclaw version` 显示旧版本 | 容器未重启 | `systemctl restart kclaw` |
+| `/var/lib/kclaw` 上的权限被拒绝 | 状态目录是 `0750 kclaw:kclaw` | 使用 `docker exec` 或 `sudo -u kclaw` |
+| `nix-collect-garbage` 移除了 kclaw | 缺少 GC 根 | 重启服务（preStart 重新创建 GC 根） |

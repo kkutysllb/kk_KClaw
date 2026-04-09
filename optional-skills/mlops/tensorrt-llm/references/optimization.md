@@ -1,21 +1,21 @@
-# TensorRT-LLM Optimization Guide
+# TensorRT-LLM优化指南
 
-Comprehensive guide to optimizing LLM inference with TensorRT-LLM.
+使用TensorRT-LLM优化LLM推理的完整指南。
 
-## Quantization
+## 量化
 
-### FP8 Quantization (Recommended for H100)
+### FP8量化（推荐用于H100）
 
-**Benefits**:
-- 2× faster inference
-- 50% memory reduction
-- Minimal accuracy loss (<1% perplexity degradation)
+**优势**：
+- 2倍更快的推理
+- 50%内存减少
+- 最小精度损失（<1%困惑度下降）
 
-**Usage**:
+**用法**：
 ```python
 from tensorrt_llm import LLM
 
-# Automatic FP8 quantization
+# 自动FP8量化
 llm = LLM(
     model="meta-llama/Meta-Llama-3-70B",
     dtype="fp8",
@@ -23,28 +23,28 @@ llm = LLM(
 )
 ```
 
-**Performance** (Llama 3-70B on 8× H100):
-- FP16: 5,000 tokens/sec
-- FP8: **10,000 tokens/sec** (2× speedup)
-- Memory: 140GB → 70GB
+**性能**（8× H100上的Llama 3-70B）：
+- FP16：5,000词元/秒
+- FP8：**10,000词元/秒**（2倍加速）
+- 内存：140GB → 70GB
 
-### INT4 Quantization (Maximum compression)
+### INT4量化（最大压缩）
 
-**Benefits**:
-- 4× memory reduction
-- 3-4× faster inference
-- Fits larger models on same hardware
+**优势**：
+- 4倍内存减少
+- 3-4倍更快的推理
+- 在相同硬件上容纳更大模型
 
-**Usage**:
+**用法**：
 ```python
-# INT4 with AWQ calibration
+# 带AWQ校准的INT4
 llm = LLM(
     model="meta-llama/Meta-Llama-3-405B",
     dtype="int4_awq",
     quantization="awq"
 )
 
-# INT4 with GPTQ calibration
+# 带GPTQ校准的INT4
 llm = LLM(
     model="meta-llama/Meta-Llama-3-405B",
     dtype="int4_gptq",
@@ -52,162 +52,162 @@ llm = LLM(
 )
 ```
 
-**Trade-offs**:
-- Accuracy: 1-3% perplexity increase
-- Speed: 3-4× faster than FP16
-- Use case: When memory is critical
+**权衡**：
+- 精度：困惑度增加1-3%
+- 速度：比FP16快3-4倍
+- 用例：内存关键时
 
-## In-Flight Batching
+## 飞行批处理
 
-**What it does**: Dynamically batches requests during generation instead of waiting for all sequences to finish.
+**作用**：在生成过程中动态批处理请求，而不是等待所有序列完成。
 
-**Configuration**:
+**配置**：
 ```python
-# Server configuration
+# 服务器配置
 trtllm-serve meta-llama/Meta-Llama-3-8B \
-    --max_batch_size 256 \           # Maximum concurrent sequences
-    --max_num_tokens 4096 \           # Total tokens in batch
-    --enable_chunked_context \        # Split long prompts
+    --max_batch_size 256 \           # 最大并发序列数
+    --max_num_tokens 4096 \           # 批处理中的总词元数
+    --enable_chunked_context \        # 分割长提示
     --scheduler_policy max_utilization
 ```
 
-**Performance**:
-- Throughput: **4-8× higher** vs static batching
-- Latency: Lower P50/P99 for mixed workloads
-- GPU utilization: 80-95% vs 40-60%
+**性能**：
+- 吞吐量：**比静态批处理高4-8倍**
+- 延迟：混合工作负载的P50/P99更低
+- GPU利用率：80-95% vs 40-60%
 
-## Paged KV Cache
+## Paged KV缓存
 
-**What it does**: Manages KV cache memory like OS manages virtual memory (paging).
+**作用**：像操作系统管理虚拟内存一样管理KV缓存内存（分页）。
 
-**Benefits**:
-- 40-60% higher throughput
-- No memory fragmentation
-- Supports longer sequences
+**优势**：
+- 吞吐量提高40-60%
+- 无内存碎片
+- 支持更长序列
 
-**Configuration**:
+**配置**：
 ```python
-# Automatic paged KV cache (default)
+# 自动分页KV缓存（默认）
 llm = LLM(
     model="meta-llama/Meta-Llama-3-8B",
-    kv_cache_free_gpu_mem_fraction=0.9,  # Use 90% GPU mem for cache
-    enable_prefix_caching=True            # Cache common prefixes
+    kv_cache_free_gpu_mem_fraction=0.9,  # 使用90% GPU内存用于缓存
+    enable_prefix_caching=True            # 缓存常见前缀
 )
 ```
 
-## Speculative Decoding
+## 推测解码
 
-**What it does**: Uses small draft model to predict multiple tokens, verified by target model in parallel.
+**作用**：使用小草稿模型预测多个词元，由目标模型并行验证。
 
-**Speedup**: 2-3× faster for long generations
+**加速**：长生成2-3倍更快
 
-**Usage**:
+**用法**：
 ```python
 from tensorrt_llm import LLM
 
-# Target model (Llama 3-70B)
+# 目标模型（Llama 3-70B）
 llm = LLM(
     model="meta-llama/Meta-Llama-3-70B",
-    speculative_model="meta-llama/Meta-Llama-3-8B",  # Draft model
-    num_speculative_tokens=5                          # Tokens to predict ahead
+    speculative_model="meta-llama/Meta-Llama-3-8B",  # 草稿模型
+    num_speculative_tokens=5                          # 预测的词元数
 )
 
-# Same API, 2-3× faster
+# 相同API，2-3倍更快
 outputs = llm.generate(prompts)
 ```
 
-**Best models for drafting**:
-- Target: Llama 3-70B → Draft: Llama 3-8B
-- Target: Qwen2-72B → Draft: Qwen2-7B
-- Same family, 8-10× smaller
+**最佳草稿模型**：
+- 目标：Llama 3-70B → 草稿：Llama 3-8B
+- 目标：Qwen2-72B → 草稿：Qwen2-7B
+- 同一家族，8-10倍更小
 
-## CUDA Graphs
+## CUDA图
 
-**What it does**: Reduces kernel launch overhead by recording GPU operations.
+**作用**：通过记录GPU操作减少内核启动开销。
 
-**Benefits**:
-- 10-20% lower latency
-- More stable P99 latency
-- Better for small batch sizes
+**优势**：
+- 延迟降低10-20%
+- 更稳定的P99延迟
+- 更适合小批大小
 
-**Configuration** (automatic by default):
+**配置**（默认自动）：
 ```python
 llm = LLM(
     model="meta-llama/Meta-Llama-3-8B",
-    enable_cuda_graph=True,  # Default: True
-    cuda_graph_cache_size=2  # Cache 2 graph variants
+    enable_cuda_graph=True,  # 默认：True
+    cuda_graph_cache_size=2  # 缓存2个图变体
 )
 ```
 
-## Chunked Context
+## 分块上下文
 
-**What it does**: Splits long prompts into chunks to reduce memory spikes.
+**作用**：将长提示分割成块以减少内存峰值。
 
-**Use case**: Prompts >8K tokens with limited GPU memory
+**用例**：显存有限时>8K词元的提示
 
-**Configuration**:
+**配置**：
 ```bash
 trtllm-serve meta-llama/Meta-Llama-3-8B \
     --max_num_tokens 4096 \
     --enable_chunked_context \
-    --max_chunked_prefill_length 2048  # Process 2K tokens at a time
+    --max_chunked_prefill_length 2048  # 每次处理2K词元
 ```
 
-## Overlap Scheduling
+## 重叠调度
 
-**What it does**: Overlaps compute and memory operations.
+**作用**：重叠计算和内存操作。
 
-**Benefits**:
-- 15-25% higher throughput
-- Better GPU utilization
-- Default in v1.2.0+
+**优势**：
+- 吞吐量提高15-25%
+- 更好的GPU利用率
+- v1.2.0+中默认启用
 
-**No configuration needed** - enabled automatically.
+**无需配置** - 自动启用。
 
-## Quantization Comparison Table
+## 量化对比表
 
-| Method | Memory | Speed | Accuracy | Use Case |
+| 方法 | 内存 | 速度 | 精度 | 用例 |
 |--------|--------|-------|----------|----------|
-| FP16 | 1× (baseline) | 1× | Best | High accuracy needed |
-| FP8 | 0.5× | 2× | -0.5% ppl | **H100 default** |
-| INT4 AWQ | 0.25× | 3-4× | -1.5% ppl | Memory critical |
-| INT4 GPTQ | 0.25× | 3-4× | -2% ppl | Maximum speed |
+| FP16 | 1×（基线） | 1× | 最好 | 需要高精度 |
+| FP8 | 0.5× | 2× | -0.5%困惑度 | **H100默认** |
+| INT4 AWQ | 0.25× | 3-4× | -1.5%困惑度 | 内存关键 |
+| INT4 GPTQ | 0.25× | 3-4× | -2%困惑度 | 最大速度 |
 
-## Tuning Workflow
+## 调优工作流程
 
-1. **Start with defaults**:
+1. **从默认开始**：
    ```python
    llm = LLM(model="meta-llama/Meta-Llama-3-70B")
    ```
 
-2. **Enable FP8** (if H100):
+2. **启用FP8**（如果使用H100）：
    ```python
    llm = LLM(model="...", dtype="fp8")
    ```
 
-3. **Tune batch size**:
+3. **调优批大小**：
    ```python
-   # Increase until OOM, then reduce 20%
+   # 增加直到OOM，然后减少20%
    trtllm-serve ... --max_batch_size 256
    ```
 
-4. **Enable chunked context** (if long prompts):
+4. **启用分块上下文**（如果提示很长）：
    ```bash
    --enable_chunked_context --max_chunked_prefill_length 2048
    ```
 
-5. **Try speculative decoding** (if latency critical):
+5. **尝试推测解码**（如果延迟关键）：
    ```python
    llm = LLM(model="...", speculative_model="...")
    ```
 
-## Benchmarking
+## 基准测试
 
 ```bash
-# Install benchmark tool
+# 安装基准测试工具
 pip install tensorrt_llm[benchmark]
 
-# Run benchmark
+# 运行基准测试
 python benchmarks/python/benchmark.py \
     --model meta-llama/Meta-Llama-3-8B \
     --batch_size 64 \
@@ -216,27 +216,27 @@ python benchmarks/python/benchmark.py \
     --dtype fp8
 ```
 
-**Metrics to track**:
-- Throughput (tokens/sec)
-- Latency P50/P90/P99 (ms)
-- GPU memory usage (GB)
-- GPU utilization (%)
+**要跟踪的指标**：
+- 吞吐量（词元/秒）
+- 延迟P50/P90/P99（ms）
+- GPU内存使用（GB）
+- GPU利用率（%）
 
-## Common Issues
+## 常见问题
 
-**OOM errors**:
-- Reduce `max_batch_size`
-- Reduce `max_num_tokens`
-- Enable INT4 quantization
-- Increase `tensor_parallel_size`
+**OOM错误**：
+- 减少`max_batch_size`
+- 减少`max_num_tokens`
+- 启用INT4量化
+- 增加`tensor_parallel_size`
 
-**Low throughput**:
-- Increase `max_batch_size`
-- Enable in-flight batching
-- Verify CUDA graphs enabled
-- Check GPU utilization
+**低吞吐量**：
+- 增加`max_batch_size`
+- 启用飞行批处理
+- 验证CUDA图已启用
+- 检查GPU利用率
 
-**High latency**:
-- Try speculative decoding
-- Reduce `max_batch_size` (less queueing)
-- Use FP8 instead of FP16
+**高延迟**：
+- 尝试推测解码
+- 减少`max_batch_size`（减少排队）
+- 使用FP8而非FP16

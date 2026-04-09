@@ -1,26 +1,26 @@
-# PyTorch Lightning Callbacks
+# PyTorch Lightning回调
 
-## Overview
+## 概述
 
-Callbacks add functionality to training without modifying the LightningModule. They capture **non-essential logic** like checkpointing, early stopping, and logging.
+回调在不修改LightningModule的情况下为训练添加功能。它们处理**非必要逻辑**，如检查点保存、早停和日志记录。
 
-## Built-In Callbacks
+## 内置回调
 
 ### 1. ModelCheckpoint
 
-**Saves best models during training**:
+**在训练期间保存最佳模型**：
 
 ```python
 from lightning.pytorch.callbacks import ModelCheckpoint
 
-# Save top 3 models based on validation loss
+# 基于验证损失保存前3个模型
 checkpoint = ModelCheckpoint(
     dirpath='checkpoints/',
     filename='model-{epoch:02d}-{val_loss:.2f}',
     monitor='val_loss',
     mode='min',
     save_top_k=3,
-    save_last=True,  # Also save last epoch
+    save_last=True,  # 也保存最后一个epoch
     verbose=True
 )
 
@@ -28,54 +28,54 @@ trainer = L.Trainer(callbacks=[checkpoint])
 trainer.fit(model, train_loader, val_loader)
 ```
 
-**Configuration options**:
+**配置选项**：
 ```python
 checkpoint = ModelCheckpoint(
-    monitor='val_acc',        # Metric to monitor
-    mode='max',               # 'max' for accuracy, 'min' for loss
-    save_top_k=5,             # Keep best 5 models
-    save_last=True,           # Save last epoch separately
-    every_n_epochs=1,         # Save every N epochs
-    save_on_train_epoch_end=False,  # Save on validation end instead
-    filename='best-{epoch}-{val_acc:.3f}',  # Naming pattern
-    auto_insert_metric_name=False  # Don't auto-add metric to filename
+    monitor='val_acc',        # 要监控的指标
+    mode='max',               # 准确率为'max'，损失为'min'
+    save_top_k=5,             # 保留最佳5个模型
+    save_last=True,           # 单独保存最后一个epoch
+    every_n_epochs=1,         # 每N个epoch保存一次
+    save_on_train_epoch_end=False,  # 改为在验证结束时保存
+    filename='best-{epoch}-{val_acc:.3f}',  # 命名模式
+    auto_insert_metric_name=False  # 不自动添加指标到文件名
 )
 ```
 
-**Load checkpoint**:
+**加载检查点**：
 ```python
-# Load best model
+# 加载最佳模型
 best_model_path = checkpoint.best_model_path
 model = LitModel.load_from_checkpoint(best_model_path)
 
-# Resume training
+# 恢复训练
 trainer = L.Trainer(callbacks=[checkpoint])
 trainer.fit(model, train_loader, val_loader, ckpt_path='checkpoints/last.ckpt')
 ```
 
 ### 2. EarlyStopping
 
-**Stops training when metric stops improving**:
+**当指标停止改善时停止训练**：
 
 ```python
 from lightning.pytorch.callbacks import EarlyStopping
 
 early_stop = EarlyStopping(
     monitor='val_loss',
-    patience=5,               # Wait 5 epochs
+    patience=5,               # 等待5个epoch
     mode='min',
-    min_delta=0.001,          # Minimum change to qualify as improvement
+    min_delta=0.001,          # 最小变化量才算改善
     verbose=True,
-    strict=True,              # Crash if monitored metric not found
-    check_on_train_epoch_end=False  # Check on validation end
+    strict=True,              # 如果找不到监控的指标则崩溃
+    check_on_train_epoch_end=False  # 在验证结束时检查
 )
 
 trainer = L.Trainer(callbacks=[early_stop])
 trainer.fit(model, train_loader, val_loader)
-# Stops automatically if no improvement for 5 epochs
+# 如果5个epoch没有改善则自动停止
 ```
 
-**Advanced usage**:
+**高级用法**：
 ```python
 early_stop = EarlyStopping(
     monitor='val_loss',
@@ -83,37 +83,37 @@ early_stop = EarlyStopping(
     min_delta=0.0,
     verbose=True,
     mode='min',
-    stopping_threshold=0.1,   # Stop if val_loss < 0.1
-    divergence_threshold=5.0, # Stop if val_loss > 5.0
-    check_finite=True         # Stop on NaN/Inf
+    stopping_threshold=0.1,   # 如果val_loss < 0.1则停止
+    divergence_threshold=5.0, # 如果val_loss > 5.0则停止
+    check_finite=True         # NaN/Inf时停止
 )
 ```
 
 ### 3. LearningRateMonitor
 
-**Logs learning rate**:
+**记录学习率**：
 
 ```python
 from lightning.pytorch.callbacks import LearningRateMonitor
 
 lr_monitor = LearningRateMonitor(
-    logging_interval='epoch',  # Or 'step'
-    log_momentum=True          # Also log momentum
+    logging_interval='epoch',  # 或'step'
+    log_momentum=True          # 也记录动量
 )
 
 trainer = L.Trainer(callbacks=[lr_monitor])
-# Learning rate automatically logged to TensorBoard/WandB
+# 学习率自动记录到TensorBoard/WandB
 ```
 
 ### 4. TQDMProgressBar
 
-**Customizes progress bar**:
+**自定义进度条**：
 
 ```python
 from lightning.pytorch.callbacks import TQDMProgressBar
 
 progress_bar = TQDMProgressBar(
-    refresh_rate=10,  # Update every 10 batches
+    refresh_rate=10,  # 每10个batch更新一次
     process_position=0
 )
 
@@ -122,66 +122,66 @@ trainer = L.Trainer(callbacks=[progress_bar])
 
 ### 5. GradientAccumulationScheduler
 
-**Dynamic gradient accumulation**:
+**动态梯度累积**：
 
 ```python
 from lightning.pytorch.callbacks import GradientAccumulationScheduler
 
-# Accumulate more gradients as training progresses
+# 随着训练进展累积更多梯度
 accumulator = GradientAccumulationScheduler(
     scheduling={
-        0: 8,   # Epochs 0-4: accumulate 8 batches
-        5: 4,   # Epochs 5-9: accumulate 4 batches
-        10: 2   # Epochs 10+: accumulate 2 batches
+        0: 8,   # Epoch 0-4：累积8个batch
+        5: 4,   # Epoch 5-9：累积4个batch
+        10: 2   # Epoch 10+：累积2个batch
     }
 )
 
 trainer = L.Trainer(callbacks=[accumulator])
 ```
 
-### 6. StochasticWeightAveraging (SWA)
+### 6. StochasticWeightAveraging（SWA）
 
-**Averages weights for better generalization**:
+**平均权重以获得更好的泛化**：
 
 ```python
 from lightning.pytorch.callbacks import StochasticWeightAveraging
 
 swa = StochasticWeightAveraging(
-    swa_lrs=1e-2,  # SWA learning rate
-    swa_epoch_start=0.8,  # Start at 80% of training
-    annealing_epochs=10,  # Annealing period
-    annealing_strategy='cos'  # 'cos' or 'linear'
+    swa_lrs=1e-2,  # SWA学习率
+    swa_epoch_start=0.8,  # 在训练80%时开始
+    annealing_epochs=10,  # 退火周期
+    annealing_strategy='cos'  # 'cos'或'linear'
 )
 
 trainer = L.Trainer(callbacks=[swa])
 ```
 
-## Custom Callbacks
+## 自定义回调
 
-### Basic Custom Callback
+### 基础自定义回调
 
 ```python
 from lightning.pytorch.callbacks import Callback
 
 class PrintingCallback(Callback):
     def on_train_start(self, trainer, pl_module):
-        print("Training is starting!")
+        print("训练开始了！")
 
     def on_train_end(self, trainer, pl_module):
-        print("Training is done!")
+        print("训练完成了！")
 
     def on_epoch_end(self, trainer, pl_module):
-        print(f"Epoch {trainer.current_epoch} ended")
+        print(f"Epoch {trainer.current_epoch}结束")
 
-# Use it
+# 使用
 trainer = L.Trainer(callbacks=[PrintingCallback()])
 ```
 
-### Advanced Custom Callback
+### 高级自定义回调
 
 ```python
 class MetricsCallback(Callback):
-    """Logs custom metrics every N batches."""
+    """每N个batch记录一次自定义指标。"""
 
     def __init__(self, log_every_n_batches=100):
         self.log_every_n_batches = log_every_n_batches
@@ -189,34 +189,34 @@ class MetricsCallback(Callback):
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
         if batch_idx % self.log_every_n_batches == 0:
-            # Compute custom metric
+            # 计算自定义指标
             metric = self.compute_metric(outputs)
             self.metrics.append(metric)
 
-            # Log to Lightning
+            # 记录到Lightning
             pl_module.log('custom_metric', metric)
 
     def compute_metric(self, outputs):
-        # Your custom logic
+        # 你的自定义逻辑
         return outputs['loss'].item()
 
     def state_dict(self):
-        """Save callback state in checkpoint."""
+        """在检查点中保存回调状态。"""
         return {'metrics': self.metrics}
 
     def load_state_dict(self, state_dict):
-        """Restore callback state from checkpoint."""
+        """从检查点恢复回调状态。"""
         self.metrics = state_dict['metrics']
 ```
 
-### Gradient Monitoring Callback
+### 梯度监控回调
 
 ```python
 class GradientMonitorCallback(Callback):
-    """Monitor gradient norms."""
+    """监控梯度范数。"""
 
     def on_after_backward(self, trainer, pl_module):
-        # Compute gradient norm
+        # 计算梯度范数
         total_norm = 0.0
         for p in pl_module.parameters():
             if p.grad is not None:
@@ -224,23 +224,23 @@ class GradientMonitorCallback(Callback):
                 total_norm += param_norm.item() ** 2
         total_norm = total_norm ** 0.5
 
-        # Log
+        # 记录
         pl_module.log('grad_norm', total_norm)
 
-        # Warn if exploding
+        # 爆炸时警告
         if total_norm > 100:
-            print(f"Warning: Large gradient norm: {total_norm:.2f}")
+            print(f"警告：大的梯度范数：{total_norm:.2f}")
 ```
 
-### Model Inspection Callback
+### 模型检查回调
 
 ```python
 class ModelInspectionCallback(Callback):
-    """Inspect model activations during training."""
+    """在训练期间检查模型激活。"""
 
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
-        if batch_idx == 0:  # First batch of epoch
-            # Register hooks
+        if batch_idx == 0:  # epoch的第一个batch
+            # 注册钩子
             self.activations = {}
 
             def get_activation(name):
@@ -248,13 +248,13 @@ class ModelInspectionCallback(Callback):
                     self.activations[name] = output.detach()
                 return hook
 
-            # Attach to specific layers
+            # 附加到特定层
             pl_module.model.layer1.register_forward_hook(get_activation('layer1'))
             pl_module.model.layer2.register_forward_hook(get_activation('layer2'))
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
         if batch_idx == 0:
-            # Log activation statistics
+            # 记录激活统计
             for name, activation in self.activations.items():
                 mean = activation.mean().item()
                 std = activation.std().item()
@@ -262,22 +262,22 @@ class ModelInspectionCallback(Callback):
                 pl_module.log(f'{name}_std', std)
 ```
 
-## Callback Hooks
+## 回调钩子
 
-**All available hooks**:
+**所有可用的钩子**：
 
 ```python
 class MyCallback(Callback):
-    # Setup/Teardown
+    # 设置/拆卸
     def setup(self, trainer, pl_module, stage):
-        """Called at beginning of fit/test/predict."""
+        """在fit/test/predict开始时调用。"""
         pass
 
     def teardown(self, trainer, pl_module, stage):
-        """Called at end of fit/test/predict."""
+        """在fit/test/predict结束时调用。"""
         pass
 
-    # Training
+    # 训练
     def on_train_start(self, trainer, pl_module):
         pass
 
@@ -296,7 +296,7 @@ class MyCallback(Callback):
     def on_train_end(self, trainer, pl_module):
         pass
 
-    # Validation
+    # 验证
     def on_validation_start(self, trainer, pl_module):
         pass
 
@@ -315,49 +315,49 @@ class MyCallback(Callback):
     def on_validation_end(self, trainer, pl_module):
         pass
 
-    # Test (same structure as validation)
+    # 测试（与验证结构相同）
     def on_test_start(self, trainer, pl_module):
         pass
-    # ... (test_epoch_start, test_batch_start, etc.)
+    # ... (test_epoch_start, test_batch_start等)
 
-    # Predict
+    # 预测
     def on_predict_start(self, trainer, pl_module):
         pass
-    # ... (predict_epoch_start, predict_batch_start, etc.)
+    # ... (predict_epoch_start, predict_batch_start等)
 
-    # Backward
+    # 反向传播
     def on_before_backward(self, trainer, pl_module, loss):
         pass
 
     def on_after_backward(self, trainer, pl_module):
         pass
 
-    # Optimizer
+    # 优化器
     def on_before_optimizer_step(self, trainer, pl_module, optimizer):
         pass
 
-    # Checkpointing
+    # 检查点
     def on_save_checkpoint(self, trainer, pl_module, checkpoint):
-        """Add data to checkpoint."""
+        """向检查点添加数据。"""
         pass
 
     def on_load_checkpoint(self, trainer, pl_module, checkpoint):
-        """Restore data from checkpoint."""
+        """从检查点恢复数据。"""
         pass
 ```
 
-## Combining Multiple Callbacks
+## 组合多个回调
 
 ```python
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
 
-# Create all callbacks
+# 创建所有回调
 checkpoint = ModelCheckpoint(monitor='val_loss', mode='min', save_top_k=3)
 early_stop = EarlyStopping(monitor='val_loss', patience=5)
 lr_monitor = LearningRateMonitor(logging_interval='epoch')
 custom_callback = MyCustomCallback()
 
-# Add all to Trainer
+# 将所有回调添加到Trainer
 trainer = L.Trainer(
     callbacks=[checkpoint, early_stop, lr_monitor, custom_callback]
 )
@@ -365,32 +365,32 @@ trainer = L.Trainer(
 trainer.fit(model, train_loader, val_loader)
 ```
 
-**Execution order**: Callbacks execute in the order they're added
+**执行顺序**：回调按添加顺序执行
 
-## Best Practices
+## 最佳实践
 
-### 1. Keep Callbacks Independent
+### 1. 保持回调独立
 
-**Bad** (dependent on other callback):
+**不好**（依赖于其他回调）：
 ```python
 class BadCallback(Callback):
     def on_train_end(self, trainer, pl_module):
-        # Assumes ModelCheckpoint is present
-        best_path = trainer.checkpoint_callback.best_model_path  # Fragile!
+        # 假设ModelCheckpoint存在
+        best_path = trainer.checkpoint_callback.best_model_path  # 脆弱！
 ```
 
-**Good** (self-contained):
+**好**（自包含）：
 ```python
 class GoodCallback(Callback):
     def on_train_end(self, trainer, pl_module):
-        # Find checkpoint callback if present
+        # 如果存在则找到检查点回调
         for callback in trainer.callbacks:
             if isinstance(callback, ModelCheckpoint):
                 best_path = callback.best_model_path
                 break
 ```
 
-### 2. Use State Dict for Persistence
+### 2. 使用状态字典进行持久化
 
 ```python
 class StatefulCallback(Callback):
@@ -403,34 +403,34 @@ class StatefulCallback(Callback):
         self.history.append(outputs['loss'].item())
 
     def state_dict(self):
-        """Save state."""
+        """保存状态。"""
         return {
             'counter': self.counter,
             'history': self.history
         }
 
     def load_state_dict(self, state_dict):
-        """Restore state."""
+        """恢复状态。"""
         self.counter = state_dict['counter']
         self.history = state_dict['history']
 ```
 
-### 3. Handle Distributed Training
+### 3. 处理分布式训练
 
 ```python
 class DistributedCallback(Callback):
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
-        # Only run on main process
+        # 仅在主进程上运行
         if trainer.is_global_zero:
-            print("This only prints once in distributed training")
+            print("在分布式训练中这只会打印一次")
 
-        # Run on all processes
+        # 在所有进程上运行
         loss = outputs['loss']
-        # ... do something with loss on each GPU
+        # ... 在每个GPU上处理loss
 ```
 
-## Resources
+## 资源
 
-- Callback API: https://lightning.ai/docs/pytorch/stable/extensions/callbacks.html
-- Built-in callbacks: https://lightning.ai/docs/pytorch/stable/api_references.html#callbacks
-- Examples: https://github.com/Lightning-AI/pytorch-lightning/tree/master/examples/callbacks
+- 回调API：https://lightning.ai/docs/pytorch/stable/extensions/callbacks.html
+- 内置回调：https://lightning.ai/docs/pytorch/stable/api_references.html#callbacks
+- 示例：https://github.com/Lightning-AI/pytorch-lightning/tree/master/examples/callbacks

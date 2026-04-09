@@ -1,21 +1,21 @@
-# Float8 Training in TorchTitan
+# TorchTitan中的Float8训练
 
-Float8 training provides substantial speedups for models where GEMMs are large enough that the FP8 tensorcore speedup outweighs dynamic quantization overhead.
+Float8训练为GEMM足够大的模型提供实质性加速，FP8张量核加速超过动态量化开销。
 
-## Hardware Requirements
+## 硬件要求
 
-- NVIDIA H100 or newer GPUs (FP8 Tensor Cores)
-- Blackwell GPUs for MXFP8 training
+- NVIDIA H100或更新GPU（FP8张量核）
+- Blackwell GPU用于MXFP8训练
 
-## Installation
+## 安装
 
 ```bash
 USE_CPP=0 pip install git+https://github.com/pytorch/ao.git
 ```
 
-## Usage: Tensorwise Scaling
+## 用法：张量级缩放
 
-Standard Float8 with tensorwise dynamic scaling:
+标准Float8，带张量级动态缩放：
 
 ```bash
 CONFIG_FILE="./torchtitan/models/llama3/train_configs/llama3_8b.toml" ./run_train.sh \
@@ -25,18 +25,18 @@ CONFIG_FILE="./torchtitan/models/llama3/train_configs/llama3_8b.toml" ./run_trai
   --compile.enable
 ```
 
-### Key Arguments
+### 关键参数
 
-| Argument | Description |
+| 参数 | 描述 |
 |----------|-------------|
-| `--model.converters="quantize.linear.float8"` | Swap `nn.Linear` with `Float8Linear` |
-| `--quantize.linear.float8.enable_fsdp_float8_all_gather` | Communicate in float8 to save bandwidth |
-| `--quantize.linear.float8.precompute_float8_dynamic_scale_for_fsdp` | Single all-reduce for all AMAX/scales |
-| `--compile.enable` | Required - fuses float8 scaling/casting kernels |
+| `--model.converters="quantize.linear.float8"` | 将`nn.Linear`替换为`Float8Linear` |
+| `--quantize.linear.float8.enable_fsdp_float8_all_gather` | 以float8通信以节省带宽 |
+| `--quantize.linear.float8.precompute_float8_dynamic_scale_for_fsdp` | 所有AMAX/缩放的单次all-reduce |
+| `--compile.enable` | 必需 - 融合float8缩放/转换内核 |
 
-## Usage: Rowwise Scaling
+## 用法：行级缩放
 
-Higher accuracy than tensorwise scaling:
+比张量级缩放更高精度：
 
 ```bash
 CONFIG_FILE="./torchtitan/models/llama3/train_configs/llama3_8b.toml" ./run_train.sh \
@@ -45,25 +45,25 @@ CONFIG_FILE="./torchtitan/models/llama3/train_configs/llama3_8b.toml" ./run_trai
   --compile.enable
 ```
 
-## Filtering Layers
+## 过滤层
 
-Not all layers benefit from Float8. Filter small layers:
+并非所有层都从Float8受益。过滤小层：
 
 ```bash
 --quantize.linear.float8.filter_fqns="attention.wk,attention.wv,output"
 ```
 
-### Auto-filtering
+### 自动过滤
 
-Automatically skip layers too small to benefit:
+自动跳过太小的层：
 
 ```bash
 --quantize.linear.float8.filter_fqns="auto_filter_small_kn"
 ```
 
-Thresholds based on H100 microbenchmarks where speedup > overhead.
+基于H100微基准的阈值，其中加速>开销。
 
-## TOML Configuration
+## TOML配置
 
 ```toml
 [model]
@@ -79,55 +79,55 @@ enable = true
 components = ["model", "loss"]
 ```
 
-## How Float8 Works with Distributed Training
+## Float8如何与分布式训练配合工作
 
-### Single Device
+### 单设备
 
-Cast input and weight to float8 inside forward before calling `torch._scaled_mm`:
+在调用`torch._scaled_mm`之前在forward内将输入和权重转换为float8：
 
 ```python
-# Float8 matmul requires scales
+# Float8矩阵乘法需要缩放
 torch._scaled_mm(input_fp8, weight_fp8, scale_a=scale_input, scale_b=scale_weight)
 ```
 
 ### FSDP + Float8
 
-1. Cast sharded high-precision weights (1/N per rank) to float8
-2. Perform float8 all-gather (saves bandwidth vs bf16/fp32)
-3. Communicate `max(abs)` across ranks for scale computation
-4. At forward start, have unsharded float8 weights ready
+1. 将分片高精度权重（每rank 1/N）转换为float8
+2. 执行float8 all-gather（与bf16/fp32相比节省带宽）
+3. 跨rank通信`max(abs)`以计算缩放
+4. 在forward开始时，准备好未分片的float8权重
 
-**Net benefit**: Float8 all-gather + amax communication can beat bf16/fp32 all-gather, depending on world size and message size.
+**净收益**：Float8 all-gather + amax通信可以击败bf16/fp32 all-gather，取决于world大小和消息大小。
 
 ### TP + Float8
 
-- **Input**: Cast sharded input to float8, all-gather in float8
-- **Weights**: Communicate `max(abs)` for sharded weights
-- **Matmul**: Float8 input (unsharded) x float8 weight (sharded) with global scales
+- **输入**：将分片输入转换为float8，在float8中all-gather
+- **权重**：为分片权重通信`max(abs)`
+- **矩阵乘法**：Float8输入（未分片）× float8权重（分片），带全局缩放
 
-## Scaling Strategies
+## 缩放策略
 
-| Strategy | Status | Description |
+| 策略 | 状态 | 描述 |
 |----------|--------|-------------|
-| Tensorwise dynamic | Stable | Single scale per tensor |
-| Rowwise dynamic | Alpha | Scale per row, higher accuracy |
+| 张量级动态 | 稳定 | 每个张量单一缩放 |
+| 行级动态 | Alpha | 每行缩放，更高精度 |
 
-## Performance Gains
+## 性能提升
 
-From benchmarks on H100:
+来自H100基准测试：
 
-| Configuration | TPS/GPU | vs Baseline |
+| 配置 | TPS/GPU | vs基线 |
 |---------------|---------|-------------|
-| FSDP only | 5,762 | - |
+| 仅FSDP | 5,762 | - |
 | FSDP + compile | 6,667 | +16% |
 | FSDP + compile + Float8 | 8,532 | +48% |
 
-## Determining Float8 Benefit
+## 确定Float8优势
 
-Check [torchao microbenchmarks](https://github.com/pytorch/ao/tree/main/torchao/float8#performance) for forward+backward pass speedups on "layer norm => linear => sigmoid" for different M,N,K sizes.
+检查[torchao微基准](https://github.com/pytorch/ao/tree/main/torchao/float8#performance)以获取不同M,N,K大小的forward+backward pass加速。
 
-Rule of thumb: GEMMs with K,N > 4096 typically benefit from Float8.
+经验法则：K,N > 4096的GEMM通常从Float8受益。
 
-## MXFP8 Training (Blackwell)
+## MXFP8训练（Blackwell）
 
-For NVIDIA Blackwell GPUs, TorchTitan supports MXFP8 (Microscaling FP8) for both dense and MoE models. See [docs/mxfp8.md](https://github.com/pytorch/torchtitan/blob/main/docs/mxfp8.md) for details.
+对于NVIDIA Blackwell GPU，TorchTitan支持密集和MoE模型的MXFP8（微缩放FP8）。详情请参见[docs/mxfp8.md](https://github.com/pytorch/torchtitan/blob/main/docs/mxfp8.md)。

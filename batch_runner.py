@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 """
-Batch Agent Runner
+批量 Agent 运行器
 
-This module provides parallel batch processing capabilities for running the agent
-across multiple prompts from a dataset. It includes:
-- Dataset loading and batching
-- Parallel batch processing with multiprocessing
-- Checkpointing for fault tolerance and resumption
-- Trajectory saving in the proper format (from/value pairs)
-- Tool usage statistics aggregation across all batches
+本模块提供并行批量处理能力，用于对数据集中的多个 prompt 运行 agent。包括：
+- 数据集加载与分批
+- 基于多进程的并行批量处理
+- 断点续传与容错恢复
+- 按正确格式保存轨迹（from/value 对）
+- 跨批次的工具使用统计聚合
 
-Usage:
+用法：
     python batch_runner.py --dataset_file=data.jsonl --batch_size=10 --run_name=my_run
     
-    # Resume an interrupted run
+    # 从中断处恢复运行
     python batch_runner.py --dataset_file=data.jsonl --batch_size=10 --run_name=my_run --resume
     
-    # Use a specific toolset distribution
+    # 使用特定的工具集分布
     python batch_runner.py --dataset_file=data.jsonl --batch_size=10 --run_name=my_run --distribution=image_gen
 """
 
@@ -44,42 +43,42 @@ from toolset_distributions import (
 from model_tools import TOOL_TO_TOOLSET_MAP
 
 
-# Global configuration for worker processes
+# 全局配置，用于 worker 进程
 _WORKER_CONFIG = {}
 
-# All possible tools - auto-derived from the master mapping in model_tools.py.
-# This stays in sync automatically when new tools are added to TOOL_TO_TOOLSET_MAP.
-# Used for consistent schema in Arrow/Parquet (HuggingFace datasets) and for
-# filtering corrupted entries during trajectory combination.
+# 所有可能的工具 - 从 model_tools.py 的主映射表自动派生
+# 当新工具添加到 TOOL_TO_TOOLSET_MAP 时会自动保持同步
+# 用于 Arrow/Parquet（HuggingFace 数据集）的统一 schema，
+# 以及在轨迹合并时过滤损坏的条目
 ALL_POSSIBLE_TOOLS = set(TOOL_TO_TOOLSET_MAP.keys())
 
-# Default stats for tools that weren't used
+# 未使用工具的默认统计
 DEFAULT_TOOL_STATS = {'count': 0, 'success': 0, 'failure': 0}
 
 
 def _normalize_tool_stats(tool_stats: Dict[str, Dict[str, int]]) -> Dict[str, Dict[str, int]]:
     """
-    Normalize tool_stats to include all possible tools with consistent schema.
+    标准化 tool_stats，确保包含所有可能的工具且 schema 一致。
     
-    This ensures HuggingFace datasets can load the JSONL without schema mismatch errors.
-    Tools that weren't used get zero counts.
+    这确保 HuggingFace 数据集可以加载 JSONL 而不会出现 schema 不匹配错误。
+    未使用的工具获得零计数。
     
-    Args:
-        tool_stats (Dict): Raw tool statistics from extraction
+    参数:
+        tool_stats (Dict): 从提取得到的原始工具统计
         
-    Returns:
-        Dict: Normalized tool statistics with all tools present
+    返回:
+        Dict: 包含所有工具的标准化工具统计
     """
     normalized = {}
     
-    # Add all possible tools with defaults
+    # 添加所有可能工具的默认值
     for tool in ALL_POSSIBLE_TOOLS:
         if tool in tool_stats:
             normalized[tool] = tool_stats[tool].copy()
         else:
             normalized[tool] = DEFAULT_TOOL_STATS.copy()
     
-    # Also include any unexpected tools (in case new tools are added)
+    # 也包含意外的工具（以防添加了新工具）
     for tool, stats in tool_stats.items():
         if tool not in normalized:
             normalized[tool] = stats.copy()
@@ -89,21 +88,21 @@ def _normalize_tool_stats(tool_stats: Dict[str, Dict[str, int]]) -> Dict[str, Di
 
 def _normalize_tool_error_counts(tool_error_counts: Dict[str, int]) -> Dict[str, int]:
     """
-    Normalize tool_error_counts to include all possible tools.
+    标准化 tool_error_counts，包含所有可能的工具。
     
-    Args:
-        tool_error_counts (Dict): Raw error counts mapping
+    参数:
+        tool_error_counts (Dict): 原始错误计数映射
         
-    Returns:
-        Dict: Normalized error counts with all tools present
+    返回:
+        Dict: 包含所有工具的标准化错误计数
     """
     normalized = {}
     
-    # Add all possible tools with zero defaults
+    # 添加所有可能工具的零默认值
     for tool in ALL_POSSIBLE_TOOLS:
         normalized[tool] = tool_error_counts.get(tool, 0)
     
-    # Also include any unexpected tools
+    # 也包含意外的工具
     for tool, count in tool_error_counts.items():
         if tool not in normalized:
             normalized[tool] = count
@@ -113,28 +112,28 @@ def _normalize_tool_error_counts(tool_error_counts: Dict[str, int]) -> Dict[str,
 
 def _extract_tool_stats(messages: List[Dict[str, Any]]) -> Dict[str, Dict[str, int]]:
     """
-    Extract tool usage statistics from message history.
+    从消息历史中提取工具使用统计。
     
-    Args:
-        messages (List[Dict]): Message history
+    参数:
+        messages (List[Dict]): 消息历史
         
-    Returns:
-        Dict: Tool statistics with counts and success/failure rates
+    返回:
+        Dict: 包含计数和成功/失败率的工具统计
     """
     tool_stats = {}
     
-    # Track tool calls and their results
-    tool_calls_map = {}  # Map tool_call_id to tool name
+    # 跟踪工具调用及其结果
+    tool_calls_map = {}  # 将 tool_call_id 映射到工具名
     
     for msg in messages:
-        # Track tool calls from assistant messages
+        # 从 assistant 消息中跟踪工具调用
         if msg["role"] == "assistant" and "tool_calls" in msg and msg["tool_calls"]:
             for tool_call in msg["tool_calls"]:
                 if not tool_call or not isinstance(tool_call, dict): continue
                 tool_name = tool_call["function"]["name"]
                 tool_call_id = tool_call["id"]
                 
-                # Initialize stats for this tool if not exists
+                # 如果工具不存在则初始化统计
                 if tool_name not in tool_stats:
                     tool_stats[tool_name] = {
                         "count": 0,
@@ -145,45 +144,45 @@ def _extract_tool_stats(messages: List[Dict[str, Any]]) -> Dict[str, Dict[str, i
                 tool_stats[tool_name]["count"] += 1
                 tool_calls_map[tool_call_id] = tool_name
         
-        # Track tool responses
+        # 跟踪工具响应
         elif msg["role"] == "tool":
             tool_call_id = msg.get("tool_call_id", "")
             content = msg.get("content", "")
             
-            # Determine if tool call was successful
+            # 判断工具调用是否成功
             is_success = True
             try:
-                # Try to parse as JSON and check for actual error values
+                # 尝试解析为 JSON 并检查实际错误值
                 content_json = json.loads(content) if isinstance(content, str) else content
                 
                 if isinstance(content_json, dict):
-                    # Check if error field exists AND has a non-null value
+                    # 检查 error 字段是否存在且值不为空
                     if "error" in content_json and content_json["error"] is not None:
                         is_success = False
                     
-                    # Special handling for terminal tool responses
-                    # Terminal wraps its response in a "content" field
+                    # 特殊处理 terminal 工具响应
+                    # Terminal 将其响应包装在 "content" 字段中
                     if "content" in content_json and isinstance(content_json["content"], dict):
                         inner_content = content_json["content"]
-                        # Check for actual error (non-null error field)
-                        # Note: non-zero exit codes are not failures - the model can self-correct
+                        # 检查实际错误（非空 error 字段）
+                        # 注意：非零退出码不是失败 - 模型可以自我修正
                         if inner_content.get("error") is not None:
                             is_success = False
                     
-                    # Check for "success": false pattern used by some tools
+                    # 检查某些工具使用的 "success": false 模式
                     if content_json.get("success") is False:
                         is_success = False
                         
             except (json.JSONDecodeError, ValueError, TypeError):
-                # If not JSON, check if content is empty or explicitly states an error
-                # Note: We avoid simple substring matching to prevent false positives
+                # 如果不是 JSON，检查内容是否为空或明确表示错误
+                # 注意：避免简单子字符串匹配以防止误报
                 if not content:
                     is_success = False
-                # Only mark as failure if it explicitly starts with "Error:" or "ERROR:"
+                # 仅当明确以 "Error:" 或 "ERROR:" 开头时才标记为失败
                 elif content.strip().lower().startswith("error:"):
                     is_success = False
             
-            # Update success/failure count
+            # 更新成功/失败计数
             if tool_call_id in tool_calls_map:
                 tool_name = tool_calls_map[tool_call_id]
                 if is_success:
@@ -196,16 +195,16 @@ def _extract_tool_stats(messages: List[Dict[str, Any]]) -> Dict[str, Dict[str, i
 
 def _extract_reasoning_stats(messages: List[Dict[str, Any]]) -> Dict[str, int]:
     """
-    Count how many assistant turns have reasoning vs no reasoning.
+    统计有多少 assistant 轮次有推理 vs 没有推理。
     
-    Checks for <REASONING_SCRATCHPAD> in content or a non-empty 'reasoning' field
-    (native thinking tokens). Returns counts for tracking reasoning coverage.
+    检查内容中的 <REASONING_SCRATCHPAD> 或非空的 'reasoning' 字段
+    （原生思考 token）。返回用于跟踪推理覆盖率的计数。
     
-    Args:
-        messages: Message history
+    参数:
+        messages: 消息历史
         
-    Returns:
-        Dict with 'total_assistant_turns', 'turns_with_reasoning', 'turns_without_reasoning'
+    返回:
+        包含 'total_assistant_turns', 'turns_with_reasoning', 'turns_without_reasoning' 的字典
     """
     total = 0
     with_reasoning = 0
@@ -237,27 +236,27 @@ def _process_single_prompt(
     config: Dict[str, Any]
 ) -> Dict[str, Any]:
     """
-    Process a single prompt with the agent.
+    使用 agent 处理单个 prompt。
     
-    Args:
-        prompt_index (int): Index of prompt in dataset
-        prompt_data (Dict): Prompt data containing 'prompt' field and optional 'image' field
-        batch_num (int): Batch number
-        config (Dict): Configuration dict with agent parameters
+    参数:
+        prompt_index (int): 数据集中的 prompt 索引
+        prompt_data (Dict): 包含 'prompt' 字段和可选 'image' 字段的 prompt 数据
+        batch_num (int): 批次编号
+        config (Dict): 包含 agent 参数的配置字典
         
-    Returns:
-        Dict: Result containing trajectory, stats, and metadata
+    返回:
+        Dict: 包含轨迹、统计和元数据的结果
     """
     prompt = prompt_data["prompt"]
     task_id = f"task_{prompt_index}"
     
-    # Per-prompt container image override: if the dataset row has an 'image' field,
-    # register it for this task's sandbox. Works with Docker, Modal, Singularity, and Daytona.
+    # 每个 prompt 的容器镜像覆盖：如果数据集行有 'image' 字段，
+    # 为这个任务的沙箱注册它。适用于 Docker、Modal、Singularity 和 Daytona。
     container_image = prompt_data.get("image") or prompt_data.get("docker_image")
     if container_image:
-        # Verify the image is accessible before spending tokens on the agent loop.
-        # For Docker: check local cache, then try pulling.
-        # For Modal: skip local check (Modal pulls server-side).
+        # 在 agent 循环消耗 token 之前验证镜像是否可访问。
+        # 对于 Docker：检查本地缓存，然后尝试拉取。
+        # 对于 Modal：跳过本地检查（Modal 在服务端拉取）。
         env_type = os.getenv("TERMINAL_ENV", "local")
         if env_type == "docker":
             import subprocess as _sp
@@ -284,7 +283,7 @@ def _process_single_prompt(
                             "metadata": {"batch_num": batch_num, "timestamp": datetime.now().isoformat()},
                         }
             except FileNotFoundError:
-                pass  # Docker CLI not installed — skip check (e.g., Modal backend)
+                pass  # Docker CLI 未安装 — 跳过检查（例如 Modal 后端）
             except Exception as img_err:
                 if config.get("verbose"):
                     print(f"   Prompt {prompt_index}: Docker image check failed: {img_err}", flush=True)
@@ -303,13 +302,13 @@ def _process_single_prompt(
             print(f"   Prompt {prompt_index}: Using container image {container_image}")
     
     try:
-        # Sample toolsets from distribution for this prompt
+        # 从分布中为此 prompt 采样工具集
         selected_toolsets = sample_toolsets_from_distribution(config["distribution"])
         
         if config.get("verbose"):
             print(f"   Prompt {prompt_index}: Using toolsets {selected_toolsets}")
         
-        # Initialize agent with sampled toolsets and log prefix for identification
+        # 使用采样的工具集和日志前缀初始化 agent
         log_prefix = f"[B{batch_num}:P{prompt_index}]"
         agent = AIAgent(
             base_url=config.get("base_url"),
@@ -317,7 +316,7 @@ def _process_single_prompt(
             model=config["model"],
             max_iterations=config["max_iterations"],
             enabled_toolsets=selected_toolsets,
-            save_trajectories=False,  # We handle saving ourselves
+            save_trajectories=False,  # 我们自己处理保存
             verbose_logging=config.get("verbose", False),
             ephemeral_system_prompt=config.get("ephemeral_system_prompt"),
             log_prefix_chars=config.get("log_prefix_chars", 100),
@@ -329,20 +328,20 @@ def _process_single_prompt(
             max_tokens=config.get("max_tokens"),
             reasoning_config=config.get("reasoning_config"),
             prefill_messages=config.get("prefill_messages"),
-            skip_context_files=True,  # Don't pollute trajectories with SOUL.md/AGENTS.md
-            skip_memory=True,  # Don't use persistent memory in batch runs
+            skip_context_files=True,  # 不要用 SOUL.md/AGENTS.md 污染轨迹
+            skip_memory=True,  # 不要在批量运行中使用持久化记忆
         )
 
-        # Run the agent with task_id to ensure each task gets its own isolated VM
+        # 使用 task_id 运行 agent 以确保每个任务获得自己的隔离 VM
         result = agent.run_conversation(prompt, task_id=task_id)
         
-        # Extract tool usage statistics
+        # 提取工具使用统计
         tool_stats = _extract_tool_stats(result["messages"])
         
-        # Extract reasoning coverage stats
+        # 提取推理覆盖率统计
         reasoning_stats = _extract_reasoning_stats(result["messages"])
         
-        # Convert to trajectory format (using existing method)
+        # 转换为轨迹格式（使用现有方法）
         trajectory = agent._convert_to_trajectory_format(
             result["messages"],
             prompt,
@@ -387,23 +386,23 @@ def _process_single_prompt(
 
 def _process_batch_worker(args: Tuple) -> Dict[str, Any]:
     """
-    Worker function to process a single batch of prompts.
+    Worker 函数，处理单个批次的 prompts。
     
-    Args:
+    参数:
         args (Tuple): (batch_num, batch_data, output_dir, completed_prompts, config)
         
-    Returns:
-        Dict: Batch results with statistics
+    返回:
+        Dict: 带统计的批次结果
     """
     batch_num, batch_data, output_dir, completed_prompts_set, config = args
     
     output_dir = Path(output_dir)
     print(f"\n🔄 Batch {batch_num}: Starting ({len(batch_data)} prompts)")
     
-    # Output file for this batch
+    # 此批次的输出文件
     batch_output_file = output_dir / f"batch_{batch_num}.jsonl"
     
-    # Filter out already completed prompts
+    # 过滤掉已完成的 prompts
     prompts_to_process = [
         (idx, data) for idx, data in batch_data
         if idx not in completed_prompts_set
@@ -420,60 +419,60 @@ def _process_batch_worker(args: Tuple) -> Dict[str, Any]:
         }
     
     print(f"   Processing {len(prompts_to_process)} prompts (skipping {len(batch_data) - len(prompts_to_process)} already completed)")
-    
-    # Initialize aggregated stats for this batch
+        
+    # 初始化此批次的聚合统计
     batch_tool_stats = {}
     batch_reasoning_stats = {"total_assistant_turns": 0, "turns_with_reasoning": 0, "turns_without_reasoning": 0}
     completed_in_batch = []
     discarded_no_reasoning = 0
-    
-    # Process each prompt sequentially in this batch
+        
+    # 在此批次中顺序处理每个 prompt
     for prompt_index, prompt_data in prompts_to_process:
-        # Process the prompt
+        # 处理 prompt
         result = _process_single_prompt(
             prompt_index,
             prompt_data,
             batch_num,
             config
         )
-        
-        # Save trajectory if successful
+            
+        # 如果成功则保存轨迹
         if result["success"] and result["trajectory"]:
-            # Discard samples with zero reasoning across all turns
+            # 丢弃所有轮次都没有推理的样本
             reasoning = result.get("reasoning_stats", {})
             if not reasoning.get("has_any_reasoning", True):
                 print(f"   🚫 Prompt {prompt_index} discarded (no reasoning in any turn)")
                 discarded_no_reasoning += 1
                 continue
-            
-            # Get and normalize tool stats for consistent schema across all entries
+                
+            # 获取并标准化工具统计以保持所有条目的统一 schema
             raw_tool_stats = result.get("tool_stats", {})
             tool_stats = _normalize_tool_stats(raw_tool_stats)
-            
-            # Create normalized tool_error_counts mapping tool names to their failure counts
+                
+            # 创建标准化工具错误计数，将工具名映射到其失败计数
             raw_error_counts = {
-                tool_name: stats.get("failure", 0) 
+                tool_name: stats.get("failure", 0)
                 for tool_name, stats in raw_tool_stats.items()
             }
             tool_error_counts = _normalize_tool_error_counts(raw_error_counts)
-            
+                
             trajectory_entry = {
                 "prompt_index": prompt_index,
                 "conversations": result["trajectory"],
                 "metadata": result["metadata"],
                 "completed": result["completed"],
-                "partial": result.get("partial", False),  # True if stopped due to invalid tool calls
+                "partial": result.get("partial", False),  # 如果因无效工具调用而停止则为 True
                 "api_calls": result["api_calls"],
                 "toolsets_used": result["toolsets_used"],
-                "tool_stats": tool_stats,  # Full stats: {tool: {count, success, failure}} - normalized
-                "tool_error_counts": tool_error_counts  # Simple: {tool: failure_count} - normalized
+                "tool_stats": tool_stats,  # 完整统计：{tool: {count, success, failure}} - 已标准化
+                "tool_error_counts": tool_error_counts  # 简单统计：{tool: failure_count} - 已标准化
             }
-            
-            # Append to batch output file
+                
+            # 追加到批次输出文件
             with open(batch_output_file, 'a', encoding='utf-8') as f:
                 f.write(json.dumps(trajectory_entry, ensure_ascii=False) + "\n")
-        
-        # Aggregate tool statistics
+            
+        # 聚合工具统计
         for tool_name, stats in result.get("tool_stats", {}).items():
             if tool_name not in batch_tool_stats:
                 batch_tool_stats[tool_name] = {
@@ -481,16 +480,16 @@ def _process_batch_worker(args: Tuple) -> Dict[str, Any]:
                     "success": 0,
                     "failure": 0
                 }
-            
+                
             batch_tool_stats[tool_name]["count"] += stats["count"]
             batch_tool_stats[tool_name]["success"] += stats["success"]
             batch_tool_stats[tool_name]["failure"] += stats["failure"]
-        
-        # Aggregate reasoning stats
+            
+        # 聚合推理统计
         for key in batch_reasoning_stats:
             batch_reasoning_stats[key] += result.get("reasoning_stats", {}).get(key, 0)
-        
-        # Only mark as completed if successfully saved (failed prompts can be retried on resume)
+            
+        # 仅在成功保存时才标记为已完成（失败的 prompts 可以在恢复时重试）
         if result["success"] and result["trajectory"]:
             completed_in_batch.append(prompt_index)
             status = "⚠️  partial" if result.get("partial") else "✅"
@@ -513,7 +512,7 @@ def _process_batch_worker(args: Tuple) -> Dict[str, Any]:
 
 class BatchRunner:
     """
-    Manages batch processing of agent prompts with checkpointing and statistics.
+    管理带断点续传和统计的 agent prompts 批量处理。
     """
     
     def __init__(
@@ -540,29 +539,29 @@ class BatchRunner:
         max_samples: int = None,
     ):
         """
-        Initialize the batch runner.
+        初始化批量运行器。
 
-        Args:
-            dataset_file (str): Path to the dataset JSONL file with 'prompt' field
-            batch_size (int): Number of prompts per batch
-            run_name (str): Name for this run (used for checkpointing and output)
-            distribution (str): Toolset distribution to use (default: "default")
-            max_iterations (int): Max iterations per agent run
-            base_url (str): Base URL for model API
-            api_key (str): API key for model
-            model (str): Model name to use
-            num_workers (int): Number of parallel workers
-            verbose (bool): Enable verbose logging
-            ephemeral_system_prompt (str): System prompt used during agent execution but NOT saved to trajectories (optional)
-            log_prefix_chars (int): Number of characters to show in log previews for tool calls/responses (default: 20)
-            providers_allowed (List[str]): OpenRouter providers to allow (optional)
-            providers_ignored (List[str]): OpenRouter providers to ignore (optional)
-            providers_order (List[str]): OpenRouter providers to try in order (optional)
-            provider_sort (str): Sort providers by price/throughput/latency (optional)
-            max_tokens (int): Maximum tokens for model responses (optional, uses model default if not set)
-            reasoning_config (Dict): OpenRouter reasoning config override (e.g. {"effort": "none"} to disable thinking)
-            prefill_messages (List[Dict]): Messages to prepend as prefilled conversation context (few-shot priming)
-            max_samples (int): Only process the first N samples from the dataset (optional, processes all if not set)
+        参数:
+            dataset_file (str): 包含 'prompt' 字段的数据集 JSONL 文件路径
+            batch_size (int): 每个批次的 prompt 数量
+            run_name (str): 此运行的名称（用于断点续传和输出）
+            distribution (str): 要使用的工具集分布（默认: "default"）
+            max_iterations (int): 每次 agent 运行的最多迭代次数
+            base_url (str): 模型 API 的基础 URL
+            api_key (str): 模型的 API 密钥
+            model (str): 要使用的模型名称
+            num_workers (int): 并行 worker 进程数量
+            verbose (bool): 启用详细日志
+            ephemeral_system_prompt (str): agent 执行期间使用的系统提示词，但不会保存到轨迹（可选）
+            log_prefix_chars (int): 工具调用/响应日志预览中显示的字符数（默认: 20）
+            providers_allowed (List[str]): 允许的 OpenRouter providers（可选）
+            providers_ignored (List[str]): 忽略的 OpenRouter providers（可选）
+            providers_order (List[str]): 按顺序尝试的 OpenRouter providers（可选）
+            provider_sort (str): 按价格/吞吐量/延迟排序 providers（可选）
+            max_tokens (int): 模型响应的最大 token 数（可选，未设置则使用模型默认值）
+            reasoning_config (Dict): OpenRouter 推理配置覆盖（例如 {"effort": "none"} 禁用思考）
+            prefill_messages (List[Dict]): 作为预填充对话上下文的追加消息（few-shot 提示）
+            max_samples (int): 仅处理数据集中的前 N 个样本（可选，未设置则处理全部）
         """
         self.dataset_file = Path(dataset_file)
         self.batch_size = batch_size
@@ -585,28 +584,28 @@ class BatchRunner:
         self.prefill_messages = prefill_messages
         self.max_samples = max_samples
         
-        # Validate distribution
+        # 验证分布
         if not validate_distribution(distribution):
             raise ValueError(f"Unknown distribution: {distribution}. Available: {list(list_distributions().keys())}")
         
-        # Setup output directory
+        # 设置输出目录
         self.output_dir = Path("data") / run_name
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
-        # Checkpoint file
+        # 断点文件
         self.checkpoint_file = self.output_dir / "checkpoint.json"
         
-        # Statistics file
+        # 统计文件
         self.stats_file = self.output_dir / "statistics.json"
         
-        # Load dataset (and optionally truncate to max_samples)
+        # 加载数据集（并可选择截断到 max_samples）
         self.dataset = self._load_dataset()
         if self.max_samples and self.max_samples < len(self.dataset):
             full_count = len(self.dataset)
             self.dataset = self.dataset[:self.max_samples]
             print(f"✂️  Truncated dataset from {full_count} to {self.max_samples} samples (--max_samples)")
         
-        # Create batches
+        # 创建批次
         self.batches = self._create_batches()
         
         print("📊 Batch Runner Initialized")
@@ -623,10 +622,10 @@ class BatchRunner:
     
     def _load_dataset(self) -> List[Dict[str, Any]]:
         """
-        Load dataset from JSONL file.
+        从 JSONL 文件加载数据集。
         
-        Returns:
-            List[Dict]: List of dataset entries
+        返回:
+            List[Dict]: 数据集条目列表
         """
         if not self.dataset_file.exists():
             raise FileNotFoundError(f"Dataset file not found: {self.dataset_file}")
@@ -655,10 +654,10 @@ class BatchRunner:
     
     def _create_batches(self) -> List[List[Tuple[int, Dict[str, Any]]]]:
         """
-        Split dataset into batches with indices.
+        将数据集分割为带索引的批次。
         
-        Returns:
-            List of batches, where each batch is a list of (index, entry) tuples
+        返回:
+            批次列表，每个批次是 (index, entry) 元组的列表
         """
         batches = []
         for i in range(0, len(self.dataset), self.batch_size):
@@ -669,10 +668,10 @@ class BatchRunner:
     
     def _load_checkpoint(self) -> Dict[str, Any]:
         """
-        Load checkpoint data if it exists.
+        如果存在则加载断点数据。
         
-        Returns:
-            Dict: Checkpoint data with completed prompt indices
+        返回:
+            Dict: 带已完成 prompt 索引的断点数据
         """
         if not self.checkpoint_file.exists():
             return {
@@ -696,11 +695,11 @@ class BatchRunner:
     
     def _save_checkpoint(self, checkpoint_data: Dict[str, Any], lock: Optional[Lock] = None):
         """
-        Save checkpoint data.
+        保存断点数据。
         
-        Args:
-            checkpoint_data (Dict): Checkpoint data to save
-            lock (Lock): Optional lock for thread-safe access
+        参数:
+            checkpoint_data (Dict): 要保存的断点数据
+            lock (Lock): 用于线程安全访问的可选锁
         """
         checkpoint_data["last_updated"] = datetime.now().isoformat()
 
@@ -713,13 +712,13 @@ class BatchRunner:
     
     def _scan_completed_prompts_by_content(self) -> set:
         """
-        Scan all batch files and extract completed prompts by their actual content.
+        扫描所有批次文件并按实际内容提取已完成的 prompts。
         
-        This provides a more robust resume mechanism that matches on prompt text
-        rather than indices, allowing recovery even if indices don't match.
+        这提供了更强大的恢复机制，通过 prompt 文本而非索引进行匹配，
+        即使索引不匹配也能恢复。
         
-        Returns:
-            set: Set of prompt texts that have been successfully processed
+        返回:
+            set: 已成功处理的 prompt 文本集合
         """
         completed_prompts = set()
         batch_files = sorted(self.output_dir.glob("batch_*.jsonl"))
@@ -736,18 +735,18 @@ class BatchRunner:
                         try:
                             entry = json.loads(line.strip())
                             
-                            # Skip failed entries - we want to retry these
+                            # 跳过失败的条目 - 我们要重试这些
                             if entry.get("failed", False):
                                 continue
                             
-                            # Extract the human/user prompt from conversations
+                            # 从对话中提取 human/user prompt
                             conversations = entry.get("conversations", [])
                             for msg in conversations:
                                 if msg.get("from") == "human":
                                     prompt_text = msg.get("value", "").strip()
                                     if prompt_text:
                                         completed_prompts.add(prompt_text)
-                                    break  # Only need the first human message
+                                    break  # 只需第一个 human 消息
                         except json.JSONDecodeError:
                             continue
             except Exception as e:
@@ -757,22 +756,22 @@ class BatchRunner:
     
     def _filter_dataset_by_completed(self, completed_prompts: set) -> Tuple[List[Dict], List[int]]:
         """
-        Filter the dataset to exclude prompts that have already been completed.
+        过滤数据集，排除已完成的 prompts。
         
-        Args:
-            completed_prompts: Set of prompt texts that have been completed
+        参数:
+            completed_prompts: 已完成的 prompt 文本集合
             
-        Returns:
-            Tuple of (filtered_dataset, skipped_indices)
+        返回:
+            (filtered_dataset, skipped_indices) 元组
         """
         filtered_dataset = []
         skipped_indices = []
         
         for idx, entry in enumerate(self.dataset):
-            # Extract prompt from the dataset entry
+            # 从数据集条目中提取 prompt
             prompt_text = entry.get("prompt", "").strip()
             
-            # Also check conversations format
+            # 也检查对话格式
             if not prompt_text:
                 conversations = entry.get("conversations", [])
                 for msg in conversations:
@@ -784,30 +783,30 @@ class BatchRunner:
             if prompt_text in completed_prompts:
                 skipped_indices.append(idx)
             else:
-                # Keep original index for tracking
+                # 保留原始索引用于跟踪
                 filtered_dataset.append((idx, entry))
         
         return filtered_dataset, skipped_indices
     
     def run(self, resume: bool = False):
         """
-        Run the batch processing pipeline.
+        运行批量处理管道。
         
-        Args:
-            resume (bool): Whether to resume from checkpoint
+        参数:
+            resume (bool): 是否从断点恢复
         """
         print("\n" + "=" * 70)
         print("🚀 Starting Batch Processing")
         print("=" * 70)
         
-        # Smart resume: scan batch files by content to find completed prompts
+        # 智能恢复：扫描批次文件按内容查找已完成的 prompts
         completed_prompt_texts = set()
         if resume:
             completed_prompt_texts = self._scan_completed_prompts_by_content()
             if completed_prompt_texts:
                 print(f"   Found {len(completed_prompt_texts)} already-completed prompts by content matching")
         
-        # Filter dataset to only include unprocessed prompts
+        # 过滤数据集，只包含未处理的 prompts
         if resume and completed_prompt_texts:
             filtered_entries, skipped_indices = self._filter_dataset_by_completed(completed_prompt_texts)
             
@@ -815,7 +814,7 @@ class BatchRunner:
                 print("\n✅ All prompts have already been processed!")
                 return
             
-            # Recreate batches from filtered entries (keeping original indices for tracking)
+            # 从过滤条目重新创建批次（保留原始索引用于跟踪）
             batches_to_process = []
             for i in range(0, len(filtered_entries), self.batch_size):
                 batch = filtered_entries[i:i + self.batch_size]
@@ -823,7 +822,7 @@ class BatchRunner:
             
             self.batches = batches_to_process
             
-            # Print prominent resume summary
+            # 打印醒目的恢复摘要
             print("\n" + "=" * 70)
             print("📊 RESUME SUMMARY")
             print("=" * 70)
@@ -834,7 +833,7 @@ class BatchRunner:
             print(f"   New batches created:       {len(batches_to_process)}")
             print("=" * 70 + "\n")
         
-        # Load existing checkpoint (so resume doesn't clobber prior progress)
+        # 加载现有断点（使恢复不会覆盖先前的进度）
         checkpoint_data = self._load_checkpoint()
         if checkpoint_data.get("run_name") != self.run_name:
             checkpoint_data = {
@@ -844,7 +843,7 @@ class BatchRunner:
                 "last_updated": None
             }
         
-        # Prepare configuration for workers
+        # 为 workers 准备配置
         config = {
             "distribution": self.distribution,
             "model": self.model,
@@ -863,27 +862,27 @@ class BatchRunner:
             "prefill_messages": self.prefill_messages,
         }
         
-        # For backward compatibility, still track by index (but this is secondary to content matching)
+        # 为了向后兼容，仍然按索引跟踪（但这次于内容匹配）
         completed_prompts_set = set(checkpoint_data.get("completed_prompts", []))
         
-        # Aggregate statistics across all batches
+        # 跨所有批次聚合统计
         total_tool_stats = {}
         
         start_time = time.time()
         
         print(f"\n🔧 Initializing {self.num_workers} worker processes...")
         
-        # Checkpoint writes happen in the parent process; keep a lock for safety.
+        # 断点写入发生在父进程；保留锁以确保安全
         checkpoint_lock = Lock()
 
-        # Process batches in parallel
+        # 并行处理批次
         with Pool(processes=self.num_workers) as pool:
-            # Create tasks for each batch
+            # 为每个批次创建任务
             tasks = [
                 (
                     batch_num,
                     batch_data,
-                    str(self.output_dir),  # Convert Path to string for pickling
+                    str(self.output_dir),  # 转换为字符串以进行 pickle
                     completed_prompts_set,
                     config
                 )
@@ -893,8 +892,8 @@ class BatchRunner:
             print(f"✅ Created {len(tasks)} batch tasks")
             print("🚀 Starting parallel batch processing...\n")
             
-            # Use rich Progress for better visual tracking with persistent bottom bar
-            # redirect_stdout/stderr lets rich manage all output so progress bar stays clean
+            # 使用 rich Progress 以获得更好的可视跟踪和持久底部栏
+            # redirect_stdout/stderr 让 rich 管理所有输出，使进度条保持整洁
             results = []
             console = Console(force_terminal=True)
             with Progress(
@@ -1002,13 +1001,13 @@ class BatchRunner:
         filtered_entries = 0
         batch_files_found = 0
         
-        # Find ALL batch files in the output directory (handles resume merging old + new)
+        # 查找输出目录中所有批次文件（处理恢复时合并旧+新）
         all_batch_files = sorted(self.output_dir.glob("batch_*.jsonl"))
         
         with open(combined_file, 'w', encoding='utf-8') as outfile:
             for batch_file in all_batch_files:
                 batch_files_found += 1
-                batch_num = batch_file.stem.split("_")[1]  # Extract batch number for logging
+                batch_num = batch_file.stem.split("_")[1]  # 提取批次编号用于日志
                 
                 with open(batch_file, 'r', encoding='utf-8') as infile:
                     for line in infile:
@@ -1017,7 +1016,7 @@ class BatchRunner:
                             data = json.loads(line)
                             tool_stats = data.get('tool_stats', {})
                             
-                            # Check for invalid tool names (model hallucinations)
+                            # 检查无效的工具名（模型幻觉）
                             invalid_tools = [k for k in tool_stats if k not in VALID_TOOLS]
                             
                             if invalid_tools:
@@ -1035,7 +1034,7 @@ class BatchRunner:
             print(f"⚠️  Filtered {filtered_entries} corrupted entries out of {total_entries} total")
         print(f"✅ Combined {batch_files_found} batch files into trajectories.jsonl ({total_entries - filtered_entries} entries)")
         
-        # Save final statistics
+        # 保存最终统计
         final_stats = {
             "run_name": self.run_name,
             "distribution": self.distribution,
@@ -1052,7 +1051,7 @@ class BatchRunner:
         with open(self.stats_file, 'w', encoding='utf-8') as f:
             json.dump(final_stats, f, indent=2, ensure_ascii=False)
         
-        # Print summary
+        # 打印摘要
         print("\n" + "=" * 70)
         print("📊 BATCH PROCESSING COMPLETE")
         print("=" * 70)
@@ -1064,7 +1063,7 @@ class BatchRunner:
         print("-" * 70)
         
         if total_tool_stats:
-            # Sort by count descending
+            # 按计数降序排序
             sorted_tools = sorted(
                 total_tool_stats.items(),
                 key=lambda x: x[1]["count"],
@@ -1084,7 +1083,7 @@ class BatchRunner:
         else:
             print("No tool calls were made during this run.")
         
-        # Print reasoning coverage stats
+        # 打印推理覆盖率统计
         total_discarded = sum(r.get("discarded_no_reasoning", 0) for r in results)
         
         print("\n🧠 Reasoning Coverage:")
@@ -1136,55 +1135,55 @@ def main(
     max_samples: int = None,
 ):
     """
-    Run batch processing of agent prompts from a dataset.
+    从数据集运行 agent prompts 的批量处理。
 
-    Args:
-        dataset_file (str): Path to JSONL file with 'prompt' field in each entry
-        batch_size (int): Number of prompts per batch
-        run_name (str): Name for this run (used for output and checkpointing)
-        distribution (str): Toolset distribution to use (default: "default")
-        model (str): Model name to use (default: "claude-opus-4-20250514")
-        api_key (str): API key for model authentication
-        base_url (str): Base URL for model API
-        max_turns (int): Maximum number of tool calling iterations per prompt (default: 10)
-        num_workers (int): Number of parallel worker processes (default: 4)
-        resume (bool): Resume from checkpoint if run was interrupted (default: False)
-        verbose (bool): Enable verbose logging (default: False)
-        list_distributions (bool): List available toolset distributions and exit
-        ephemeral_system_prompt (str): System prompt used during agent execution but NOT saved to trajectories (optional)
-        log_prefix_chars (int): Number of characters to show in log previews for tool calls/responses (default: 20)
-        providers_allowed (str): Comma-separated list of OpenRouter providers to allow (e.g. "anthropic,openai")
-        providers_ignored (str): Comma-separated list of OpenRouter providers to ignore (e.g. "together,deepinfra")
-        providers_order (str): Comma-separated list of OpenRouter providers to try in order (e.g. "anthropic,openai,google")
-        provider_sort (str): Sort providers by "price", "throughput", or "latency" (OpenRouter only)
-        max_tokens (int): Maximum tokens for model responses (optional, uses model default if not set)
-        reasoning_effort (str): OpenRouter reasoning effort level: "xhigh", "high", "medium", "low", "minimal", "none" (default: "medium")
-        reasoning_disabled (bool): Completely disable reasoning/thinking tokens (default: False)
-        prefill_messages_file (str): Path to JSON file containing prefill messages (list of {role, content} dicts)
-        max_samples (int): Only process the first N samples from the dataset (optional, processes all if not set)
+    参数:
+        dataset_file (str): 每个条目包含 'prompt' 字段的 JSONL 文件路径
+        batch_size (int): 每个批次的 prompt 数量
+        run_name (str): 此运行的名称（用于输出和断点续传）
+        distribution (str): 要使用的工具集分布（默认: "default"）
+        model (str): 要使用的模型名称（默认: "claude-opus-4-20250514"）
+        api_key (str): 模型认证的 API 密钥
+        base_url (str): 模型 API 的基础 URL
+        max_turns (int): 每个 prompt 的最多工具调用迭代次数（默认: 10）
+        num_workers (int): 并行 worker 进程数量（默认: 4）
+        resume (bool): 如果运行中断则从断点恢复（默认: False）
+        verbose (bool): 启用详细日志（默认: False）
+        list_distributions (bool): 列出可用的工具集分布并退出
+        ephemeral_system_prompt (str): agent 执行期间使用的系统提示词，但不会保存到轨迹（可选）
+        log_prefix_chars (int): 工具调用/响应日志预览中显示的字符数（默认: 20）
+        providers_allowed (str): 允许的 OpenRouter providers 逗号分隔列表（例如 "anthropic,openai"）
+        providers_ignored (str): 忽略的 OpenRouter providers 逗号分隔列表（例如 "together,deepinfra"）
+        providers_order (str): 按顺序尝试的 OpenRouter providers 逗号分隔列表（例如 "anthropic,openai,google"）
+        provider_sort (str): 按 "price"、"throughput" 或 "latency" 排序 providers（仅 OpenRouter）
+        max_tokens (int): 模型响应的最大 token 数（可选，未设置则使用模型默认值）
+        reasoning_effort (str): OpenRouter 推理努力级别："xhigh"、"high"、"medium"、"low"、"minimal"、"none"（默认: "medium"）
+        reasoning_disabled (bool): 完全禁用推理/思考 token（默认: False）
+        prefill_messages_file (str): 包含预填充消息的 JSON 文件路径（{role, content} 字典列表）
+        max_samples (int): 仅处理数据集中的前 N 个样本（可选，未设置则处理全部）
         
-    Examples:
-        # Basic usage
+    示例:
+        # 基本用法
         python batch_runner.py --dataset_file=data.jsonl --batch_size=10 --run_name=my_run
         
-        # Resume interrupted run
+        # 从中断处恢复运行
         python batch_runner.py --dataset_file=data.jsonl --batch_size=10 --run_name=my_run --resume
         
-        # Use specific distribution
+        # 使用特定分布
         python batch_runner.py --dataset_file=data.jsonl --batch_size=10 --run_name=image_test --distribution=image_gen
         
-        # With disabled reasoning and max tokens
+        # 禁用推理并设置最大 token
         python batch_runner.py --dataset_file=data.jsonl --batch_size=10 --run_name=my_run \\
                                --reasoning_disabled --max_tokens=128000
         
-        # With prefill messages from file
+        # 从文件加载预填充消息
         python batch_runner.py --dataset_file=data.jsonl --batch_size=10 --run_name=my_run \\
                                --prefill_messages_file=configs/prefill_opus.json
         
-        # List available distributions
+        # 列出可用的分布
         python batch_runner.py --list_distributions
     """
-    # Handle list distributions
+    # 处理列表分布
     if list_distributions:
         from toolset_distributions import list_distributions as get_all_dists, print_distribution_info
         
@@ -1200,7 +1199,7 @@ def main(
         print("                         --run_name=my_run --distribution=<name>")
         return
     
-    # Validate required arguments
+    # 验证必需参数
     if not dataset_file:
         print("❌ Error: --dataset_file is required")
         return
@@ -1213,20 +1212,20 @@ def main(
         print("❌ Error: --run_name is required")
         return
     
-    # Parse provider preferences (comma-separated strings to lists)
+    # 解析 provider 偏好（逗号分隔字符串转为列表）
     providers_allowed_list = [p.strip() for p in providers_allowed.split(",")] if providers_allowed else None
     providers_ignored_list = [p.strip() for p in providers_ignored.split(",")] if providers_ignored else None
     providers_order_list = [p.strip() for p in providers_order.split(",")] if providers_order else None
     
-    # Build reasoning_config from CLI flags
-    # --reasoning_disabled takes priority, then --reasoning_effort, then default (medium)
+    # 从 CLI 参数构建 reasoning_config
+    # --reasoning_disabled 优先，然后是 --reasoning_effort，最后是默认值（medium）
     reasoning_config = None
     if reasoning_disabled:
-        # Completely disable reasoning/thinking tokens
+        # 完全禁用推理/思考 token
         reasoning_config = {"effort": "none"}
         print("🧠 Reasoning: DISABLED (effort=none)")
     elif reasoning_effort:
-        # Use specified effort level
+        # 使用指定的努力级别
         valid_efforts = ["xhigh", "high", "medium", "low", "minimal", "none"]
         if reasoning_effort not in valid_efforts:
             print(f"❌ Error: --reasoning_effort must be one of: {', '.join(valid_efforts)}")
@@ -1234,7 +1233,7 @@ def main(
         reasoning_config = {"enabled": True, "effort": reasoning_effort}
         print(f"🧠 Reasoning effort: {reasoning_effort}")
     
-    # Load prefill messages from JSON file if provided
+    # 如果提供了则从 JSON 文件加载预填充消息
     prefill_messages = None
     if prefill_messages_file:
         try:
@@ -1248,7 +1247,7 @@ def main(
             print(f"❌ Error loading prefill messages: {e}")
             return
     
-    # Initialize and run batch runner
+    # 初始化并运行批量运行器
     try:
         runner = BatchRunner(
             dataset_file=dataset_file,

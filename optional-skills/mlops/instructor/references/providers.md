@@ -1,6 +1,6 @@
-# Provider Configuration
+# 提供商配置
 
-Guide to using Instructor with different LLM providers.
+使用Instructor配合不同LLM提供商的指南。
 
 ## Anthropic Claude
 
@@ -8,21 +8,21 @@ Guide to using Instructor with different LLM providers.
 import instructor
 from anthropic import Anthropic
 
-# Basic setup
+# 基础设置
 client = instructor.from_anthropic(Anthropic())
 
-# With API key
+# 带API密钥
 client = instructor.from_anthropic(
     Anthropic(api_key="your-api-key")
 )
 
-# Recommended mode
+# 推荐模式
 client = instructor.from_anthropic(
     Anthropic(),
     mode=instructor.Mode.ANTHROPIC_TOOLS
 )
 
-# Usage
+# 用法
 result = client.messages.create(
     model="claude-sonnet-4-5-20250929",
     max_tokens=1024,
@@ -45,7 +45,7 @@ result = client.chat.completions.create(
 )
 ```
 
-## Local Models (Ollama)
+## 本地模型（Ollama）
 
 ```python
 client = instructor.from_openai(
@@ -63,8 +63,8 @@ result = client.chat.completions.create(
 )
 ```
 
-## Modes
+## 模式
 
-- `Mode.ANTHROPIC_TOOLS`: Recommended for Claude
-- `Mode.TOOLS`: OpenAI function calling
-- `Mode.JSON`: Fallback for unsupported providers
+- `Mode.ANTHROPIC_TOOLS`：Claude推荐
+- `Mode.TOOLS`：OpenAI函数调用
+- `Mode.JSON`：不支持提供商的后备

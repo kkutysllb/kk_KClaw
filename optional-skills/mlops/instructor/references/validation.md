@@ -1,38 +1,38 @@
-# Advanced Validation Patterns
+# 高级验证模式
 
-Complete guide to validation in Instructor using Pydantic.
+使用Pydantic进行Instructor中验证的完整指南。
 
-## Table of Contents
-- Built-in Validators
-- Custom Field Validators
-- Model-Level Validation
-- Complex Validation Patterns
-- Error Handling
+## 目录
+- 内置验证器
+- 自定义字段验证器
+- 模型级验证
+- 复杂验证模式
+- 错误处理
 
-## Built-in Validators
+## 内置验证器
 
-### Numeric Constraints
+### 数值约束
 
 ```python
 from pydantic import BaseModel, Field
 
 class Product(BaseModel):
-    price: float = Field(gt=0, description="Price must be positive")
-    discount: float = Field(ge=0, le=100, description="Discount 0-100%")
-    quantity: int = Field(ge=1, description="At least 1 item")
-    rating: float = Field(ge=0.0, le=5.0, description="Rating 0-5 stars")
+    price: float = Field(gt=0, description="价格必须为正")
+    discount: float = Field(ge=0, le=100, description="折扣0-100%")
+    quantity: int = Field(ge=1, description="至少1件")
+    rating: float = Field(ge=0.0, le=5.0, description="评分0-5星")
 
-# If LLM provides invalid values, automatic retry with error feedback
+# 如果LLM提供无效值，自动重试并返回错误反馈
 ```
 
-**Available constraints:**
-- `gt`: Greater than
-- `ge`: Greater than or equal
-- `lt`: Less than
-- `le`: Less than or equal
-- `multiple_of`: Must be multiple of this number
+**可用约束：**
+- `gt`：大于
+- `ge`：大于或等于
+- `lt`：小于
+- `le`：小于或等于
+- `multiple_of`：必须是此数字的倍数
 
-### String Constraints
+### 字符串约束
 
 ```python
 class User(BaseModel):
@@ -40,73 +40,73 @@ class User(BaseModel):
         min_length=3,
         max_length=20,
         pattern=r'^[a-zA-Z0-9_]+$',
-        description="3-20 alphanumeric characters"
+        description="3-20个字母数字字符"
     )
-    bio: str = Field(max_length=500, description="Bio up to 500 chars")
+    bio: str = Field(max_length=500, description="最多500字符的简介")
     status: str = Field(pattern=r'^(active|inactive|pending)$')
 
-# pattern validates against regex
+# pattern验证正则表达式
 ```
 
-### Email and URL Validation
+### 电子邮件和URL验证
 
 ```python
 from pydantic import EmailStr, HttpUrl, AnyUrl
 
 class Contact(BaseModel):
-    email: EmailStr  # Validates email format
-    website: HttpUrl  # Validates HTTP/HTTPS URLs
-    portfolio: AnyUrl  # Any valid URL scheme
+    email: EmailStr  # 验证电子邮件格式
+    website: HttpUrl  # 验证HTTP/HTTPS URL
+    portfolio: AnyUrl  # 任何有效URL方案
 
 contact = client.messages.create(
     model="claude-sonnet-4-5-20250929",
     max_tokens=1024,
     messages=[{
         "role": "user",
-        "content": "Extract: john@example.com, https://example.com"
+        "content": "提取：john@example.com, https://example.com"
     }],
     response_model=Contact
 )
 ```
 
-### Date and DateTime Validation
+### 日期和日期时间验证
 
 ```python
 from datetime import date, datetime
 from pydantic import Field, field_validator
 
 class Event(BaseModel):
-    event_date: date  # Validates date format
-    created_at: datetime  # Validates datetime format
+    event_date: date  # 验证日期格式
+    created_at: datetime  # 验证日期时间格式
     year: int = Field(ge=1900, le=2100)
 
     @field_validator('event_date')
     def future_date(cls, v):
-        """Ensure event is in the future."""
+        """确保事件在将来。"""
         if v < date.today():
-            raise ValueError('Event must be in the future')
+            raise ValueError('事件必须在将来')
         return v
 ```
 
-### List and Dict Validation
+### 列表和字典验证
 
 ```python
 class Document(BaseModel):
     tags: list[str] = Field(min_length=1, max_length=10)
-    keywords: list[str] = Field(min_length=3, description="At least 3 keywords")
-    metadata: dict[str, str] = Field(description="String key-value pairs")
+    keywords: list[str] = Field(min_length=3, description="至少3个关键词")
+    metadata: dict[str, str] = Field(description="字符串键值对")
 
     @field_validator('tags')
     def unique_tags(cls, v):
-        """Ensure tags are unique."""
+        """确保标签唯一。"""
         if len(v) != len(set(v)):
-            raise ValueError('Tags must be unique')
+            raise ValueError('标签必须唯一')
         return v
 ```
 
-## Custom Field Validators
+## 自定义字段验证器
 
-### Basic Field Validator
+### 基本字段验证器
 
 ```python
 from pydantic import field_validator
@@ -117,20 +117,20 @@ class Person(BaseModel):
 
     @field_validator('name')
     def name_must_not_be_empty(cls, v):
-        """Validate name is not empty or just whitespace."""
+        """验证名称不为空或仅空格。"""
         if not v or not v.strip():
-            raise ValueError('Name cannot be empty')
+            raise ValueError('名称不能为空')
         return v.strip()
 
     @field_validator('age')
     def age_must_be_reasonable(cls, v):
-        """Validate age is between 0 and 120."""
+        """验证年龄在0到120之间。"""
         if v < 0 or v > 120:
-            raise ValueError('Age must be between 0 and 120')
+            raise ValueError('年龄必须在0到120之间')
         return v
 ```
 
-### Validator with Field Info
+### 带字段信息的验证器
 
 ```python
 from pydantic import ValidationInfo
@@ -141,15 +141,15 @@ class Article(BaseModel):
 
     @field_validator('content')
     def content_length(cls, v, info: ValidationInfo):
-        """Validate content is longer than title."""
+        """验证内容比标题长。"""
         if 'title' in info.data:
             title_len = len(info.data['title'])
             if len(v) < title_len * 2:
-                raise ValueError('Content should be at least 2x title length')
+                raise ValueError('内容应该至少是标题长度的2倍')
         return v
 ```
 
-### Multiple Fields Validation
+### 多字段验证
 
 ```python
 class TimeRange(BaseModel):
@@ -158,14 +158,14 @@ class TimeRange(BaseModel):
 
     @field_validator('start_time', 'end_time')
     def valid_time_format(cls, v):
-        """Validate both times are in HH:MM format."""
+        """验证两个时间都是HH:MM格式。"""
         import re
         if not re.match(r'^\d{2}:\d{2}$', v):
-            raise ValueError('Time must be in HH:MM format')
+            raise ValueError('时间必须是HH:MM格式')
         return v
 ```
 
-### Transform and Validate
+### 转换和验证
 
 ```python
 class URL(BaseModel):
@@ -173,15 +173,15 @@ class URL(BaseModel):
 
     @field_validator('url')
     def normalize_url(cls, v):
-        """Add https:// if missing."""
+        """如果缺少则添加https://。"""
         if not v.startswith(('http://', 'https://')):
             v = f'https://{v}'
         return v
 ```
 
-## Model-Level Validation
+## 模型级验证
 
-### Cross-Field Validation
+### 跨字段验证
 
 ```python
 from pydantic import model_validator
@@ -192,13 +192,13 @@ class DateRange(BaseModel):
 
     @model_validator(mode='after')
     def check_dates(self):
-        """Ensure end_date is after start_date."""
+        """确保end_date在start_date之后。"""
         from datetime import datetime
         start = datetime.strptime(self.start_date, '%Y-%m-%d')
         end = datetime.strptime(self.end_date, '%Y-%m-%d')
 
         if end < start:
-            raise ValueError('end_date must be after start_date')
+            raise ValueError('end_date必须在start_date之后')
         return self
 
 class PriceRange(BaseModel):
@@ -207,29 +207,29 @@ class PriceRange(BaseModel):
 
     @model_validator(mode='after')
     def check_price_range(self):
-        """Ensure max > min."""
+        """确保max > min。"""
         if self.max_price <= self.min_price:
-            raise ValueError('max_price must be greater than min_price')
+            raise ValueError('max_price必须大于min_price')
         return self
 ```
 
-### Conditional Validation
+### 条件验证
 
 ```python
 class Order(BaseModel):
-    order_type: str  # "standard" or "express"
+    order_type: str  # "standard" 或 "express"
     delivery_date: str
     delivery_time: Optional[str] = None
 
     @model_validator(mode='after')
     def check_delivery_time(self):
-        """Express orders need delivery time."""
+        """快递订单需要配送时间。"""
         if self.order_type == "express" and not self.delivery_time:
-            raise ValueError('Express orders require delivery_time')
+            raise ValueError('快递订单需要delivery_time')
         return self
 ```
 
-### Complex Business Logic
+### 复杂业务逻辑
 
 ```python
 class Discount(BaseModel):
@@ -240,17 +240,17 @@ class Discount(BaseModel):
 
     @model_validator(mode='after')
     def validate_discount(self):
-        """Ensure discount logic is sound."""
-        # Max discount can't exceed percentage of min_purchase
+        """确保折扣逻辑合理。"""
+        # 最大折扣不能超过min_purchase的百分比
         theoretical_max = (self.percentage / 100) * self.min_purchase
         if self.max_discount > theoretical_max:
             self.max_discount = theoretical_max
         return self
 ```
 
-## Complex Validation Patterns
+## 复杂验证模式
 
-### Nested Model Validation
+### 嵌套模型验证
 
 ```python
 class Address(BaseModel):
@@ -261,26 +261,26 @@ class Address(BaseModel):
 
     @field_validator('postal_code')
     def validate_postal_code(cls, v, info: ValidationInfo):
-        """Validate postal code format based on country."""
+        """根据国家验证邮政编码格式。"""
         if 'country' in info.data:
             country = info.data['country']
-            if country == "USA":
+            if country == "中国":
                 import re
+                if not re.match(r'^\d{6}$', v):
+                    raise ValueError('无效的中国邮政编码')
+            elif country == "美国":
                 if not re.match(r'^\d{5}(-\d{4})?$', v):
-                    raise ValueError('Invalid US postal code')
-            elif country == "Canada":
-                if not re.match(r'^[A-Z]\d[A-Z] \d[A-Z]\d$', v):
-                    raise ValueError('Invalid Canadian postal code')
+                    raise ValueError('无效的美国邮政编码')
         return v
 
 class Person(BaseModel):
     name: str
     address: Address
 
-# Nested validation runs automatically
+# 嵌套验证自动运行
 ```
 
-### List of Models
+### 模型列表
 
 ```python
 class Task(BaseModel):
@@ -289,17 +289,17 @@ class Task(BaseModel):
 
 class Project(BaseModel):
     name: str
-    tasks: list[Task] = Field(min_length=1, description="At least 1 task")
+    tasks: list[Task] = Field(min_length=1, description="至少1个任务")
 
     @field_validator('tasks')
     def at_least_one_high_priority(cls, v):
-        """Ensure at least one task has priority >= 4."""
+        """确保至少一个任务优先级>=4。"""
         if not any(task.priority >= 4 for task in v):
-            raise ValueError('Project needs at least one high-priority task')
+            raise ValueError('项目需要至少一个高优先级任务')
         return v
 ```
 
-### Union Type Validation
+### 联合类型验证
 
 ```python
 from typing import Union
@@ -319,13 +319,13 @@ class Page(BaseModel):
 
     @field_validator('blocks')
     def validate_block_types(cls, v):
-        """Ensure first block is TextBlock."""
+        """确保第一个块是TextBlock。"""
         if v and not isinstance(v[0], TextBlock):
-            raise ValueError('First block must be text')
+            raise ValueError('第一个块必须是文本')
         return v
 ```
 
-### Dependent Fields
+### 依赖字段
 
 ```python
 class Subscription(BaseModel):
@@ -335,7 +335,7 @@ class Subscription(BaseModel):
 
     @model_validator(mode='after')
     def validate_plan_limits(self):
-        """Enforce plan-specific limits."""
+        """强制执行特定计划的限制。"""
         limits = {
             "free": {"max_users": 1, "required_features": ["basic"]},
             "pro": {"max_users": 10, "required_features": ["basic", "advanced"]},
@@ -346,41 +346,41 @@ class Subscription(BaseModel):
             limit = limits[self.plan]
 
             if self.max_users > limit["max_users"]:
-                raise ValueError(f'{self.plan} plan limited to {limit["max_users"]} users')
+                raise ValueError(f'{self.plan}计划限制{limit["max_users"]}个用户')
 
             for feature in limit["required_features"]:
                 if feature not in self.features:
-                    raise ValueError(f'{self.plan} plan requires {feature} feature')
+                    raise ValueError(f'{self.plan}计划需要{feature}功能')
 
         return self
 ```
 
-## Error Handling
+## 错误处理
 
-### Graceful Degradation
+### 优雅降级
 
 ```python
 class OptionalExtraction(BaseModel):
-    # Required fields
+    # 必需字段
     title: str
 
-    # Optional fields with defaults
+    # 带默认值的可选字段
     author: Optional[str] = None
     date: Optional[str] = None
     tags: list[str] = Field(default_factory=list)
 
-# LLM can succeed even if it can't extract everything
+# 即使无法提取所有内容，LLM也可以成功
 ```
 
-### Partial Validation
+### 部分验证
 
 ```python
 from pydantic import ValidationError
 
 def extract_with_fallback(text: str):
-    """Try full extraction, fall back to partial."""
+    """尝试完整提取，失败后回退到部分。"""
     try:
-        # Try full extraction
+        # 尝试完整提取
         return client.messages.create(
             model="claude-sonnet-4-5-20250929",
             max_tokens=1024,
@@ -388,7 +388,7 @@ def extract_with_fallback(text: str):
             response_model=FullModel
         )
     except ValidationError:
-        # Fall back to partial model
+        # 回退到部分模型
         return client.messages.create(
             model="claude-sonnet-4-5-20250929",
             max_tokens=1024,
@@ -397,7 +397,7 @@ def extract_with_fallback(text: str):
         )
 ```
 
-### Validation Error Inspection
+### 验证错误检查
 
 ```python
 from pydantic import ValidationError
@@ -411,145 +411,145 @@ try:
         max_retries=3
     )
 except ValidationError as e:
-    # Inspect specific errors
+    # 检查特定错误
     for error in e.errors():
         field = error['loc'][0]
         message = error['msg']
-        print(f"Field '{field}' failed: {message}")
+        print(f"字段'{field}'失败：{message}")
 
-        # Custom handling per field
+        # 每个字段的自定义处理
         if field == 'email':
-            # Handle email validation failure
+            # 处理电子邮件验证失败
             pass
 ```
 
-### Custom Error Messages
+### 自定义错误消息
 
 ```python
 class DetailedModel(BaseModel):
     name: str = Field(
         min_length=2,
         max_length=100,
-        description="Name between 2-100 characters"
+        description="2-100个字符之间的名称"
     )
     age: int = Field(
         ge=0,
         le=120,
-        description="Age between 0 and 120 years"
+        description="0到120之间的年龄"
     )
 
     @field_validator('name')
     def validate_name(cls, v):
-        """Provide helpful error message."""
+        """提供有用的错误消息。"""
         if not v.strip():
             raise ValueError(
-                'Name cannot be empty. '
-                'Please provide a valid name from the text.'
+                '名称不能为空。'
+                '请从文本中提供有效的名称。'
             )
         return v
 
-# When validation fails, LLM sees these helpful messages
+# 当验证失败时，LLM会看到这些有用的消息
 ```
 
-## Validation Best Practices
+## 验证最佳实践
 
-### 1. Be Specific
+### 1. 具体明确
 
 ```python
-# ❌ Bad: Vague validation
+# ❌ 不好：模糊验证
 class Item(BaseModel):
     name: str
 
-# ✅ Good: Specific constraints
+# ✅ 好：具体约束
 class Item(BaseModel):
     name: str = Field(
         min_length=1,
         max_length=200,
-        description="Item name, 1-200 characters"
+        description="物品名称，1-200个字符"
     )
 ```
 
-### 2. Provide Context
+### 2. 提供上下文
 
 ```python
-# ✅ Good: Explain why validation failed
+# ✅ 好：解释验证失败的原因
 @field_validator('price')
 def validate_price(cls, v):
     if v <= 0:
         raise ValueError(
-            'Price must be positive. '
-            'Extract numeric price from text without currency symbols.'
+            '价格必须为正。'
+            '从文本中提取数字价格，不含货币符号。'
         )
     return v
 ```
 
-### 3. Use Enums for Fixed Sets
+### 3. 对固定集合使用枚举
 
 ```python
-# ❌ Bad: String validation
+# ❌ 不好：字符串验证
 status: str
 
 @field_validator('status')
 def validate_status(cls, v):
     if v not in ['active', 'inactive', 'pending']:
-        raise ValueError('Invalid status')
+        raise ValueError('无效的状态')
     return v
 
-# ✅ Good: Enum
+# ✅ 好：枚举
 class Status(str, Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     PENDING = "pending"
 
-status: Status  # Validation automatic
+status: Status  # 自动验证
 ```
 
-### 4. Balance Strictness
+### 4. 平衡严格性
 
 ```python
-# Too strict: May fail unnecessarily
+# 太严格：不必要地失败
 class StrictModel(BaseModel):
     date: str = Field(pattern=r'^\d{4}-\d{2}-\d{2}$')
-    # Fails if LLM uses "2024-1-5" instead of "2024-01-05"
+    # 如果LLM使用"2024-1-5"而不是"2024-01-05"则失败
 
-# Better: Normalize in validator
+# 更好：在验证器中规范化
 class FlexibleModel(BaseModel):
     date: str
 
     @field_validator('date')
     def normalize_date(cls, v):
         from datetime import datetime
-        # Parse flexible formats
+        # 解析灵活格式
         for fmt in ['%Y-%m-%d', '%Y/%m/%d', '%m/%d/%Y']:
             try:
                 dt = datetime.strptime(v, fmt)
-                return dt.strftime('%Y-%m-%d')  # Normalize
+                return dt.strftime('%Y-%m-%d')  # 规范化
             except ValueError:
                 continue
-        raise ValueError('Invalid date format')
+        raise ValueError('无效的日期格式')
 ```
 
-### 5. Test Validation
+### 5. 测试验证
 
 ```python
-# Test your validators with edge cases
+# 用边界情况测试验证器
 def test_validation():
-    # Should succeed
+    # 应该成功
     valid = MyModel(field="valid_value")
 
-    # Should fail
+    # 应该失败
     try:
         invalid = MyModel(field="invalid")
-        assert False, "Should have raised ValidationError"
+        assert False, "应该抛出ValidationError"
     except ValidationError:
-        pass  # Expected
+        pass  # 预期
 
-# Run tests before using in production
+# 生产使用前运行测试
 ```
 
-## Advanced Techniques
+## 高级技术
 
-### Conditional Required Fields
+### 条件必需字段
 
 ```python
 from typing import Optional
@@ -561,15 +561,15 @@ class ConditionalModel(BaseModel):
 
     @model_validator(mode='after')
     def check_required_details(self):
-        """Require different fields based on type."""
+        """根据类型要求不同字段。"""
         if self.type == "type_a" and not self.detail_a:
-            raise ValueError('type_a requires detail_a')
+            raise ValueError('type_a需要detail_a')
         if self.type == "type_b" and not self.detail_b:
-            raise ValueError('type_b requires detail_b')
+            raise ValueError('type_b需要detail_b')
         return self
 ```
 
-### Validation with External Data
+### 外部数据验证
 
 ```python
 class Product(BaseModel):
@@ -578,29 +578,29 @@ class Product(BaseModel):
 
     @field_validator('sku')
     def validate_sku(cls, v):
-        """Check SKU exists in database."""
-        # Query database or API
+        """检查SKU是否存在于数据库中。"""
+        # 查询数据库或API
         if not database.sku_exists(v):
-            raise ValueError(f'SKU {v} not found in catalog')
+            raise ValueError(f'SKU {v}在目录中未找到')
         return v
 ```
 
-### Progressive Validation
+### 渐进验证
 
 ```python
-# Start with loose validation
+# 从宽松验证开始
 class Stage1(BaseModel):
-    data: str  # Any string
+    data: str  # 任何字符串
 
-# Then strict validation
+# 然后严格验证
 class Stage2(BaseModel):
     data: str = Field(pattern=r'^[A-Z]{3}-\d{6}$')
 
-# Use Stage1 for initial extraction
-# Use Stage2 for final validation
+# 使用Stage1进行初始提取
+# 使用Stage2进行最终验证
 ```
 
-## Resources
+## 资源
 
-- **Pydantic Docs**: https://docs.pydantic.dev/latest/concepts/validators/
-- **Instructor Examples**: https://python.useinstructor.com/examples
+- **Pydantic文档**：https://docs.pydantic.dev/latest/concepts/validators/
+- **Instructor示例**：https://python.useinstructor.com/examples

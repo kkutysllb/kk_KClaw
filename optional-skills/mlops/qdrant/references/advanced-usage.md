@@ -1,13 +1,18 @@
-# Qdrant Advanced Usage Guide
+---
+name: advanced-usage
+description: Qdrant高级用法指南，涵盖分布式部署、混合搜索、推荐系统和量化策略。
+---
 
-## Distributed Deployment
+# Qdrant高级用法指南
 
-### Cluster Setup
+## 分布式部署
 
-Qdrant uses Raft consensus for distributed coordination.
+### 集群设置
+
+Qdrant使用Raft共识进行分布式协调。
 
 ```yaml
-# docker-compose.yml for 3-node cluster
+# 3节点集群的docker-compose.yml
 version: '3.8'
 services:
   qdrant-node-1:
@@ -55,7 +60,7 @@ services:
       - qdrant-node-1
 ```
 
-### Sharding Configuration
+### 分片配置
 
 ```python
 from qdrant_client import QdrantClient
@@ -63,53 +68,53 @@ from qdrant_client.models import VectorParams, Distance, ShardingMethod
 
 client = QdrantClient(host="localhost", port=6333)
 
-# Create sharded collection
+# 创建分片集合
 client.create_collection(
     collection_name="large_collection",
     vectors_config=VectorParams(size=384, distance=Distance.COSINE),
-    shard_number=6,  # Number of shards
-    replication_factor=2,  # Replicas per shard
-    write_consistency_factor=1  # Required acks for write
+    shard_number=6,  # 分片数量
+    replication_factor=2,  # 每个分片的副本数
+    write_consistency_factor=1  # 写入所需确认数
 )
 
-# Check cluster status
+# 检查集群状态
 cluster_info = client.get_cluster_info()
-print(f"Peers: {cluster_info.peers}")
-print(f"Raft state: {cluster_info.raft_info}")
+print(f"节点: {cluster_info.peers}")
+print(f"Raft状态: {cluster_info.raft_info}")
 ```
 
-### Replication and Consistency
+### 复制和一致性
 
 ```python
 from qdrant_client.models import WriteOrdering
 
-# Strong consistency write
+# 强一致性写入
 client.upsert(
     collection_name="critical_data",
     points=points,
-    ordering=WriteOrdering.STRONG  # Wait for all replicas
+    ordering=WriteOrdering.STRONG  # 等待所有副本
 )
 
-# Eventual consistency (faster)
+# 最终一致性（更快）
 client.upsert(
     collection_name="logs",
     points=points,
-    ordering=WriteOrdering.WEAK  # Return after primary ack
+    ordering=WriteOrdering.WEAK  # 主节点确认后返回
 )
 
-# Read from specific shard
+# 从特定分片读取
 results = client.search(
     collection_name="documents",
     query_vector=query,
-    consistency="majority"  # Read from majority of replicas
+    consistency="majority"  # 从多数副本读取
 )
 ```
 
-## Hybrid Search
+## 混合搜索
 
-### Dense + Sparse Vectors
+### 稠密 + 稀疏向量
 
-Combine semantic (dense) and keyword (sparse) search:
+结合语义（稠密）和关键词（稀疏）搜索：
 
 ```python
 from qdrant_client.models import (
@@ -117,7 +122,7 @@ from qdrant_client.models import (
     Distance, PointStruct, SparseVector, Prefetch, Query
 )
 
-# Create hybrid collection
+# 创建混合集合
 client.create_collection(
     collection_name="hybrid",
     vectors_config={
@@ -130,13 +135,13 @@ client.create_collection(
     }
 )
 
-# Insert with both vector types
+# 插入两种向量类型
 def encode_sparse(text: str) -> SparseVector:
-    """Simple BM25-like sparse encoding"""
+    """简单的类BM25稀疏编码"""
     from collections import Counter
     tokens = text.lower().split()
     counts = Counter(tokens)
-    # Map tokens to indices (use vocabulary in production)
+    # 将词元映射到索引（生产环境使用词汇表）
     indices = [hash(t) % 30000 for t in counts.keys()]
     values = list(counts.values())
     return SparseVector(indices=indices, values=values)
@@ -147,15 +152,15 @@ client.upsert(
         PointStruct(
             id=1,
             vector={
-                "dense": dense_encoder.encode("Python programming").tolist(),
-                "sparse": encode_sparse("Python programming language code")
+                "dense": dense_encoder.encode("Python编程").tolist(),
+                "sparse": encode_sparse("Python编程语言代码")
             },
-            payload={"text": "Python programming language code"}
+            payload={"text": "Python编程语言代码"}
         )
     ]
 )
 
-# Hybrid search with Reciprocal Rank Fusion (RRF)
+# 使用倒数排名融合（RRF）的混合搜索
 from qdrant_client.models import FusionQuery
 
 results = client.query_points(
@@ -164,52 +169,52 @@ results = client.query_points(
         Prefetch(query=dense_query, using="dense", limit=20),
         Prefetch(query=sparse_query, using="sparse", limit=20)
     ],
-    query=FusionQuery(fusion="rrf"),  # Combine results
+    query=FusionQuery(fusion="rrf"),  # 合并结果
     limit=10
 )
 ```
 
-### Multi-Stage Search
+### 多阶段搜索
 
 ```python
 from qdrant_client.models import Prefetch, Query
 
-# Two-stage retrieval: coarse then fine
+# 两阶段检索：粗排然后精排
 results = client.query_points(
     collection_name="documents",
     prefetch=[
         Prefetch(
             query=query_vector,
-            limit=100,  # Broad first stage
-            params={"quantization": {"rescore": False}}  # Fast, approximate
+            limit=100,  # 第一阶段广泛召回
+            params={"quantization": {"rescore": False}}  # 快速、近似
         )
     ],
     query=Query(nearest=query_vector),
     limit=10,
-    params={"quantization": {"rescore": True}}  # Accurate reranking
+    params={"quantization": {"rescore": True}}  # 精确重排
 )
 ```
 
-## Recommendations
+## 推荐系统
 
-### Item-to-Item Recommendations
+### 项目对项目推荐
 
 ```python
-# Find similar items
+# 查找相似项目
 recommendations = client.recommend(
     collection_name="products",
-    positive=[1, 2, 3],  # IDs user liked
-    negative=[4],         # IDs user disliked
+    positive=[1, 2, 3],  # 用户喜欢的ID
+    negative=[4],         # 用户不喜欢的ID
     limit=10
 )
 
-# With filtering
+# 带过滤
 recommendations = client.recommend(
     collection_name="products",
     positive=[1, 2],
     query_filter={
         "must": [
-            {"key": "category", "match": {"value": "electronics"}},
+            {"key": "category", "match": {"value": "电子产品"}},
             {"key": "in_stock", "match": {"value": True}}
         ]
     },
@@ -217,12 +222,12 @@ recommendations = client.recommend(
 )
 ```
 
-### Lookup from Another Collection
+### 从另一个集合查找
 
 ```python
 from qdrant_client.models import RecommendStrategy, LookupLocation
 
-# Recommend using vectors from another collection
+# 使用另一个集合的向量进行推荐
 results = client.recommend(
     collection_name="products",
     positive=[
@@ -236,14 +241,14 @@ results = client.recommend(
 )
 ```
 
-## Advanced Filtering
+## 高级过滤
 
-### Nested Payload Filtering
+### 嵌套Payload过滤
 
 ```python
 from qdrant_client.models import Filter, FieldCondition, MatchValue, NestedCondition
 
-# Filter on nested objects
+# 对嵌套对象过滤
 results = client.search(
     collection_name="documents",
     query_vector=query,
@@ -255,7 +260,7 @@ results = client.search(
                     must=[
                         FieldCondition(
                             key="author.name",
-                            match=MatchValue(value="John")
+                            match=MatchValue(value="张三")
                         )
                     ]
                 )
@@ -266,12 +271,12 @@ results = client.search(
 )
 ```
 
-### Geo Filtering
+### 地理过滤
 
 ```python
 from qdrant_client.models import FieldCondition, GeoRadius, GeoPoint
 
-# Find within radius
+# 查找半径范围内的结果
 results = client.search(
     collection_name="locations",
     query_vector=query,
@@ -281,7 +286,7 @@ results = client.search(
                 key="location",
                 geo_radius=GeoRadius(
                     center=GeoPoint(lat=40.7128, lon=-74.0060),
-                    radius=5000  # meters
+                    radius=5000  # 米
                 )
             )
         ]
@@ -289,7 +294,7 @@ results = client.search(
     limit=10
 )
 
-# Geo bounding box
+# 地理边界框
 from qdrant_client.models import GeoBoundingBox
 
 results = client.search(
@@ -310,12 +315,12 @@ results = client.search(
 )
 ```
 
-### Full-Text Search
+### 全文搜索
 
 ```python
 from qdrant_client.models import TextIndexParams, TokenizerType
 
-# Create text index
+# 创建文本索引
 client.create_payload_index(
     collection_name="documents",
     field_name="content",
@@ -328,7 +333,7 @@ client.create_payload_index(
     )
 )
 
-# Full-text filter
+# 全文过滤
 from qdrant_client.models import MatchText
 
 results = client.search(
@@ -338,7 +343,7 @@ results = client.search(
         must=[
             FieldCondition(
                 key="content",
-                match=MatchText(text="machine learning")
+                match=MatchText(text="机器学习")
             )
         ]
     ),
@@ -346,33 +351,33 @@ results = client.search(
 )
 ```
 
-## Quantization Strategies
+## 量化策略
 
-### Scalar Quantization (INT8)
+### 标量量化（INT8）
 
 ```python
 from qdrant_client.models import ScalarQuantization, ScalarQuantizationConfig, ScalarType
 
-# ~4x memory reduction, minimal accuracy loss
+# 约4倍内存减少，几乎无精度损失
 client.create_collection(
     collection_name="scalar_quantized",
     vectors_config=VectorParams(size=384, distance=Distance.COSINE),
     quantization_config=ScalarQuantization(
         scalar=ScalarQuantizationConfig(
             type=ScalarType.INT8,
-            quantile=0.99,       # Clip extreme values
-            always_ram=True     # Keep quantized vectors in RAM
+            quantile=0.99,       # 裁剪极端值
+            always_ram=True     # 保持量化向量在RAM中
         )
     )
 )
 ```
 
-### Product Quantization
+### 乘积量化
 
 ```python
 from qdrant_client.models import ProductQuantization, ProductQuantizationConfig, CompressionRatio
 
-# ~16x memory reduction, some accuracy loss
+# 约16倍内存减少，有一定精度损失
 client.create_collection(
     collection_name="product_quantized",
     vectors_config=VectorParams(size=384, distance=Distance.COSINE),
@@ -385,12 +390,12 @@ client.create_collection(
 )
 ```
 
-### Binary Quantization
+### 二进制量化
 
 ```python
 from qdrant_client.models import BinaryQuantization, BinaryQuantizationConfig
 
-# ~32x memory reduction, requires oversampling
+# 约32倍内存减少，需要过采样
 client.create_collection(
     collection_name="binary_quantized",
     vectors_config=VectorParams(size=384, distance=Distance.COSINE),
@@ -399,49 +404,49 @@ client.create_collection(
     )
 )
 
-# Search with oversampling
+# 过采样搜索
 results = client.search(
     collection_name="binary_quantized",
     query_vector=query,
     search_params={
         "quantization": {
             "rescore": True,
-            "oversampling": 2.0  # Retrieve 2x candidates, rescore
+            "oversampling": 2.0  # 检索2倍候选，重新排序
         }
     },
     limit=10
 )
 ```
 
-## Snapshots and Backups
+## 快照和备份
 
-### Create Snapshot
+### 创建快照
 
 ```python
-# Create collection snapshot
+# 创建集合快照
 snapshot_info = client.create_snapshot(collection_name="documents")
-print(f"Snapshot: {snapshot_info.name}")
+print(f"快照: {snapshot_info.name}")
 
-# List snapshots
+# 列出快照
 snapshots = client.list_snapshots(collection_name="documents")
 for s in snapshots:
-    print(f"{s.name}: {s.size} bytes")
+    print(f"{s.name}: {s.size} 字节")
 
-# Full storage snapshot
+# 完整存储快照
 full_snapshot = client.create_full_snapshot()
 ```
 
-### Restore from Snapshot
+### 从快照恢复
 
 ```python
-# Download snapshot
+# 下载快照
 client.download_snapshot(
     collection_name="documents",
     snapshot_name="documents-2024-01-01.snapshot",
     target_path="./backup/"
 )
 
-# Restore (via REST API)
+# 恢复（通过 REST API）
 import requests
 
 response = requests.put(
@@ -450,24 +455,24 @@ response = requests.put(
 )
 ```
 
-## Collection Aliases
+## 集合别名
 
 ```python
-# Create alias
+# 创建别名
 client.update_collection_aliases(
     change_aliases_operations=[
         {"create_alias": {"alias_name": "production", "collection_name": "documents_v2"}}
     ]
 )
 
-# Blue-green deployment
-# 1. Create new collection with updates
+# 蓝绿部署
+# 1. 创建带更新的新集合
 client.create_collection(collection_name="documents_v3", ...)
 
-# 2. Populate new collection
+# 2. 填充新集合
 client.upsert(collection_name="documents_v3", points=new_points)
 
-# 3. Atomic switch
+# 3. 原子切换
 client.update_collection_aliases(
     change_aliases_operations=[
         {"delete_alias": {"alias_name": "production"}},
@@ -475,16 +480,16 @@ client.update_collection_aliases(
     ]
 )
 
-# Search via alias
+# 通过别名搜索
 results = client.search(collection_name="production", query_vector=query, limit=10)
 ```
 
-## Scroll and Iteration
+## 滚动和迭代
 
-### Scroll Through All Points
+### 滚动遍历所有点
 
 ```python
-# Paginated iteration
+# 分页迭代
 offset = None
 all_points = []
 
@@ -501,13 +506,13 @@ while True:
     if offset is None:
         break
 
-print(f"Total points: {len(all_points)}")
+print(f"总点数: {len(all_points)}")
 ```
 
-### Filtered Scroll
+### 带过滤的滚动
 
 ```python
-# Scroll with filter
+# 带过滤滚动
 results, _ = client.scroll(
     collection_name="documents",
     scroll_filter=Filter(
@@ -519,7 +524,7 @@ results, _ = client.scroll(
 )
 ```
 
-## Async Client
+## 异步客户端
 
 ```python
 import asyncio
@@ -528,7 +533,7 @@ from qdrant_client import AsyncQdrantClient
 async def main():
     client = AsyncQdrantClient(host="localhost", port=6333)
 
-    # Async operations
+    # 异步操作
     await client.create_collection(
         collection_name="async_docs",
         vectors_config=VectorParams(size=384, distance=Distance.COSINE)
@@ -550,20 +555,20 @@ async def main():
 results = asyncio.run(main())
 ```
 
-## gRPC Client
+## gRPC客户端
 
 ```python
 from qdrant_client import QdrantClient
 
-# Prefer gRPC for better performance
+# 优先使用gRPC以获得更好性能
 client = QdrantClient(
     host="localhost",
     port=6333,
     grpc_port=6334,
-    prefer_grpc=True  # Use gRPC when available
+    prefer_grpc=True  # 尽可能使用gRPC
 )
 
-# gRPC-only client
+# 仅gRPC客户端
 from qdrant_client import QdrantClient
 
 client = QdrantClient(
@@ -574,12 +579,12 @@ client = QdrantClient(
 )
 ```
 
-## Multitenancy
+## 多租户
 
-### Payload-Based Isolation
+### 基于Payload的隔离
 
 ```python
-# Single collection, filter by tenant
+# 单集合，按租户过滤
 client.upsert(
     collection_name="multi_tenant",
     points=[
@@ -591,7 +596,7 @@ client.upsert(
     ]
 )
 
-# Search within tenant
+# 在租户内搜索
 results = client.search(
     collection_name="multi_tenant",
     query_vector=query,
@@ -602,17 +607,17 @@ results = client.search(
 )
 ```
 
-### Collection-Per-Tenant
+### 每个租户一个集合
 
 ```python
-# Create tenant collection
+# 为租户创建集合
 def create_tenant_collection(tenant_id: str):
     client.create_collection(
         collection_name=f"tenant_{tenant_id}",
         vectors_config=VectorParams(size=384, distance=Distance.COSINE)
     )
 
-# Search tenant collection
+# 搜索租户集合
 def search_tenant(tenant_id: str, query_vector: list, limit: int = 10):
     return client.search(
         collection_name=f"tenant_{tenant_id}",
@@ -621,28 +626,28 @@ def search_tenant(tenant_id: str, query_vector: list, limit: int = 10):
     )
 ```
 
-## Performance Monitoring
+## 性能监控
 
-### Collection Statistics
+### 集合统计
 
 ```python
-# Collection info
+# 集合信息
 info = client.get_collection("documents")
-print(f"Points: {info.points_count}")
-print(f"Indexed vectors: {info.indexed_vectors_count}")
-print(f"Segments: {len(info.segments)}")
-print(f"Status: {info.status}")
+print(f"点数: {info.points_count}")
+print(f"索引向量数: {info.indexed_vectors_count}")
+print(f"分段数: {len(info.segments)}")
+print(f"状态: {info.status}")
 
-# Detailed segment info
+# 详细分段信息
 for i, segment in enumerate(info.segments):
-    print(f"Segment {i}: {segment}")
+    print(f"分段 {i}: {segment}")
 ```
 
-### Telemetry
+### 遥测数据
 
 ```python
-# Get telemetry data
+# 获取遥测数据
 telemetry = client.get_telemetry()
-print(f"Collections: {telemetry.collections}")
-print(f"Operations: {telemetry.operations}")
+print(f"集合: {telemetry.collections}")
+print(f"操作: {telemetry.operations}")
 ```

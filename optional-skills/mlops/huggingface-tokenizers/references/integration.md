@@ -1,46 +1,46 @@
-# Transformers Integration
+# Transformers集成
 
-Complete guide to using HuggingFace Tokenizers with the Transformers library.
+HuggingFace分词器与Transformers库的使用完整指南。
 
 ## AutoTokenizer
 
-The easiest way to load tokenizers.
+加载分词器的最简单方法。
 
-### Loading pretrained tokenizers
+### 加载预训练分词器
 
 ```python
 from transformers import AutoTokenizer
 
-# Load from HuggingFace Hub
+# 从HuggingFace Hub加载
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
-# Check if using fast tokenizer (Rust-based)
+# 检查是否使用快速分词器（基于Rust）
 print(tokenizer.is_fast)  # True
 
-# Access underlying tokenizers.Tokenizer
+# 访问底层tokenizers.Tokenizer
 if tokenizer.is_fast:
     fast_tokenizer = tokenizer.backend_tokenizer
     print(type(fast_tokenizer))  # <class 'tokenizers.Tokenizer'>
 ```
 
-### Fast vs slow tokenizers
+### 快速与慢速分词器对比
 
-| Feature                  | Fast (Rust)    | Slow (Python) |
+| 特性                  | 快速（Rust）    | 慢速（Python） |
 |--------------------------|----------------|---------------|
-| Speed                    | 5-10× faster   | Baseline      |
-| Alignment tracking       | ✅ Full support | ❌ Limited     |
-| Batch processing         | ✅ Optimized    | ⚠️ Slower      |
-| Offset mapping           | ✅ Yes          | ❌ No          |
-| Installation             | `tokenizers`   | Built-in      |
+| 速度                    | 5-10倍更快   | 基线      |
+| 对齐跟踪       | ✅ 完全支持 | ❌ 有限     |
+| 批量处理         | ✅ 优化     | ⚠️ 较慢      |
+| 偏移映射           | ✅ 是          | ❌ 否          |
+| 安装             | `tokenizers`   | 内置      |
 
-**Always use fast tokenizers when available.**
+**尽可能使用快速分词器。**
 
-### Check available tokenizers
+### 检查可用分词器
 
 ```python
 from transformers import TOKENIZER_MAPPING
 
-# List all fast tokenizers
+# 列出所有快速分词器
 for config_class, (slow, fast) in TOKENIZER_MAPPING.items():
     if fast is not None:
         print(f"{config_class.__name__}: {fast.__name__}")
@@ -48,9 +48,9 @@ for config_class, (slow, fast) in TOKENIZER_MAPPING.items():
 
 ## PreTrainedTokenizerFast
 
-Wrap custom tokenizers for transformers.
+为transformers包装自定义分词器。
 
-### Convert custom tokenizer
+### 转换自定义分词器
 
 ```python
 from tokenizers import Tokenizer
@@ -58,7 +58,7 @@ from tokenizers.models import BPE
 from tokenizers.trainers import BpeTrainer
 from transformers import PreTrainedTokenizerFast
 
-# Train custom tokenizer
+# 训练自定义分词器
 tokenizer = Tokenizer(BPE())
 trainer = BpeTrainer(
     vocab_size=30000,
@@ -66,10 +66,10 @@ trainer = BpeTrainer(
 )
 tokenizer.train(files=["corpus.txt"], trainer=trainer)
 
-# Save tokenizer
+# 保存分词器
 tokenizer.save("my-tokenizer.json")
 
-# Wrap for transformers
+# 为transformers包装
 transformers_tokenizer = PreTrainedTokenizerFast(
     tokenizer_file="my-tokenizer.json",
     unk_token="[UNK]",
@@ -79,20 +79,20 @@ transformers_tokenizer = PreTrainedTokenizerFast(
     mask_token="[MASK]"
 )
 
-# Save in transformers format
+# 以transformers格式保存
 transformers_tokenizer.save_pretrained("my-tokenizer")
 ```
 
-**Result**: Directory with `tokenizer.json` + `tokenizer_config.json` + `special_tokens_map.json`
+**结果**：包含`tokenizer.json` + `tokenizer_config.json` + `special_tokens_map.json`的目录
 
-### Use like any transformers tokenizer
+### 像任何transformers分词器一样使用
 
 ```python
-# Load
+# 加载
 from transformers import AutoTokenizer
 tokenizer = AutoTokenizer.from_pretrained("my-tokenizer")
 
-# Encode with all transformers features
+# 使用所有transformers特性编码
 outputs = tokenizer(
     "Hello world",
     padding="max_length",
@@ -105,56 +105,56 @@ print(outputs.keys())
 # dict_keys(['input_ids', 'token_type_ids', 'attention_mask'])
 ```
 
-## Special tokens
+## 特殊token
 
-### Default special tokens
+### 默认特殊token
 
-| Model Family | CLS/BOS | SEP/EOS       | PAD     | UNK     | MASK    |
+| 模型系列 | CLS/BOS | SEP/EOS       | PAD     | UNK     | MASK    |
 |--------------|---------|---------------|---------|---------|---------|
 | BERT         | [CLS]   | [SEP]         | [PAD]   | [UNK]   | [MASK]  |
 | GPT-2        | -       | <\|endoftext\|> | <\|endoftext\|> | <\|endoftext\|> | -       |
 | RoBERTa      | <s>     | </s>          | <pad>   | <unk>   | <mask>  |
 | T5           | -       | </s>          | <pad>   | <unk>   | -       |
 
-### Adding special tokens
+### 添加特殊token
 
 ```python
-# Add new special tokens
+# 添加新的特殊token
 special_tokens_dict = {
     "additional_special_tokens": ["<|image|>", "<|video|>", "<|audio|>"]
 }
 
 num_added_tokens = tokenizer.add_special_tokens(special_tokens_dict)
-print(f"Added {num_added_tokens} tokens")
+print(f"添加了 {num_added_tokens} 个token")
 
-# Resize model embeddings
+# 调整模型嵌入大小
 model.resize_token_embeddings(len(tokenizer))
 
-# Use new tokens
+# 使用新token
 text = "This is an image: <|image|>"
 tokens = tokenizer.encode(text)
 ```
 
-### Adding regular tokens
+### 添加常规token
 
 ```python
-# Add domain-specific tokens
+# 添加领域特定token
 new_tokens = ["COVID-19", "mRNA", "vaccine"]
 num_added = tokenizer.add_tokens(new_tokens)
 
-# These are NOT special tokens (can be split if needed)
+# 这些不是特殊token（需要时可分割）
 tokenizer.add_tokens(new_tokens, special_tokens=False)
 
-# These ARE special tokens (never split)
+# 这些是特殊token（永不分割）
 tokenizer.add_tokens(new_tokens, special_tokens=True)
 ```
 
-## Encoding and decoding
+## 编码和解码
 
-### Basic encoding
+### 基础编码
 
 ```python
-# Single sentence
+# 单句
 text = "Hello, how are you?"
 encoded = tokenizer(text)
 
@@ -164,10 +164,10 @@ print(encoded)
 #  'attention_mask': [1, 1, 1, 1, 1, 1, 1, 1]}
 ```
 
-### Batch encoding
+### 批量编码
 
 ```python
-# Multiple sentences
+# 多句
 texts = ["Hello world", "How are you?", "I am fine"]
 encoded = tokenizer(texts, padding=True, truncation=True, max_length=10)
 
@@ -177,112 +177,112 @@ print(encoded['input_ids'])
 #  [101, 1045, 2572, 2986, 102, 0, 0, 0, 0, 0]]
 ```
 
-### Return tensors
+### 返回tensors
 
 ```python
-# Return PyTorch tensors
+# 返回PyTorch tensors
 outputs = tokenizer("Hello world", return_tensors="pt")
 print(outputs['input_ids'].shape)  # torch.Size([1, 5])
 
-# Return TensorFlow tensors
+# 返回TensorFlow tensors
 outputs = tokenizer("Hello world", return_tensors="tf")
 
-# Return NumPy arrays
+# 返回NumPy数组
 outputs = tokenizer("Hello world", return_tensors="np")
 
-# Return lists (default)
+# 返回列表（默认）
 outputs = tokenizer("Hello world", return_tensors=None)
 ```
 
-### Decoding
+### 解码
 
 ```python
-# Decode token IDs
+# 解码token ID
 ids = [101, 7592, 2088, 102]
 text = tokenizer.decode(ids)
 print(text)  # "[CLS] hello world [SEP]"
 
-# Skip special tokens
+# 跳过特殊token
 text = tokenizer.decode(ids, skip_special_tokens=True)
 print(text)  # "hello world"
 
-# Batch decode
+# 批量解码
 batch_ids = [[101, 7592, 102], [101, 2088, 102]]
 texts = tokenizer.batch_decode(batch_ids, skip_special_tokens=True)
 print(texts)  # ["hello", "world"]
 ```
 
-## Padding and truncation
+## 填充和截断
 
-### Padding strategies
+### 填充策略
 
 ```python
-# Pad to max length in batch
+# 填充到批次中的最大长度
 tokenizer(texts, padding="longest")
 
-# Pad to model max length
+# 填充到模型最大长度
 tokenizer(texts, padding="max_length", max_length=128)
 
-# No padding
+# 不填充
 tokenizer(texts, padding=False)
 
-# Pad to multiple of value (for efficient computation)
+# 填充到值的倍数（为了高效计算）
 tokenizer(texts, padding="max_length", max_length=128, pad_to_multiple_of=8)
-# Result: length will be 128 (already multiple of 8)
+# 结果：长度将为128（已经是8的倍数）
 ```
 
-### Truncation strategies
+### 截断策略
 
 ```python
-# Truncate to max length
+# 截断到最大长度
 tokenizer(text, truncation=True, max_length=10)
 
-# Only truncate first sequence (for pairs)
+# 仅截断第一个序列（对于句子对）
 tokenizer(text1, text2, truncation="only_first", max_length=20)
 
-# Only truncate second sequence
+# 仅截断第二个序列
 tokenizer(text1, text2, truncation="only_second", max_length=20)
 
-# Truncate longest first (default for pairs)
+# 截断最长的优先（句子对默认）
 tokenizer(text1, text2, truncation="longest_first", max_length=20)
 
-# No truncation (error if too long)
+# 不截断（如果太长则错误）
 tokenizer(text, truncation=False)
 ```
 
-### Stride for long documents
+### 长文档的步长
 
 ```python
-# For documents longer than max_length
+# 对于长于max_length的文档
 text = "Very long document " * 1000
 
-# Encode with overlap
+# 带重叠编码
 encodings = tokenizer(
     text,
     max_length=512,
-    stride=128,          # Overlap between chunks
+    stride=128,          # 块之间的重叠
     truncation=True,
     return_overflowing_tokens=True,
     return_offsets_mapping=True
 )
 
-# Get all chunks
+# 获取所有块
 num_chunks = len(encodings['input_ids'])
-print(f"Split into {num_chunks} chunks")
+print(f"分割成 {num_chunks} 个块")
 
-# Each chunk overlaps by stride tokens
+# 每个块按步长重叠
 for i, chunk in enumerate(encodings['input_ids']):
-    print(f"Chunk {i}: {len(chunk)} tokens")
+    print(f"块 {i}: {len(chunk)} 个token")
 ```
 
-**Use case**: Long document QA, sliding window inference
+**用途**：长文档问答、滑动窗口推理
 
-## Alignment and offsets
+## 对齐和偏移
 
-### Offset mapping
+### 偏移映射
 
 ```python
-# Get character offsets for each token
+# 获取每个token的字符偏移
 encoded = tokenizer("Hello, world!", return_offsets_mapping=True)
 
 for token, (start, end) in zip(
@@ -291,7 +291,7 @@ for token, (start, end) in zip(
 ):
     print(f"{token:10s} → [{start:2d}, {end:2d})")
 
-# Output:
+# 输出:
 # [CLS]      → [ 0,  0)
 # Hello      → [ 0,  5)
 # ,          → [ 5,  6)
@@ -300,86 +300,86 @@ for token, (start, end) in zip(
 # [SEP]      → [ 0,  0)
 ```
 
-### Word IDs
+### 词ID
 
 ```python
-# Get word index for each token
+# 获取每个token的词索引
 encoded = tokenizer("Hello world", return_offsets_mapping=True)
 word_ids = encoded.word_ids()
 
 print(word_ids)
 # [None, 0, 1, None]
-# None = special token, 0 = first word, 1 = second word
+# None = 特殊token，0 = 第一个词，1 = 第二个词
 ```
 
-**Use case**: Token classification (NER, POS tagging)
+**用途**：Token分类（NER、POS标注）
 
-### Character to token mapping
+### 字符到token映射
 
 ```python
 text = "Machine learning is awesome"
 encoded = tokenizer(text, return_offsets_mapping=True)
 
-# Find token for character position
-char_pos = 8  # "l" in "learning"
+# 查找字符位置的token
+char_pos = 8  # "learning"中的"l"
 token_idx = encoded.char_to_token(char_pos)
 
-print(f"Character {char_pos} is in token {token_idx}: {encoded.tokens()[token_idx]}")
-# Character 8 is in token 2: learning
+print(f"字符 {char_pos} 在token {token_idx}: {encoded.tokens()[token_idx]}")
+# 字符 8 在 token 2: learning
 ```
 
-**Use case**: Question answering (map answer character span to tokens)
+**用途**：问答（将答案字符跨度映射到token）
 
-### Sequence pairs
+### 序列对
 
 ```python
-# Encode sentence pair
+# 编码句子对
 encoded = tokenizer("Question here", "Answer here", return_offsets_mapping=True)
 
-# Get sequence IDs (which sequence each token belongs to)
+# 获取序列ID（每个token属于哪个序列）
 sequence_ids = encoded.sequence_ids()
 print(sequence_ids)
 # [None, 0, 0, 0, None, 1, 1, 1, None]
-# None = special token, 0 = question, 1 = answer
+# None = 特殊token，0 = 问题，1 = 答案
 ```
 
-## Model integration
+## 模型集成
 
-### Use with transformers models
+### 与transformers模型使用
 
 ```python
 from transformers import AutoModel, AutoTokenizer
 import torch
 
-# Load model and tokenizer
+# 加载模型和分词器
 model = AutoModel.from_pretrained("bert-base-uncased")
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
-# Tokenize
+# 分词
 text = "Hello world"
 inputs = tokenizer(text, return_tensors="pt")
 
-# Forward pass
+# 前向传播
 with torch.no_grad():
     outputs = model(**inputs)
 
-# Get embeddings
+# 获取嵌入
 last_hidden_state = outputs.last_hidden_state
 print(last_hidden_state.shape)  # [1, seq_len, hidden_size]
 ```
 
-### Custom model with custom tokenizer
+### 带自定义分词器的自定义模型
 
 ```python
 from transformers import BertConfig, BertModel
 
-# Train custom tokenizer
+# 训练自定义分词器
 from tokenizers import Tokenizer, models, trainers
 tokenizer = Tokenizer(models.BPE())
 trainer = trainers.BpeTrainer(vocab_size=30000)
 tokenizer.train(files=["data.txt"], trainer=trainer)
 
-# Wrap for transformers
+# 为transformers包装
 from transformers import PreTrainedTokenizerFast
 fast_tokenizer = PreTrainedTokenizerFast(
     tokenizer_object=tokenizer,
@@ -387,23 +387,23 @@ fast_tokenizer = PreTrainedTokenizerFast(
     pad_token="[PAD]"
 )
 
-# Create model with custom vocab size
+# 用自定义词表大小创建模型
 config = BertConfig(vocab_size=30000)
 model = BertModel(config)
 
-# Use together
+# 一起使用
 inputs = fast_tokenizer("Hello world", return_tensors="pt")
 outputs = model(**inputs)
 ```
 
-### Save and load together
+### 一起保存和加载
 
 ```python
-# Save both
+# 保存两者
 model.save_pretrained("my-model")
 tokenizer.save_pretrained("my-model")
 
-# Directory structure:
+# 目录结构:
 # my-model/
 #   ├── config.json
 #   ├── pytorch_model.bin
@@ -411,35 +411,35 @@ tokenizer.save_pretrained("my-model")
 #   ├── tokenizer_config.json
 #   └── special_tokens_map.json
 
-# Load both
+# 加载两者
 from transformers import AutoModel, AutoTokenizer
 
 model = AutoModel.from_pretrained("my-model")
 tokenizer = AutoTokenizer.from_pretrained("my-model")
 ```
 
-## Advanced features
+## 高级特性
 
-### Multimodal tokenization
+### 多模态分词
 
 ```python
 from transformers import AutoTokenizer
 
-# LLaVA-style (image + text)
+# LLaVA风格（图像+文本）
 tokenizer = AutoTokenizer.from_pretrained("llava-hf/llava-1.5-7b-hf")
 
-# Add image placeholder token
+# 添加图像占位符token
 tokenizer.add_special_tokens({"additional_special_tokens": ["<image>"]})
 
-# Use in prompt
+# 在提示中使用
 text = "Describe this image: <image>"
 inputs = tokenizer(text, return_tensors="pt")
 ```
 
-### Template formatting
+### 模板格式化
 
 ```python
-# Chat template
+# 聊天模板
 messages = [
     {"role": "system", "content": "You are a helpful assistant."},
     {"role": "user", "content": "Hello!"},
@@ -447,48 +447,48 @@ messages = [
     {"role": "user", "content": "What's the weather?"}
 ]
 
-# Apply chat template (if tokenizer has one)
+# 应用聊天模板（如分词器有）
 if hasattr(tokenizer, "apply_chat_template"):
     text = tokenizer.apply_chat_template(messages, tokenize=False)
     inputs = tokenizer(text, return_tensors="pt")
 ```
 
-### Custom template
+### 自定义模板
 
 ```python
 from transformers import PreTrainedTokenizerFast
 
 tokenizer = PreTrainedTokenizerFast(tokenizer_file="tokenizer.json")
 
-# Define chat template
+# 定义聊天模板
 tokenizer.chat_template = """
 {%- for message in messages %}
     {%- if message['role'] == 'system' %}
-        System: {{ message['content'] }}\\n
+        System: {{ message['content'] }}\n
     {%- elif message['role'] == 'user' %}
-        User: {{ message['content'] }}\\n
+        User: {{ message['content'] }}\n
     {%- elif message['role'] == 'assistant' %}
-        Assistant: {{ message['content'] }}\\n
+        Assistant: {{ message['content'] }}\n
     {%- endif %}
 {%- endfor %}
 Assistant:
 """
 
-# Use template
+# 使用模板
 text = tokenizer.apply_chat_template(messages, tokenize=False)
 ```
 
-## Performance optimization
+## 性能优化
 
-### Batch processing
+### 批量处理
 
 ```python
-# Process large datasets efficiently
+# 高效处理大型数据集
 from datasets import load_dataset
 
 dataset = load_dataset("imdb", split="train[:1000]")
 
-# Tokenize in batches
+# 批量分词
 def tokenize_function(examples):
     return tokenizer(
         examples["text"],
@@ -497,141 +497,141 @@ def tokenize_function(examples):
         max_length=512
     )
 
-# Map over dataset (batched)
+# 在数据集上映射（批量）
 tokenized_dataset = dataset.map(
     tokenize_function,
     batched=True,
     batch_size=1000,
-    num_proc=4  # Parallel processing
+    num_proc=4  # 并行处理
 )
 ```
 
-### Caching
+### 缓存
 
 ```python
-# Enable caching for repeated tokenization
+# 为重复分词启用缓存
 tokenizer = AutoTokenizer.from_pretrained(
     "bert-base-uncased",
     use_fast=True,
-    cache_dir="./cache"  # Cache tokenizer files
+    cache_dir="./cache"  # 缓存分词器文件
 )
 
-# Tokenize with caching
+# 使用缓存分词
 from functools import lru_cache
 
 @lru_cache(maxsize=10000)
 def cached_tokenize(text):
     return tuple(tokenizer.encode(text))
 
-# Reuses cached results for repeated inputs
+# 对重复输入重用缓存结果
 ```
 
-### Memory efficiency
+### 内存效率
 
 ```python
-# For very large datasets, use streaming
+# 对于非常大的数据集，使用流式
 from datasets import load_dataset
 
 dataset = load_dataset("pile", split="train", streaming=True)
 
 def process_batch(batch):
-    # Tokenize
+    # 分词
     tokens = tokenizer(batch["text"], truncation=True, max_length=512)
 
-    # Process tokens...
+    # 处理tokens...
 
     return tokens
 
-# Process in chunks (memory efficient)
+# 分块处理（内存高效）
 for batch in dataset.batch(batch_size=1000):
     processed = process_batch(batch)
 ```
 
-## Troubleshooting
+## 故障排除
 
-### Issue: Tokenizer not fast
+### 问题：分词器不是快速的
 
-**Symptom**:
+**症状**：
 ```python
 tokenizer.is_fast  # False
 ```
 
-**Solution**: Install tokenizers library
+**解决方案**：安装tokenizers库
 ```bash
 pip install tokenizers
 ```
 
-### Issue: Special tokens not working
+### 问题：特殊token不工作
 
-**Symptom**: Special tokens are split into subwords
+**症状**：特殊token被分割成子词
 
-**Solution**: Add as special tokens, not regular tokens
+**解决方案**：添加为特殊token，而非常规token
 ```python
-# Wrong
+# 错误
 tokenizer.add_tokens(["<|image|>"])
 
-# Correct
+# 正确
 tokenizer.add_special_tokens({"additional_special_tokens": ["<|image|>"]})
 ```
 
-### Issue: Offset mapping not available
+### 问题：偏移映射不可用
 
-**Symptom**:
+**症状**：
 ```python
 tokenizer("text", return_offsets_mapping=True)
-# Error: return_offsets_mapping not supported
+# 错误: return_offsets_mapping不支持
 ```
 
-**Solution**: Use fast tokenizer
+**解决方案**：使用快速分词器
 ```python
 from transformers import AutoTokenizer
 
-# Load fast version
+# 加载快速版本
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased", use_fast=True)
 ```
 
-### Issue: Padding inconsistent
+### 问题：填充不一致
 
-**Symptom**: Some sequences padded, others not
+**症状**：某些序列填充了，其他没有
 
-**Solution**: Specify padding strategy
+**解决方案**：指定填充策略
 ```python
-# Explicit padding
+# 显式填充
 tokenizer(
     texts,
-    padding="max_length",  # or "longest"
+    padding="max_length",  # 或 "longest"
     max_length=128
 )
 ```
 
-## Best practices
+## 最佳实践
 
-1. **Always use fast tokenizers**:
-   - 5-10× faster
-   - Full alignment tracking
-   - Better batch processing
+1. **始终使用快速分词器**：
+   - 5-10倍更快
+   - 完全对齐跟踪
+   - 更好的批量处理
 
-2. **Save tokenizer with model**:
-   - Ensures reproducibility
-   - Prevents version mismatches
+2. **与模型一起保存分词器**：
+   - 确保可重现性
+   - 防止版本不匹配
 
-3. **Use batch processing for datasets**:
-   - Tokenize with `.map(batched=True)`
-   - Set `num_proc` for parallelism
+3. **对数据集使用批量处理**：
+   - 使用`.map(batched=True)`分词
+   - 设置`num_proc`以实现并行
 
-4. **Enable caching for repeated inputs**:
-   - Use `lru_cache` for inference
-   - Cache tokenizer files with `cache_dir`
+4. **为重复输入启用缓存**：
+   - 使用`lru_cache`进行推理
+   - 用`cache_dir`缓存分词器文件
 
-5. **Handle special tokens properly**:
-   - Use `add_special_tokens()` for never-split tokens
-   - Resize embeddings after adding tokens
+5. **正确处理特殊token**：
+   - 使用`add_special_tokens()`处理永不分割的token
+   - 添加token后调整嵌入大小
 
-6. **Test alignment for downstream tasks**:
-   - Verify `offset_mapping` is correct
-   - Test `char_to_token()` on samples
+6. **为下游任务测试对齐**：
+   - 验证`offset_mapping`正确
+   - 在样本上测试`char_to_token()`
 
-7. **Version control tokenizer config**:
-   - Save `tokenizer_config.json`
-   - Document custom templates
-   - Track vocabulary changes
+7. **版本控制分词器配置**：
+   - 保存`tokenizer_config.json`
+   - 记录自定义模板
+   - 跟踪词表变化

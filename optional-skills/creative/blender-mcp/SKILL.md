@@ -1,55 +1,55 @@
 ---
 name: blender-mcp
-description: Control Blender directly from KClaw via socket connection to the blender-mcp addon. Create 3D objects, materials, animations, and run arbitrary Blender Python (bpy) code. Use when user wants to create or modify anything in Blender.
+description: 通过socket连接直接控制Blender。创建3D对象、材质、动画，运行任意Blender Python (bpy)代码。当用户想要在Blender中创建或修改任何内容时使用。
 version: 1.0.0
-requires: Blender 4.3+ (desktop instance required, headless not supported)
+requires: Blender 4.3+ (需要桌面实例，不支持无头模式)
 author: alireza78a
-tags: [blender, 3d, animation, modeling, bpy, mcp]
+tags: [blender, 3d, 动画, 建模, bpy, mcp]
 ---
 
 # Blender MCP
 
-Control a running Blender instance from KClaw via socket on TCP port 9876.
+通过TCP端口9876的socket从KClaw控制正在运行的Blender实例。
 
-## Setup (one-time)
+## 设置（一次性）
 
-### 1. Install the Blender addon
+### 1. 安装Blender插件
 
     curl -sL https://raw.githubusercontent.com/ahujasid/blender-mcp/main/addon.py -o ~/Desktop/blender_mcp_addon.py
 
-In Blender:
-    Edit > Preferences > Add-ons > Install > select blender_mcp_addon.py
-    Enable "Interface: Blender MCP"
+在Blender中：
+    编辑 > 预设 > 插件 > 安装 > 选择blender_mcp_addon.py
+    启用"界面：Blender MCP"
 
-### 2. Start the socket server in Blender
+### 2. 在Blender中启动socket服务器
 
-Press N in Blender viewport to open sidebar.
-Find "BlenderMCP" tab and click "Start Server".
+在Blender视图中按N打开侧边栏。
+找到"BlenderMCP"标签并点击"启动服务器"。
 
-### 3. Verify connection
+### 3. 验证连接
 
     nc -z -w2 localhost 9876 && echo "OPEN" || echo "CLOSED"
 
-## Protocol
+## 协议
 
-Plain UTF-8 JSON over TCP -- no length prefix.
+通过TCP发送纯UTF-8 JSON -- 无长度前缀。
 
-Send:     {"type": "<command>", "params": {<kwargs>}}
-Receive:  {"status": "success", "result": <value>}
+发送:     {"type": "<command>", "params": {<kwargs>}}
+接收:     {"status": "success", "result": <value>}
           {"status": "error",   "message": "<reason>"}
 
-## Available Commands
+## 可用命令
 
 | type                    | params            | description                     |
 |-------------------------|-------------------|---------------------------------|
-| execute_code            | code (str)        | Run arbitrary bpy Python code   |
-| get_scene_info          | (none)            | List all objects in scene       |
-| get_object_info         | object_name (str) | Details on a specific object    |
-| get_viewport_screenshot | (none)            | Screenshot of current viewport  |
+| execute_code            | code (str)        | 运行任意bpy Python代码          |
+| get_scene_info          | (无)              | 列出场景中的所有对象            |
+| get_object_info         | object_name (str) | 获取特定对象的详细信息          |
+| get_viewport_screenshot | (无)              | 当前视口的截图                  |
 
-## Python Helper
+## Python辅助函数
 
-Use this inside execute_code tool calls:
+在execute_code工具调用中使用：
 
     import socket, json
 
@@ -76,18 +76,18 @@ Use this inside execute_code tool calls:
         s.close()
         return json.loads(buf.decode("utf-8"))
 
-## Common bpy Patterns
+## 常见bpy模式
 
-### Clear scene
+### 清除场景
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete()
 
-### Add mesh objects
+### 添加网格对象
     bpy.ops.mesh.primitive_uv_sphere_add(radius=1, location=(0, 0, 0))
     bpy.ops.mesh.primitive_cube_add(size=2, location=(3, 0, 0))
     bpy.ops.mesh.primitive_cylinder_add(radius=0.5, depth=2, location=(-3, 0, 0))
 
-### Create and assign material
+### 创建并分配材质
     mat = bpy.data.materials.new(name="MyMat")
     mat.use_nodes = True
     bsdf = mat.node_tree.nodes.get("Principled BSDF")
@@ -96,21 +96,21 @@ Use this inside execute_code tool calls:
     bsdf.inputs["Metallic"].default_value = 0.0
     obj.data.materials.append(mat)
 
-### Keyframe animation
+### 关键帧动画
     obj.location = (0, 0, 0)
     obj.keyframe_insert(data_path="location", frame=1)
     obj.location = (0, 0, 3)
     obj.keyframe_insert(data_path="location", frame=60)
 
-### Render to file
+### 渲染到文件
     bpy.context.scene.render.filepath = "/tmp/render.png"
     bpy.context.scene.render.engine = 'CYCLES'
     bpy.ops.render.render(write_still=True)
 
-## Pitfalls
+## 陷阱
 
-- Must check socket is open before running (nc -z localhost 9876)
-- Addon server must be started inside Blender each session (N-panel > BlenderMCP > Connect)
-- Break complex scenes into multiple smaller execute_code calls to avoid timeouts
-- Render output path must be absolute (/tmp/...) not relative
-- shade_smooth() requires object to be selected and in object mode
+- 运行前必须检查socket是否打开（nc -z localhost 9876）
+- 每次会话都必须在Blender中启动插件服务器（N面板 > BlenderMCP > 连接）
+- 将复杂场景分解成多个较小的execute_code调用以避免超时
+- 渲染输出路径必须是绝对路径（/tmp/...）而不是相对路径
+- shade_smooth()需要先选择对象并处于对象模式

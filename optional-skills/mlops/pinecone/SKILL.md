@@ -1,75 +1,75 @@
 ---
 name: pinecone
-description: Managed vector database for production AI applications. Fully managed, auto-scaling, with hybrid search (dense + sparse), metadata filtering, and namespaces. Low latency (<100ms p95). Use for production RAG, recommendation systems, or semantic search at scale. Best for serverless, managed infrastructure.
+description: 用于生产环境AI应用的托管向量数据库。全托管、自动扩展，支持混合搜索（稠密+稀疏）、元数据过滤和命名空间。低延迟（<100ms p95）。用于生产环境RAG、推荐系统或大规模语义搜索。最適合无服务器、托管基础设施。
 version: 1.0.0
 author: Orchestra Research
 license: MIT
 dependencies: [pinecone-client]
 metadata:
   kclaw:
-    tags: [RAG, Pinecone, Vector Database, Managed Service, Serverless, Hybrid Search, Production, Auto-Scaling, Low Latency, Recommendations]
+    tags: [RAG, Pinecone, 向量数据库, 托管服务, 无服务器, 混合搜索, 生产环境, 自动扩展, 低延迟, 推荐系统]
 
 ---
 
-# Pinecone - Managed Vector Database
+# Pinecone - 托管向量数据库
 
-The vector database for production AI applications.
+用于生产环境AI应用的向量数据库。
 
-## When to use Pinecone
+## 何时使用Pinecone
 
-**Use when:**
-- Need managed, serverless vector database
-- Production RAG applications
-- Auto-scaling required
-- Low latency critical (<100ms)
-- Don't want to manage infrastructure
-- Need hybrid search (dense + sparse vectors)
+**在以下情况下使用：**
+- 需要托管的、无服务器向量数据库
+- 生产环境RAG应用
+- 需要自动扩展
+- 低延迟至关重要（<100ms）
+- 不想管理基础设施
+- 需要混合搜索（稠密+稀疏向量）
 
-**Metrics**:
-- Fully managed SaaS
-- Auto-scales to billions of vectors
-- **p95 latency <100ms**
-- 99.9% uptime SLA
+**指标：**
+- 全托管SaaS
+- 自动扩展到数十亿向量
+- **p95延迟<100ms**
+- 99.9%正常运行时间SLA
 
-**Use alternatives instead**:
-- **Chroma**: Self-hosted, open-source
-- **FAISS**: Offline, pure similarity search
-- **Weaviate**: Self-hosted with more features
+**使用替代方案：**
+- **Chroma**：自托管、开源
+- **FAISS**：离线、纯相似度搜索
+- **Weaviate**：自托管、功能更多
 
-## Quick start
+## 快速开始
 
-### Installation
+### 安装
 
 ```bash
 pip install pinecone-client
 ```
 
-### Basic usage
+### 基础用法
 
 ```python
 from pinecone import Pinecone, ServerlessSpec
 
-# Initialize
+# 初始化
 pc = Pinecone(api_key="your-api-key")
 
-# Create index
+# 创建索引
 pc.create_index(
     name="my-index",
-    dimension=1536,  # Must match embedding dimension
-    metric="cosine",  # or "euclidean", "dotproduct"
+    dimension=1536,  # 必须匹配嵌入维度
+    metric="cosine",  # 或 "euclidean", "dotproduct"
     spec=ServerlessSpec(cloud="aws", region="us-east-1")
 )
 
-# Connect to index
+# 连接到索引
 index = pc.Index("my-index")
 
-# Upsert vectors
+# Upsert向量
 index.upsert(vectors=[
     {"id": "vec1", "values": [0.1, 0.2, ...], "metadata": {"category": "A"}},
     {"id": "vec2", "values": [0.3, 0.4, ...], "metadata": {"category": "B"}}
 ])
 
-# Query
+# 查询
 results = index.query(
     vector=[0.1, 0.2, ...],
     top_k=5,
@@ -79,23 +79,23 @@ results = index.query(
 print(results["matches"])
 ```
 
-## Core operations
+## 核心操作
 
-### Create index
+### 创建索引
 
 ```python
-# Serverless (recommended)
+# 无服务器（推荐）
 pc.create_index(
     name="my-index",
     dimension=1536,
     metric="cosine",
     spec=ServerlessSpec(
-        cloud="aws",         # or "gcp", "azure"
+        cloud="aws",         # 或 "gcp", "azure"
         region="us-east-1"
     )
 )
 
-# Pod-based (for consistent performance)
+# 基于Pod（用于一致性能）
 from pinecone import PodSpec
 
 pc.create_index(
@@ -109,23 +109,23 @@ pc.create_index(
 )
 ```
 
-### Upsert vectors
+### Upsert向量
 
 ```python
-# Single upsert
+# 单个upsert
 index.upsert(vectors=[
     {
         "id": "doc1",
-        "values": [0.1, 0.2, ...],  # 1536 dimensions
+        "values": [0.1, 0.2, ...],  # 1536维
         "metadata": {
-            "text": "Document content",
-            "category": "tutorial",
+            "text": "文档内容",
+            "category": "教程",
             "timestamp": "2025-01-01"
         }
     }
 ])
 
-# Batch upsert (recommended)
+# 批量upsert（推荐）
 vectors = [
     {"id": f"vec{i}", "values": embedding, "metadata": metadata}
     for i, (embedding, metadata) in enumerate(zip(embeddings, metadatas))
@@ -134,10 +134,10 @@ vectors = [
 index.upsert(vectors=vectors, batch_size=100)
 ```
 
-### Query vectors
+### 查询向量
 
 ```python
-# Basic query
+# 基础查询
 results = index.query(
     vector=[0.1, 0.2, ...],
     top_k=10,
@@ -145,86 +145,86 @@ results = index.query(
     include_values=False
 )
 
-# With metadata filtering
+# 带元数据过滤
 results = index.query(
     vector=[0.1, 0.2, ...],
     top_k=5,
-    filter={"category": {"$eq": "tutorial"}}
+    filter={"category": {"$eq": "教程"}}
 )
 
-# Namespace query
+# 命名空间查询
 results = index.query(
     vector=[0.1, 0.2, ...],
     top_k=5,
     namespace="production"
 )
 
-# Access results
+# 访问结果
 for match in results["matches"]:
     print(f"ID: {match['id']}")
-    print(f"Score: {match['score']}")
-    print(f"Metadata: {match['metadata']}")
+    print(f"分数: {match['score']}")
+    print(f"元数据: {match['metadata']}")
 ```
 
-### Metadata filtering
+### 元数据过滤
 
 ```python
-# Exact match
-filter = {"category": "tutorial"}
+# 精确匹配
+filter = {"category": "教程"}
 
-# Comparison
+# 比较
 filter = {"price": {"$gte": 100}}  # $gt, $gte, $lt, $lte, $ne
 
-# Logical operators
+# 逻辑运算符
 filter = {
     "$and": [
-        {"category": "tutorial"},
+        {"category": "教程"},
         {"difficulty": {"$lte": 3}}
     ]
-}  # Also: $or
+}  # 也支持: $or
 
-# In operator
+# In运算符
 filter = {"tags": {"$in": ["python", "ml"]}}
 ```
 
-## Namespaces
+## 命名空间
 
 ```python
-# Partition data by namespace
+# 按命名空间分区数据
 index.upsert(
     vectors=[{"id": "vec1", "values": [...]}],
     namespace="user-123"
 )
 
-# Query specific namespace
+# 查询特定命名空间
 results = index.query(
     vector=[...],
     namespace="user-123",
     top_k=5
 )
 
-# List namespaces
+# 列出命名空间
 stats = index.describe_index_stats()
 print(stats['namespaces'])
 ```
 
-## Hybrid search (dense + sparse)
+## 混合搜索（稠密+稀疏）
 
 ```python
-# Upsert with sparse vectors
+# Upsert带稀疏向量
 index.upsert(vectors=[
     {
         "id": "doc1",
-        "values": [0.1, 0.2, ...],  # Dense vector
+        "values": [0.1, 0.2, ...],  # 稠密向量
         "sparse_values": {
-            "indices": [10, 45, 123],  # Token IDs
-            "values": [0.5, 0.3, 0.8]   # TF-IDF scores
+            "indices": [10, 45, 123],  # 词元ID
+            "values": [0.5, 0.3, 0.8]   # TF-IDF分数
         },
         "metadata": {"text": "..."}
     }
 ])
 
-# Hybrid query
+# 混合查询
 results = index.query(
     vector=[0.1, 0.2, ...],
     sparse_vector={
@@ -232,130 +232,128 @@ results = index.query(
         "values": [0.5, 0.3]
     },
     top_k=5,
-    alpha=0.5  # 0=sparse, 1=dense, 0.5=hybrid
+    alpha=0.5  # 0=稀疏, 1=稠密, 0.5=混合
 )
 ```
 
-## LangChain integration
+## LangChain集成
 
 ```python
 from langchain_pinecone import PineconeVectorStore
 from langchain_openai import OpenAIEmbeddings
 
-# Create vector store
+# 创建向量存储
 vectorstore = PineconeVectorStore.from_documents(
     documents=docs,
     embedding=OpenAIEmbeddings(),
     index_name="my-index"
 )
 
-# Query
+# 查询
 results = vectorstore.similarity_search("query", k=5)
 
-# With metadata filter
+# 带元数据过滤
 results = vectorstore.similarity_search(
     "query",
     k=5,
-    filter={"category": "tutorial"}
+    filter={"category": "教程"}
 )
 
-# As retriever
+# 作为检索器
 retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
 ```
 
-## LlamaIndex integration
+## LlamaIndex集成
 
 ```python
 from llama_index.vector_stores.pinecone import PineconeVectorStore
 
-# Connect to Pinecone
+# 连接到Pinecone
 pc = Pinecone(api_key="your-key")
 pinecone_index = pc.Index("my-index")
 
-# Create vector store
+# 创建向量存储
 vector_store = PineconeVectorStore(pinecone_index=pinecone_index)
 
-# Use in LlamaIndex
+# 在LlamaIndex中使用
 from llama_index.core import StorageContext, VectorStoreIndex
 
 storage_context = StorageContext.from_defaults(vector_store=vector_store)
 index = VectorStoreIndex.from_documents(documents, storage_context=storage_context)
 ```
 
-## Index management
+## 索引管理
 
 ```python
-# List indices
+# 列出索引
 indexes = pc.list_indexes()
 
-# Describe index
+# 描述索引
 index_info = pc.describe_index("my-index")
 print(index_info)
 
-# Get index stats
+# 获取索引统计
 stats = index.describe_index_stats()
-print(f"Total vectors: {stats['total_vector_count']}")
-print(f"Namespaces: {stats['namespaces']}")
+print(f"总向量数: {stats['total_vector_count']}")
+print(f"命名空间: {stats['namespaces']}")
 
-# Delete index
+# 删除索引
 pc.delete_index("my-index")
 ```
 
-## Delete vectors
+## 删除向量
 
 ```python
-# Delete by ID
+# 按ID删除
 index.delete(ids=["vec1", "vec2"])
 
-# Delete by filter
+# 按过滤删除
 index.delete(filter={"category": "old"})
 
-# Delete all in namespace
+# 删除命名空间中的所有内容
 index.delete(delete_all=True, namespace="test")
 
-# Delete entire index
+# 删除整个索引
 index.delete(delete_all=True)
 ```
 
-## Best practices
+## 最佳实践
 
-1. **Use serverless** - Auto-scaling, cost-effective
-2. **Batch upserts** - More efficient (100-200 per batch)
-3. **Add metadata** - Enable filtering
-4. **Use namespaces** - Isolate data by user/tenant
-5. **Monitor usage** - Check Pinecone dashboard
-6. **Optimize filters** - Index frequently filtered fields
-7. **Test with free tier** - 1 index, 100K vectors free
-8. **Use hybrid search** - Better quality
-9. **Set appropriate dimensions** - Match embedding model
-10. **Regular backups** - Export important data
+1. **使用无服务器** - 自动扩展，性价比高
+2. **批量upsert** - 更高效（每批100-200个）
+3. **添加元数据** - 启用过滤
+4. **使用命名空间** - 按用户/租户隔离数据
+5. **监控使用** - 查看Pinecone仪表板
+6. **优化过滤** - 为频繁过滤的字段建立索引
+7. **先用免费层测试** - 1个索引，100K向量免费
+8. **使用混合搜索** - 更高质量
+9. **设置合适的维度** - 匹配嵌入模型
+10. **定期备份** - 导出重要数据
 
-## Performance
+## 性能
 
-| Operation | Latency | Notes |
+| 操作 | 延迟 | 说明 |
 |-----------|---------|-------|
-| Upsert | ~50-100ms | Per batch |
-| Query (p50) | ~50ms | Depends on index size |
-| Query (p95) | ~100ms | SLA target |
-| Metadata filter | ~+10-20ms | Additional overhead |
+| Upsert | ~50-100ms | 每批次 |
+| 查询（p50） | ~50ms | 取决于索引大小 |
+| 查询（p95） | ~100ms | SLA目标 |
+| 元数据过滤 | ~+10-20ms | 额外开销 |
 
-## Pricing (as of 2025)
+## 定价（截至2025年）
 
-**Serverless**:
-- $0.096 per million read units
-- $0.06 per million write units
-- $0.06 per GB storage/month
+**无服务器**：
+- 每百万读取单位$0.096
+- 每百万写入单位$0.06
+- 每GB存储/月$0.06
 
-**Free tier**:
-- 1 serverless index
-- 100K vectors (1536 dimensions)
-- Great for prototyping
+**免费层**：
+- 1个无服务器索引
+- 100K向量（1536维）
+- 非常适合原型开发
 
-## Resources
+## 资源
 
-- **Website**: https://www.pinecone.io
-- **Docs**: https://docs.pinecone.io
-- **Console**: https://app.pinecone.io
-- **Pricing**: https://www.pinecone.io/pricing
-
-
+- **网站**: https://www.pinecone.io
+- **文档**: https://docs.pinecone.io
+- **控制台**: https://app.pinecone.io
+- **定价**: https://www.pinecone.io/pricing

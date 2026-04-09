@@ -1,224 +1,222 @@
 ---
 name: faiss
-description: Facebook's library for efficient similarity search and clustering of dense vectors. Supports billions of vectors, GPU acceleration, and various index types (Flat, IVF, HNSW). Use for fast k-NN search, large-scale vector retrieval, or when you need pure similarity search without metadata. Best for high-performance applications.
+description: Facebook的高效相似度搜索和稠密向量聚类库。支持数十亿向量、GPU加速和各种索引类型（Flat、IVF、HNSW）。用于快速k-NN搜索、大规模向量检索，或需要纯相似度搜索（无元数据）的场景。最适合高性能应用。
 version: 1.0.0
 author: Orchestra Research
 license: MIT
 dependencies: [faiss-cpu, faiss-gpu, numpy]
 metadata:
   kclaw:
-    tags: [RAG, FAISS, Similarity Search, Vector Search, Facebook AI, GPU Acceleration, Billion-Scale, K-NN, HNSW, High Performance, Large Scale]
+    tags: [RAG, FAISS, 相似度搜索, 向量搜索, Facebook AI, GPU加速, 十亿级, K-NN, HNSW, 高性能, 大规模]
 
 ---
 
-# FAISS - Efficient Similarity Search
+# FAISS - 高效相似度搜索
 
-Facebook AI's library for billion-scale vector similarity search.
+Facebook AI的十亿级向量相似度搜索库。
 
-## When to use FAISS
+## 何时使用FAISS
 
-**Use FAISS when:**
-- Need fast similarity search on large vector datasets (millions/billions)
-- GPU acceleration required
-- Pure vector similarity (no metadata filtering needed)
-- High throughput, low latency critical
-- Offline/batch processing of embeddings
+**在以下情况下使用FAISS：**
+- 需要在大型向量数据集（百万/十亿级）上进行快速相似度搜索
+- 需要GPU加速
+- 纯向量相似度（不需要元数据过滤）
+- 高吞吐量、低延迟至关重要
+- 嵌入的离线/批处理
 
-**Metrics**:
+**指标：**
 - **31,700+ GitHub stars**
 - Meta/Facebook AI Research
-- **Handles billions of vectors**
-- **C++** with Python bindings
+- **处理数十亿向量**
+- **C++** 配合Python绑定
 
-**Use alternatives instead**:
-- **Chroma/Pinecone**: Need metadata filtering
-- **Weaviate**: Need full database features
-- **Annoy**: Simpler, fewer features
+**使用替代方案：**
+- **Chroma/Pinecone**：需要元数据过滤
+- **Weaviate**：需要完整数据库功能
+- **Annoy**：更简单，功能更少
 
-## Quick start
+## 快速开始
 
-### Installation
+### 安装
 
 ```bash
-# CPU only
+# 仅CPU
 pip install faiss-cpu
 
-# GPU support
+# GPU支持
 pip install faiss-gpu
 ```
 
-### Basic usage
+### 基础用法
 
 ```python
 import faiss
 import numpy as np
 
-# Create sample data (1000 vectors, 128 dimensions)
+# 创建样本数据（1000个向量，128维）
 d = 128
 nb = 1000
 vectors = np.random.random((nb, d)).astype('float32')
 
-# Create index
-index = faiss.IndexFlatL2(d)  # L2 distance
-index.add(vectors)             # Add vectors
+# 创建索引
+index = faiss.IndexFlatL2(d)  # L2距离
+index.add(vectors)             # 添加向量
 
-# Search
-k = 5  # Find 5 nearest neighbors
+# 搜索
+k = 5  # 找5个最近邻
 query = np.random.random((1, d)).astype('float32')
 distances, indices = index.search(query, k)
 
-print(f"Nearest neighbors: {indices}")
-print(f"Distances: {distances}")
+print(f"最近邻: {indices}")
+print(f"距离: {distances}")
 ```
 
-## Index types
+## 索引类型
 
-### 1. Flat (exact search)
+### 1. Flat（精确搜索）
 
 ```python
-# L2 (Euclidean) distance
+# L2（欧几里得）距离
 index = faiss.IndexFlatL2(d)
 
-# Inner product (cosine similarity if normalized)
+# 内积（归一化后为余弦相似度）
 index = faiss.IndexFlatIP(d)
 
-# Slowest, most accurate
+# 最慢，最精确
 ```
 
-### 2. IVF (inverted file) - Fast approximate
+### 2. IVF（倒排文件）- 快速近似
 
 ```python
-# Create quantizer
+# 创建量化器
 quantizer = faiss.IndexFlatL2(d)
 
-# IVF index with 100 clusters
+# IVF索引，100个聚类
 nlist = 100
 index = faiss.IndexIVFFlat(quantizer, d, nlist)
 
-# Train on data
+# 在数据上训练
 index.train(vectors)
 
-# Add vectors
+# 添加向量
 index.add(vectors)
 
-# Search (nprobe = clusters to search)
+# 搜索（nprobe = 搜索的聚类数）
 index.nprobe = 10
 distances, indices = index.search(query, k)
 ```
 
-### 3. HNSW (Hierarchical NSW) - Best quality/speed
+### 3. HNSW（分层NSW）- 最佳质量/速度
 
 ```python
-# HNSW index
-M = 32  # Number of connections per layer
+# HNSW索引
+M = 32  # 每层连接数
 index = faiss.IndexHNSWFlat(d, M)
 
-# No training needed
+# 无需训练
 index.add(vectors)
 
-# Search
+# 搜索
 distances, indices = index.search(query, k)
 ```
 
-### 4. Product Quantization - Memory efficient
+### 4. 产品量化 - 内存高效
 
 ```python
-# PQ reduces memory by 16-32×
-m = 8   # Number of subquantizers
+# PQ将内存减少16-32倍
+m = 8   # 子量化器数量
 nbits = 8
 index = faiss.IndexPQ(d, m, nbits)
 
-# Train and add
+# 训练和添加
 index.train(vectors)
 index.add(vectors)
 ```
 
-## Save and load
+## 保存和加载
 
 ```python
-# Save index
+# 保存索引
 faiss.write_index(index, "large.index")
 
-# Load index
+# 加载索引
 index = faiss.read_index("large.index")
 
-# Continue using
+# 继续使用
 distances, indices = index.search(query, k)
 ```
 
-## GPU acceleration
+## GPU加速
 
 ```python
-# Single GPU
+# 单GPU
 res = faiss.StandardGpuResources()
 index_cpu = faiss.IndexFlatL2(d)
 index_gpu = faiss.index_cpu_to_gpu(res, 0, index_cpu)  # GPU 0
 
-# Multi-GPU
+# 多GPU
 index_gpu = faiss.index_cpu_to_all_gpus(index_cpu)
 
-# 10-100× faster than CPU
+# 比CPU快10-100倍
 ```
 
-## LangChain integration
+## LangChain集成
 
 ```python
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
 
-# Create FAISS vector store
+# 创建FAISS向量存储
 vectorstore = FAISS.from_documents(docs, OpenAIEmbeddings())
 
-# Save
+# 保存
 vectorstore.save_local("faiss_index")
 
-# Load
+# 加载
 vectorstore = FAISS.load_local(
     "faiss_index",
     OpenAIEmbeddings(),
     allow_dangerous_deserialization=True
 )
 
-# Search
+# 搜索
 results = vectorstore.similarity_search("query", k=5)
 ```
 
-## LlamaIndex integration
+## LlamaIndex集成
 
 ```python
 from llama_index.vector_stores.faiss import FaissVectorStore
 import faiss
 
-# Create FAISS index
+# 创建FAISS索引
 d = 1536
 faiss_index = faiss.IndexFlatL2(d)
 
 vector_store = FaissVectorStore(faiss_index=faiss_index)
 ```
 
-## Best practices
+## 最佳实践
 
-1. **Choose right index type** - Flat for <10K, IVF for 10K-1M, HNSW for quality
-2. **Normalize for cosine** - Use IndexFlatIP with normalized vectors
-3. **Use GPU for large datasets** - 10-100× faster
-4. **Save trained indices** - Training is expensive
-5. **Tune nprobe/ef_search** - Balance speed/accuracy
-6. **Monitor memory** - PQ for large datasets
-7. **Batch queries** - Better GPU utilization
+1. **选择正确的索引类型** - 10K以下用Flat，10K-1M用IVF，质量优先用HNSW
+2. **余弦相似度归一化** - 对归一化向量使用IndexFlatIP
+3. **大型数据集使用GPU** - 快10-100倍
+4. **保存训练好的索引** - 训练代价昂贵
+5. **调优nprobe/ef_search** - 平衡速度/精度
+6. **监控内存** - 大数据集用PQ
+7. **批量查询** - 更好的GPU利用率
 
-## Performance
+## 性能
 
-| Index Type | Build Time | Search Time | Memory | Accuracy |
+| 索引类型 | 构建时间 | 搜索时间 | 内存 | 精度 |
 |------------|------------|-------------|--------|----------|
-| Flat | Fast | Slow | High | 100% |
-| IVF | Medium | Fast | Medium | 95-99% |
-| HNSW | Slow | Fastest | High | 99% |
-| PQ | Medium | Fast | Low | 90-95% |
+| Flat | 快 | 慢 | 高 | 100% |
+| IVF | 中 | 快 | 中 | 95-99% |
+| HNSW | 慢 | 最快 | 高 | 99% |
+| PQ | 中 | 快 | 低 | 90-95% |
 
-## Resources
+## 资源
 
 - **GitHub**: https://github.com/facebookresearch/faiss ⭐ 31,700+
 - **Wiki**: https://github.com/facebookresearch/faiss/wiki
-- **License**: MIT
-
-
+- **许可证**: MIT

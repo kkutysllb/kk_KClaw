@@ -1,45 +1,45 @@
-# LLaVA Training Guide
+# LLaVA训练指南
 
-Guide to training and fine-tuning LLaVA models.
+训练和微调LLaVA模型的指南。
 
-## Training stages
+## 训练阶段
 
-### Stage 1: Feature alignment (Pretraining)
+### 阶段1：特征对齐（预训练）
 
-**Purpose**: Align vision encoder with language model
+**目的**：将视觉编码器与语言模型对齐
 
-**Data**: 558K image-caption pairs (CC3M subset)
+**数据**：558K图像-说明对（CC3M子集）
 
 ```bash
-# Download pretrained projector or train from scratch
+# 下载预训练投影器或从头训练
 bash scripts/v1_5/pretrain.sh
 ```
 
-**Configuration:**
-- Base model: Vicuna-7B or LLaMA-2-7B
-- Vision encoder: CLIP ViT-L/14
-- Training time: ~20 hours on 8× A100
+**配置**：
+- 基础模型：Vicuna-7B或LLaMA-2-7B
+- 视觉编码器：CLIP ViT-L/14
+- 训练时间：在8× A100上约20小时
 
-### Stage 2: Visual instruction tuning
+### 阶段2：视觉指令调优
 
-**Purpose**: Teach model to follow visual instructions
+**目的**：教模型遵循视觉指令
 
-**Data**: 150K GPT-generated multimodal instruction data
+**数据**：150K GPT生成的多模态指令数据
 
 ```bash
-# Fine-tune with instruction data
+# 使用指令数据微调
 bash scripts/v1_5/finetune.sh
 ```
 
-**Configuration:**
-- Epochs: 1
-- Batch size: 128 (across 8 GPUs)
-- Learning rate: 2e-5
-- Training time: ~24 hours on 8× A100
+**配置**：
+- 轮次：1
+- 批大小：128（跨8个GPU）
+- 学习率：2e-5
+- 训练时间：在8× A100上约24小时
 
-## Data format
+## 数据格式
 
-### Instruction data format
+### 指令数据格式
 
 ```json
 [
@@ -49,33 +49,33 @@ bash scripts/v1_5/finetune.sh
         "conversations": [
             {
                 "from": "human",
-                "value": "<image>\nWhat is in this image?"
+                "value": "<image>\n这张图片里有什么？"
             },
             {
                 "from": "gpt",
-                "value": "The image shows a dog playing in a park."
+                "value": "图片显示一只狗在公园里玩耍。"
             },
             {
                 "from": "human",
-                "value": "What breed is the dog?"
+                "value": "这只狗是什么品种？"
             },
             {
                 "from": "gpt",
-                "value": "It appears to be a Golden Retriever."
+                "value": "看起来像是金毛猎犬。"
             }
         ]
     }
 ]
 ```
 
-## Fine-tuning on custom data
+## 在自定义数据上微调
 
-### Prepare your data
+### 准备数据
 
 ```python
 import json
 
-# Create instruction data
+# 创建指令数据
 data = []
 for image_path, qa_pairs in your_dataset:
     conversations = []
@@ -89,23 +89,23 @@ for image_path, qa_pairs in your_dataset:
         "conversations": conversations
     })
 
-# Save
+# 保存
 with open("custom_data.json", "w") as f:
     json.dump(data, f, indent=2)
 ```
 
-### Fine-tune script
+### 微调脚本
 
 ```bash
 #!/bin/bash
 
-# Set paths
+# 设置路径
 DATA_PATH="custom_data.json"
 IMAGE_FOLDER="path/to/images"
 MODEL_PATH="liuhaotian/llava-v1.5-7b"
 OUTPUT_DIR="./checkpoints/llava-custom"
 
-# Fine-tune
+# 微调
 deepspeed llava/train/train_mem.py \
     --deepspeed ./scripts/zero2.json \
     --model_name_or_path $MODEL_PATH \
@@ -142,12 +142,12 @@ deepspeed llava/train/train_mem.py \
     --report_to wandb
 ```
 
-## LoRA fine-tuning (memory efficient)
+## LoRA微调（内存高效）
 
 ```python
 from peft import LoraConfig, get_peft_model
 
-# LoRA config
+# LoRA配置
 lora_config = LoraConfig(
     r=8,  # LoRA rank
     lora_alpha=16,
@@ -157,41 +157,41 @@ lora_config = LoraConfig(
     task_type="CAUSAL_LM"
 )
 
-# Apply LoRA
+# 应用LoRA
 model = get_peft_model(base_model, lora_config)
 
-# Train with much lower memory
+# 以低得多的内存训练
 ```
 
-## Hardware requirements
+## 硬件要求
 
-### Full fine-tuning
+### 全量微调
 
-- **7B model**: 8× A100 (40GB)
-- **13B model**: 8× A100 (80GB)
-- **Training time**: 20-48 hours
+- **7B模型**：8× A100（40GB）
+- **13B模型**：8× A100（80GB）
+- **训练时间**：20-48小时
 
-### LoRA fine-tuning
+### LoRA微调
 
-- **7B model**: 1× A100 (40GB)
-- **13B model**: 2× A100 (40GB)
-- **Training time**: 10-24 hours
+- **7B模型**：1× A100（40GB）
+- **13B模型**：2× A100（40GB）
+- **训练时间**：10-24小时
 
-## Best practices
+## 最佳实践
 
-1. **Start with pretrained** - Don't train from scratch
-2. **Use LoRA for efficiency** - 10× less memory
-3. **Quality over quantity** - 1K high-quality > 10K low-quality
-4. **Multi-turn conversations** - More engaging than single Q&A
-5. **Diverse images** - Cover different scenarios
-6. **Clear instructions** - Specific questions get better answers
-7. **Monitor loss** - Should decrease smoothly
-8. **Save checkpoints** - Training can fail
-9. **Test regularly** - Validate on held-out set
-10. **Use DeepSpeed** - For multi-GPU training
+1. **从预训练开始** - 不要从头训练
+2. **使用LoRA提高效率** - 减少10倍内存
+3. **质量优先于数量** - 1K高质量 > 10K低质量
+4. **多轮对话** - 比单一问答更吸引人
+5. **多样化图像** - 覆盖不同场景
+6. **清晰的指令** - 具体问题获得更好答案
+7. **监控损失** - 应该平稳下降
+8. **保存检查点** - 训练可能失败
+9. **定期测试** - 在保留集上验证
+10. **使用DeepSpeed** - 用于多GPU训练
 
-## Resources
+## 资源
 
-- **Training script**: https://github.com/haotian-liu/LLaVA/tree/main/scripts
-- **Data format**: https://github.com/haotian-liu/LLaVA/blob/main/docs/Data.md
-- **Paper**: https://arxiv.org/abs/2304.08485
+- **训练脚本**：https://github.com/haotian-liu/LLaVA/tree/main/scripts
+- **数据格式**：https://github.com/haotian-liu/LLaVA/blob/main/docs/Data.md
+- **论文**：https://arxiv.org/abs/2304.08485

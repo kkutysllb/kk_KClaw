@@ -1,81 +1,81 @@
 ---
 name: sparse-autoencoder-training
-description: Provides guidance for training and analyzing Sparse Autoencoders (SAEs) using SAELens to decompose neural network activations into interpretable features. Use when discovering interpretable features, analyzing superposition, or studying monosemantic representations in language models.
+description: 提供使用SAELens训练和分析稀疏自编码器（SAE）的指导，将神经网络激活分解为可解释的特征。在发现可解释特征、分析叠加或研究语言模型中的单语义表示时使用。
 version: 1.0.0
 author: Orchestra Research
 license: MIT
 dependencies: [sae-lens>=6.0.0, transformer-lens>=2.0.0, torch>=2.0.0]
 metadata:
   kclaw:
-    tags: [Sparse Autoencoders, SAE, Mechanistic Interpretability, Feature Discovery, Superposition]
+    tags: [稀疏自编码器, SAE, 机制可解释性, 特征发现, 叠加]
 
 ---
 
-# SAELens: Sparse Autoencoders for Mechanistic Interpretability
+# SAELens：用于机制可解释性的稀疏自编码器
 
-SAELens is the primary library for training and analyzing Sparse Autoencoders (SAEs) - a technique for decomposing polysemantic neural network activations into sparse, interpretable features. Based on Anthropic's groundbreaking research on monosemanticity.
+SAELens是训练和分析稀疏自编码器（SAE）的主要库 - 这是一种将多语义神经网络激活分解为稀疏、可解释特征的技术。基于Anthropic关于单语义性的开创性研究。
 
-**GitHub**: [jbloomAus/SAELens](https://github.com/jbloomAus/SAELens) (1,100+ stars)
+**GitHub**：[jbloomAus/SAELens](https://github.com/jbloomAus/SAELens)（1,100+星）
 
-## The Problem: Polysemanticity & Superposition
+## 问题：多语义性与叠加
 
-Individual neurons in neural networks are **polysemantic** - they activate in multiple, semantically distinct contexts. This happens because models use **superposition** to represent more features than they have neurons, making interpretability difficult.
+神经网络中的单个神经元是**多语义**的 - 它们在多个语义不同的上下文中激活。这是因为模型使用**叠加**来表示比神经元更多的特征，使可解释性变得困难。
 
-**SAEs solve this** by decomposing dense activations into sparse, monosemantic features - typically only a small number of features activate for any given input, and each feature corresponds to an interpretable concept.
+**SAE通过以下方式解决此问题**：将密集激活分解为稀疏的单语义特征 - 通常对于任何给定输入，只有少数特征激活，每个特征对应一个可解释的概念。
 
-## When to Use SAELens
+## 何时使用SAELens
 
-**Use SAELens when you need to:**
-- Discover interpretable features in model activations
-- Understand what concepts a model has learned
-- Study superposition and feature geometry
-- Perform feature-based steering or ablation
-- Analyze safety-relevant features (deception, bias, harmful content)
+**在以下情况下使用SAELens：**
+- 发现模型激活中的可解释特征
+- 理解模型学习了什么概念
+- 研究叠加和特征几何
+- 执行基于特征的引导或消融
+- 分析安全相关特征（欺骗、偏见、有害内容）
 
-**Consider alternatives when:**
-- You need basic activation analysis → Use **TransformerLens** directly
-- You want causal intervention experiments → Use **pyvene** or **TransformerLens**
-- You need production steering → Consider direct activation engineering
+**在以下情况下考虑替代方案：**
+- 需要基本激活分析 → 直接使用**TransformerLens**
+- 想要因果干预实验 → 使用**pyvene**或**TransformerLens**
+- 需要生产引导 → 考虑直接激活工程
 
-## Installation
+## 安装
 
 ```bash
 pip install sae-lens
 ```
 
-Requirements: Python 3.10+, transformer-lens>=2.0.0
+要求：Python 3.10+、transformer-lens>=2.0.0
 
-## Core Concepts
+## 核心概念
 
-### What SAEs Learn
+### SAE学习什么
 
-SAEs are trained to reconstruct model activations through a sparse bottleneck:
+SAE被训练通过稀疏瓶颈重建模型激活：
 
 ```
-Input Activation → Encoder → Sparse Features → Decoder → Reconstructed Activation
+输入激活 → 编码器 → 稀疏特征 → 解码器 → 重建激活
     (d_model)       ↓        (d_sae >> d_model)    ↓         (d_model)
-                 sparsity                      reconstruction
-                 penalty                          loss
+                 稀疏                          重建
+                 惩罚                          损失
 ```
 
-**Loss Function**: `MSE(original, reconstructed) + L1_coefficient × L1(features)`
+**损失函数**：`MSE(original, reconstructed) + L1_coefficient × L1(features)`
 
-### Key Validation (Anthropic Research)
+### 关键验证（Anthropic研究）
 
-In "Towards Monosemanticity", human evaluators found **70% of SAE features genuinely interpretable**. Features discovered include:
-- DNA sequences, legal language, HTTP requests
-- Hebrew text, nutrition statements, code syntax
-- Sentiment, named entities, grammatical structures
+在"Towards Monosemanticity"中，人类评估者发现**70%的SAE特征是真正可解释的**。发现的特征包括：
+- DNA序列、法律语言、HTTP请求
+- 希伯来语文本、营养声明、代码语法
+- 情感、命名实体、语法结构
 
-## Workflow 1: Loading and Analyzing Pre-trained SAEs
+## 工作流1：加载和分析预训练SAE
 
-### Step-by-Step
+### 逐步指南
 
 ```python
 from transformer_lens import HookedTransformer
 from sae_lens import SAE
 
-# 1. Load model and pre-trained SAE
+# 1. 加载模型和预训练SAE
 model = HookedTransformer.from_pretrained("gpt2-small", device="cuda")
 sae, cfg_dict, sparsity = SAE.from_pretrained(
     release="gpt2-small-res-jb",
@@ -83,120 +83,120 @@ sae, cfg_dict, sparsity = SAE.from_pretrained(
     device="cuda"
 )
 
-# 2. Get model activations
-tokens = model.to_tokens("The capital of France is Paris")
+# 2. 获取模型激活
+tokens = model.to_tokens("法国的首都是巴黎")
 _, cache = model.run_with_cache(tokens)
 activations = cache["resid_pre", 8]  # [batch, pos, d_model]
 
-# 3. Encode to SAE features
+# 3. 编码到SAE特征
 sae_features = sae.encode(activations)  # [batch, pos, d_sae]
-print(f"Active features: {(sae_features > 0).sum()}")
+print(f"活跃特征：{(sae_features > 0).sum()}")
 
-# 4. Find top features for each position
+# 4. 找到每个位置的主要特征
 for pos in range(tokens.shape[1]):
     top_features = sae_features[0, pos].topk(5)
     token = model.to_str_tokens(tokens[0, pos:pos+1])[0]
-    print(f"Token '{token}': features {top_features.indices.tolist()}")
+    print(f"词元'{token}'：特征{top_features.indices.tolist()}")
 
-# 5. Reconstruct activations
+# 5. 重建激活
 reconstructed = sae.decode(sae_features)
 reconstruction_error = (activations - reconstructed).norm()
 ```
 
-### Available Pre-trained SAEs
+### 可用的预训练SAE
 
-| Release | Model | Layers |
+| 发布 | 模型 | 层 |
 |---------|-------|--------|
-| `gpt2-small-res-jb` | GPT-2 Small | Multiple residual streams |
-| `gemma-2b-res` | Gemma 2B | Residual streams |
-| Various on HuggingFace | Search tag `saelens` | Various |
+| `gpt2-small-res-jb` | GPT-2 Small | 多个残差流 |
+| `gemma-2b-res` | Gemma 2B | 残差流 |
+| HuggingFace上的各种 | 搜索标签`saelens` | 各种 |
 
-### Checklist
-- [ ] Load model with TransformerLens
-- [ ] Load matching SAE for target layer
-- [ ] Encode activations to sparse features
-- [ ] Identify top-activating features per token
-- [ ] Validate reconstruction quality
+### 检查清单
+- [ ] 使用TransformerLens加载模型
+- [ ] 为目标层加载匹配的SAE
+- [ ] 将激活编码为稀疏特征
+- [ ] 识别每个词元的主要激活特征
+- [ ] 验证重建质量
 
-## Workflow 2: Training a Custom SAE
+## 工作流2：训练自定义SAE
 
-### Step-by-Step
+### 逐步指南
 
 ```python
 from sae_lens import SAE, LanguageModelSAERunnerConfig, SAETrainingRunner
 
-# 1. Configure training
+# 1. 配置训练
 cfg = LanguageModelSAERunnerConfig(
-    # Model
+    # 模型
     model_name="gpt2-small",
     hook_name="blocks.8.hook_resid_pre",
     hook_layer=8,
-    d_in=768,  # Model dimension
+    d_in=768,  # 模型维度
 
-    # SAE architecture
-    architecture="standard",  # or "gated", "topk"
-    d_sae=768 * 8,  # Expansion factor of 8
+    # SAE架构
+    architecture="standard",  # 或 "gated", "topk"
+    d_sae=768 * 8,  # 8倍扩展因子
     activation_fn="relu",
 
-    # Training
+    # 训练
     lr=4e-4,
-    l1_coefficient=8e-5,  # Sparsity penalty
+    l1_coefficient=8e-5,  # 稀疏惩罚
     l1_warm_up_steps=1000,
     train_batch_size_tokens=4096,
     training_tokens=100_000_000,
 
-    # Data
+    # 数据
     dataset_path="monology/pile-uncopyrighted",
     context_size=128,
 
-    # Logging
+    # 日志
     log_to_wandb=True,
     wandb_project="sae-training",
 
-    # Checkpointing
+    # 检查点
     checkpoint_path="checkpoints",
     n_checkpoints=5,
 )
 
-# 2. Train
+# 2. 训练
 trainer = SAETrainingRunner(cfg)
 sae = trainer.run()
 
-# 3. Evaluate
-print(f"L0 (avg active features): {trainer.metrics['l0']}")
-print(f"CE Loss Recovered: {trainer.metrics['ce_loss_score']}")
+# 3. 评估
+print(f"L0（平均活跃特征）：{trainer.metrics['l0']}")
+print(f"CE损失恢复：{trainer.metrics['ce_loss_score']}")
 ```
 
-### Key Hyperparameters
+### 关键超参数
 
-| Parameter | Typical Value | Effect |
+| 参数 | 典型值 | 效果 |
 |-----------|---------------|--------|
-| `d_sae` | 4-16× d_model | More features, higher capacity |
-| `l1_coefficient` | 5e-5 to 1e-4 | Higher = sparser, less accurate |
-| `lr` | 1e-4 to 1e-3 | Standard optimizer LR |
-| `l1_warm_up_steps` | 500-2000 | Prevents early feature death |
+| `d_sae` | 4-16× d_model | 更多特征，更高容量 |
+| `l1_coefficient` | 5e-5到1e-4 | 更高=更稀疏，更少准确 |
+| `lr` | 1e-4到1e-3 | 标准优化器LR |
+| `l1_warm_up_steps` | 500-2000 | 防止早期特征死亡 |
 
-### Evaluation Metrics
+### 评估指标
 
-| Metric | Target | Meaning |
+| 指标 | 目标 | 含义 |
 |--------|--------|---------|
-| **L0** | 50-200 | Average active features per token |
-| **CE Loss Score** | 80-95% | Cross-entropy recovered vs original |
-| **Dead Features** | <5% | Features that never activate |
-| **Explained Variance** | >90% | Reconstruction quality |
+| **L0** | 50-200 | 每个词元平均活跃特征 |
+| **CE损失分数** | 80-95% | 与原始模型相比恢复的交叉熵 |
+| **死亡特征** | <5% | 从不激活的特征 |
+| **解释方差** | >90% | 重建质量 |
 
-### Checklist
-- [ ] Choose target layer and hook point
-- [ ] Set expansion factor (d_sae = 4-16× d_model)
-- [ ] Tune L1 coefficient for desired sparsity
-- [ ] Enable L1 warm-up to prevent dead features
-- [ ] Monitor metrics during training (W&B)
-- [ ] Validate L0 and CE loss recovery
-- [ ] Check dead feature ratio
+### 检查清单
+- [ ] 选择目标层和钩子点
+- [ ] 设置扩展因子（d_sae = 4-16× d_model）
+- [ ] 调整L1系数以获得期望的稀疏性
+- [ ] 启用L1预热以防止死亡特征
+- [ ] 在训练期间监控指标（W&B）
+- [ ] 验证L0和CE损失恢复
+- [ ] 检查死亡特征比率
 
-## Workflow 3: Feature Analysis and Steering
+## 工作流3：特征分析和引导
 
-### Analyzing Individual Features
+### 分析单个特征
 
 ```python
 from transformer_lens import HookedTransformer
@@ -210,13 +210,13 @@ sae, _, _ = SAE.from_pretrained(
     device="cuda"
 )
 
-# Find what activates a specific feature
+# 找到什么激活特定特征
 feature_idx = 1234
 test_texts = [
-    "The scientist conducted an experiment",
-    "I love chocolate cake",
-    "The code compiles successfully",
-    "Paris is beautiful in spring",
+    "科学家进行了实验",
+    "我喜欢巧克力蛋糕",
+    "代码编译成功",
+    "巴黎春天很美",
 ]
 
 for text in test_texts:
@@ -227,22 +227,22 @@ for text in test_texts:
     print(f"{activation:.3f}: {text}")
 ```
 
-### Feature Steering
+### 特征引导
 
 ```python
 def steer_with_feature(model, sae, prompt, feature_idx, strength=5.0):
-    """Add SAE feature direction to residual stream."""
+    """将SAE特征方向添加到残差流。"""
     tokens = model.to_tokens(prompt)
 
-    # Get feature direction from decoder
+    # 从解码器获取特征方向
     feature_direction = sae.W_dec[feature_idx]  # [d_model]
 
     def steering_hook(activation, hook):
-        # Add scaled feature direction at all positions
+        # 在所有位置添加缩放的特征方向
         activation += strength * feature_direction
         return activation
 
-    # Generate with steering
+    # 使用引导生成
     output = model.generate(
         tokens,
         max_new_tokens=50,
@@ -251,136 +251,136 @@ def steer_with_feature(model, sae, prompt, feature_idx, strength=5.0):
     return model.to_string(output[0])
 ```
 
-### Feature Attribution
+### 特征归因
 
 ```python
-# Which features most affect a specific output?
-tokens = model.to_tokens("The capital of France is")
+# 哪些特征最影响特定输出？
+tokens = model.to_tokens("法国的首都是")
 _, cache = model.run_with_cache(tokens)
 
-# Get features at final position
+# 获取最终位置的特征
 features = sae.encode(cache["resid_pre", 8])[0, -1]  # [d_sae]
 
-# Get logit attribution per feature
-# Feature contribution = feature_activation × decoder_weight × unembedding
+# 获取每个特征的logit归因
+# 特征贡献 = 特征激活 × 解码器权重 × 反嵌入
 W_dec = sae.W_dec  # [d_sae, d_model]
 W_U = model.W_U    # [d_model, vocab]
 
-# Contribution to "Paris" logit
+# 对"Paris"logit的贡献
 paris_token = model.to_single_token(" Paris")
 feature_contributions = features * (W_dec @ W_U[:, paris_token])
 
 top_features = feature_contributions.topk(10)
-print("Top features for 'Paris' prediction:")
+print("'Paris'预测的主要特征：")
 for idx, val in zip(top_features.indices, top_features.values):
-    print(f"  Feature {idx.item()}: {val.item():.3f}")
+    print(f"  特征{idx.item()}：{val.item():.3f}")
 ```
 
-## Common Issues & Solutions
+## 常见问题与解决方案
 
-### Issue: High dead feature ratio
+### 问题：高死亡特征比率
 ```python
-# WRONG: No warm-up, features die early
+# 错误：无预热，特征早期死亡
 cfg = LanguageModelSAERunnerConfig(
     l1_coefficient=1e-4,
-    l1_warm_up_steps=0,  # Bad!
+    l1_warm_up_steps=0,  # 不好！
 )
 
-# RIGHT: Warm-up L1 penalty
+# 正确：预热L1惩罚
 cfg = LanguageModelSAERunnerConfig(
     l1_coefficient=8e-5,
-    l1_warm_up_steps=1000,  # Gradually increase
-    use_ghost_grads=True,   # Revive dead features
+    l1_warm_up_steps=1000,  # 逐渐增加
+    use_ghost_grads=True,   # 复活死亡特征
 )
 ```
 
-### Issue: Poor reconstruction (low CE recovery)
+### 问题：重建差（低CE恢复）
 ```python
-# Reduce sparsity penalty
+# 减少稀疏惩罚
 cfg = LanguageModelSAERunnerConfig(
-    l1_coefficient=5e-5,  # Lower = better reconstruction
-    d_sae=768 * 16,       # More capacity
+    l1_coefficient=5e-5,  # 更低=更好重建
+    d_sae=768 * 16,       # 更多容量
 )
 ```
 
-### Issue: Features not interpretable
+### 问题：特征不可解释
 ```python
-# Increase sparsity (higher L1)
+# 增加稀疏性（更高L1）
 cfg = LanguageModelSAERunnerConfig(
-    l1_coefficient=1e-4,  # Higher = sparser, more interpretable
+    l1_coefficient=1e-4,  # 更高=更稀疏，更可解释
 )
-# Or use TopK architecture
+# 或使用TopK架构
 cfg = LanguageModelSAERunnerConfig(
     architecture="topk",
-    activation_fn_kwargs={"k": 50},  # Exactly 50 active features
+    activation_fn_kwargs={"k": 50},  # 完全50个活跃特征
 )
 ```
 
-### Issue: Memory errors during training
+### 问题：训练期间内存错误
 ```python
 cfg = LanguageModelSAERunnerConfig(
-    train_batch_size_tokens=2048,  # Reduce batch size
-    store_batch_size_prompts=4,    # Fewer prompts in buffer
-    n_batches_in_buffer=8,         # Smaller activation buffer
+    train_batch_size_tokens=2048,  # 减少批大小
+    store_batch_size_prompts=4,    # 缓冲区中更少提示
+    n_batches_in_buffer=8,         # 更小的激活缓冲区
 )
 ```
 
-## Integration with Neuronpedia
+## 与Neuronpedia集成
 
-Browse pre-trained SAE features at [neuronpedia.org](https://neuronpedia.org):
+在[neuronpedia.org](https://neuronpedia.org)浏览预训练SAE特征：
 
 ```python
-# Features are indexed by SAE ID
-# Example: gpt2-small layer 8 feature 1234
+# 特征按SAE ID索引
+# 示例：gpt2-small层8特征1234
 # → neuronpedia.org/gpt2-small/8-res-jb/1234
 ```
 
-## Key Classes Reference
+## 关键类参考
 
-| Class | Purpose |
+| 类 | 用途 |
 |-------|---------|
-| `SAE` | Sparse Autoencoder model |
-| `LanguageModelSAERunnerConfig` | Training configuration |
-| `SAETrainingRunner` | Training loop manager |
-| `ActivationsStore` | Activation collection and batching |
-| `HookedSAETransformer` | TransformerLens + SAE integration |
+| `SAE` | 稀疏自编码器模型 |
+| `LanguageModelSAERunnerConfig` | 训练配置 |
+| `SAETrainingRunner` | 训练循环管理器 |
+| `ActivationsStore` | 激活收集和批处理 |
+| `HookedSAETransformer` | TransformerLens + SAE集成 |
 
-## Reference Documentation
+## 参考文档
 
-For detailed API documentation, tutorials, and advanced usage, see the `references/` folder:
+有关详细的API文档、教程和高级用法，请参见`references/`文件夹：
 
-| File | Contents |
+| 文件 | 内容 |
 |------|----------|
-| [references/README.md](references/README.md) | Overview and quick start guide |
-| [references/api.md](references/api.md) | Complete API reference for SAE, TrainingSAE, configurations |
-| [references/tutorials.md](references/tutorials.md) | Step-by-step tutorials for training, analysis, steering |
+| [references/README.md](references/README.md) | 概述和快速开始指南 |
+| [references/api.md](references/api.md) | SAE、TrainingSAE、配置的完整API参考 |
+| [references/tutorials.md](references/tutorials.md) | 训练、分析、引导的逐步教程 |
 
-## External Resources
+## 外部资源
 
-### Tutorials
-- [Basic Loading & Analysis](https://github.com/jbloomAus/SAELens/blob/main/tutorials/basic_loading_and_analysing.ipynb)
-- [Training a Sparse Autoencoder](https://github.com/jbloomAus/SAELens/blob/main/tutorials/training_a_sparse_autoencoder.ipynb)
-- [ARENA SAE Curriculum](https://www.lesswrong.com/posts/LnHowHgmrMbWtpkxx/intro-to-superposition-and-sparse-autoencoders-colab)
+### 教程
+- [基本加载与分析](https://github.com/jbloomAus/SAELens/blob/main/tutorials/basic_loading_and_analysing.ipynb)
+- [训练稀疏自编码器](https://github.com/jbloomAus/SAELens/blob/main/tutorials/training_a_sparse_autoencoder.ipynb)
+- [ARENA SAE课程](https://www.lesswrong.com/posts/LnHowHgmrMbWtpkxx/intro-to-superposition-and-sparse-autoencoders-colab)
 
-### Papers
+### 论文
 - [Towards Monosemanticity](https://transformer-circuits.pub/2023/monosemantic-features) - Anthropic (2023)
 - [Scaling Monosemanticity](https://transformer-circuits.pub/2024/scaling-monosemanticity/) - Anthropic (2024)
-- [Sparse Autoencoders Find Highly Interpretable Features](https://arxiv.org/abs/2309.08600) - Cunningham et al. (ICLR 2024)
+- [Sparse Autoencoders Find Highly Interpretable Features](https://arxiv.org/abs/2309.08600) - Cunningham等 (ICLR 2024)
 
-### Official Documentation
-- [SAELens Docs](https://jbloomaus.github.io/SAELens/)
-- [Neuronpedia](https://neuronpedia.org) - Feature browser
+### 官方文档
+- [SAELens文档](https://jbloomaus.github.io/SAELens/)
+- [Neuronpedia](https://neuronpedia.org) - 特征浏览器
 
-## SAE Architectures
+## SAE架构
 
-| Architecture | Description | Use Case |
+| 架构 | 描述 | 用例 |
 |--------------|-------------|----------|
-| **Standard** | ReLU + L1 penalty | General purpose |
-| **Gated** | Learned gating mechanism | Better sparsity control |
-| **TopK** | Exactly K active features | Consistent sparsity |
+| **Standard** | ReLU + L1惩罚 | 通用 |
+| **Gated** | 学习的门控机制 | 更好的稀疏性控制 |
+| **TopK** | 完全K个活跃特征 | 一致稀疏性 |
 
 ```python
-# TopK SAE (exactly 50 features active)
+# TopK SAE（完全50个活跃特征）
 cfg = LanguageModelSAERunnerConfig(
     architecture="topk",
     activation_fn="topk",

@@ -1,211 +1,211 @@
 ---
 name: qdrant-vector-search
-description: High-performance vector similarity search engine for RAG and semantic search. Use when building production RAG systems requiring fast nearest neighbor search, hybrid search with filtering, or scalable vector storage with Rust-powered performance.
+description: 用于RAG和语义搜索的高性能向量相似度搜索引擎。当需要构建低延迟的生成式检索系统、带有过滤功能的混合搜索、或可扩展的向量存储（Rust驱动性能）时使用。
 version: 1.0.0
 author: Orchestra Research
 license: MIT
 dependencies: [qdrant-client>=1.12.0]
 metadata:
   kclaw:
-    tags: [RAG, Vector Search, Qdrant, Semantic Search, Embeddings, Similarity Search, HNSW, Production, Distributed]
+    tags: [RAG, 向量搜索, Qdrant, 语义搜索, 嵌入, 相似度搜索, HNSW, 生产环境, 分布式]
 
 ---
 
-# Qdrant - Vector Similarity Search Engine
+# Qdrant - 向量相似度搜索引擎
 
-High-performance vector database written in Rust for production RAG and semantic search.
+用于生产环境RAG和语义搜索的高性能向量数据库，采用Rust编写。
 
-## When to use Qdrant
+## 何时使用Qdrant
 
-**Use Qdrant when:**
-- Building production RAG systems requiring low latency
-- Need hybrid search (vectors + metadata filtering)
-- Require horizontal scaling with sharding/replication
-- Want on-premise deployment with full data control
-- Need multi-vector storage per record (dense + sparse)
-- Building real-time recommendation systems
+**在以下情况下使用Qdrant：**
+- 构建需要低延迟的生产环境RAG系统
+- 需要混合搜索（向量 + 元数据过滤）
+- 需要水平扩展（分片/复制）
+- 想要本地部署并完全控制数据
+- 需要每条记录存储多个向量（稠密 + 稀疏）
+- 构建实时推荐系统
 
-**Key features:**
-- **Rust-powered**: Memory-safe, high performance
-- **Rich filtering**: Filter by any payload field during search
-- **Multiple vectors**: Dense, sparse, multi-dense per point
-- **Quantization**: Scalar, product, binary for memory efficiency
-- **Distributed**: Raft consensus, sharding, replication
-- **REST + gRPC**: Both APIs with full feature parity
+**关键特性：**
+- **Rust驱动**：内存安全，高性能
+- **丰富过滤**：搜索时可按任意payload字段过滤
+- **多向量支持**：每条记录支持稠密、稀疏、多稠密向量
+- **量化**：标量积、乘积、二进制量化以节省内存
+- **分布式**：Raft共识、分片、复制
+- **REST + gRPC**：两个API，功能完整对等
 
-**Use alternatives instead:**
-- **Chroma**: Simpler setup, embedded use cases
-- **FAISS**: Maximum raw speed, research/batch processing
-- **Pinecone**: Fully managed, zero ops preferred
-- **Weaviate**: GraphQL preference, built-in vectorizers
+**使用替代方案：**
+- **Chroma**：更简单的设置，嵌入式用例
+- **FAISS**：最大原始速度，研究/批处理
+- **Pinecone**：全托管，零运维优先
+- **Weaviate**：GraphQL偏好，内置向量化器
 
-## Quick start
+## 快速开始
 
-### Installation
+### 安装
 
 ```bash
-# Python client
+# Python客户端
 pip install qdrant-client
 
-# Docker (recommended for development)
+# Docker（推荐用于开发）
 docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
 
-# Docker with persistent storage
+# Docker持久化存储
 docker run -p 6333:6333 -p 6334:6334 \
     -v $(pwd)/qdrant_storage:/qdrant/storage \
     qdrant/qdrant
 ```
 
-### Basic usage
+### 基础用法
 
 ```python
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 
-# Connect to Qdrant
+# 连接到Qdrant
 client = QdrantClient(host="localhost", port=6333)
 
-# Create collection
+# 创建集合
 client.create_collection(
     collection_name="documents",
     vectors_config=VectorParams(size=384, distance=Distance.COSINE)
 )
 
-# Insert vectors with payload
+# 插入带payload的向量
 client.upsert(
     collection_name="documents",
     points=[
         PointStruct(
             id=1,
-            vector=[0.1, 0.2, ...],  # 384-dim vector
-            payload={"title": "Doc 1", "category": "tech"}
+            vector=[0.1, 0.2, ...],  # 384维向量
+            payload={"title": "文档1", "category": "技术"}
         ),
         PointStruct(
             id=2,
             vector=[0.3, 0.4, ...],
-            payload={"title": "Doc 2", "category": "science"}
+            payload={"title": "文档2", "category": "科学"}
         )
     ]
 )
 
-# Search with filtering
+# 带过滤的搜索
 results = client.search(
     collection_name="documents",
     query_vector=[0.15, 0.25, ...],
     query_filter={
-        "must": [{"key": "category", "match": {"value": "tech"}}]
+        "must": [{"key": "category", "match": {"value": "技术"}}]
     },
     limit=10
 )
 
 for point in results:
-    print(f"ID: {point.id}, Score: {point.score}, Payload: {point.payload}")
+    print(f"ID: {point.id}, 分数: {point.score}, Payload: {point.payload}")
 ```
 
-## Core concepts
+## 核心概念
 
-### Points - Basic data unit
+### 点 - 基本数据单元
 
 ```python
 from qdrant_client.models import PointStruct
 
-# Point = ID + Vector(s) + Payload
+# 点 = ID + 向量(s) + Payload
 point = PointStruct(
-    id=123,                              # Integer or UUID string
-    vector=[0.1, 0.2, 0.3, ...],        # Dense vector
-    payload={                            # Arbitrary JSON metadata
-        "title": "Document title",
-        "category": "tech",
+    id=123,                              # 整数或UUID字符串
+    vector=[0.1, 0.2, 0.3, ...],        # 稠密向量
+    payload={                            # 任意JSON元数据
+        "title": "文档标题",
+        "category": "技术",
         "timestamp": 1699900000,
         "tags": ["python", "ml"]
     }
 )
 
-# Batch upsert (recommended)
+# 批量upsert（推荐）
 client.upsert(
     collection_name="documents",
     points=[point1, point2, point3],
-    wait=True  # Wait for indexing
+    wait=True  # 等待索引完成
 )
 ```
 
-### Collections - Vector containers
+### 集合 - 向量容器
 
 ```python
 from qdrant_client.models import VectorParams, Distance, HnswConfigDiff
 
-# Create with HNSW configuration
+# 创建带HNSW配置的集合
 client.create_collection(
     collection_name="documents",
     vectors_config=VectorParams(
-        size=384,                        # Vector dimensions
+        size=384,                        # 向量维度
         distance=Distance.COSINE         # COSINE, EUCLID, DOT, MANHATTAN
     ),
     hnsw_config=HnswConfigDiff(
-        m=16,                            # Connections per node (default 16)
-        ef_construct=100,                # Build-time accuracy (default 100)
-        full_scan_threshold=10000        # Switch to brute force below this
+        m=16,                            # 每个节点的连接数（默认16）
+        ef_construct=100,                # 构建时精度（默认100）
+        full_scan_threshold=10000        # 低于此值切换到暴力搜索
     ),
-    on_disk_payload=True                 # Store payload on disk
+    on_disk_payload=True                 # 将payload存储在磁盘上
 )
 
-# Collection info
+# 获取集合信息
 info = client.get_collection("documents")
-print(f"Points: {info.points_count}, Vectors: {info.vectors_count}")
+print(f"点数: {info.points_count}, 向量数: {info.vectors_count}")
 ```
 
-### Distance metrics
+### 距离度量
 
-| Metric | Use Case | Range |
-|--------|----------|-------|
-| `COSINE` | Text embeddings, normalized vectors | 0 to 2 |
-| `EUCLID` | Spatial data, image features | 0 to ∞ |
-| `DOT` | Recommendations, unnormalized | -∞ to ∞ |
-| `MANHATTAN` | Sparse features, discrete data | 0 to ∞ |
+| 度量 | 用例 | 范围 |
+|--------|----------|------|
+| `COSINE` | 文本嵌入，归一化向量 | 0 到 2 |
+| `EUCLID` | 空间数据，图像特征 | 0 到 ∞ |
+| `DOT` | 推荐，未归一化 | -∞ 到 ∞ |
+| `MANHATTAN` | 稀疏特征，离散数据 | 0 到 ∞ |
 
-## Search operations
+## 搜索操作
 
-### Basic search
+### 基础搜索
 
 ```python
-# Simple nearest neighbor search
+# 简单的最近邻搜索
 results = client.search(
     collection_name="documents",
     query_vector=[0.1, 0.2, ...],
     limit=10,
     with_payload=True,
-    with_vectors=False  # Don't return vectors (faster)
+    with_vectors=False  # 不返回向量（更快）
 )
 ```
 
-### Filtered search
+### 过滤搜索
 
 ```python
 from qdrant_client.models import Filter, FieldCondition, MatchValue, Range
 
-# Complex filtering
+# 复杂过滤
 results = client.search(
     collection_name="documents",
     query_vector=query_embedding,
     query_filter=Filter(
         must=[
-            FieldCondition(key="category", match=MatchValue(value="tech")),
+            FieldCondition(key="category", match=MatchValue(value="技术")),
             FieldCondition(key="timestamp", range=Range(gte=1699000000))
         ],
         must_not=[
-            FieldCondition(key="status", match=MatchValue(value="archived"))
+            FieldCondition(key="status", match=MatchValue(value="已归档"))
         ]
     ),
     limit=10
 )
 
-# Shorthand filter syntax
+# 简写过滤语法
 results = client.search(
     collection_name="documents",
     query_vector=query_embedding,
     query_filter={
         "must": [
-            {"key": "category", "match": {"value": "tech"}},
+            {"key": "category", "match": {"value": "技术"}},
             {"key": "price", "range": {"gte": 10, "lte": 100}}
         ]
     },
@@ -213,12 +213,12 @@ results = client.search(
 )
 ```
 
-### Batch search
+### 批量搜索
 
 ```python
 from qdrant_client.models import SearchRequest
 
-# Multiple queries in one request
+# 单次请求多个查询
 results = client.search_batch(
     collection_name="documents",
     requests=[
@@ -229,29 +229,29 @@ results = client.search_batch(
 )
 ```
 
-## RAG integration
+## RAG集成
 
-### With sentence-transformers
+### 配合sentence-transformers使用
 
 ```python
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance, PointStruct
 
-# Initialize
+# 初始化
 encoder = SentenceTransformer("all-MiniLM-L6-v2")
 client = QdrantClient(host="localhost", port=6333)
 
-# Create collection
+# 创建集合
 client.create_collection(
     collection_name="knowledge_base",
     vectors_config=VectorParams(size=384, distance=Distance.COSINE)
 )
 
-# Index documents
+# 索引文档
 documents = [
-    {"id": 1, "text": "Python is a programming language", "source": "wiki"},
-    {"id": 2, "text": "Machine learning uses algorithms", "source": "textbook"},
+    {"id": 1, "text": "Python是一种编程语言", "source": "wiki"},
+    {"id": 2, "text": "机器学习使用算法", "source": "textbook"},
 ]
 
 points = [
@@ -264,7 +264,7 @@ points = [
 ]
 client.upsert(collection_name="knowledge_base", points=points)
 
-# RAG retrieval
+# RAG检索
 def retrieve(query: str, top_k: int = 5) -> list[dict]:
     query_vector = encoder.encode(query).tolist()
     results = client.search(
@@ -274,12 +274,12 @@ def retrieve(query: str, top_k: int = 5) -> list[dict]:
     )
     return [{"text": r.payload["text"], "score": r.score} for r in results]
 
-# Use in RAG pipeline
-context = retrieve("What is Python?")
-prompt = f"Context: {context}\n\nQuestion: What is Python?"
+# 在RAG流水线中使用
+context = retrieve("什么是Python？")
+prompt = f"上下文: {context}\n\n问题: 什么是Python?"
 ```
 
-### With LangChain
+### 配合LangChain使用
 
 ```python
 from langchain_community.vectorstores import Qdrant
@@ -290,7 +290,7 @@ vectorstore = Qdrant.from_documents(documents, embeddings, url="http://localhost
 retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 ```
 
-### With LlamaIndex
+### 配合LlamaIndex使用
 
 ```python
 from llama_index.vector_stores.qdrant import QdrantVectorStore
@@ -302,14 +302,14 @@ index = VectorStoreIndex.from_documents(documents, storage_context=storage_conte
 query_engine = index.as_query_engine()
 ```
 
-## Multi-vector support
+## 多向量支持
 
-### Named vectors (different embedding models)
+### 命名向量（不同嵌入模型）
 
 ```python
 from qdrant_client.models import VectorParams, Distance
 
-# Collection with multiple vector types
+# 带多向量类型的集合
 client.create_collection(
     collection_name="hybrid_search",
     vectors_config={
@@ -318,7 +318,7 @@ client.create_collection(
     }
 )
 
-# Insert with named vectors
+# 插入命名向量
 client.upsert(
     collection_name="hybrid_search",
     points=[
@@ -328,71 +328,71 @@ client.upsert(
                 "dense": dense_embedding,
                 "sparse": sparse_embedding
             },
-            payload={"text": "document text"}
+            payload={"text": "文档文本"}
         )
     ]
 )
 
-# Search specific vector
+# 搜索特定向量
 results = client.search(
     collection_name="hybrid_search",
-    query_vector=("dense", query_dense),  # Specify which vector
+    query_vector=("dense", query_dense),  # 指定向量类型
     limit=10
 )
 ```
 
-### Sparse vectors (BM25, SPLADE)
+### 稀疏向量（BM25, SPLADE）
 
 ```python
 from qdrant_client.models import SparseVectorParams, SparseIndexParams, SparseVector
 
-# Collection with sparse vectors
+# 带稀疏向量的集合
 client.create_collection(
     collection_name="sparse_search",
     vectors_config={},
     sparse_vectors_config={"text": SparseVectorParams(index=SparseIndexParams(on_disk=False))}
 )
 
-# Insert sparse vector
+# 插入稀疏向量
 client.upsert(
     collection_name="sparse_search",
-    points=[PointStruct(id=1, vector={"text": SparseVector(indices=[1, 5, 100], values=[0.5, 0.8, 0.2])}, payload={"text": "document"})]
+    points=[PointStruct(id=1, vector={"text": SparseVector(indices=[1, 5, 100], values=[0.5, 0.8, 0.2])}, payload={"text": "文档"})]
 )
 ```
 
-## Quantization (memory optimization)
+## 量化（内存优化）
 
 ```python
 from qdrant_client.models import ScalarQuantization, ScalarQuantizationConfig, ScalarType
 
-# Scalar quantization (4x memory reduction)
+# 标量量化（4倍内存减少）
 client.create_collection(
     collection_name="quantized",
     vectors_config=VectorParams(size=384, distance=Distance.COSINE),
     quantization_config=ScalarQuantization(
         scalar=ScalarQuantizationConfig(
             type=ScalarType.INT8,
-            quantile=0.99,        # Clip outliers
-            always_ram=True      # Keep quantized in RAM
+            quantile=0.99,        # 裁剪异常值
+            always_ram=True      # 保持量化结果在RAM中
         )
     )
 )
 
-# Search with rescoring
+# 重排序搜索
 results = client.search(
     collection_name="quantized",
     query_vector=query,
-    search_params={"quantization": {"rescore": True}},  # Rescore top results
+    search_params={"quantization": {"rescore": True}},  # 对顶部结果重排序
     limit=10
 )
 ```
 
-## Payload indexing
+## Payload索引
 
 ```python
 from qdrant_client.models import PayloadSchemaType
 
-# Create payload index for faster filtering
+# 为过滤字段创建payload索引以加快过滤速度
 client.create_payload_index(
     collection_name="documents",
     field_name="category",
@@ -405,53 +405,53 @@ client.create_payload_index(
     field_schema=PayloadSchemaType.INTEGER
 )
 
-# Index types: KEYWORD, INTEGER, FLOAT, GEO, TEXT (full-text), BOOL
+# 索引类型：KEYWORD, INTEGER, FLOAT, GEO, TEXT（全文）, BOOL
 ```
 
-## Production deployment
+## 生产环境部署
 
 ### Qdrant Cloud
 
 ```python
 from qdrant_client import QdrantClient
 
-# Connect to Qdrant Cloud
+# 连接到Qdrant Cloud
 client = QdrantClient(
     url="https://your-cluster.cloud.qdrant.io",
     api_key="your-api-key"
 )
 ```
 
-### Performance tuning
+### 性能调优
 
 ```python
-# Optimize for search speed (higher recall)
+# 针对搜索速度优化（更高召回率）
 client.update_collection(
     collection_name="documents",
     hnsw_config=HnswConfigDiff(ef_construct=200, m=32)
 )
 
-# Optimize for indexing speed (bulk loads)
+# 针对索引速度优化（批量加载）
 client.update_collection(
     collection_name="documents",
     optimizer_config={"indexing_threshold": 20000}
 )
 ```
 
-## Best practices
+## 最佳实践
 
-1. **Batch operations** - Use batch upsert/search for efficiency
-2. **Payload indexing** - Index fields used in filters
-3. **Quantization** - Enable for large collections (>1M vectors)
-4. **Sharding** - Use for collections >10M vectors
-5. **On-disk storage** - Enable `on_disk_payload` for large payloads
-6. **Connection pooling** - Reuse client instances
+1. **批量操作** - 使用批量upsert/search以提高效率
+2. **Payload索引** - 为过滤中使用的字段建立索引
+3. **量化** - 对大型集合（>1M向量）启用
+4. **分片** - 对超大型集合（>10M向量）使用
+5. **磁盘存储** - 对大型payload启用`on_disk_payload`
+6. **连接池** - 重用客户端实例
 
-## Common issues
+## 常见问题
 
-**Slow search with filters:**
+**带过滤的搜索慢：**
 ```python
-# Create payload index for filtered fields
+# 为过滤字段创建payload索引
 client.create_payload_index(
     collection_name="docs",
     field_name="category",
@@ -459,9 +459,9 @@ client.create_payload_index(
 )
 ```
 
-**Out of memory:**
+**内存不足：**
 ```python
-# Enable quantization and on-disk storage
+# 启用量化和磁盘存储
 client.create_collection(
     collection_name="large_collection",
     vectors_config=VectorParams(size=384, distance=Distance.COSINE),
@@ -470,27 +470,27 @@ client.create_collection(
 )
 ```
 
-**Connection issues:**
+**连接问题：**
 ```python
-# Use timeout and retry
+# 使用超时和重试
 client = QdrantClient(
     host="localhost",
     port=6333,
     timeout=30,
-    prefer_grpc=True  # gRPC for better performance
+    prefer_grpc=True  # gRPC性能更好
 )
 ```
 
-## References
+## 参考
 
-- **[Advanced Usage](references/advanced-usage.md)** - Distributed mode, hybrid search, recommendations
-- **[Troubleshooting](references/troubleshooting.md)** - Common issues, debugging, performance tuning
+- **[高级用法](references/advanced-usage.md)** - 分布式模式、混合搜索、推荐
+- **[故障排除](references/troubleshooting.md)** - 常见问题、调试、性能调优
 
-## Resources
+## 资源
 
 - **GitHub**: https://github.com/qdrant/qdrant (22k+ stars)
-- **Docs**: https://qdrant.tech/documentation/
-- **Python Client**: https://github.com/qdrant/qdrant-client
+- **文档**: https://qdrant.tech/documentation/
+- **Python客户端**: https://github.com/qdrant/qdrant-client
 - **Cloud**: https://cloud.qdrant.io
-- **Version**: 1.12.0+
-- **License**: Apache 2.0
+- **版本**: 1.12.0+
+- **许可证**: Apache 2.0

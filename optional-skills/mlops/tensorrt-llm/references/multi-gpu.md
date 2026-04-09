@@ -1,165 +1,165 @@
-# Multi-GPU Deployment Guide
+# 多GPU部署指南
 
-Comprehensive guide to scaling TensorRT-LLM across multiple GPUs and nodes.
+在多个GPU和节点上扩展TensorRT-LLM的完整指南。
 
-## Parallelism Strategies
+## 并行策略
 
-### Tensor Parallelism (TP)
+### 张量并行（TP）
 
-**What it does**: Splits model layers across GPUs horizontally.
+**作用**：跨GPU水平分割模型层。
 
-**Use case**:
-- Model fits in total GPU memory but not single GPU
-- Need low latency (single forward pass)
-- GPUs on same node (NVLink required for best performance)
+**用例**：
+- 模型的总内存可以容纳但单GPU放不下
+- 需要低延迟（单次前向传播）
+- GPU在同一节点上（NVLink实现最佳性能）
 
-**Example** (Llama 3-70B on 4× A100):
+**示例**（4× A100上的Llama 3-70B）：
 ```python
 from tensorrt_llm import LLM
 
 llm = LLM(
     model="meta-llama/Meta-Llama-3-70B",
-    tensor_parallel_size=4,  # Split across 4 GPUs
+    tensor_parallel_size=4,  # 跨4个GPU分割
     dtype="fp16"
 )
 
-# Model automatically sharded across GPUs
-# Single forward pass, low latency
+# 模型自动分片到GPU
+# 单次前向传播，低延迟
 ```
 
-**Performance**:
-- Latency: ~Same as single GPU
-- Throughput: 4× higher (4 GPUs)
-- Communication: High (activations synced every layer)
+**性能**：
+- 延迟：与单GPU大致相同
+- 吞吐量：4倍更高（4个GPU）
+- 通信：高（每层同步激活）
 
-### Pipeline Parallelism (PP)
+### 流水线并行（PP）
 
-**What it does**: Splits model layers across GPUs vertically (layer-wise).
+**作用**：跨GPU垂直分割模型层（按层）。
 
-**Use case**:
-- Very large models (175B+)
-- Can tolerate higher latency
-- GPUs across multiple nodes
+**用例**：
+- 非常大的模型（175B+）
+- 可以容忍更高延迟
+- GPU跨多个节点
 
-**Example** (Llama 3-405B on 8× H100):
+**示例**（8× H100上的Llama 3-405B）：
 ```python
 llm = LLM(
     model="meta-llama/Meta-Llama-3-405B",
-    tensor_parallel_size=4,   # TP=4 within nodes
-    pipeline_parallel_size=2, # PP=2 across nodes
+    tensor_parallel_size=4,   # 节点内TP=4
+    pipeline_parallel_size=2, # 跨节点PP=2
     dtype="fp8"
 )
 
-# Total: 8 GPUs (4×2)
-# Layers 0-40: Node 1 (4 GPUs with TP)
-# Layers 41-80: Node 2 (4 GPUs with TP)
+# 总计：8个GPU（4×2）
+# 层0-40：节点1（4个GPU，TP）
+# 层41-80：节点2（4个GPU，TP）
 ```
 
-**Performance**:
-- Latency: Higher (sequential through pipeline)
-- Throughput: High with micro-batching
-- Communication: Lower than TP
+**性能**：
+- 延迟：更高（通过流水线的顺序）
+- 吞吐量：使用微批处理实现高吞吐量
+- 通信：比TP低
 
-### Expert Parallelism (EP)
+### 专家并行（EP）
 
-**What it does**: Distributes MoE experts across GPUs.
+**作用**：将MoE专家分布到GPU上。
 
-**Use case**: Mixture-of-Experts models (Mixtral, DeepSeek-V2)
+**用例**：混合专家模型（Mixtral、DeepSeek-V2）
 
-**Example** (Mixtral-8x22B on 8× A100):
+**示例**（8× A100上的Mixtral-8x22B）：
 ```python
 llm = LLM(
     model="mistralai/Mixtral-8x22B",
     tensor_parallel_size=4,
-    expert_parallel_size=2,  # Distribute 8 experts across 2 groups
+    expert_parallel_size=2,  # 将8个专家分布到2组
     dtype="fp8"
 )
 ```
 
-## Configuration Examples
+## 配置示例
 
-### Small model (7-13B) - Single GPU
+### 小模型（7-13B）- 单GPU
 
 ```python
-# Llama 3-8B on 1× A100 80GB
+# 1× A100 80GB上的Llama 3-8B
 llm = LLM(
     model="meta-llama/Meta-Llama-3-8B",
-    dtype="fp16"  # or fp8 for H100
+    dtype="fp16"  # 或H100上用fp8
 )
 ```
 
-**Resources**:
-- GPU: 1× A100 80GB
-- Memory: ~16GB model + 30GB KV cache
-- Throughput: 3,000-5,000 tokens/sec
+**资源**：
+- GPU：1× A100 80GB
+- 内存：约16GB模型 + 30GB KV缓存
+- 吞吐量：3,000-5,000词元/秒
 
-### Medium model (70B) - Multi-GPU same node
+### 中等模型（70B）- 多GPU同节点
 
 ```python
-# Llama 3-70B on 4× A100 80GB (NVLink)
+# 4× A100 80GB（NVLink）上的Llama 3-70B
 llm = LLM(
     model="meta-llama/Meta-Llama-3-70B",
     tensor_parallel_size=4,
-    dtype="fp8"  # 70GB → 35GB per GPU
+    dtype="fp8"  # 70GB → 每GPU 35GB
 )
 ```
 
-**Resources**:
-- GPU: 4× A100 80GB with NVLink
-- Memory: ~35GB per GPU (FP8)
-- Throughput: 10,000-15,000 tokens/sec
-- Latency: 15-20ms per token
+**资源**：
+- GPU：4× A100 80GB，带NVLink
+- 内存：每GPU约35GB（FP8）
+- 吞吐量：10,000-15,000词元/秒
+- 延迟：每词元15-20ms
 
-### Large model (405B) - Multi-node
+### 大模型（405B）- 多节点
 
 ```python
-# Llama 3-405B on 2 nodes × 8 H100 = 16 GPUs
+# 2节点 × 8 H100 = 16 GPU
 llm = LLM(
     model="meta-llama/Meta-Llama-3-405B",
-    tensor_parallel_size=8,    # TP within each node
-    pipeline_parallel_size=2,  # PP across 2 nodes
+    tensor_parallel_size=8,    # 每个节点内TP
+    pipeline_parallel_size=2,  # 跨2个节点PP
     dtype="fp8"
 )
 ```
 
-**Resources**:
-- GPU: 2 nodes × 8 H100 80GB
-- Memory: ~25GB per GPU (FP8)
-- Throughput: 20,000-30,000 tokens/sec
-- Network: InfiniBand recommended
+**资源**：
+- GPU：2节点 × 8 H100 80GB
+- 内存：每GPU约25GB（FP8）
+- 吞吐量：20,000-30,000词元/秒
+- 网络：建议使用InfiniBand
 
-## Server Deployment
+## 服务器部署
 
-### Single-node multi-GPU
+### 单节点多GPU
 
 ```bash
-# Llama 3-70B on 4 GPUs (automatic TP)
+# 4个GPU上自动TP的Llama 3-70B
 trtllm-serve meta-llama/Meta-Llama-3-70B \
     --tp_size 4 \
     --max_batch_size 256 \
     --dtype fp8
 
-# Listens on http://localhost:8000
+# 监听http://localhost:8000
 ```
 
-### Multi-node with Ray
+### 使用Ray的多节点
 
 ```bash
-# Node 1 (head node)
+# 节点1（头节点）
 ray start --head --port=6379
 
-# Node 2 (worker)
+# 节点2（工作节点）
 ray start --address='node1:6379'
 
-# Deploy across cluster
+# 跨集群部署
 trtllm-serve meta-llama/Meta-Llama-3-405B \
     --tp_size 8 \
     --pp_size 2 \
-    --num_workers 2 \  # 2 nodes
+    --num_workers 2 \  # 2个节点
     --dtype fp8
 ```
 
-### Kubernetes deployment
+### Kubernetes部署
 
 ```yaml
 apiVersion: apps/v1
@@ -180,119 +180,119 @@ spec:
           - --max_batch_size=256
         resources:
           limits:
-            nvidia.com/gpu: 4  # Request 4 GPUs
+            nvidia.com/gpu: 4  # 请求4个GPU
 ```
 
-## Parallelism Decision Tree
+## 并行决策树
 
 ```
-Model size < 20GB?
-├─ YES: Single GPU (no parallelism)
-└─ NO: Model size < 80GB?
-    ├─ YES: TP=2 or TP=4 (same node)
-    └─ NO: Model size < 320GB?
-        ├─ YES: TP=4 or TP=8 (same node, NVLink required)
-        └─ NO: TP=8 + PP=2 (multi-node)
+模型大小 < 20GB？
+├─ 是：单GPU（无并行）
+└─ 否：模型大小 < 80GB？
+    ├─ 是：TP=2或TP=4（同节点）
+    └─ 否：模型大小 < 320GB？
+        ├─ 是：TP=4或TP=8（同节点，需要NVLink）
+        └─ 否：TP=8 + PP=2（多节点）
 ```
 
-## Communication Optimization
+## 通信优化
 
 ### NVLink vs PCIe
 
-**NVLink** (DGX A100, HGX H100):
-- Bandwidth: 600 GB/s (A100), 900 GB/s (H100)
-- Ideal for TP (high communication)
-- **Recommended for all multi-GPU setups**
+**NVLink**（DGX A100、HGX H100）：
+- 带宽：600 GB/s（A100），900 GB/s（H100）
+- TP的理想选择（高通信）
+- **推荐用于所有多GPU设置**
 
-**PCIe**:
-- Bandwidth: 64 GB/s (PCIe 4.0 x16)
-- 10× slower than NVLink
-- Avoid TP, use PP instead
+**PCIe**：
+- 带宽：64 GB/s（PCIe 4.0 x16）
+- 比NVLink慢10倍
+- 避免TP，改为使用PP
 
-### InfiniBand for multi-node
+### 多节点InfiniBand
 
-**HDR InfiniBand** (200 Gb/s):
-- Required for multi-node TP or PP
-- Latency: <1μs
-- **Essential for 405B+ models**
+**HDR InfiniBand**（200 Gb/s）：
+- 多节点TP或PP必需
+- 延迟：<1μs
+- **对于405B+模型必不可少**
 
-## Monitoring Multi-GPU
+## 监控多GPU
 
 ```python
-# Monitor GPU utilization
+# 监控GPU利用率
 nvidia-smi dmon -s u
 
-# Monitor memory
+# 监控内存
 nvidia-smi dmon -s m
 
-# Monitor NVLink utilization
+# 监控NVLink利用率
 nvidia-smi nvlink --status
 
-# TensorRT-LLM built-in metrics
+# TensorRT-LLM内置指标
 curl http://localhost:8000/metrics
 ```
 
-**Key metrics**:
-- GPU utilization: Target 80-95%
-- Memory usage: Should be balanced across GPUs
-- NVLink traffic: High for TP, low for PP
-- Throughput: Tokens/sec across all GPUs
+**关键指标**：
+- GPU利用率：目标80-95%
+- 内存使用：应在GPU之间平衡
+- NVLink流量：TP高，PP低
+- 吞吐量：跨所有GPU的词元/秒
 
-## Common Issues
+## 常见问题
 
-### Imbalanced GPU memory
+### GPU内存不平衡
 
-**Symptom**: GPU 0 has 90% memory, GPU 3 has 40%
+**症状**：GPU 0有90%内存，GPU 3有40%
 
-**Solutions**:
-- Verify TP/PP configuration
-- Check model sharding (should be equal)
-- Restart server to reset state
+**解决方案**：
+- 验证TP/PP配置
+- 检查模型分片（应该相等）
+- 重启服务器以重置状态
 
-### Low NVLink utilization
+### NVLink利用率低
 
-**Symptom**: NVLink bandwidth <100 GB/s with TP=4
+**症状**：TP=4时NVLink带宽<100 GB/s
 
-**Solutions**:
-- Verify NVLink topology: `nvidia-smi topo -m`
-- Check for PCIe fallback
-- Ensure GPUs are on same NVSwitch
+**解决方案**：
+- 验证NVLink拓扑：`nvidia-smi topo -m`
+- 检查是否有PCIe回退
+- 确保GPU在同一NVSwitch上
 
-### OOM with multi-GPU
+### 多GPU OOM
 
-**Solutions**:
-- Increase TP size (more GPUs)
-- Reduce batch size
-- Enable FP8 quantization
-- Use pipeline parallelism
+**解决方案**：
+- 增加TP大小（更多GPU）
+- 减少批大小
+- 启用FP8量化
+- 使用流水线并行
 
-## Performance Scaling
+## 性能扩展
 
-### TP Scaling (Llama 3-70B, FP8)
+### TP扩展（Llama 3-70B，FP8）
 
-| GPUs | TP Size | Throughput | Latency | Efficiency |
+| GPU数 | TP大小 | 吞吐量 | 延迟 | 效率 |
 |------|---------|------------|---------|------------|
 | 1 | 1 | OOM | - | - |
-| 2 | 2 | 6,000 tok/s | 18ms | 85% |
-| 4 | 4 | 11,000 tok/s | 16ms | 78% |
-| 8 | 8 | 18,000 tok/s | 15ms | 64% |
+| 2 | 2 | 6,000词元/秒 | 18ms | 85% |
+| 4 | 4 | 11,000词元/秒 | 16ms | 78% |
+| 8 | 8 | 18,000词元/秒 | 15ms | 64% |
 
-**Note**: Efficiency drops with more GPUs due to communication overhead.
+**注意**：由于通信开销，更多GPU时效率下降。
 
-### PP Scaling (Llama 3-405B, FP8)
+### PP扩展（Llama 3-405B，FP8）
 
-| Nodes | TP | PP | Total GPUs | Throughput |
+| 节点数 | TP | PP | 总GPU数 | 吞吐量 |
 |-------|----|----|------------|------------|
 | 1 | 8 | 1 | 8 | OOM |
-| 2 | 8 | 2 | 16 | 25,000 tok/s |
-| 4 | 8 | 4 | 32 | 45,000 tok/s |
+| 2 | 8 | 2 | 16 | 25,000词元/秒 |
+| 4 | 8 | 4 | 32 | 45,000词元/秒 |
 
-## Best Practices
+## 最佳实践
 
-1. **Prefer TP over PP** when possible (lower latency)
-2. **Use NVLink** for all TP deployments
-3. **Use InfiniBand** for multi-node deployments
-4. **Start with smallest TP** that fits model in memory
-5. **Monitor GPU balance** - all GPUs should have similar utilization
-6. **Test with benchmark** before production
-7. **Use FP8** on H100 for 2× speedup
+1. **尽可能优先选择TP而非PP**（更低延迟）
+2. **为所有TP部署使用NVLink**
+3. **为多节点部署使用InfiniBand**
+4. **从最小的TP开始**使模型内存容纳
+5. **监控GPU平衡**- 所有GPU应有相似的利用率
+6. **生产前用基准测试**
+7. **在H100上使用FP8**实现2倍加速

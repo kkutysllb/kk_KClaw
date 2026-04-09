@@ -1,56 +1,56 @@
 ---
 slug: /
 sidebar_position: 0
-title: "KClaw Agent Documentation"
-description: "The self-improving AI agent built by Nous Research. A built-in learning loop that creates skills from experience, improves them during use, and remembers across sessions."
+title: "KClaw Agent 文档"
+description: "由 Nous Research 构建的自我改进 AI 代理。内置学习循环，从经验中创建技能，在使用中改进技能，并跨会话记忆。"
 hide_table_of_contents: true
 ---
 
 # KClaw Agent
 
-The self-improving AI agent built by [Nous Research](https://nousresearch.com). The only agent with a built-in learning loop — it creates skills from experience, improves them during use, nudges itself to persist knowledge, and builds a deepening model of who you are across sessions.
+由 [Nous Research](https://nousresearch.com) 构建的自我改进 AI 代理。唯一具有内置学习循环的代理——它从经验中创建技能，在使用中改进技能，推动自己保持知识，并在跨会话中建立对用户越来越深入的了解。
 
 <div style={{display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap'}}>
-  <a href="/docs/getting-started/installation" style={{display: 'inline-block', padding: '0.6rem 1.2rem', backgroundColor: '#FFD700', color: '#07070d', borderRadius: '8px', fontWeight: 600, textDecoration: 'none'}}>Get Started →</a>
-  <a href="https://github.com/NousResearch/kclaw" style={{display: 'inline-block', padding: '0.6rem 1.2rem', border: '1px solid rgba(255,215,0,0.2)', borderRadius: '8px', textDecoration: 'none'}}>View on GitHub</a>
+  <a href="/docs/getting-started/installation" style={{display: 'inline-block', padding: '0.6rem 1.2rem', backgroundColor: '#FFD700', color: '#07070d', borderRadius: '8px', fontWeight: 600, textDecoration: 'none'}}>开始使用 →</a>
+  <a href="https://github.com/NousResearch/kclaw" style={{display: 'inline-block', padding: '0.6rem 1.2rem', border: '1px solid rgba(255,215,0,0.2)', borderRadius: '8px', textDecoration: 'none'}}>在 GitHub 上查看</a>
 </div>
 
-## What is KClaw Agent?
+## 什么是 KClaw Agent？
 
-It's not a coding copilot tethered to an IDE or a chatbot wrapper around a single API. It's an **autonomous agent** that gets more capable the longer it runs. It lives wherever you put it — a $5 VPS, a GPU cluster, or serverless infrastructure (Daytona, Modal) that costs nearly nothing when idle. Talk to it from Telegram while it works on a cloud VM you never SSH into yourself. It's not tied to your laptop.
+它不是绑在 IDE 上的代码副驾驶，也不是单一 API 的聊天机器人包装器。它是一个**自主代理**，运行时间越长能力越强。它可以生活在任何地方——5 美元的 VPS、GPU 集群，或者几乎空闲时成本几乎为零的无服务器基础设施（Daytona、Modal）。当你通过 Telegram 与它交谈时，它可以在你从不 SSH 连接的云 VM 上工作。它不绑定在你的笔记本电脑上。
 
-## Quick Links
+## 快速链接
 
 | | |
 |---|---|
-| 🚀 **[Installation](/docs/getting-started/installation)** | Install in 60 seconds on Linux, macOS, or WSL2 |
-| 📖 **[Quickstart Tutorial](/docs/getting-started/quickstart)** | Your first conversation and key features to try |
-| 🗺️ **[Learning Path](/docs/getting-started/learning-path)** | Find the right docs for your experience level |
-| ⚙️ **[Configuration](/docs/user-guide/configuration)** | Config file, providers, models, and options |
-| 💬 **[Messaging Gateway](/docs/user-guide/messaging)** | Set up Telegram, Discord, Slack, or WhatsApp |
-| 🔧 **[Tools & Toolsets](/docs/user-guide/features/tools)** | 47 built-in tools and how to configure them |
-| 🧠 **[Memory System](/docs/user-guide/features/memory)** | Persistent memory that grows across sessions |
-| 📚 **[Skills System](/docs/user-guide/features/skills)** | Procedural memory the agent creates and reuses |
-| 🔌 **[MCP Integration](/docs/user-guide/features/mcp)** | Connect to MCP servers, filter their tools, and extend KClaw safely |
-| 🧭 **[Use MCP with KClaw](/docs/guides/use-mcp-with-kclaw)** | Practical MCP setup patterns, examples, and tutorials |
-| 🎙️ **[Voice Mode](/docs/user-guide/features/voice-mode)** | Real-time voice interaction in CLI, Telegram, Discord, and Discord VC |
-| 🗣️ **[Use Voice Mode with KClaw](/docs/guides/use-voice-mode-with-kclaw)** | Hands-on setup and usage patterns for KClaw voice workflows |
-| 🎭 **[Personality & SOUL.md](/docs/user-guide/features/personality)** | Define KClaw' default voice with a global SOUL.md |
-| 📄 **[Context Files](/docs/user-guide/features/context-files)** | Project context files that shape every conversation |
-| 🔒 **[Security](/docs/user-guide/security)** | Command approval, authorization, container isolation |
-| 💡 **[Tips & Best Practices](/docs/guides/tips)** | Quick wins to get the most out of KClaw |
-| 🏗️ **[Architecture](/docs/developer-guide/architecture)** | How it works under the hood |
-| ❓ **[FAQ & Troubleshooting](/docs/reference/faq)** | Common questions and solutions |
+| 🚀 **[安装](/docs/getting-started/installation)** | 在 Linux、macOS 或 WSL2 上 60 秒内安装 |
+| 📖 **[快速入门教程](/docs/getting-started/quickstart)** | 您的第一次对话和尝试的关键功能 |
+| 🗺️ **[学习路径](/docs/getting-started/learning-path)** | 根据您的经验水平找到合适的文档 |
+| ⚙️ **[配置](/docs/user-guide/configuration)** | 配置文件、提供商、模型和选项 |
+| 💬 **[消息网关](/docs/user-guide/messaging)** | 设置 Telegram、Discord、Slack 或 WhatsApp |
+| 🔧 **[工具和工具集](/docs/user-guide/features/tools)** | 47 个内置工具及配置方法 |
+| 🧠 **[记忆系统](/docs/user-guide/features/memory)** | 跨会话增长的持久记忆 |
+| 📚 **[技能系统](/docs/user-guide/features/skills)** | 代理创建和重用的程序记忆 |
+| 🔌 **[MCP 集成](/docs/user-guide/features/mcp)** | 连接到 MCP 服务器、过滤工具并安全扩展 KClaw |
+| 🧭 **[在 KClaw 中使用 MCP](/docs/guides/use-mcp-with-kclaw)** | 实用的 MCP 设置模式、示例和教程 |
+| 🎙️ **[语音模式](/docs/user-guide/features/voice-mode)** | 在 CLI、Telegram、Discord 和 Discord VC 中的实时语音交互 |
+| 🗣️ **[在 KClaw 中使用语音模式](/docs/guides/use-voice-mode-with-kclaw)** | KClaw 语音工作流的手动设置和使用模式 |
+| 🎭 **[人格和 SOUL.md](/docs/user-guide/features/personality)** | 使用全局 SOUL.md 定义 KClaw 的默认声音 |
+| 📄 **[上下文文件](/docs/user-guide/features/context-files)** | 塑造每个对话的项目上下文文件 |
+| 🔒 **[安全](/docs/user-guide/security)** | 命令批准、授权、容器隔离 |
+| 💡 **[提示和最佳实践](/docs/guides/tips)** | 充分利用 KClaw 的快速技巧 |
+| 🏗️ **[架构](/docs/developer-guide/architecture)** | 底层工作原理 |
+| ❓ **[常见问题和故障排除](/docs/reference/faq)** | 常见问题及解决方案 |
 
-## Key Features
+## 关键功能
 
-- **A closed learning loop** — Agent-curated memory with periodic nudges, autonomous skill creation, skill self-improvement during use, FTS5 cross-session recall with LLM summarization, and [Honcho](https://github.com/plastic-labs/honcho) dialectic user modeling
-- **Runs anywhere, not just your laptop** — 6 terminal backends: local, Docker, SSH, Daytona, Singularity, Modal. Daytona and Modal offer serverless persistence — your environment hibernates when idle, costing nearly nothing
-- **Lives where you do** — CLI, Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Mattermost, Email, SMS, DingTalk, Feishu, WeCom, BlueBubbles, Home Assistant — 15+ platforms from one gateway
-- **Built by model trainers** — Created by [Nous Research](https://nousresearch.com), the lab behind KClaw, Nomos, and Psyche. Works with [Nous Portal](https://portal.nousresearch.com), [OpenRouter](https://openrouter.ai), OpenAI, or any endpoint
-- **Scheduled automations** — Built-in cron with delivery to any platform
-- **Delegates & parallelizes** — Spawn isolated subagents for parallel workstreams. Programmatic Tool Calling via `execute_code` collapses multi-step pipelines into single inference calls
-- **Open standard skills** — Compatible with [agentskills.io](https://agentskills.io). Skills are portable, shareable, and community-contributed via the Skills Hub
-- **Full web control** — Search, extract, browse, vision, image generation, TTS
-- **MCP support** — Connect to any MCP server for extended tool capabilities
-- **Research-ready** — Batch processing, trajectory export, RL training with Atropos. Built by [Nous Research](https://nousresearch.com) — the lab behind KClaw, Nomos, and Psyche models
+- **闭环学习循环** — 带定期推动的代理策划记忆、自主技能创建、使用中的技能自我改进、带 LLM 摘要的 FTS5 跨会话召回，以及 [Honcho](https://github.com/plastic-labs/honcho) 辩证用户建模
+- **随处运行，而不只是笔记本** — 6 个终端后端：本地、Docker、SSH、Daytona、Singularity、Modal。Daytona 和 Modal 提供无服务器持久化——您的环境在空闲时休眠，几乎不产生成本
+- **生活在您所在的地方** — CLI、Telegram、Discord、Slack、WhatsApp、Signal、Matrix、Mattermost、Email、SMS、DingTalk、Feishu、WeCom、BlueBubbles、Home Assistant——来自一个网关的 15+ 平台
+- **由模型训练者构建** — 由 [Nous Research](https://nousresearch.com) 创建，KClaw、Nomos 和 Psyche 背后的实验室。支持 [Nous Portal](https://portal.nousresearch.com)、[OpenRouter](https://openrouter.ai)、OpenAI 或任何端点
+- **计划自动化** — 内置 cron，可投放到任何平台
+- **委托和并行化** — 为并行工作流生成隔离的子代理。通过 `execute_code` 进行编程式工具调用，将多步骤管道折叠为单一推理调用
+- **开放标准技能** — 与 [agentskills.io](https://agentskills.io) 兼容。技能可移植、可共享，通过技能中心由社区贡献
+- **完全网络控制** — 搜索、提取、浏览、视觉、图像生成、TTS
+- **MCP 支持** — 连接到任何 MCP 服务器以扩展工具能力
+- **研究就绪** — 批处理、轨迹导出、使用 Atropos 进行 RL 训练。由 [Nous Research](https://nousresearch.com) 构建——KClaw、Nomos 和 Psyche 模型背后的实验室

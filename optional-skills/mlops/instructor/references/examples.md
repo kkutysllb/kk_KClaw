@@ -1,8 +1,8 @@
-# Real-World Examples
+# 真实世界示例
 
-Practical examples of using Instructor for structured data extraction.
+使用Instructor进行结构化数据提取的实际示例。
 
-## Data Extraction
+## 数据提取
 
 ```python
 class CompanyInfo(BaseModel):
@@ -11,17 +11,17 @@ class CompanyInfo(BaseModel):
     industry: str
     employees: int
 
-text = "Apple was founded in 1976 in the technology industry with 164,000 employees."
+text = "苹果公司成立于1976年，在科技行业拥有164,000名员工。"
 
 company = client.messages.create(
     model="claude-sonnet-4-5-20250929",
     max_tokens=1024,
-    messages=[{"role": "user", "content": f"Extract: {text}"}],
+    messages=[{"role": "user", "content": f"提取：{text}"}],
     response_model=CompanyInfo
 )
 ```
 
-## Classification
+## 分类
 
 ```python
 class Sentiment(str, Enum):
@@ -36,12 +36,12 @@ class Review(BaseModel):
 review = client.messages.create(
     model="claude-sonnet-4-5-20250929",
     max_tokens=1024,
-    messages=[{"role": "user", "content": "This product is amazing!"}],
+    messages=[{"role": "user", "content": "这个产品太棒了！"}],
     response_model=Review
 )
 ```
 
-## Multi-Entity Extraction
+## 多实体提取
 
 ```python
 class Person(BaseModel):
@@ -56,12 +56,12 @@ class Entities(BaseModel):
 entities = client.messages.create(
     model="claude-sonnet-4-5-20250929",
     max_tokens=1024,
-    messages=[{"role": "user", "content": "Tim Cook, CEO of Apple, spoke in Cupertino..."}],
+    messages=[{"role": "user", "content": "库克，苹果CEO，在库比蒂诺发表讲话..."}],
     response_model=Entities
 )
 ```
 
-## Structured Analysis
+## 结构化分析
 
 ```python
 class Analysis(BaseModel):
@@ -73,15 +73,15 @@ class Analysis(BaseModel):
 analysis = client.messages.create(
     model="claude-sonnet-4-5-20250929",
     max_tokens=1024,
-    messages=[{"role": "user", "content": "Analyze: [long text]"}],
+    messages=[{"role": "user", "content": "分析：[长文本]"}],
     response_model=Analysis
 )
 ```
 
-## Batch Processing
+## 批处理
 
 ```python
-texts = ["text1", "text2", "text3"]
+texts = ["文本1", "文本2", "文本3"]
 results = [
     client.messages.create(
         model="claude-sonnet-4-5-20250929",
@@ -93,15 +93,15 @@ results = [
 ]
 ```
 
-## Streaming
+## 流式传输
 
 ```python
 for partial in client.messages.create_partial(
     model="claude-sonnet-4-5-20250929",
     max_tokens=1024,
-    messages=[{"role": "user", "content": "Generate report..."}],
+    messages=[{"role": "user", "content": "生成报告..."}],
     response_model=Report
 ):
-    print(f"Progress: {partial.title}")
-    # Update UI in real-time
+    print(f"进度：{partial.title}")
+    # 实时更新UI
 ```

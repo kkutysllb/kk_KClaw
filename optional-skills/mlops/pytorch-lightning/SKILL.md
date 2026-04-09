@@ -1,28 +1,28 @@
 ---
 name: pytorch-lightning
-description: High-level PyTorch framework with Trainer class, automatic distributed training (DDP/FSDP/DeepSpeed), callbacks system, and minimal boilerplate. Scales from laptop to supercomputer with same code. Use when you want clean training loops with built-in best practices.
+description: 带Trainer类的高级PyTorch框架，自动分布式训练（DDP/FSDP/DeepSpeed）、回调系统和最少样板代码。从笔记本到超级计算机使用相同代码。当想要带内置最佳实践的干净训练循环时使用。
 version: 1.0.0
 author: Orchestra Research
 license: MIT
 dependencies: [lightning, torch, transformers]
 metadata:
   kclaw:
-    tags: [PyTorch Lightning, Training Framework, Distributed Training, DDP, FSDP, DeepSpeed, High-Level API, Callbacks, Best Practices, Scalable]
+    tags: [PyTorch Lightning, 训练框架, 分布式训练, DDP, FSDP, DeepSpeed, 高级API, 回调, 最佳实践, 可扩展]
 
 ---
 
-# PyTorch Lightning - High-Level Training Framework
+# PyTorch Lightning - 高级训练框架
 
-## Quick start
+## 快速开始
 
-PyTorch Lightning organizes PyTorch code to eliminate boilerplate while maintaining flexibility.
+PyTorch Lightning组织PyTorch代码以消除样板代码，同时保持灵活性。
 
-**Installation**:
+**安装**：
 ```bash
 pip install lightning
 ```
 
-**Convert PyTorch to Lightning** (3 steps):
+**转换为Lightning**（3步）：
 
 ```python
 import lightning as L
@@ -30,7 +30,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
-# Step 1: Define LightningModule (organize your PyTorch code)
+# 步骤1：定义LightningModule（组织你的PyTorch代码）
 class LitModel(L.LightningModule):
     def __init__(self, hidden_size=128):
         super().__init__()
@@ -44,35 +44,35 @@ class LitModel(L.LightningModule):
         x, y = batch
         y_hat = self.model(x)
         loss = nn.functional.cross_entropy(y_hat, y)
-        self.log('train_loss', loss)  # Auto-logged to TensorBoard
+        self.log('train_loss', loss)  # 自动记录到TensorBoard
         return loss
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-3)
 
-# Step 2: Create data
+# 步骤2：创建数据
 train_loader = DataLoader(train_dataset, batch_size=32)
 
-# Step 3: Train with Trainer (handles everything else!)
+# 步骤3：用Trainer训练（处理其他一切！）
 trainer = L.Trainer(max_epochs=10, accelerator='gpu', devices=2)
 model = LitModel()
 trainer.fit(model, train_loader)
 ```
 
-**That's it!** Trainer handles:
-- GPU/TPU/CPU switching
-- Distributed training (DDP, FSDP, DeepSpeed)
-- Mixed precision (FP16, BF16)
-- Gradient accumulation
-- Checkpointing
-- Logging
-- Progress bars
+**就这样！** Trainer处理：
+- GPU/TPU/CPU切换
+- 分布式训练（DDP, FSDP, DeepSpeed）
+- 混合精度（FP16, BF16）
+- 梯度累积
+- 检查点保存
+- 日志记录
+- 进度条
 
-## Common workflows
+## 常见工作流
 
-### Workflow 1: From PyTorch to Lightning
+### 工作流1：从PyTorch到Lightning
 
-**Original PyTorch code**:
+**原始PyTorch代码**：
 ```python
 model = MyModel()
 optimizer = torch.optim.Adam(model.parameters())
@@ -87,7 +87,7 @@ for epoch in range(max_epochs):
         optimizer.step()
 ```
 
-**Lightning version**:
+**Lightning版本**：
 ```python
 class LitModel(L.LightningModule):
     def __init__(self):
@@ -95,20 +95,20 @@ class LitModel(L.LightningModule):
         self.model = MyModel()
 
     def training_step(self, batch, batch_idx):
-        loss = self.model(batch)  # No .to('cuda') needed!
+        loss = self.model(batch)  # 不需要.to('cuda')！
         return loss
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters())
 
-# Train
+# 训练
 trainer = L.Trainer(max_epochs=10, accelerator='gpu')
 trainer.fit(LitModel(), train_loader)
 ```
 
-**Benefits**: 40+ lines → 15 lines, no device management, automatic distributed
+**好处**：40+行 → 15行，无需设备管理，自动分布式
 
-### Workflow 2: Validation and testing
+### 工作流2：验证和测试
 
 ```python
 class LitModel(L.LightningModule):
@@ -140,52 +140,52 @@ class LitModel(L.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-3)
 
-# Train with validation
+# 带验证的训练
 trainer = L.Trainer(max_epochs=10)
 trainer.fit(model, train_loader, val_loader)
 
-# Test
+# 测试
 trainer.test(model, test_loader)
 ```
 
-**Automatic features**:
-- Validation runs every epoch by default
-- Metrics logged to TensorBoard
-- Best model checkpointing based on val_loss
+**自动功能**：
+- 验证默认每epoch运行
+- 指标记录到TensorBoard
+- 基于val_loss的最佳模型检查点保存
 
-### Workflow 3: Distributed training (DDP)
+### 工作流3：分布式训练（DDP）
 
 ```python
-# Same code as single GPU!
+# 与单GPU相同的代码！
 model = LitModel()
 
-# 8 GPUs with DDP (automatic!)
+# 8个GPU配DDP（自动！）
 trainer = L.Trainer(
     accelerator='gpu',
     devices=8,
-    strategy='ddp'  # Or 'fsdp', 'deepspeed'
+    strategy='ddp'  # 或 'fsdp', 'deepspeed'
 )
 
 trainer.fit(model, train_loader)
 ```
 
-**Launch**:
+**启动**：
 ```bash
-# Single command, Lightning handles the rest
+# 单条命令，Lightning处理其余
 python train.py
 ```
 
-**No changes needed**:
-- Automatic data distribution
-- Gradient synchronization
-- Multi-node support (just set `num_nodes=2`)
+**无需更改**：
+- 自动数据分发
+- 梯度同步
+- 多节点支持（只需设置`num_nodes=2`）
 
-### Workflow 4: Callbacks for monitoring
+### 工作流4：用于监控的回调
 
 ```python
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
 
-# Create callbacks
+# 创建回调
 checkpoint = ModelCheckpoint(
     monitor='val_loss',
     mode='min',
@@ -201,7 +201,7 @@ early_stop = EarlyStopping(
 
 lr_monitor = LearningRateMonitor(logging_interval='epoch')
 
-# Add to Trainer
+# 添加到Trainer
 trainer = L.Trainer(
     max_epochs=100,
     callbacks=[checkpoint, early_stop, lr_monitor]
@@ -210,21 +210,21 @@ trainer = L.Trainer(
 trainer.fit(model, train_loader, val_loader)
 ```
 
-**Result**:
-- Auto-saves best 3 models
-- Stops early if no improvement for 5 epochs
-- Logs learning rate to TensorBoard
+**结果**：
+- 自动保存最佳3个模型
+- 如果5个epoch无改进则提前停止
+- 学习率记录到TensorBoard
 
-### Workflow 5: Learning rate scheduling
+### 工作流5：学习率调度
 
 ```python
 class LitModel(L.LightningModule):
-    # ... (training_step, etc.)
+    # ... (training_step等)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
 
-        # Cosine annealing
+        # 余弦退火
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
             T_max=100,
@@ -235,45 +235,45 @@ class LitModel(L.LightningModule):
             'optimizer': optimizer,
             'lr_scheduler': {
                 'scheduler': scheduler,
-                'interval': 'epoch',  # Update per epoch
+                'interval': 'epoch',  # 每epoch更新
                 'frequency': 1
             }
         }
 
-# Learning rate auto-logged!
+# 学习率自动记录！
 trainer = L.Trainer(max_epochs=100)
 trainer.fit(model, train_loader)
 ```
 
-## When to use vs alternatives
+## 何时使用与替代方案
 
-**Use PyTorch Lightning when**:
-- Want clean, organized code
-- Need production-ready training loops
-- Switching between single GPU, multi-GPU, TPU
-- Want built-in callbacks and logging
-- Team collaboration (standardized structure)
+**在以下情况下使用PyTorch Lightning**：
+- 想要干净、有组织的代码
+- 需要生产级训练循环
+- 在单GPU、多GPU、TPU之间切换
+- 想要内置回调和日志记录
+- 团队协作（标准化结构）
 
-**Key advantages**:
-- **Organized**: Separates research code from engineering
-- **Automatic**: DDP, FSDP, DeepSpeed with 1 line
-- **Callbacks**: Modular training extensions
-- **Reproducible**: Less boilerplate = fewer bugs
-- **Tested**: 1M+ downloads/month, battle-tested
+**关键优势**：
+- **有组织**：将研究代码与工程分离
+- **自动化**：DDP、FSDP、DeepSpeed只需1行
+- **回调**：模块化训练扩展
+- **可重现**：更少样板代码 = 更少bug
+- **经过测试**：每月100万+下载，经过实战检验
 
-**Use alternatives instead**:
-- **Accelerate**: Minimal changes to existing code, more flexibility
-- **Ray Train**: Multi-node orchestration, hyperparameter tuning
-- **Raw PyTorch**: Maximum control, learning purposes
-- **Keras**: TensorFlow ecosystem
+**使用替代方案**：
+- **Accelerate**：对现有代码改动最小，更灵活
+- **Ray Train**：多节点编排、超参数调优
+- **原生PyTorch**：最大控制，学习目的
+- **Keras**：TensorFlow生态系统
 
-## Common issues
+## 常见问题
 
-**Issue: Loss not decreasing**
+**问题：损失不下降**
 
-Check data and model setup:
+检查数据和模型设置：
 ```python
-# Add to training_step
+# 添加到training_step
 def training_step(self, batch, batch_idx):
     if batch_idx == 0:
         print(f"Batch shape: {batch[0].shape}")
@@ -282,68 +282,66 @@ def training_step(self, batch, batch_idx):
     return loss
 ```
 
-**Issue: Out of memory**
+**问题：内存不足**
 
-Reduce batch size or use gradient accumulation:
+减小批量大小或使用梯度累积：
 ```python
 trainer = L.Trainer(
-    accumulate_grad_batches=4,  # Effective batch = batch_size × 4
-    precision='bf16'  # Or 'fp16', reduces memory 50%
+    accumulate_grad_batches=4,  # 有效批量 = batch_size × 4
+    precision='bf16'  # 或 'fp16'，减少50%内存
 )
 ```
 
-**Issue: Validation not running**
+**问题：验证不运行**
 
-Ensure you pass val_loader:
+确保传递了val_loader：
 ```python
-# WRONG
+# 错误
 trainer.fit(model, train_loader)
 
-# CORRECT
+# 正确
 trainer.fit(model, train_loader, val_loader)
 ```
 
-**Issue: DDP spawns multiple processes unexpectedly**
+**问题：DDP产生意外的多进程**
 
-Lightning auto-detects GPUs. Explicitly set devices:
+Lightning自动检测GPU。明确设置设备：
 ```python
-# Test on CPU first
+# 先在CPU上测试
 trainer = L.Trainer(accelerator='cpu', devices=1)
 
-# Then GPU
+# 然后用GPU
 trainer = L.Trainer(accelerator='gpu', devices=1)
 ```
 
-## Advanced topics
+## 高级主题
 
-**Callbacks**: See [references/callbacks.md](references/callbacks.md) for EarlyStopping, ModelCheckpoint, custom callbacks, and callback hooks.
+**回调**：有关EarlyStopping、ModelCheckpoint、自定义回调和回调钩子，请参阅[references/callbacks.md](references/callbacks.md)。
 
-**Distributed strategies**: See [references/distributed.md](references/distributed.md) for DDP, FSDP, DeepSpeed ZeRO integration, multi-node setup.
+**分布式策略**：有关DDP、FSDP、DeepSpeed ZeRO集成、多节点设置，请参阅[references/distributed.md](references/distributed.md)。
 
-**Hyperparameter tuning**: See [references/hyperparameter-tuning.md](references/hyperparameter-tuning.md) for integration with Optuna, Ray Tune, and WandB sweeps.
+**超参数调优**：有关与Optuna、Ray Tune和WandB sweeps的集成，请参阅[references/hyperparameter-tuning.md](references/hyperparameter-tuning.md)。
 
-## Hardware requirements
+## 硬件要求
 
-- **CPU**: Works (good for debugging)
-- **Single GPU**: Works
-- **Multi-GPU**: DDP (default), FSDP, or DeepSpeed
-- **Multi-node**: DDP, FSDP, DeepSpeed
-- **TPU**: Supported (8 cores)
-- **Apple MPS**: Supported
+- **CPU**：可用（适合调试）
+- **单GPU**：可用
+- **多GPU**：DDP（默认）、FSDP或DeepSpeed
+- **多节点**：DDP、FSDP、DeepSpeed
+- **TPU**：支持（8核）
+- **Apple MPS**：支持
 
-**Precision options**:
-- FP32 (default)
-- FP16 (V100, older GPUs)
-- BF16 (A100/H100, recommended)
-- FP8 (H100)
+**精度选项**：
+- FP32（默认）
+- FP16（V100、旧GPU）
+- BF16（A100/H100，推荐）
+- FP8（H100）
 
-## Resources
+## 资源
 
-- Docs: https://lightning.ai/docs/pytorch/stable/
-- GitHub: https://github.com/Lightning-AI/pytorch-lightning ⭐ 29,000+
-- Version: 2.5.5+
-- Examples: https://github.com/Lightning-AI/pytorch-lightning/tree/master/examples
-- Discord: https://discord.gg/lightning-ai
-- Used by: Kaggle winners, research labs, production teams
-
-
+- 文档：https://lightning.ai/docs/pytorch/stable/
+- GitHub：https://github.com/Lightning-AI/pytorch-lightning ⭐ 29,000+
+- 版本：2.5.5+
+- 示例：https://github.com/Lightning-AI/pytorch-lightning/tree/master/examples
+- Discord：https://discord.gg/lightning-ai
+- 使用者：Kaggle获胜者、研究实验室、生产团队

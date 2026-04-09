@@ -1,75 +1,75 @@
 ---
 name: honcho
-description: Configure and use Honcho memory with KClaw -- cross-session user modeling, multi-profile peer isolation, observation config, and dialectic reasoning. Use when setting up Honcho, troubleshooting memory, managing profiles with Honcho peers, or tuning observation and recall settings.
+description: 配置和使用Honcho记忆与KClaw — 跨会话用户建模、多profile对等隔离、观察配置和辩证推理。当设置Honcho、排除记忆故障、管理具有Honcho对等的profile或调优观察和召回设置时使用。
 version: 1.0.0
 author: KClaw Agent
 license: MIT
 metadata:
   kclaw:
-    tags: [Honcho, Memory, Profiles, Observation, Dialectic, User-Modeling]
+    tags: [Honcho, 记忆, Profiles, 观察, 辩证, 用户建模]
     homepage: https://docs.honcho.dev
     related_skills: [kclaw]
 prerequisites:
   pip: [honcho-ai]
 ---
 
-# Honcho Memory for KClaw
+# KClaw的Honcho记忆
 
-Honcho provides AI-native cross-session user modeling. It learns who the user is across conversations and gives every KClaw profile its own peer identity while sharing a unified view of the user.
+Honcho提供AI原生的跨会话用户建模。它跨对话学习用户是谁，并为每个KClaw profile提供自己的对等身份，同时共享用户的统一视图。
 
-## When to Use
+## 何时使用
 
-- Setting up Honcho (cloud or self-hosted)
-- Troubleshooting memory not working / peers not syncing
-- Creating multi-profile setups where each agent has its own Honcho peer
-- Tuning observation, recall, or write frequency settings
-- Understanding what the 4 Honcho tools do and when to use them
+- 设置Honcho（云或自托管）
+- 排除记忆不工作/对等不同步的故障
+- 创建每个代理有自己的Honcho对等的多profile设置
+- 调优观察、召回或写入频率设置
+- 理解4个Honcho工具的作用及何时使用它们
 
-## Setup
+## 设置
 
-### Cloud (app.honcho.dev)
-
-```bash
-kclaw honcho setup
-# select "cloud", paste API key from https://app.honcho.dev
-```
-
-### Self-hosted
+### 云（app.honcho.dev）
 
 ```bash
 kclaw honcho setup
-# select "local", enter base URL (e.g. http://localhost:8000)
+# 选择"cloud"，粘贴来自 https://app.honcho.dev 的API密钥
 ```
 
-See: https://docs.honcho.dev/v3/guides/integrations/kclaw#running-honcho-locally-with-kclaw
-
-### Verify
+### 自托管
 
 ```bash
-kclaw honcho status    # shows resolved config, connection test, peer info
+kclaw honcho setup
+# 选择"local"，输入基础URL（例如 http://localhost:8000）
 ```
 
-## Architecture
+参见：https://docs.honcho.dev/v3/guides/integrations/kclaw#running-honcho-locally-with-kclaw
 
-### Peers
+### 验证
 
-Honcho models conversations as interactions between **peers**. KClaw creates two peers per session:
+```bash
+kclaw honcho status    # 显示解析后的配置、连接测试、对等信息
+```
 
-- **User peer** (`peerName`): represents the human. Honcho builds a user representation from observed messages.
-- **AI peer** (`aiPeer`): represents this KClaw instance. Each profile gets its own AI peer so agents develop independent views.
+## 架构
 
-### Observation
+### 对等
 
-Each peer has two observation toggles that control what Honcho learns from:
+Honcho将对话建模为**对等**之间的交互。KClaw每个会话创建两个对等：
 
-| Toggle | What it does |
+- **用户对等**（`peerName`）：代表人类。Honcho从观察到的消息中构建用户表示。
+- **AI对等**（`aiPeer`）：代表这个KClaw实例。每个profile获得自己的AI对等，以便代理发展独立视图。
+
+### 观察
+
+每个对等有两个观察开关，控制Honcho从中学习的内容：
+
+| 开关 | 作用 |
 |--------|-------------|
-| `observeMe` | Peer's own messages are observed (builds self-representation) |
-| `observeOthers` | Other peers' messages are observed (builds cross-peer understanding) |
+| `observeMe` | 观察对等自己的消息（构建自我表示） |
+| `observeOthers` | 观察其他对等的消息（构建跨对等理解） |
 
-Default: all four toggles **on** (full bidirectional observation).
+默认：所有四个开关**开**（完全双向观察）。
 
-Configure per-peer in `honcho.json`:
+在`honcho.json`中配置每个对等：
 
 ```json
 {
@@ -80,68 +80,68 @@ Configure per-peer in `honcho.json`:
 }
 ```
 
-Or use the shorthand presets:
+或使用简写预设：
 
-| Preset | User | AI | Use case |
+| 预设 | 用户 | AI | 用例 |
 |--------|------|----|----------|
-| `"directional"` (default) | me:on, others:on | me:on, others:on | Multi-agent, full memory |
-| `"unified"` | me:on, others:off | me:off, others:on | Single agent, user-only modeling |
+| `"directional"`（默认） | me:开, others:开 | me:开, others:开 | 多代理，完全记忆 |
+| `"unified"` | me:开, others:关 | me:关, others:开 | 单代理，仅用户建模 |
 
-Settings changed in the [Honcho dashboard](https://app.honcho.dev) are synced back on session init -- server-side config wins over local defaults.
+在[Honcho仪表板](https://app.honcho.dev)中更改的设置在会话初始化时同步回 — 服务器端配置优先于本地默认值。
 
-### Sessions
+### 会话
 
-Honcho sessions scope where messages and observations land. Strategy options:
+Honcho会话限定消息和观察落在何处。策略选项：
 
-| Strategy | Behavior |
+| 策略 | 行为 |
 |----------|----------|
-| `per-directory` (default) | One session per working directory |
-| `per-repo` | One session per git repository root |
-| `per-session` | New Honcho session each KClaw run |
-| `global` | Single session across all directories |
+| `per-directory`（默认） | 每个工作目录一个会话 |
+| `per-repo` | 每个git仓库根一个会话 |
+| `per-session` | 每次KClaw运行一个新的Honcho会话 |
+| `global` | 跨所有目录的单一会话 |
 
-Manual override: `kclaw honcho map my-project-name`
+手动覆盖：`kclaw honcho map my-project-name`
 
-### Recall Modes
+### 召回模式
 
-How the agent accesses Honcho memory:
+代理如何访问Honcho记忆：
 
-| Mode | Auto-inject context? | Tools available? | Use case |
+| 模式 | 自动注入上下文？ | 工具可用？ | 用例 |
 |------|---------------------|-----------------|----------|
-| `hybrid` (default) | Yes | Yes | Agent decides when to use tools vs auto context |
-| `context` | Yes | No (hidden) | Minimal token cost, no tool calls |
-| `tools` | No | Yes | Agent controls all memory access explicitly |
+| `hybrid`（默认） | 是 | 是 | 代理决定何时使用工具vs自动上下文 |
+| `context` | 是 | 否（隐藏） | 最小token成本，无工具调用 |
+| `tools` | 否 | 是 | 代理显式控制所有记忆访问 |
 
-## Multi-Profile Setup
+## 多Profile设置
 
-Each KClaw profile gets its own Honcho AI peer while sharing the same workspace (user context). This means:
+每个KClaw profile获得自己的Honcho AI对等，同时共享相同的工作区（用户上下文）。这意味着：
 
-- All profiles see the same user representation
-- Each profile builds its own AI identity and observations
-- Conclusions written by one profile are visible to others via the shared workspace
+- 所有profile看到相同的用户表示
+- 每个profile构建自己的AI身份和观察
+- 一个profile写的结论可通过共享工作区对其他profile可见
 
-### Create a profile with Honcho peer
+### 创建带Honcho对等的profile
 
 ```bash
 kclaw profile create coder --clone
-# creates host block kclaw.coder, AI peer "coder", inherits config from default
+# 创建主机块kclaw.coder，AI对等"coder"，从默认继承配置
 ```
 
-What `--clone` does for Honcho:
-1. Creates a `kclaw.coder` host block in `honcho.json`
-2. Sets `aiPeer: "coder"` (the profile name)
-3. Inherits `workspace`, `peerName`, `writeFrequency`, `recallMode`, etc. from default
-4. Eagerly creates the peer in Honcho so it exists before first message
+`--clone`对Honcho的作用：
+1. 在`honcho.json`中创建`kclaw.coder`主机块
+2. 设置`aiPeer: "coder"`（profile名称）
+3. 从默认继承`workspace`、`peerName`、`writeFrequency`、`recallMode`等
+4. 热切地在Honcho中创建对等，以便它在第一条消息之前存在
 
-### Backfill existing profiles
+### 回填现有profiles
 
 ```bash
-kclaw honcho sync    # creates host blocks for all profiles that don't have one yet
+kclaw honcho sync    # 为所有还没有主机块的profiles创建主机块
 ```
 
-### Per-profile config
+### 每个profile的配置
 
-Override any setting in the host block:
+在主机块中覆盖任何设置：
 
 ```json
 {
@@ -158,86 +158,86 @@ Override any setting in the host block:
 }
 ```
 
-## Tools
+## 工具
 
-The agent has 4 Honcho tools (hidden in `context` recall mode):
+代理有4个Honcho工具（在`context`召回模式下隐藏）：
 
 ### `honcho_profile`
-Quick factual snapshot of the user -- name, role, preferences, patterns. No LLM call, minimal cost. Use at conversation start or for fast lookups.
+用户的快速事实快照 — 名称、角色、偏好、模式。无LLM调用，最低成本。用于对话开始或快速查找。
 
 ### `honcho_search`
-Semantic search over stored context. Returns raw excerpts ranked by relevance, no LLM synthesis. Default 800 tokens, max 2000. Use when you want specific past facts to reason over yourself.
+在存储的上下文上进行语义搜索。返回按相关性排序的原始摘录，无LLM综合。默认800 token，最大2000。用于当您想要特定的过去事实来自己推理时。
 
 ### `honcho_context`
-Natural language question answered by Honcho's dialectic reasoning (LLM call on Honcho's backend). Higher cost, higher quality. Can query about user (default) or the AI peer.
+由Honcho后端的辩证推理（LLM调用）回答的自然语言问题。更高成本，更高质量。可查询用户（默认）或AI对等。
 
 ### `honcho_conclude`
-Write a persistent fact about the user. Conclusions build the user's profile over time. Use when the user states a preference, corrects you, or shares something to remember.
+写下关于用户的持久事实。结论随时间构建用户的profile。当用户声明偏好、纠正您或分享要记住的内容时使用。
 
-## Config Reference
+## 配置参考
 
-Config file: `$KCLAW_HOME/honcho.json` (profile-local) or `~/.honcho/config.json` (global).
+配置文件：`$KCLAW_HOME/honcho.json`（profile本地）或`~/.honcho/config.json`（全局）。
 
-### Key settings
+### 关键设置
 
-| Key | Default | Description |
+| 键 | 默认 | 描述 |
 |-----|---------|-------------|
-| `apiKey` | -- | API key ([get one](https://app.honcho.dev)) |
-| `baseUrl` | -- | Base URL for self-hosted Honcho |
-| `peerName` | -- | User peer identity |
-| `aiPeer` | host key | AI peer identity |
-| `workspace` | host key | Shared workspace ID |
-| `recallMode` | `hybrid` | `hybrid`, `context`, or `tools` |
-| `observation` | all on | Per-peer `observeMe`/`observeOthers` booleans |
-| `writeFrequency` | `async` | `async`, `turn`, `session`, or integer N |
-| `sessionStrategy` | `per-directory` | `per-directory`, `per-repo`, `per-session`, `global` |
-| `dialecticReasoningLevel` | `low` | `minimal`, `low`, `medium`, `high`, `max` |
-| `dialecticDynamic` | `true` | Auto-bump reasoning by query length. `false` = fixed level |
-| `messageMaxChars` | `25000` | Max chars per message (chunked if exceeded) |
-| `dialecticMaxInputChars` | `10000` | Max chars for dialectic query input |
+| `apiKey` | -- | API密钥（[获取一个](https://app.honcho.dev)） |
+| `baseUrl` | -- | 自托管Honcho的基础URL |
+| `peerName` | -- | 用户对等身份 |
+| `aiPeer` | 主机键 | AI对等身份 |
+| `workspace` | 主机键 | 共享工作区ID |
+| `recallMode` | `hybrid` | `hybrid`、`context`或`tools` |
+| `observation` | 全部开启 | 每个对等的`observeMe`/`observeOthers`布尔值 |
+| `writeFrequency` | `async` | `async`、`turn`、`session`或整数N |
+| `sessionStrategy` | `per-directory` | `per-directory`、`per-repo`、`per-session`、`global` |
+| `dialecticReasoningLevel` | `low` | `minimal`、`low`、`medium`、`high`、`max` |
+| `dialecticDynamic` | `true` | 按查询长度自动提升推理。`false` = 固定级别 |
+| `messageMaxChars` | `25000` | 每条消息最大字符数（超过则分块） |
+| `dialecticMaxInputChars` | `10000` | 辩证查询输入的最大字符数 |
 
-### Cost-awareness (advanced, root config only)
+### 成本意识（高级，仅根配置）
 
-| Key | Default | Description |
+| 键 | 默认 | 描述 |
 |-----|---------|-------------|
-| `injectionFrequency` | `every-turn` | `every-turn` or `first-turn` |
-| `contextCadence` | `1` | Min turns between context API calls |
-| `dialecticCadence` | `1` | Min turns between dialectic API calls |
+| `injectionFrequency` | `every-turn` | `every-turn`或`first-turn` |
+| `contextCadence` | `1` | 上下文API调用之间的最小轮次 |
+| `dialecticCadence` | `1` | 辩证API调用之间的最小轮次 |
 
-## Troubleshooting
+## 故障排除
 
-### "Honcho not configured"
-Run `kclaw honcho setup`. Ensure `memory.provider: honcho` is in `~/.kclaw/config.yaml`.
+### "Honcho未配置"
+运行`kclaw honcho setup`。确保`~/.kclaw/config.yaml`中有`memory.provider: honcho`。
 
-### Memory not persisting across sessions
-Check `kclaw honcho status` -- verify `saveMessages: true` and `writeFrequency` isn't `session` (which only writes on exit).
+### 记忆跨会话不持久
+检查`kclaw honcho status` -- 验证`saveMessages: true`且`writeFrequency`不是`session`（仅在退出时写入）。
 
-### Profile not getting its own peer
-Use `--clone` when creating: `kclaw profile create <name> --clone`. For existing profiles: `kclaw honcho sync`.
+### Profile未获得自己的对等
+创建时使用`--clone`：`kclaw profile create <name> --clone`。对于现有profiles：`kclaw honcho sync`。
 
-### Observation changes in dashboard not reflected
-Observation config is synced from the server on each session init. Start a new session after changing settings in the Honcho UI.
+### 仪表板中的观察更改未反映
+观察配置在每个会话初始化时从服务器同步。在Honcho UI中更改设置后开始新会话。
 
-### Messages truncated
-Messages over `messageMaxChars` (default 25k) are automatically chunked with `[continued]` markers. If you're hitting this often, check if tool results or skill content is inflating message size.
+### 消息被截断
+超过`messageMaxChars`（默认25k）的消息会自动分块并带有`[continued]`标记。如果经常遇到这种情况，检查工具结果或技能内容是否膨胀了消息大小。
 
-## CLI Commands
+## CLI命令
 
-| Command | Description |
+| 命令 | 描述 |
 |---------|-------------|
-| `kclaw honcho setup` | Interactive setup wizard (cloud/local, identity, observation, recall, sessions) |
-| `kclaw honcho status` | Show resolved config, connection test, peer info for active profile |
-| `kclaw honcho enable` | Enable Honcho for the active profile (creates host block if needed) |
-| `kclaw honcho disable` | Disable Honcho for the active profile |
-| `kclaw honcho peer` | Show or update peer names (`--user <name>`, `--ai <name>`, `--reasoning <level>`) |
-| `kclaw honcho peers` | Show peer identities across all profiles |
-| `kclaw honcho mode` | Show or set recall mode (`hybrid`, `context`, `tools`) |
-| `kclaw honcho tokens` | Show or set token budgets (`--context <N>`, `--dialectic <N>`) |
-| `kclaw honcho sessions` | List known directory-to-session-name mappings |
-| `kclaw honcho map <name>` | Map current working directory to a Honcho session name |
-| `kclaw honcho identity` | Seed AI peer identity or show both peer representations |
-| `kclaw honcho sync` | Create host blocks for all KClaw profiles that don't have one yet |
-| `kclaw honcho migrate` | Step-by-step migration guide from OpenClaw native memory to KClaw + Honcho |
-| `kclaw memory setup` | Generic memory provider picker (selecting "honcho" runs the same wizard) |
-| `kclaw memory status` | Show active memory provider and config |
-| `kclaw memory off` | Disable external memory provider |
+| `kclaw honcho setup` | 交互式设置向导（云/本地、身份、观察、召回、会话） |
+| `kclaw honcho status` | 显示活动profile的解析配置、连接测试、对等信息 |
+| `kclaw honcho enable` | 为活动profile启用Honcho（如需要则创建主机块） |
+| `kclaw honcho disable` | 为活动profile禁用Honcho |
+| `kclaw honcho peer` | 显示或更新对等名称（`--user <name>`、`--ai <name>`、`--reasoning <level>`） |
+| `kclaw honcho peers` | 显示所有profiles的对等身份 |
+| `kclaw honcho mode` | 显示或设置召回模式（`hybrid`、`context`、`tools`） |
+| `kclaw honcho tokens` | 显示或设置token预算（`--context <N>`、`--dialectic <N>`） |
+| `kclaw honcho sessions` | 列出已知的目录到会话名映射 |
+| `kclaw honcho map <name>` | 将当前工作目录映射到Honcho会话名 |
+| `kclaw honcho identity` | 种子AI对等身份或显示两个对等表示 |
+| `kclaw honcho sync` | 为所有还没有主机块的KClaw profiles创建主机块 |
+| `kclaw honcho migrate` | 从OpenClaw原生记忆到KClaw + Honcho的分步迁移指南 |
+| `kclaw memory setup` | 通用记忆提供者选择器（选择"honcho"运行相同的向导） |
+| `kclaw memory status` | 显示活动记忆提供者和配置 |
+| `kclaw memory off` | 禁用外部记忆提供者 |

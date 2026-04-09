@@ -1,12 +1,12 @@
 ---
 name: siyuan
-description: SiYuan Note API for searching, reading, creating, and managing blocks and documents in a self-hosted knowledge base via curl.
+description: 通过 curl 使用 SiYuan Note API 搜索、读取、创建和管理自托管知识库中的块和文档。
 version: 1.0.0
 author: FEUAZUR
 license: MIT
 metadata:
   kclaw:
-    tags: [SiYuan, Notes, Knowledge Base, PKM, API]
+    tags: [SiYuan, 笔记, 知识库, PKM, API]
     related_skills: [obsidian, notion]
     homepage: https://github.com/siyuan-note/siyuan
 prerequisites:
@@ -23,22 +23,22 @@ required_environment_variables:
 
 # SiYuan Note API
 
-Use the [SiYuan](https://github.com/siyuan-note/siyuan) kernel API via curl to search, read, create, update, and delete blocks and documents in a self-hosted knowledge base. No extra tools needed -- just curl and an API token.
+通过 curl 使用 [SiYuan](https://github.com/siyuan-note/siyuan) 内核 API 搜索、读取、创建、更新和删除自托管知识库中的块和文档。无需额外工具 — 只需 curl 和 API 令牌。
 
-## Prerequisites
+## 前置要求
 
-1. Install and run SiYuan (desktop or Docker)
-2. Get your API token: **Settings > About > API token**
-3. Store it in `~/.kclaw/.env`:
+1. 安装并运行 SiYuan（桌面版或 Docker）
+2. 获取您的 API 令牌：**Settings > About > API token**
+3. 存储到 `~/.kclaw/.env`：
    ```
    SIYUAN_TOKEN=your_token_here
    SIYUAN_URL=http://127.0.0.1:6806
    ```
-   `SIYUAN_URL` defaults to `http://127.0.0.1:6806` if not set.
+   如果未设置，`SIYUAN_URL` 默认为 `http://127.0.0.1:6806`。
 
-## API Basics
+## API 基础
 
-All SiYuan API calls are **POST with JSON body**. Every request follows this pattern:
+所有 SiYuan API 调用都是 **POST 带 JSON body**。每个请求遵循此模式：
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/..." \
@@ -47,39 +47,39 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/..." \
   -d '{"param": "value"}'
 ```
 
-Responses are JSON with this structure:
+响应是带此结构的 JSON：
 ```json
 {"code": 0, "msg": "", "data": { ... }}
 ```
-`code: 0` means success. Any other value is an error -- check `msg` for details.
+`code: 0` 表示成功。任何其他值都是错误 — 检查 `msg` 获取详情。
 
-**ID format:** SiYuan IDs look like `20210808180117-6v0mkxr` (14-digit timestamp + 7 alphanumeric chars).
+**ID 格式：** SiYuan ID 看起来像 `20210808180117-6v0mkxr`（14 位时间戳 + 7 个字母数字字符）。
 
-## Quick Reference
+## 快速参考
 
-| Operation | Endpoint |
-|-----------|----------|
-| Full-text search | `/api/search/fullTextSearchBlock` |
-| SQL query | `/api/query/sql` |
-| Read block | `/api/block/getBlockKramdown` |
-| Read children | `/api/block/getChildBlocks` |
-| Get path | `/api/filetree/getHPathByID` |
-| Get attributes | `/api/attr/getBlockAttrs` |
-| List notebooks | `/api/notebook/lsNotebooks` |
-| List documents | `/api/filetree/listDocsByPath` |
-| Create notebook | `/api/notebook/createNotebook` |
-| Create document | `/api/filetree/createDocWithMd` |
-| Append block | `/api/block/appendBlock` |
-| Update block | `/api/block/updateBlock` |
-| Rename document | `/api/filetree/renameDocByID` |
-| Set attributes | `/api/attr/setBlockAttrs` |
-| Delete block | `/api/block/deleteBlock` |
-| Delete document | `/api/filetree/removeDocByID` |
-| Export as Markdown | `/api/export/exportMdContent` |
+| 操作 | 端点 |
+|-----------|---------|
+| 全文搜索 | `/api/search/fullTextSearchBlock` |
+| SQL 查询 | `/api/query/sql` |
+| 读取块 | `/api/block/getBlockKramdown` |
+| 读取子块 | `/api/block/getChildBlocks` |
+| 获取路径 | `/api/filetree/getHPathByID` |
+| 获取属性 | `/api/attr/getBlockAttrs` |
+| 列出笔记本 | `/api/notebook/lsNotebooks` |
+| 列出文档 | `/api/filetree/listDocsByPath` |
+| 创建笔记本 | `/api/notebook/createNotebook` |
+| 创建文档 | `/api/filetree/createDocWithMd` |
+| 追加块 | `/api/block/appendBlock` |
+| 更新块 | `/api/block/updateBlock` |
+| 重命名文档 | `/api/filetree/renameDocByID` |
+| 设置属性 | `/api/attr/setBlockAttrs` |
+| 删除块 | `/api/block/deleteBlock` |
+| 删除文档 | `/api/filetree/removeDocByID` |
+| 导出为 Markdown | `/api/export/exportMdContent` |
 
-## Common Operations
+## 常见操作
 
-### Search (Full-Text)
+### 搜索（全文）
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/search/fullTextSearchBlock" \
@@ -88,9 +88,9 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/search/fullTextSearchB
   -d '{"query": "meeting notes", "page": 0}' | jq '.data.blocks[:5]'
 ```
 
-### Search (SQL)
+### 搜索（SQL）
 
-Query the blocks database directly. Only SELECT statements are safe.
+直接查询块数据库。仅 SELECT 语句是安全的。
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/query/sql" \
@@ -99,11 +99,11 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/query/sql" \
   -d '{"stmt": "SELECT id, content, type, box FROM blocks WHERE content LIKE '\''%keyword%'\'' AND type='\''p'\'' LIMIT 20"}' | jq '.data'
 ```
 
-Useful columns: `id`, `parent_id`, `root_id`, `box` (notebook ID), `path`, `content`, `type`, `subtype`, `created`, `updated`.
+有用列：`id`、`parent_id`、`root_id`、`box`（笔记本 ID）、`path`、`content`、`type`、`subtype`、`created`、`updated`。
 
-### Read Block Content
+### 读取块内容
 
-Returns block content in Kramdown (Markdown-like) format.
+以 Kramdown（类似 Markdown）格式返回块内容。
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/block/getBlockKramdown" \
@@ -112,7 +112,7 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/block/getBlockKramdown
   -d '{"id": "20210808180117-6v0mkxr"}' | jq '.data.kramdown'
 ```
 
-### Read Child Blocks
+### 读取子块
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/block/getChildBlocks" \
@@ -121,7 +121,7 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/block/getChildBlocks" 
   -d '{"id": "20210808180117-6v0mkxr"}' | jq '.data'
 ```
 
-### Get Human-Readable Path
+### 获取人类可读路径
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/filetree/getHPathByID" \
@@ -130,7 +130,7 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/filetree/getHPathByID"
   -d '{"id": "20210808180117-6v0mkxr"}' | jq '.data'
 ```
 
-### Get Block Attributes
+### 获取块属性
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/attr/getBlockAttrs" \
@@ -139,7 +139,7 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/attr/getBlockAttrs" \
   -d '{"id": "20210808180117-6v0mkxr"}' | jq '.data'
 ```
 
-### List Notebooks
+### 列出笔记本
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/notebook/lsNotebooks" \
@@ -148,7 +148,7 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/notebook/lsNotebooks" 
   -d '{}' | jq '.data.notebooks[] | {id, name, closed}'
 ```
 
-### List Documents in a Notebook
+### 列出笔记本中的文档
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/filetree/listDocsByPath" \
@@ -157,7 +157,7 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/filetree/listDocsByPat
   -d '{"notebook": "NOTEBOOK_ID", "path": "/"}' | jq '.data.files[] | {id, name}'
 ```
 
-### Create a Document
+### 创建文档
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/filetree/createDocWithMd" \
@@ -170,7 +170,7 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/filetree/createDocWith
   }' | jq '.data'
 ```
 
-### Create a Notebook
+### 创建笔记本
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/notebook/createNotebook" \
@@ -179,7 +179,7 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/notebook/createNoteboo
   -d '{"name": "My New Notebook"}' | jq '.data.notebook.id'
 ```
 
-### Append Block to Document
+### 追加块到文档
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/block/appendBlock" \
@@ -192,9 +192,9 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/block/appendBlock" \
   }' | jq '.data'
 ```
 
-Also available: `/api/block/prependBlock` (same params, inserts at the beginning) and `/api/block/insertBlock` (uses `previousID` instead of `parentID` to insert after a specific block).
+也可使用：`/api/block/prependBlock`（相同参数，插入开头）和 `/api/block/insertBlock`（使用 `previousID` 而非 `parentID` 在特定块之后插入）。
 
-### Update Block Content
+### 更新块内容
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/block/updateBlock" \
@@ -207,7 +207,7 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/block/updateBlock" \
   }' | jq '.data'
 ```
 
-### Rename a Document
+### 重命名文档
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/filetree/renameDocByID" \
@@ -216,9 +216,9 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/filetree/renameDocByID
   -d '{"id": "DOCUMENT_ID", "title": "New Title"}'
 ```
 
-### Set Block Attributes
+### 设置块属性
 
-Custom attributes must be prefixed with `custom-`:
+自定义属性必须以 `custom-` 为前缀：
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/attr/setBlockAttrs" \
@@ -233,7 +233,7 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/attr/setBlockAttrs" \
   }'
 ```
 
-### Delete a Block
+### 删除块
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/block/deleteBlock" \
@@ -242,10 +242,10 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/block/deleteBlock" \
   -d '{"id": "BLOCK_ID"}'
 ```
 
-To delete a whole document: use `/api/filetree/removeDocByID` with `{"id": "DOC_ID"}`.
-To delete a notebook: use `/api/notebook/removeNotebook` with `{"notebook": "NOTEBOOK_ID"}`.
+要删除整个文档：使用 `{"id": "DOC_ID"}` 的 `/api/filetree/removeDocByID`。
+要删除笔记本：使用 `{"notebook": "NOTEBOOK_ID"}` 的 `/api/notebook/removeNotebook`。
 
-### Export Document as Markdown
+### 将文档导出为 Markdown
 
 ```bash
 curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/export/exportMdContent" \
@@ -254,39 +254,39 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/export/exportMdContent
   -d '{"id": "DOCUMENT_ID"}' | jq -r '.data.content'
 ```
 
-## Block Types
+## 块类型
 
-Common `type` values in SQL queries:
+SQL 查询中的常见 `type` 值：
 
-| Type | Description |
-|------|-------------|
-| `d` | Document (root block) |
-| `p` | Paragraph |
-| `h` | Heading |
-| `l` | List |
-| `i` | List item |
-| `c` | Code block |
-| `m` | Math block |
-| `t` | Table |
-| `b` | Blockquote |
-| `s` | Super block |
-| `html` | HTML block |
+| 类型 | 描述 |
+|------|------|
+| `d` | 文档（根块） |
+| `p` | 段落 |
+| `h` | 标题 |
+| `l` | 列表 |
+| `i` | 列表项 |
+| `c` | 代码块 |
+| `m` | 数学块 |
+| `t` | 表格 |
+| `b` | 块引用 |
+| `s` | 超级块 |
+| `html` | HTML 块 |
 
-## Pitfalls
+## 陷阱
 
-- **All endpoints are POST** -- even read-only operations. Do not use GET.
-- **SQL safety**: only use SELECT queries. INSERT/UPDATE/DELETE/DROP are dangerous and should never be sent.
-- **ID validation**: IDs match the pattern `YYYYMMDDHHmmss-xxxxxxx`. Reject anything else.
-- **Error responses**: always check `code != 0` in responses before processing `data`.
-- **Large documents**: block content and export results can be very large. Use `LIMIT` in SQL and pipe through `jq` to extract only what you need.
-- **Notebook IDs**: when working with a specific notebook, get its ID first via `lsNotebooks`.
+- **所有端点都是 POST** — 甚至只读操作。不要使用 GET。
+- **SQL 安全性**：仅使用 SELECT 查询。INSERT/UPDATE/DELETE/DROP 是危险的，不应发送。
+- **ID 验证**：ID 匹配模式 `YYYYMMDDHHmmss-xxxxxxx`。拒绝任何其他内容。
+- **错误响应**：在处理 `data` 前始终检查 `code != 0`。
+- **大文档**：块内容和导出结果可能非常大。在 SQL 中使用 `LIMIT` 并通过 `jq` 管道仅提取您需要的内容。
+- **笔记本 ID**：当使用特定笔记本时，首先通过 `lsNotebooks` 获取其 ID。
 
-## Alternative: MCP Server
+## 替代方案：MCP 服务器
 
-If you prefer a native integration instead of curl, install the SiYuan MCP server:
+如果您更喜欢原生集成而非 curl，请安装 SiYuan MCP 服务器：
 
 ```yaml
-# In ~/.kclaw/config.yaml under mcp_servers:
+# 在 ~/.kclaw/config.yaml 下的 mcp_servers 中：
 mcp_servers:
   siyuan:
     command: npx

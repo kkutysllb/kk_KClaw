@@ -1,56 +1,56 @@
 ---
 name: llava
-description: Large Language and Vision Assistant. Enables visual instruction tuning and image-based conversations. Combines CLIP vision encoder with Vicuna/LLaMA language models. Supports multi-turn image chat, visual question answering, and instruction following. Use for vision-language chatbots or image understanding tasks. Best for conversational image analysis.
+description: 大型语言和视觉助手。实现视觉指令调优和基于图像的对话。结合CLIP视觉编码器与Vicuna/LLaMA语言模型。支持多轮图像聊天、视觉问答和指令跟随。用于视觉语言聊天机器人或图像理解任务。最适合对话式图像分析。
 version: 1.0.0
 author: Orchestra Research
 license: MIT
 dependencies: [transformers, torch, pillow]
 metadata:
   kclaw:
-    tags: [LLaVA, Vision-Language, Multimodal, Visual Question Answering, Image Chat, CLIP, Vicuna, Conversational AI, Instruction Tuning, VQA]
+    tags: [LLaVA, 视觉-语言, 多模态, 视觉问答, 图像聊天, CLIP, Vicuna, 对话AI, 指令调优, VQA]
 
 ---
 
-# LLaVA - Large Language and Vision Assistant
+# LLaVA - 大型语言和视觉助手
 
-Open-source vision-language model for conversational image understanding.
+用于对话式图像理解的开源视觉语言模型。
 
-## When to use LLaVA
+## 何时使用LLaVA
 
-**Use when:**
-- Building vision-language chatbots
-- Visual question answering (VQA)
-- Image description and captioning
-- Multi-turn image conversations
-- Visual instruction following
-- Document understanding with images
+**在以下情况下使用：**
+- 构建视觉语言聊天机器人
+- 视觉问答（VQA）
+- 图像描述和说明
+- 多轮图像对话
+- 视觉指令跟随
+- 带图像的文档理解
 
-**Metrics**:
+**指标：**
 - **23,000+ GitHub stars**
-- GPT-4V level capabilities (targeted)
-- Apache 2.0 License
-- Multiple model sizes (7B-34B params)
+- GPT-4V级别能力（目标）
+- Apache 2.0许可证
+- 多种模型规模（7B-34B参数）
 
-**Use alternatives instead**:
-- **GPT-4V**: Highest quality, API-based
-- **CLIP**: Simple zero-shot classification
-- **BLIP-2**: Better for captioning only
-- **Flamingo**: Research, not open-source
+**使用替代方案：**
+- **GPT-4V**：最高质量，基于API
+- **CLIP**：简单的零样本分类
+- **BLIP-2**：更适合仅说明
+- **Flamingo**：研究用，非开源
 
-## Quick start
+## 快速开始
 
-### Installation
+### 安装
 
 ```bash
-# Clone repository
+# 克隆仓库
 git clone https://github.com/haotian-liu/LLaVA
 cd LLaVA
 
-# Install
+# 安装
 pip install -e .
 ```
 
-### Basic usage
+### 基础用法
 
 ```python
 from llava.model.builder import load_pretrained_model
@@ -60,7 +60,7 @@ from llava.conversation import conv_templates
 from PIL import Image
 import torch
 
-# Load model
+# 加载模型
 model_path = "liuhaotian/llava-v1.5-7b"
 tokenizer, model, image_processor, context_len = load_pretrained_model(
     model_path=model_path,
@@ -68,18 +68,18 @@ tokenizer, model, image_processor, context_len = load_pretrained_model(
     model_name=get_model_name_from_path(model_path)
 )
 
-# Load image
+# 加载图像
 image = Image.open("image.jpg")
 image_tensor = process_images([image], image_processor, model.config)
 image_tensor = image_tensor.to(model.device, dtype=torch.float16)
 
-# Create conversation
+# 创建对话
 conv = conv_templates["llava_v1"].copy()
-conv.append_message(conv.roles[0], DEFAULT_IMAGE_TOKEN + "\nWhat is in this image?")
+conv.append_message(conv.roles[0], DEFAULT_IMAGE_TOKEN + "\n这张图片里有什么？")
 conv.append_message(conv.roles[1], None)
 prompt = conv.get_prompt()
 
-# Generate response
+# 生成响应
 input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).to(model.device)
 
 with torch.inference_mode():
@@ -95,176 +95,176 @@ response = tokenizer.decode(output_ids[0], skip_special_tokens=True).strip()
 print(response)
 ```
 
-## Available models
+## 可用模型
 
-| Model | Parameters | VRAM | Quality |
+| 模型 | 参数 | 显存 | 质量 |
 |-------|------------|------|---------|
-| LLaVA-v1.5-7B | 7B | ~14 GB | Good |
-| LLaVA-v1.5-13B | 13B | ~28 GB | Better |
-| LLaVA-v1.6-34B | 34B | ~70 GB | Best |
+| LLaVA-v1.5-7B | 7B | ~14 GB | 好 |
+| LLaVA-v1.5-13B | 13B | ~28 GB | 更好 |
+| LLaVA-v1.6-34B | 34B | ~70 GB | 最好 |
 
 ```python
-# Load different models
+# 加载不同模型
 model_7b = "liuhaotian/llava-v1.5-7b"
 model_13b = "liuhaotian/llava-v1.5-13b"
 model_34b = "liuhaotian/llava-v1.6-34b"
 
-# 4-bit quantization for lower VRAM
-load_4bit = True  # Reduces VRAM by ~4×
+# 4位量化以降低显存
+load_4bit = True  # 减少显存约4倍
 ```
 
-## CLI usage
+## CLI用法
 
 ```bash
-# Single image query
+# 单图像查询
 python -m llava.serve.cli \
     --model-path liuhaotian/llava-v1.5-7b \
     --image-file image.jpg \
-    --query "What is in this image?"
+    --query "这张图片里有什么？"
 
-# Multi-turn conversation
+# 多轮对话
 python -m llava.serve.cli \
     --model-path liuhaotian/llava-v1.5-7b \
     --image-file image.jpg
-# Then type questions interactively
+# 然后交互式输入问题
 ```
 
 ## Web UI (Gradio)
 
 ```bash
-# Launch Gradio interface
+# 启动Gradio界面
 python -m llava.serve.gradio_web_server \
     --model-path liuhaotian/llava-v1.5-7b \
-    --load-4bit  # Optional: reduce VRAM
+    --load-4bit  # 可选：减少显存
 
-# Access at http://localhost:7860
+# 访问 http://localhost:7860
 ```
 
-## Multi-turn conversations
+## 多轮对话
 
 ```python
-# Initialize conversation
+# 初始化对话
 conv = conv_templates["llava_v1"].copy()
 
-# Turn 1
-conv.append_message(conv.roles[0], DEFAULT_IMAGE_TOKEN + "\nWhat is in this image?")
+# 第1轮
+conv.append_message(conv.roles[0], DEFAULT_IMAGE_TOKEN + "\n这张图片里有什么？")
 conv.append_message(conv.roles[1], None)
-response1 = generate(conv, model, image)  # "A dog playing in a park"
+response1 = generate(conv, model, image)  # "一只狗在公园里玩耍"
 
-# Turn 2
-conv.messages[-1][1] = response1  # Add previous response
-conv.append_message(conv.roles[0], "What breed is the dog?")
+# 第2轮
+conv.messages[-1][1] = response1  # 添加之前的响应
+conv.append_message(conv.roles[0], "这只狗是什么品种？")
 conv.append_message(conv.roles[1], None)
-response2 = generate(conv, model, image)  # "Golden Retriever"
+response2 = generate(conv, model, image)  # "金毛猎犬"
 
-# Turn 3
+# 第3轮
 conv.messages[-1][1] = response2
-conv.append_message(conv.roles[0], "What time of day is it?")
+conv.append_message(conv.roles[0], "这是什么时候拍的？")
 conv.append_message(conv.roles[1], None)
 response3 = generate(conv, model, image)
 ```
 
-## Common tasks
+## 常见任务
 
-### Image captioning
+### 图像说明
 
 ```python
-question = "Describe this image in detail."
+question = "详细描述这张图片。"
 response = ask(model, image, question)
 ```
 
-### Visual question answering
+### 视觉问答
 
 ```python
-question = "How many people are in the image?"
+question = "图片中有多少人？"
 response = ask(model, image, question)
 ```
 
-### Object detection (textual)
+### 物体检测（文本）
 
 ```python
-question = "List all the objects you can see in this image."
+question = "列出你能看到的所有物体。"
 response = ask(model, image, question)
 ```
 
-### Scene understanding
+### 场景理解
 
 ```python
-question = "What is happening in this scene?"
+question = "这个场景中发生了什么？"
 response = ask(model, image, question)
 ```
 
-### Document understanding
+### 文档理解
 
 ```python
-question = "What is the main topic of this document?"
+question = "这篇文档的主题是什么？"
 response = ask(model, document_image, question)
 ```
 
-## Training custom model
+## 训练自定义模型
 
 ```bash
-# Stage 1: Feature alignment (558K image-caption pairs)
+# 阶段1：特征对齐（558K图像-说明对）
 bash scripts/v1_5/pretrain.sh
 
-# Stage 2: Visual instruction tuning (150K instruction data)
+# 阶段2：视觉指令调优（150K指令数据）
 bash scripts/v1_5/finetune.sh
 ```
 
-## Quantization (reduce VRAM)
+## 量化（减少显存）
 
 ```python
-# 4-bit quantization
+# 4位量化
 tokenizer, model, image_processor, context_len = load_pretrained_model(
     model_path="liuhaotian/llava-v1.5-13b",
     model_base=None,
     model_name=get_model_name_from_path("liuhaotian/llava-v1.5-13b"),
-    load_4bit=True  # Reduces VRAM ~4×
+    load_4bit=True  # 减少显存约4倍
 )
 
-# 8-bit quantization
-load_8bit=True  # Reduces VRAM ~2×
+# 8位量化
+load_8bit=True  # 减少显存约2倍
 ```
 
-## Best practices
+## 最佳实践
 
-1. **Start with 7B model** - Good quality, manageable VRAM
-2. **Use 4-bit quantization** - Reduces VRAM significantly
-3. **GPU required** - CPU inference extremely slow
-4. **Clear prompts** - Specific questions get better answers
-5. **Multi-turn conversations** - Maintain conversation context
-6. **Temperature 0.2-0.7** - Balance creativity/consistency
-7. **max_new_tokens 512-1024** - For detailed responses
-8. **Batch processing** - Process multiple images sequentially
+1. **从7B模型开始** - 质量好，显存可控
+2. **使用4位量化** - 显著减少显存
+3. **需要GPU** - CPU推理极慢
+4. **清晰提示** - 具体问题获得更好答案
+5. **多轮对话** - 保持对话上下文
+6. **温度0.2-0.7** - 平衡创造性和一致性
+7. **max_new_tokens 512-1024** - 获得详细响应
+8. **批处理** - 顺序处理多个图像
 
-## Performance
+## 性能
 
-| Model | VRAM (FP16) | VRAM (4-bit) | Speed (tokens/s) |
+| 模型 | 显存（FP16） | 显存（4位） | 速度（词元/秒） |
 |-------|-------------|--------------|------------------|
 | 7B | ~14 GB | ~4 GB | ~20 |
 | 13B | ~28 GB | ~8 GB | ~12 |
 | 34B | ~70 GB | ~18 GB | ~5 |
 
-*On A100 GPU*
+*A100 GPU上
 
-## Benchmarks
+## 基准测试
 
-LLaVA achieves competitive scores on:
-- **VQAv2**: 78.5%
-- **GQA**: 62.0%
-- **MM-Vet**: 35.4%
-- **MMBench**: 64.3%
+LLaVA在以下方面取得竞争性分数：
+- **VQAv2**：78.5%
+- **GQA**：62.0%
+- **MM-Vet**：35.4%
+- **MMBench**：64.3%
 
-## Limitations
+## 局限性
 
-1. **Hallucinations** - May describe things not in image
-2. **Spatial reasoning** - Struggles with precise locations
-3. **Small text** - Difficulty reading fine print
-4. **Object counting** - Imprecise for many objects
-5. **VRAM requirements** - Need powerful GPU
-6. **Inference speed** - Slower than CLIP
+1. **幻觉** - 可能描述图像中没有的东西
+2. **空间推理** - 精确位置理解困难
+3. **小文本** - 阅读小字困难
+4. **物体计数** - 多个物体计数不精确
+5. **显存要求** - 需要强大GPU
+6. **推理速度** - 比CLIP慢
 
-## Integration with frameworks
+## 与框架集成
 
 ### LangChain
 
@@ -273,13 +273,13 @@ from langchain.llms.base import LLM
 
 class LLaVALLM(LLM):
     def _call(self, prompt, stop=None):
-        # Custom LLaVA inference
+        # 自定义LLaVA推理
         return response
 
 llm = LLaVALLM()
 ```
 
-### Gradio App
+### Gradio应用
 
 ```python
 import gradio as gr
@@ -296,12 +296,10 @@ demo = gr.ChatInterface(
 demo.launch()
 ```
 
-## Resources
+## 资源
 
-- **GitHub**: https://github.com/haotian-liu/LLaVA ⭐ 23,000+
-- **Paper**: https://arxiv.org/abs/2304.08485
-- **Demo**: https://llava.hliu.cc
-- **Models**: https://huggingface.co/liuhaotian
-- **License**: Apache 2.0
-
-
+- **GitHub**：https://github.com/haotian-liu/LLaVA ⭐ 23,000+
+- **论文**：https://arxiv.org/abs/2304.08485
+- **演示**：https://llava.hliu.cc
+- **模型**：https://huggingface.co/liuhaotian
+- **许可证**：Apache 2.0

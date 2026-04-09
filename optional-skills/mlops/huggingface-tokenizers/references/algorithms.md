@@ -1,24 +1,24 @@
-# Tokenization Algorithms Deep Dive
+# 分词算法深度探讨
 
-Comprehensive explanation of BPE, WordPiece, and Unigram algorithms.
+BPE、WordPiece和Unigram算法的详细解释。
 
-## Byte-Pair Encoding (BPE)
+## 字节对编码（BPE）
 
-### Algorithm overview
+### 算法概述
 
-BPE iteratively merges the most frequent pair of tokens in a corpus.
+BPE迭代合并语料库中最频繁的token对。
 
-**Training process**:
-1. Initialize vocabulary with all characters
-2. Count frequency of all adjacent token pairs
-3. Merge most frequent pair into new token
-4. Add new token to vocabulary
-5. Update corpus with new token
-6. Repeat until vocabulary size reached
+**训练过程**：
+1. 用所有字符初始化词表
+2. 计算所有相邻token对的频率
+3. 将最频繁的对合并为新token
+4. 将新token添加到词表
+5. 用新token更新语料库
+6. 重复直到达到词表大小
 
-### Step-by-step example
+### 逐步示例
 
-**Corpus**:
+**语料库**：
 ```
 low: 5
 lower: 2
@@ -26,64 +26,64 @@ newest: 6
 widest: 3
 ```
 
-**Iteration 1**:
+**迭代1**：
 ```
-Count pairs:
-'e' + 's': 9 (newest: 6, widest: 3)  ← most frequent
+计算对：
+'e' + 's': 9 (newest: 6, widest: 3)  ← 最频繁
 'l' + 'o': 7
 'o' + 'w': 7
 ...
 
-Merge: 'e' + 's' → 'es'
+合并: 'e' + 's' → 'es'
 
-Updated corpus:
+更新后语料库：
 low: 5
 lower: 2
-newest: 6 → newes|t: 6
+newest: 6 → new|es|t: 6
 widest: 3 → wides|t: 3
 
-Vocabulary: [a-z] + ['es']
+词表: [a-z] + ['es']
 ```
 
-**Iteration 2**:
+**迭代2**：
 ```
-Count pairs:
-'es' + 't': 9  ← most frequent
+计算对：
+'es' + 't': 9  ← 最频繁
 'l' + 'o': 7
 ...
 
-Merge: 'es' + 't' → 'est'
+合并: 'es' + 't' → 'est'
 
-Updated corpus:
+更新后语料库：
 low: 5
 lower: 2
 newest: 6 → new|est: 6
 widest: 3 → wid|est: 3
 
-Vocabulary: [a-z] + ['es', 'est']
+词表: [a-z] + ['es', 'est']
 ```
 
-**Continue until desired vocabulary size...**
+**继续直到达到目标词表大小...**
 
-### Tokenization with trained BPE
+### 使用训练的BPE进行分词
 
-Given vocabulary: `['l', 'o', 'w', 'e', 'r', 'n', 's', 't', 'i', 'd', 'es', 'est', 'lo', 'low', 'ne', 'new', 'newest', 'wi', 'wid', 'widest']`
+给定词表：`['l', 'o', 'w', 'e', 'r', 'n', 's', 't', 'i', 'd', 'es', 'est', 'lo', 'low', 'ne', 'new', 'newest', 'wi', 'wid', 'widest']`
 
-Tokenize "lowest":
+分词"lowest"：
 ```
-Step 1: Split into characters
+步骤1: 分割成字符
 ['l', 'o', 'w', 'e', 's', 't']
 
-Step 2: Apply merges in order learned during training
-- Merge 'l' + 'o' → 'lo' (if this merge was learned)
-- Merge 'lo' + 'w' → 'low' (if learned)
-- Merge 'e' + 's' → 'es' (learned)
-- Merge 'es' + 't' → 'est' (learned)
+步骤2: 按训练期间学习的顺序应用合并
+- 合并 'l' + 'o' → 'lo'（如学过）
+- 合并 'lo' + 'w' → 'low'（如学过）
+- 合并 'e' + 's' → 'es'（学过）
+- 合并 'es' + 't' → 'est'（学过）
 
-Final: ['low', 'est']
+最终: ['low', 'est']
 ```
 
-### Implementation
+### 实现
 
 ```python
 from tokenizers import Tokenizer
@@ -91,36 +91,36 @@ from tokenizers.models import BPE
 from tokenizers.trainers import BpeTrainer
 from tokenizers.pre_tokenizers import Whitespace
 
-# Initialize
+# 初始化
 tokenizer = Tokenizer(BPE(unk_token="[UNK]"))
 tokenizer.pre_tokenizer = Whitespace()
 
-# Configure trainer
+# 配置训练器
 trainer = BpeTrainer(
     vocab_size=1000,
     min_frequency=2,
     special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"]
 )
 
-# Train
+# 训练
 corpus = [
     "This is a sample corpus for BPE training.",
     "BPE learns subword units from the training data.",
-    # ... more sentences
+    # ... 更多句子
 ]
 
 tokenizer.train_from_iterator(corpus, trainer=trainer)
 
-# Use
+# 使用
 output = tokenizer.encode("This is tokenization")
 print(output.tokens)  # ['This', 'is', 'token', 'ization']
 ```
 
-### Byte-level BPE (GPT-2 variant)
+### 字节级BPE（GPT-2变体）
 
-**Problem**: Standard BPE has limited character coverage (256+ Unicode chars)
+**问题**：标准BPE字符覆盖有限（256+ Unicode字符）
 
-**Solution**: Operate on byte level (256 bytes)
+**解决方案**：在字节级别操作（256字节）
 
 ```python
 from tokenizers.pre_tokenizers import ByteLevel
@@ -128,63 +128,63 @@ from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 
 tokenizer = Tokenizer(BPE())
 
-# Byte-level pre-tokenization
+# 字节级预分词
 tokenizer.pre_tokenizer = ByteLevel()
 tokenizer.decoder = ByteLevelDecoder()
 
-# This handles ALL possible characters, including emojis
+# 这处理所有可能的字符，包括emoji
 text = "Hello 🌍 世界"
 tokens = tokenizer.encode(text).tokens
 ```
 
-**Advantages**:
-- Handles any Unicode character (256 byte coverage)
-- No unknown tokens (worst case: bytes)
-- Used by GPT-2, GPT-3, BART
+**优势**：
+- 处理任何Unicode字符（256字节覆盖）
+- 没有未知token（最坏情况：字节）
+- 被GPT-2、GPT-3、BART使用
 
-**Trade-offs**:
-- Slightly worse compression (bytes vs characters)
-- More tokens for non-ASCII text
+**权衡**：
+- 压缩稍差（字节 vs 字符）
+- 非ASCII文本更多token
 
-### BPE variants
+### BPE变体
 
-**SentencePiece BPE**:
-- Language-independent (no pre-tokenization)
-- Treats input as raw byte stream
-- Used by T5, ALBERT, XLNet
+**SentencePiece BPE**：
+- 语言独立（无预分词）
+- 将输入视为原始字节流
+- 被T5、ALBERT、XLNet使用
 
-**Robust BPE**:
-- Dropout during training (randomly skip merges)
-- More robust tokenization at inference
-- Reduces overfitting to training data
+**Robust BPE**：
+- 训练期间Dropout（随机跳过合并）
+- 推理时分词更稳健
+- 减少对训练数据的过拟合
 
 ## WordPiece
 
-### Algorithm overview
+### 算法概述
 
-WordPiece is similar to BPE but uses a different merge selection criterion.
+WordPiece类似于BPE，但使用不同的合并选择标准。
 
-**Training process**:
-1. Initialize vocabulary with all characters
-2. Count frequency of all token pairs
-3. Score each pair: `score = freq(pair) / (freq(first) × freq(second))`
-4. Merge pair with highest score
-5. Repeat until vocabulary size reached
+**训练过程**：
+1. 用所有字符初始化词表
+2. 计算所有token对的频率
+3. 对每对评分：`score = freq(pair) / (freq(first) × freq(second))`
+4. 合并评分最高的pair
+5. 重复直到达到词表大小
 
-### Why different scoring?
+### 为什么评分不同？
 
-**BPE**: Merges most frequent pairs
-- "aa" appears 100 times → high priority
-- Even if 'a' appears 1000 times alone
+**BPE**：合并最频繁的对
+- "aa"出现100次 → 高优先级
+- 即使'a'单独出现1000次
 
-**WordPiece**: Merges pairs that are semantically related
-- "aa" appears 100 times, 'a' appears 1000 times → low score (100 / (1000 × 1000))
-- "th" appears 50 times, 't' appears 60 times, 'h' appears 55 times → high score (50 / (60 × 55))
-- Prioritizes pairs that appear together more than expected
+**WordPiece**：合并语义相关的对
+- "aa"出现100次，'a'出现1000次 → 低评分（100 / (1000 × 1000)）
+- "th"出现50次，' t'出现60次，'h'出现55次 → 高评分（50 / (60 × 55)）
+- 优先合并一起出现的对
 
-### Step-by-step example
+### 逐步示例
 
-**Corpus**:
+**语料库**：
 ```
 low: 5
 lower: 2
@@ -192,56 +192,56 @@ newest: 6
 widest: 3
 ```
 
-**Iteration 1**:
+**迭代1**：
 ```
-Count frequencies:
+计算频率：
 'e': 11 (lower: 2, newest: 6, widest: 3)
 's': 9
 't': 9
 ...
 
-Count pairs:
+计算对：
 'e' + 's': 9 (newest: 6, widest: 3)
 'es' + 't': 9 (newest: 6, widest: 3)
 ...
 
-Compute scores:
+计算评分：
 score('e' + 's') = 9 / (11 × 9) = 0.091
-score('es' + 't') = 9 / (9 × 9) = 0.111  ← highest score
-score('l' + 'o') = 7 / (7 × 9) = 0.111   ← tied
+score('es' + 't') = 9 / (9 × 9) = 0.111  ← 最高评分
+score('l' + 'o') = 7 / (7 × 9) = 0.111   ← 并列
 
-Choose: 'es' + 't' → 'est' (or 'lo' if tied)
+选择: 'es' + 't' → 'est'（或并列时选'lo'）
 ```
 
-**Key difference**: WordPiece prioritizes rare combinations over frequent ones.
+**关键区别**：WordPiece优先考虑罕见组合而非常见组合。
 
-### Tokenization with WordPiece
+### 使用WordPiece分词
 
-Given vocabulary: `['##e', '##s', '##t', 'l', 'o', 'w', 'new', 'est', 'low']`
+给定词表：`['##e', '##s', '##t', 'l', 'o', 'w', 'new', 'est', 'low']`
 
-Tokenize "lowest":
+分词"lowest"：
 ```
-Step 1: Find longest matching prefix
-'lowest' → 'low' (matches)
+步骤1: 找到最长匹配前缀
+'lowest' → 'low'（匹配）
 
-Step 2: Find longest match for remainder
-'est' → 'est' (matches)
+步骤2: 为剩余部分找最长匹配
+'est' → 'est'（匹配）
 
-Final: ['low', 'est']
+最终: ['low', 'est']
 ```
 
-**If no match**:
+**如果没有匹配**：
 ```
-Tokenize "unknownword":
-'unknownword' → no match
-'unknown' → no match
-'unkn' → no match
-'un' → no match
-'u' → no match
+分词"unknownword"：
+'unknownword' → 无匹配
+'unknown' → 无匹配
+'unkn' → 无匹配
+'un' → 无匹配
+'u' → 无匹配
 → [UNK]
 ```
 
-### Implementation
+### 实现
 
 ```python
 from tokenizers import Tokenizer
@@ -250,78 +250,78 @@ from tokenizers.trainers import WordPieceTrainer
 from tokenizers.normalizers import BertNormalizer
 from tokenizers.pre_tokenizers import BertPreTokenizer
 
-# Initialize BERT-style tokenizer
+# 初始化BERT风格分词器
 tokenizer = Tokenizer(WordPiece(unk_token="[UNK]"))
 
-# Normalization (lowercase, accent stripping)
+# 标准化（小写、去重音）
 tokenizer.normalizer = BertNormalizer(lowercase=True)
 
-# Pre-tokenization (whitespace + punctuation)
+# 预分词（空白 + 标点）
 tokenizer.pre_tokenizer = BertPreTokenizer()
 
-# Configure trainer
+# 配置训练器
 trainer = WordPieceTrainer(
-    vocab_size=30522,  # BERT vocab size
+    vocab_size=30522,  # BERT词表大小
     min_frequency=2,
     special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"],
-    continuing_subword_prefix="##"  # BERT uses ##
+    continuing_subword_prefix="##"  # BERT使用##
 )
 
-# Train
+# 训练
 tokenizer.train_from_iterator(corpus, trainer=trainer)
 
-# Use
+# 使用
 output = tokenizer.encode("Tokenization works great!")
 print(output.tokens)  # ['token', '##ization', 'works', 'great', '!']
 ```
 
-### Subword prefix
+### 子词前缀
 
-**BERT uses `##` prefix**:
+**BERT使用`##`前缀**：
 ```
 "unbelievable" → ['un', '##believ', '##able']
 ```
 
-**Why?**
-- Indicates token is a continuation
-- Allows reconstruction: remove ##, concatenate
-- Helps model distinguish word boundaries
+**为什么？**
+- 表示token是连续的
+- 允许重构：移除##，连接
+- 帮助模型区分词边界
 
-### WordPiece advantages
+### WordPiece优势
 
-**Semantic merges**:
-- Prioritizes meaningful combinations
-- "qu" has high score (always together)
-- "qx" has low score (rare combination)
+**语义合并**：
+- 优先有意义的组合
+- "qu"高评分（总是一起）
+- "qx"低评分（罕见组合）
 
-**Better for morphology**:
-- Captures affixes: un-, -ing, -ed
-- Preserves word stems
+**更适合形态学**：
+- 捕获词缀：un-、-ing、-ed
+- 保留词干
 
-**Trade-offs**:
-- Slower training than BPE
-- More memory (stores vocabulary, not merges)
-- Original implementation not open-source (HF reimplementation)
+**权衡**：
+- 训练比BPE慢
+- 更多内存（存储词表，非合并）
+- 原始实现不开源（HF重新实现）
 
 ## Unigram
 
-### Algorithm overview
+### 算法概述
 
-Unigram works backward: start with large vocabulary, remove tokens.
+Unigram反向工作：从大词表开始，移除token。
 
-**Training process**:
-1. Initialize with large vocabulary (all substrings)
-2. Estimate probability of each token (frequency-based)
-3. For each token, compute loss increase if removed
-4. Remove 10-20% of tokens with lowest loss impact
-5. Re-estimate probabilities
-6. Repeat until desired vocabulary size
+**训练过程**：
+1. 用大词表初始化（所有子串）
+2. 估计每个token的概率（基于频率）
+3. 对于每个token，计算如果移除则损失增加多少
+4. 移除10-20%影响损失最小的token
+5. 重新估计概率
+6. 重复直到达到目标词表大小
 
-### Probabilistic tokenization
+### 概率分词
 
-**Unigram assumption**: Each token is independent.
+**Unigram假设**：每个token是独立的。
 
-Given vocabulary with probabilities:
+给定带概率的词表：
 ```
 P('low') = 0.02
 P('l') = 0.01
@@ -333,37 +333,37 @@ P('s') = 0.015
 P('t') = 0.015
 ```
 
-Tokenize "lowest":
+分词"lowest"：
 ```
-Option 1: ['low', 'est']
+选项1: ['low', 'est']
 P = P('low') × P('est') = 0.02 × 0.03 = 0.0006
 
-Option 2: ['l', 'o', 'w', 'est']
+选项2: ['l', 'o', 'w', 'est']
 P = 0.01 × 0.015 × 0.01 × 0.03 = 0.000000045
 
-Option 3: ['low', 'e', 's', 't']
+选项3: ['low', 'e', 's', 't']
 P = 0.02 × 0.02 × 0.015 × 0.015 = 0.0000009
 
-Choose option 1 (highest probability)
+选择选项1（最高概率）
 ```
 
-### Viterbi algorithm
+### Viterbi算法
 
-Finding best tokenization is expensive (exponential possibilities).
+找到最佳分词是昂贵的（指数级可能性）。
 
-**Viterbi algorithm** (dynamic programming):
+**Viterbi算法**（动态规划）：
 ```python
 def tokenize_viterbi(word, vocab, probs):
     n = len(word)
-    # dp[i] = (best_prob, best_tokens) for word[:i]
+    # dp[i] = (最佳概率, 最佳token) 对于word[:i]
     dp = [{} for _ in range(n + 1)]
-    dp[0] = (0.0, [])  # log probability
+    dp[0] = (0.0, [])  # 对数概率
 
     for i in range(1, n + 1):
         best_prob = float('-inf')
         best_tokens = []
 
-        # Try all possible last tokens
+        # 尝试所有可能的最后token
         for j in range(i):
             token = word[j:i]
             if token in vocab:
@@ -377,181 +377,181 @@ def tokenize_viterbi(word, vocab, probs):
     return dp[n][1]
 ```
 
-**Time complexity**: O(n² × vocab_size) vs O(2^n) brute force
+**时间复杂度**：O(n² × vocab_size) vs O(2^n)暴力搜索
 
-### Implementation
+### 实现
 
 ```python
 from tokenizers import Tokenizer
 from tokenizers.models import Unigram
 from tokenizers.trainers import UnigramTrainer
 
-# Initialize
+# 初始化
 tokenizer = Tokenizer(Unigram())
 
-# Configure trainer
+# 配置训练器
 trainer = UnigramTrainer(
     vocab_size=8000,
     special_tokens=["<unk>", "<s>", "</s>"],
     unk_token="<unk>",
-    max_piece_length=16,      # Max token length
-    n_sub_iterations=2,       # EM iterations
-    shrinking_factor=0.75     # Remove 25% each iteration
+    max_piece_length=16,      # 最大token长度
+    n_sub_iterations=2,       # EM算法迭代
+    shrinking_factor=0.75     # 每次迭代移除25%
 )
 
-# Train
+# 训练
 tokenizer.train_from_iterator(corpus, trainer=trainer)
 
-# Use
+# 使用
 output = tokenizer.encode("Tokenization with Unigram")
 print(output.tokens)  # ['▁Token', 'ization', '▁with', '▁Un', 'igram']
 ```
 
-### Unigram advantages
+### Unigram优势
 
-**Probabilistic**:
-- Multiple valid tokenizations
-- Can sample different tokenizations (data augmentation)
+**概率性**：
+- 多种有效分词
+- 可以采样不同分词（数据增强）
 
-**Subword regularization**:
+**子词正则化**：
 ```python
-# Sample different tokenizations
+# 采样不同分词
 for _ in range(3):
     tokens = tokenizer.encode("tokenization", is_pretokenized=False).tokens
     print(tokens)
 
-# Output (different each time):
+# 输出（每次不同）：
 # ['token', 'ization']
 # ['tok', 'en', 'ization']
 # ['token', 'iz', 'ation']
 ```
 
-**Language-independent**:
-- No word boundaries needed
-- Works for CJK languages (Chinese, Japanese, Korean)
-- Treats input as character stream
+**语言独立**：
+- 不需要词边界
+- 适合CJK语言（中文、日文、韩文）
+- 将输入视为字符流
 
-**Trade-offs**:
-- Slower training (EM algorithm)
-- More hyperparameters
-- Larger model (stores probabilities)
+**权衡**：
+- 训练较慢（EM算法）
+- 更多超参数
+- 模型更大（存储概率）
 
-## Algorithm comparison
+## 算法对比
 
-### Training speed
+### 训练速度
 
-| Algorithm  | Small (10MB) | Medium (100MB) | Large (1GB) |
+| 算法  | 小（10MB） | 中（100MB） | 大（1GB） |
 |------------|--------------|----------------|-------------|
-| BPE        | 10-15 sec    | 1-2 min        | 10-20 min   |
-| WordPiece  | 15-20 sec    | 2-3 min        | 15-30 min   |
-| Unigram    | 20-30 sec    | 3-5 min        | 30-60 min   |
+| BPE        | 10-15秒    | 1-2分钟        | 10-20分钟   |
+| WordPiece  | 15-20秒    | 2-3分钟        | 15-30分钟   |
+| Unigram    | 20-30秒    | 3-5分钟        | 30-60分钟   |
 
-**Tested on**: 16-core CPU, 30k vocab
+**测试环境**：16核CPU，30k词表
 
-### Tokenization quality
+### 分词质量
 
-Tested on English Wikipedia (perplexity measurement):
+在英文Wikipedia上测试（困惑度测量）：
 
-| Algorithm  | Vocab Size | Tokens/Word | Unknown Rate |
+| 算法  | 词表大小 | Tokens/词 | 未知率 |
 |------------|------------|-------------|--------------|
 | BPE        | 30k        | 1.3         | 0.5%         |
 | WordPiece  | 30k        | 1.2         | 1.2%         |
 | Unigram    | 8k         | 1.5         | 0.3%         |
 
-**Key observations**:
-- WordPiece: Slightly better compression
-- BPE: Lower unknown rate
-- Unigram: Smallest vocab, good coverage
+**关键观察**：
+- WordPiece：压缩稍好
+- BPE：未知率更低
+- Unigram：最小词表，良好覆盖
 
-### Compression ratio
+### 压缩比
 
-Characters per token (higher = better compression):
+每token字符数（越高 = 压缩越好）：
 
-| Language | BPE (30k) | WordPiece (30k) | Unigram (8k) |
+| 语言 | BPE（30k） | WordPiece（30k） | Unigram（8k） |
 |----------|-----------|-----------------|--------------|
-| English  | 4.2       | 4.5             | 3.8          |
-| Chinese  | 2.1       | 2.3             | 2.5          |
-| Arabic   | 3.5       | 3.8             | 3.2          |
+| 英语  | 4.2       | 4.5             | 3.8          |
+| 中文  | 2.1       | 2.3             | 2.5          |
+| 阿拉伯语   | 3.5       | 3.8             | 3.2          |
 
-**Best for each**:
-- English: WordPiece
-- Chinese: Unigram (language-independent)
-- Arabic: WordPiece
+**各语言最佳**：
+- 英语：WordPiece
+- 中文：Unigram（语言独立）
+- 阿拉伯语：WordPiece
 
-### Use case recommendations
+### 使用建议
 
-**BPE** - Best for:
-- English language models
-- Code (handles symbols well)
-- Fast training needed
-- **Models**: GPT-2, GPT-3, RoBERTa, BART
+**BPE** - 最佳用于：
+- 英语语言模型
+- 代码（处理符号好）
+- 需要快速训练
+- **模型**：GPT-2、GPT-3、RoBERTa、BART
 
-**WordPiece** - Best for:
-- Masked language modeling (BERT-style)
-- Morphologically rich languages
-- Semantic understanding tasks
-- **Models**: BERT, DistilBERT, ELECTRA
+**WordPiece** - 最佳用于：
+- 掩码语言建模（BERT风格）
+- 形态丰富的语言
+- 语义理解任务
+- **模型**：BERT、DistilBERT、ELECTRA
 
-**Unigram** - Best for:
-- Multilingual models
-- Languages without word boundaries (CJK)
-- Data augmentation via subword regularization
-- **Models**: T5, ALBERT, XLNet (via SentencePiece)
+**Unigram** - 最佳用于：
+- 多语言模型
+- 无词边界的语言（中日韩）
+- 通过子词正则化进行数据增强
+- **模型**：T5、ALBERT、XLNet（通过SentencePiece）
 
-## Advanced topics
+## 高级主题
 
-### Handling rare words
+### 处理罕见词
 
-**BPE approach**:
+**BPE方法**：
 ```
 "antidisestablishmentarianism"
 → ['anti', 'dis', 'establish', 'ment', 'arian', 'ism']
 ```
 
-**WordPiece approach**:
+**WordPiece方法**：
 ```
 "antidisestablishmentarianism"
 → ['anti', '##dis', '##establish', '##ment', '##arian', '##ism']
 ```
 
-**Unigram approach**:
+**Unigram方法**：
 ```
 "antidisestablishmentarianism"
 → ['▁anti', 'dis', 'establish', 'ment', 'arian', 'ism']
 ```
 
-### Handling numbers
+### 处理数字
 
-**Challenge**: Infinite number combinations
+**挑战**：无限数字组合
 
-**BPE solution**: Byte-level (handles any digit sequence)
+**BPE解决方案**：字节级（处理任何数字序列）
 ```python
 tokenizer = Tokenizer(BPE())
 tokenizer.pre_tokenizer = ByteLevel()
 
-# Handles any number
-"123456789" → byte-level tokens
+# 处理任何数字
+"123456789" → 字节级token
 ```
 
-**WordPiece solution**: Digit pre-tokenization
+**WordPiece解决方案**：数字预分词
 ```python
 from tokenizers.pre_tokenizers import Digits
 
-# Split digits individually or as groups
+# 单独或分组分割数字
 tokenizer.pre_tokenizer = Digits(individual_digits=True)
 
 "123" → ['1', '2', '3']
 ```
 
-**Unigram solution**: Learns common number patterns
+**Unigram解决方案**：训练期间学习常见数字模式
 ```python
-# Learns patterns during training
+# 学习模式
 "2023" → ['202', '3'] or ['20', '23']
 ```
 
-### Handling case sensitivity
+### 处理大小写敏感
 
-**Lowercase (BERT)**:
+**小写（BERT）**：
 ```python
 from tokenizers.normalizers import Lowercase
 
@@ -560,94 +560,94 @@ tokenizer.normalizer = Lowercase()
 "Hello WORLD" → "hello world" → ['hello', 'world']
 ```
 
-**Preserve case (GPT-2)**:
+**保留大小写（GPT-2）**：
 ```python
-# No case normalization
+# 无大小写标准化
 tokenizer.normalizer = None
 
 "Hello WORLD" → ['Hello', 'WORLD']
 ```
 
-**Cased tokens (RoBERTa)**:
+**带大小写token（RoBERTa）**：
 ```python
-# Learns separate tokens for different cases
-Vocabulary: ['Hello', 'hello', 'HELLO', 'world', 'WORLD']
+# 学习不同大小写的单独token
+词表: ['Hello', 'hello', 'HELLO', 'world', 'WORLD']
 ```
 
-### Handling emojis and special characters
+### 处理emoji和特殊字符
 
-**Byte-level (GPT-2)**:
+**字节级（GPT-2）**：
 ```python
 tokenizer.pre_tokenizer = ByteLevel()
 
-"Hello 🌍 👋" → byte-level representation (always works)
+"Hello 🌍 👋" → 字节级表示（总是有效）
 ```
 
-**Unicode normalization**:
+**Unicode标准化**：
 ```python
 from tokenizers.normalizers import NFKC
 
 tokenizer.normalizer = NFKC()
 
-"é" (composed) ↔ "é" (decomposed) → normalized to one form
+"é"（组合）↔ "é"（分解）→ 标准化为一种形式
 ```
 
-## Troubleshooting
+## 故障排除
 
-### Issue: Poor subword splitting
+### 问题：子词分割差
 
-**Symptom**:
+**症状**：
 ```
-"running" → ['r', 'u', 'n', 'n', 'i', 'n', 'g']  (too granular)
-```
-
-**Solutions**:
-1. Increase vocabulary size
-2. Train longer (more merge iterations)
-3. Lower `min_frequency` threshold
-
-### Issue: Too many unknown tokens
-
-**Symptom**:
-```
-5% of tokens are [UNK]
+"running" → ['r', 'u', 'n', 'n', 'i', 'n', 'g']  (太细粒度)
 ```
 
-**Solutions**:
-1. Increase vocabulary size
-2. Use byte-level BPE (no UNK possible)
-3. Verify training corpus is representative
+**解决方案**：
+1. 增加词表大小
+2. 训练更久（更多合并迭代）
+3. 降低`min_frequency`阈值
 
-### Issue: Inconsistent tokenization
+### 问题：太多未知token
 
-**Symptom**:
+**症状**：
+```
+5%的token是[UNK]
+```
+
+**解决方案**：
+1. 增加词表大小
+2. 使用字节级BPE（不可能UNK）
+3. 验证训练语料有代表性
+
+### 问题：分词不一致
+
+**症状**：
 ```
 "running" → ['run', 'ning']
 "runner" → ['r', 'u', 'n', 'n', 'e', 'r']
 ```
 
-**Solutions**:
-1. Check normalization consistency
-2. Ensure pre-tokenization is deterministic
-3. Use Unigram for probabilistic variance
+**解决方案**：
+1. 检查标准化一致性
+2. 确保预分词是确定性的
+3. 使用Unigram获得概率方差
 
-## Best practices
+## 最佳实践
 
-1. **Match algorithm to model architecture**:
-   - BERT-style → WordPiece
-   - GPT-style → BPE
-   - T5-style → Unigram
+1. **匹配算法到模型架构**：
+   - BERT风格 → WordPiece
+   - GPT风格 → BPE
+   - T5风格 → Unigram
 
-2. **Use byte-level for multilingual**:
-   - Handles any Unicode
-   - No unknown tokens
+2. **对多语言使用字节级**：
+   - 处理任何Unicode
+   - 无未知token
 
-3. **Test on representative data**:
-   - Measure compression ratio
-   - Check unknown token rate
-   - Inspect sample tokenizations
+3. **在代表性数据上测试**：
+   - 测量压缩比
+   - 检查未知token率
+   - 检查样本分词
 
-4. **Version control tokenizers**:
-   - Save with model
-   - Document special tokens
-   - Track vocabulary changes
+4. **版本控制分词器**：
+   - 与模型一起保存
+   - 记录特殊token
+   - 跟踪词表变化

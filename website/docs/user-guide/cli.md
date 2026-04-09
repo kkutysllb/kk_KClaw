@@ -1,132 +1,132 @@
 ---
 sidebar_position: 1
-title: "CLI Interface"
-description: "Master the KClaw Agent terminal interface — commands, keybindings, personalities, and more"
+title: "CLI 界面"
+description: "掌握 KClaw Agent 终端界面——命令、键绑定、人格等"
 ---
 
-# CLI Interface
+# CLI 界面
 
-KClaw Agent's CLI is a full terminal user interface (TUI) — not a web UI. It features multiline editing, slash-command autocomplete, conversation history, interrupt-and-redirect, and streaming tool output. Built for people who live in the terminal.
+KClaw Agent 的 CLI 是一个完整的终端用户界面（TUI）——不是 Web UI。它具有多行编辑、斜杠命令自动完成、对话历史、中断和重定向以及流式工具输出。为在终端中工作的人构建。
 
-## Running the CLI
+## 运行 CLI
 
 ```bash
-# Start an interactive session (default)
+# 启动交互式会话（默认）
 kclaw
 
-# Single query mode (non-interactive)
-kclaw chat -q "Hello"
+# 单查询模式（非交互式）
+kclaw chat -q "你好"
 
-# With a specific model
+# 使用特定模型
 kclaw chat --model "anthropic/claude-sonnet-4"
 
-# With a specific provider
-kclaw chat --provider nous        # Use Nous Portal
-kclaw chat --provider openrouter  # Force OpenRouter
+# 使用特定提供商
+kclaw chat --provider nous        # 使用 Nous Portal
+kclaw chat --provider openrouter  # 强制使用 OpenRouter
 
-# With specific toolsets
+# 使用特定工具集
 kclaw chat --toolsets "web,terminal,skills"
 
-# Start with one or more skills preloaded
+# 启动时预加载一个或多个技能
 kclaw -s kclaw-dev,github-auth
-kclaw chat -s github-pr-workflow -q "open a draft PR"
+kclaw chat -s github-pr-workflow -q "打开一个草稿 PR"
 
-# Resume previous sessions
-kclaw --continue             # Resume the most recent CLI session (-c)
-kclaw --resume <session_id>  # Resume a specific session by ID (-r)
+# 恢复上一个会话
+kclaw --continue             # 恢复最近的 CLI 会话（-c）
+kclaw --resume <session_id>  # 通过 ID 恢复特定会话（-r）
 
-# Verbose mode (debug output)
+# 详细模式（调试输出）
 kclaw chat --verbose
 
-# Isolated git worktree (for running multiple agents in parallel)
-kclaw -w                         # Interactive mode in worktree
-kclaw -w -q "Fix issue #123"     # Single query in worktree
+# 隔离的 git worktree（用于并行运行多个代理）
+kclaw -w                         # 在 worktree 中的交互模式
+kclaw -w -q "修复问题 #123"     # 在 worktree 中的单查询
 ```
 
-## Interface Layout
+## 界面布局
 
-<img className="docs-terminal-figure" src="/img/docs/cli-layout.svg" alt="Stylized preview of the KClaw CLI layout showing the banner, conversation area, and fixed input prompt." />
-<p className="docs-figure-caption">The KClaw CLI banner, conversation stream, and fixed input prompt rendered as a stable docs figure instead of fragile text art.</p>
+<img className="docs-terminal-figure" src="/img/docs/cli-layout.svg" alt="KClaw CLI 布局的样式化预览，显示横幅、对话区域和固定输入提示。" />
+<p className="docs-figure-caption">KClaw CLI 横幅、对话流和固定输入提示渲染为稳定的文档图形，而非脆弱的文本艺术。</p>
 
-The welcome banner shows your model, terminal backend, working directory, available tools, and installed skills at a glance.
+欢迎横幅一目了然地显示您的模型、终端后端、工作目录、可用工具和已安装技能。
 
-### Status Bar
+### 状态栏
 
-A persistent status bar sits above the input area, updating in real time:
+输入区域上方有一个持久状态栏，实时更新：
 
 ```
  ⚕ claude-sonnet-4-20250514 │ 12.4K/200K │ [██████░░░░] 6% │ $0.06 │ 15m
 ```
 
-| Element | Description |
+| 元素 | 描述 |
 |---------|-------------|
-| Model name | Current model (truncated if longer than 26 chars) |
-| Token count | Context tokens used / max context window |
-| Context bar | Visual fill indicator with color-coded thresholds |
-| Cost | Estimated session cost (or `n/a` for unknown/zero-priced models) |
-| Duration | Elapsed session time |
+| 模型名称 | 当前模型（如果超过 26 个字符则截断） |
+| 令牌计数 | 已使用/最大上下文窗口的上下文令牌 |
+| 上下文栏 | 带颜色编码阈值的可视化填充指示器 |
+| 成本 | 估计的会话成本（对于未知/零价格模型为 `n/a`） |
+| 持续时间 | 经过的会话时间 |
 
-The bar adapts to terminal width — full layout at ≥ 76 columns, compact at 52–75, minimal (model + duration only) below 52.
+栏适应终端宽度——在 ≥76 列时完整布局，在 52-75 列时紧凑，在 52 列以下最小（仅模型和持续时间）。
 
-**Context color coding:**
+**上下文颜色编码：**
 
-| Color | Threshold | Meaning |
+| 颜色 | 阈值 | 含义 |
 |-------|-----------|---------|
-| Green | < 50% | Plenty of room |
-| Yellow | 50–80% | Getting full |
-| Orange | 80–95% | Approaching limit |
-| Red | ≥ 95% | Near overflow — consider `/compress` |
+| 绿色 | < 50% | 空间充足 |
+| 黄色 | 50-80% | 越来越满 |
+| 橙色 | 80-95% | 接近限制 |
+| 红色 | ≥ 95% | 接近溢出——考虑 `/compress` |
 
-Use `/usage` for a detailed breakdown including per-category costs (input vs output tokens).
+使用 `/usage` 获取包括按类别成本（输入 vs 输出令牌）的详细细分。
 
-### Session Resume Display
+### 会话恢复显示
 
-When resuming a previous session (`kclaw -c` or `kclaw --resume <id>`), a "Previous Conversation" panel appears between the banner and the input prompt, showing a compact recap of the conversation history. See [Sessions — Conversation Recap on Resume](sessions.md#conversation-recap-on-resume) for details and configuration.
+恢复上一个会话时（`kclaw -c` 或 `kclaw --resume <id>`），横幅和输入提示之间会出现"上一个对话"面板，显示对话历史的紧凑摘要。请参阅[会话——恢复时的对话摘要](sessions.md#conversation-recap-on-resume)了解详细信息和配置。
 
-## Keybindings
+## 键绑定
 
-| Key | Action |
+| 键 | 操作 |
 |-----|--------|
-| `Enter` | Send message |
-| `Alt+Enter` or `Ctrl+J` | New line (multi-line input) |
-| `Alt+V` | Paste an image from the clipboard when supported by the terminal |
-| `Ctrl+V` | Paste text and opportunistically attach clipboard images |
-| `Ctrl+B` | Start/stop voice recording when voice mode is enabled (`voice.record_key`, default: `ctrl+b`) |
-| `Ctrl+C` | Interrupt agent (double-press within 2s to force exit) |
-| `Ctrl+D` | Exit |
-| `Ctrl+Z` | Suspend KClaw to background (Unix only). Run `fg` in the shell to resume. |
-| `Tab` | Accept auto-suggestion (ghost text) or autocomplete slash commands |
+| `Enter` | 发送消息 |
+| `Alt+Enter` 或 `Ctrl+J` | 新行（多行输入） |
+| `Alt+V` | 从剪贴板粘贴图像（当终端支持时） |
+| `Ctrl+V` | 粘贴文本并有条件地附加剪贴板图像 |
+| `Ctrl+B` | 启用语音模式时开始/停止语音录制（`voice.record_key`，默认：`ctrl+b`） |
+| `Ctrl+C` | 中断代理（2 秒内双按强制退出） |
+| `Ctrl+D` | 退出 |
+| `Ctrl+Z` | 将 KClaw 挂起到后台（仅 Unix）。在 shell 中运行 `fg` 恢复。 |
+| `Tab` | 接受自动建议（幽灵文本）或自动完成斜杠命令 |
 
-## Slash Commands
+## 斜杠命令
 
-Type `/` to see the autocomplete dropdown. KClaw supports a large set of CLI slash commands, dynamic skill commands, and user-defined quick commands.
+输入 `/` 查看自动完成下拉列表。KClaw 支持大量 CLI 斜杠命令、动态技能命令和用户定义的快速命令。
 
-Common examples:
+常见示例：
 
-| Command | Description |
+| 命令 | 描述 |
 |---------|-------------|
-| `/help` | Show command help |
-| `/model` | Show or change the current model |
-| `/tools` | List currently available tools |
-| `/skills browse` | Browse the skills hub and official optional skills |
-| `/background <prompt>` | Run a prompt in a separate background session |
-| `/skin` | Show or switch the active CLI skin |
-| `/voice on` | Enable CLI voice mode (press `Ctrl+B` to record) |
-| `/voice tts` | Toggle spoken playback for KClaw replies |
-| `/reasoning high` | Increase reasoning effort |
-| `/title My Session` | Name the current session |
+| `/help` | 显示命令帮助 |
+| `/model` | 显示或更改当前模型 |
+| `/tools` | 列出当前可用的工具 |
+| `/skills browse` | 浏览技能中心和官方可选技能 |
+| `/background <prompt>` | 在单独的后台会话中运行提示 |
+| `/skin` | 显示或切换活动 CLI 皮肤 |
+| `/voice on` | 启用 CLI 语音模式（按 `Ctrl+B` 录制） |
+| `/voice tts` | 切换 KClaw 回复的语音播放 |
+| `/reasoning high` | 增加推理努力 |
+| `/title My Session` | 命名当前会话 |
 
-For the full built-in CLI and messaging lists, see [Slash Commands Reference](../reference/slash-commands.md).
+有关完整的内置 CLI 和消息传递列表，请参阅[斜杠命令参考](../reference/slash-commands.md)。
 
-For setup, providers, silence tuning, and messaging/Discord voice usage, see [Voice Mode](features/voice-mode.md).
+有关设置、提供商、沉默调整和消息/Discord 语音使用，请参阅[语音模式](features/voice-mode.md)。
 
 :::tip
-Commands are case-insensitive — `/HELP` works the same as `/help`. Installed skills also become slash commands automatically.
+命令不区分大小写——`/HELP` 和 `/help` 一样工作。已安装的技能也会自动成为斜杠命令。
 :::
 
-## Quick Commands
+## 快速命令
 
-You can define custom commands that run shell commands instantly without invoking the LLM. These work in both the CLI and messaging platforms (Telegram, Discord, etc.).
+您可以定义在调用 LLM 时立即运行 shell 命令的自定义命令。这些在 CLI 和消息平台（Telegram、Discord 等）中都有效。
 
 ```yaml
 # ~/.kclaw/config.yaml
@@ -139,35 +139,35 @@ quick_commands:
     command: nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader
 ```
 
-Then type `/status` or `/gpu` in any chat. See the [Configuration guide](/docs/user-guide/configuration#quick-commands) for more examples.
+然后在任何聊天中输入 `/status` 或 `/gpu`。有关更多示例，请参阅[配置指南](/docs/user-guide/configuration#quick-commands)。
 
-## Preloading Skills at Launch
+## 启动时预加载技能
 
-If you already know which skills you want active for the session, pass them at launch time:
+如果您已经知道会话想要激活哪些技能，请在启动时传递它们：
 
 ```bash
 kclaw -s kclaw-dev,github-auth
 kclaw chat -s github-pr-workflow -s github-auth
 ```
 
-KClaw loads each named skill into the session prompt before the first turn. The same flag works in interactive mode and single-query mode.
+KClaw 在第一轮之前将每个命名技能加载到会话提示中。相同标志在交互模式和单查询模式下都有效。
 
-## Skill Slash Commands
+## 技能斜杠命令
 
-Every installed skill in `~/.kclaw/skills/` is automatically registered as a slash command. The skill name becomes the command:
+`~/.kclaw/skills/` 中的每个已安装技能会自动注册为斜杠命令。技能名称成为命令：
 
 ```
-/gif-search funny cats
-/axolotl help me fine-tune Llama 3 on my dataset
-/github-pr-workflow create a PR for the auth refactor
+/gif-search 有趣的猫
+/axolotl 帮助我在我的数据集上微调 Llama 3
+/github-pr-workflow 为身份验证重构创建一个 PR
 
-# Just the skill name loads it and lets the agent ask what you need:
+# 只需技能名称加载它，让代理询问您需要什么：
 /excalidraw
 ```
 
-## Personalities
+## 人格
 
-Set a predefined personality to change the agent's tone:
+设置预定义人格以更改代理的语气：
 
 ```
 /personality pirate
@@ -175,215 +175,215 @@ Set a predefined personality to change the agent's tone:
 /personality concise
 ```
 
-Built-in personalities include: `helpful`, `concise`, `technical`, `creative`, `teacher`, `kawaii`, `catgirl`, `pirate`, `shakespeare`, `surfer`, `noir`, `uwu`, `philosopher`, `hype`.
+内置人格包括：`helpful`、`concise`、`technical`、`creative`、`teacher`、`kawaii`、`catgirl`、`pirate`、`shakespeare`、`surfer`、`noir`、`uwu`、`philosopher`、`hype`。
 
-You can also define custom personalities in `~/.kclaw/config.yaml`:
+您也可以在 `~/.kclaw/config.yaml` 中定义自定义人格：
 
 ```yaml
 personalities:
-  helpful: "You are a helpful, friendly AI assistant."
-  kawaii: "You are a kawaii assistant! Use cute expressions..."
-  pirate: "Arrr! Ye be talkin' to Captain KClaw..."
-  # Add your own!
+  helpful: "你是一个有用、友好的 AI 助手。"
+  kawaii: "你是一个可爱的助手！使用可爱的表情..."
+  pirate: "啊！你在和船长 KClaw 说话..."
+  # 添加你自己的！
 ```
 
-## Multi-line Input
+## 多行输入
 
-There are two ways to enter multi-line messages:
+有两种方式输入多行消息：
 
-1. **`Alt+Enter` or `Ctrl+J`** — inserts a new line
-2. **Backslash continuation** — end a line with `\` to continue:
+1. **`Alt+Enter` 或 `Ctrl+J`** — 插入新行
+2. **反斜杠继续** — 以 `\` 结束一行以继续：
 
 ```
-❯ Write a function that:\
-  1. Takes a list of numbers\
-  2. Returns the sum
+❯ 写一个函数：\
+  1. 获取数字列表\
+  2. 返回总和
 ```
 
 :::info
-Pasting multi-line text is supported — use `Alt+Enter` or `Ctrl+J` to insert newlines, or simply paste content directly.
+支持粘贴多行文本——使用 `Alt+Enter` 或 `Ctrl+J` 插入新行，或直接粘贴内容。
 :::
 
-## Interrupting the Agent
+## 中断代理
 
-You can interrupt the agent at any point:
+您可以在任何时候中断代理：
 
-- **Type a new message + Enter** while the agent is working — it interrupts and processes your new instructions
-- **`Ctrl+C`** — interrupt the current operation (press twice within 2s to force exit)
-- In-progress terminal commands are killed immediately (SIGTERM, then SIGKILL after 1s)
-- Multiple messages typed during interrupt are combined into one prompt
+- **在代理工作时输入新消息 + Enter**——它中断并处理您的新指令
+- **`Ctrl+C`**——中断当前操作（2 秒内双按强制退出）
+- 正在进行的终端命令立即终止（SIGTERM，然后 1 秒后 SIGKILL）
+- 在中断期间输入的多条消息合并为一个提示
 
-### Busy Input Mode
+### 忙碌输入模式
 
-The `display.busy_input_mode` config key controls what happens when you press Enter while the agent is working:
+`display.busy_input_mode` 配置键控制当您在代理工作时按 Enter 时发生的情况：
 
-| Mode | Behavior |
+| 模式 | 行为 |
 |------|----------|
-| `"interrupt"` (default) | Your message interrupts the current operation and is processed immediately |
-| `"queue"` | Your message is silently queued and sent as the next turn after the agent finishes |
+| `"interrupt"`（默认） | 您的消息中断当前操作并立即处理 |
+| `"queue"` | 您的消息被静默排队，并在代理完成后作为下一轮发送 |
 
 ```yaml
 # ~/.kclaw/config.yaml
 display:
-  busy_input_mode: "queue"   # or "interrupt" (default)
+  busy_input_mode: "queue"   # 或 "interrupt"（默认）
 ```
 
-Queue mode is useful when you want to prepare follow-up messages without accidentally canceling in-flight work. Unknown values fall back to `"interrupt"`.
+队列模式在您想要准备后续消息而不必意外取消进行中的工作时很有用。未知值回退到 `"interrupt"`。
 
-### Suspending to Background
+### 挂起到后台
 
-On Unix systems, press **`Ctrl+Z`** to suspend KClaw to the background — just like any terminal process. The shell prints a confirmation:
+在 Unix 系统上，按 **`Ctrl+Z`** 将 KClaw 挂起到后台——就像任何终端进程一样。shell 打印确认：
 
 ```
-KClaw Agent has been suspended. Run `fg` to bring KClaw Agent back.
+KClaw Agent 已挂起。运行 `fg` 恢复 KClaw Agent。
 ```
 
-Type `fg` in your shell to resume the session exactly where you left off. This is not supported on Windows.
+在 shell 中输入 `fg` 以精确恢复您离开的地方。不支持 Windows。
 
-## Tool Progress Display
+## 工具进度显示
 
-The CLI shows animated feedback as the agent works:
+CLI 在代理工作时显示动画反馈：
 
-**Thinking animation** (during API calls):
+**思考动画**（API 调用期间）：
 ```
-  ◜ (｡•́︿•̀｡) pondering... (1.2s)
-  ◠ (⊙_⊙) contemplating... (2.4s)
-  ✧٩(ˊᗜˋ*)و✧ got it! (3.1s)
+  ◜ (｡•́︿•̀｡) 思考中... (1.2s)
+  ◠ (⊙_⊙) 思考中... (2.4s)
+  ✧٩(ˊᗜˋ*)و ✧ 明白了！ (3.1s)
 ```
 
-**Tool execution feed:**
+**工具执行反馈：**
 ```
-  ┊ 💻 terminal `ls -la` (0.3s)
+  ┊ 💻 终端 `ls -la` (0.3s)
   ┊ 🔍 web_search (1.2s)
   ┊ 📄 web_extract (2.1s)
 ```
 
-Cycle through display modes with `/verbose`: `off → new → all → verbose`. This command can also be enabled for messaging platforms — see [configuration](/docs/user-guide/configuration#display-settings).
+用 `/verbose` 循环切换显示模式：`关闭 → 新 → 全部 → 详细`。此命令也可以为消息平台启用——请参阅[配置](/docs/user-guide/configuration#display-settings)。
 
-### Tool Preview Length
+### 工具预览长度
 
-The `display.tool_preview_length` config key controls the maximum number of characters shown in tool call preview lines (e.g. file paths, terminal commands). The default is `0`, which means no limit — full paths and commands are shown.
+`display.tool_preview_length` 配置键控制工具调用预览行中显示的最大字符数（例如文件路径、终端命令）。默认值为 `0`，表示无限制——显示完整路径和命令。
 
 ```yaml
 # ~/.kclaw/config.yaml
 display:
-  tool_preview_length: 80   # Truncate tool previews to 80 chars (0 = no limit)
+  tool_preview_length: 80   # 将工具预览截断为 80 个字符（0 = 无限制）
 ```
 
-This is useful on narrow terminals or when tool arguments contain very long file paths.
+这在窄终端上或当工具参数包含非常长的文件路径时很有用。
 
-## Session Management
+## 会话管理
 
-### Resuming Sessions
+### 恢复会话
 
-When you exit a CLI session, a resume command is printed:
+当您退出 CLI 会话时，会打印恢复命令：
 
 ```
-Resume this session with:
+恢复此会话：
   kclaw --resume 20260225_143052_a1b2c3
 
-Session:        20260225_143052_a1b2c3
-Duration:       12m 34s
-Messages:       28 (5 user, 18 tool calls)
+会话：        20260225_143052_a1b2c3
+持续时间：       12m 34s
+消息：       28（5 个用户，18 个工具调用）
 ```
 
-Resume options:
+恢复选项：
 
 ```bash
-kclaw --continue                          # Resume the most recent CLI session
-kclaw -c                                  # Short form
-kclaw -c "my project"                     # Resume a named session (latest in lineage)
-kclaw --resume 20260225_143052_a1b2c3     # Resume a specific session by ID
-kclaw --resume "refactoring auth"         # Resume by title
-kclaw -r 20260225_143052_a1b2c3           # Short form
+kclaw --continue                          # 恢复最近的 CLI 会话
+kclaw -c                                  # 简短形式
+kclaw -c "my project"                     # 恢复命名会话（最新世系）
+kclaw --resume 20260225_143052_a1b2c3     # 通过 ID 恢复特定会话
+kclaw --resume "refactoring auth"         # 通过标题恢复
+kclaw -r 20260225_143052_a1b2c3           # 简短形式
 ```
 
-Resuming restores the full conversation history from SQLite. The agent sees all previous messages, tool calls, and responses — just as if you never left.
+恢复从 SQLite 恢复完整对话历史。代理看到所有先前的消息、工具调用和响应——就像您从未离开过一样。
 
-Use `/title My Session Name` inside a chat to name the current session, or `kclaw sessions rename <id> <title>` from the command line. Use `kclaw sessions list` to browse past sessions.
+在聊天中使用 `/title My Session Name` 命名当前会话，或从命令行使用 `kclaw sessions rename <id> <title>`。使用 `kclaw sessions list` 浏览过去的会话。
 
-### Session Storage
+### 会话存储
 
-CLI sessions are stored in KClaw's SQLite state database under `~/.kclaw/state.db`. The database keeps:
+CLI 会话存储在 `~/.kclaw/state.db` 中的 KClaw SQLite 状态数据库中。数据库保留：
 
-- session metadata (ID, title, timestamps, token counters)
-- message history
-- lineage across compressed/resumed sessions
-- full-text search indexes used by `session_search`
+- 会话元数据（ID、标题、时间戳、令牌计数器）
+- 消息历史
+- 压缩/恢复会话的世系
+- `session_search` 使用的全文搜索索引
 
-Some messaging adapters also keep per-platform transcript files alongside the database, but the CLI itself resumes from the SQLite session store.
+一些消息适配器也在数据库旁边保留每个平台的转录文件，但 CLI 本身从 SQLite 会话存储恢复。
 
-### Context Compression
+### 上下文压缩
 
-Long conversations are automatically summarized when approaching context limits:
+当接近上下文限制时，长对话会自动摘要：
 
 ```yaml
-# In ~/.kclaw/config.yaml
+# 在 ~/.kclaw/config.yaml
 compression:
   enabled: true
-  threshold: 0.50    # Compress at 50% of context limit by default
-  summary_model: "google/gemini-3-flash-preview"  # Model used for summarization
+  threshold: 0.50    # 默认在上下文限制的 50% 时压缩
+  summary_model: "google/gemini-3-flash-preview"  # 用于摘要的模型
 ```
 
-When compression triggers, middle turns are summarized while the first 3 and last 4 turns are always preserved.
+当压缩触发时，中间轮次被摘要，而前 3 轮和后 4 轮始终保留。
 
-## Background Sessions
+## 后台会话
 
-Run a prompt in a separate background session while continuing to use the CLI for other work:
-
-```
-/background Analyze the logs in /var/log and summarize any errors from today
-```
-
-KClaw immediately confirms the task and gives you back the prompt:
+在单独的后台会话中运行提示，同时继续使用 CLI 进行其他工作：
 
 ```
-🔄 Background task #1 started: "Analyze the logs in /var/log and summarize..."
-   Task ID: bg_143022_a1b2c3
+/background 分析 /var/log 中的日志并总结今天的任何错误
 ```
 
-### How It Works
-
-Each `/background` prompt spawns a **completely separate agent session** in a daemon thread:
-
-- **Isolated conversation** — the background agent has no knowledge of your current session's history. It receives only the prompt you provide.
-- **Same configuration** — the background agent inherits your model, provider, toolsets, reasoning settings, and fallback model from the current session.
-- **Non-blocking** — your foreground session stays fully interactive. You can chat, run commands, or even start more background tasks.
-- **Multiple tasks** — you can run several background tasks simultaneously. Each gets a numbered ID.
-
-### Results
-
-When a background task finishes, the result appears as a panel in your terminal:
+KClaw 立即确认任务并返回提示：
 
 ```
-╭─ ⚕ KClaw (background #1) ──────────────────────────────────╮
-│ Found 3 errors in syslog from today:                         │
-│ 1. OOM killer invoked at 03:22 — killed process nginx        │
-│ 2. Disk I/O error on /dev/sda1 at 07:15                      │
-│ 3. Failed SSH login attempts from 192.168.1.50 at 14:30      │
-╰──────────────────────────────────────────────────────────────╯
+🔄 后台任务 #1 已启动："分析 /var/log 中的日志并总结..."
+   任务 ID：bg_143022_a1b2c3
 ```
 
-If the task fails, you'll see an error notification instead. If `display.bell_on_complete` is enabled in your config, the terminal bell rings when the task finishes.
+### 工作原理
 
-### Use Cases
+每个 `/background` 提示生成一个**完全独立的代理会话**在守护线程中：
 
-- **Long-running research** — "/background research the latest developments in quantum error correction" while you work on code
-- **File processing** — "/background analyze all Python files in this repo and list any security issues" while you continue a conversation
-- **Parallel investigations** — start multiple background tasks to explore different angles simultaneously
+- **隔离对话** — 后台代理不知道您当前会话的历史。它仅接收您提供的提示。
+- **相同配置** — 后台代理从当前会话继承您的模型、提供商、工具集、推理设置和回退模型。
+- **非阻塞** — 您的前台会话保持完全交互式。您可以聊天、运行命令，甚至启动更多后台任务。
+- **多个任务** — 您可以同时运行多个后台任务。每个获得一个编号 ID。
+
+### 结果
+
+当后台任务完成时，结果显示为终端中的面板：
+
+```
+╭─ ⚕ KClaw（后台 #1）─────────────────────────────────╮
+│ 在今天的 syslog 中发现 3 个错误：                         │
+│ 1. OOM killer 在 03:22 调用——杀死进程 nginx        │
+│ 2. /dev/sda1 在 07:15 磁盘 I/O 错误                  │
+│ 3. 14:30 时来自 192.168.1.50 的失败 SSH 登录尝试    │
+╰──────────────────────────────────────────────────────────╯
+```
+
+如果任务失败，您会看到错误通知。如果在您的配置中启用了 `display.bell_on_complete`，任务完成时终端铃声会响。
+
+### 用例
+
+- **长时间运行的研究** — "/background 研究量子纠错的最新发展" 而您处理代码
+- **文件处理** — "/background 分析此仓库中的所有 Python 文件并列出任何安全问题" 而您继续对话
+- **并行调查** — 启动多个后台任务同时探索不同角度
 
 :::info
-Background sessions do not appear in your main conversation history. They are standalone sessions with their own task ID (e.g., `bg_143022_a1b2c3`).
+后台会话不会出现在您的主要对话历史中。它们是具有自己任务 ID（例如 `bg_143022_a1b2c3`）的独立会话。
 :::
 
-## Quiet Mode
+## 安静模式
 
-By default, the CLI runs in quiet mode which:
-- Suppresses verbose logging from tools
-- Enables kawaii-style animated feedback
-- Keeps output clean and user-friendly
+默认情况下，CLI 以安静模式运行：
+- 抑制工具的详细日志
+- 启用可爱风格的动画反馈
+- 保持输出干净和用户友好
 
-For debug output:
+用于调试输出：
 ```bash
 kclaw chat --verbose
 ```

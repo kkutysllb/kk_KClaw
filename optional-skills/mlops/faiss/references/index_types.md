@@ -1,181 +1,186 @@
-# FAISS Index Types Guide
+---
+name: index_types
+description: FAISS索引类型完整指南，涵盖Flat、IVF、HNSW、PQ等索引类型的选择和使用。
+---
 
-Complete guide to choosing and using FAISS index types.
+# FAISS索引类型指南
 
-## Index selection guide
+选择和使用FAISS索引类型的完整指南。
 
-| Dataset Size | Index Type | Training | Accuracy | Speed |
+## 索引选择指南
+
+| 数据集大小 | 索引类型 | 训练 | 准确性 | 速度 |
 |--------------|------------|----------|----------|-------|
-| < 10K | Flat | No | 100% | Slow |
-| 10K-1M | IVF | Yes | 95-99% | Fast |
-| 1M-10M | HNSW | No | 99% | Fastest |
-| > 10M | IVF+PQ | Yes | 90-95% | Fast, low memory |
+| < 10K | Flat | 否 | 100% | 慢 |
+| 10K-1M | IVF | 是 | 95-99% | 快 |
+| 1M-10M | HNSW | 否 | 99% | 最快 |
+| > 10M | IVF+PQ | 是 | 90-95% | 快，低内存 |
 
-## Flat indices (exact search)
+## Flat索引（精确搜索）
 
-### IndexFlatL2 - L2 (Euclidean) distance
+### IndexFlatL2 - L2（欧几里得）距离
 
 ```python
 import faiss
 import numpy as np
 
-d = 128  # Dimension
+d = 128  # 维度
 index = faiss.IndexFlatL2(d)
 
-# Add vectors
+# 添加向量
 vectors = np.random.random((1000, d)).astype('float32')
 index.add(vectors)
 
-# Search
+# 搜索
 k = 5
 query = np.random.random((1, d)).astype('float32')
 distances, indices = index.search(query, k)
 ```
 
-**Use when:**
-- Dataset < 10,000 vectors
-- Need 100% accuracy
-- Serving as baseline
+**使用场景：**
+- 数据集 < 10,000个向量
+- 需要100%准确性
+- 作为基准对比
 
-### IndexFlatIP - Inner product (cosine similarity)
+### IndexFlatIP - 内积（余弦相似度）
 
 ```python
-# For cosine similarity, normalize vectors first
+# 对于余弦相似度，先归一化向量
 import faiss
 
 d = 128
 index = faiss.IndexFlatIP(d)
 
-# Normalize vectors (required for cosine similarity)
+# 归一化向量（余弦相似度必需）
 faiss.normalize_L2(vectors)
 index.add(vectors)
 
-# Search
+# 搜索
 faiss.normalize_L2(query)
 distances, indices = index.search(query, k)
 ```
 
-**Use when:**
-- Need cosine similarity
-- Recommendation systems
-- Text embeddings
+**使用场景：**
+- 需要余弦相似度
+- 推荐系统
+- 文本嵌入
 
-## IVF indices (inverted file)
+## IVF索引（倒排文件）
 
-### IndexIVFFlat - Cluster-based search
+### IndexIVFFlat - 基于聚类的搜索
 
 ```python
-# Create quantizer
+# 创建量化器
 quantizer = faiss.IndexFlatL2(d)
 
-# Create IVF index with 100 clusters
-nlist = 100  # Number of clusters
+# 创建带100个聚类的IVF索引
+nlist = 100  # 聚类数量
 index = faiss.IndexIVFFlat(quantizer, d, nlist)
 
-# Train on data (required!)
+# 在数据上训练（必需！）
 index.train(vectors)
 
-# Add vectors
+# 添加向量
 index.add(vectors)
 
-# Search (nprobe = clusters to search)
-index.nprobe = 10  # Search 10 closest clusters
+# 搜索（nprobe = 要搜索的聚类数）
+index.nprobe = 10  # 搜索最近的10个聚类
 distances, indices = index.search(query, k)
 ```
 
-**Parameters:**
-- `nlist`: Number of clusters (√N to 4√N recommended)
-- `nprobe`: Clusters to search (1-nlist, higher = more accurate)
+**参数：**
+- `nlist`：聚类数量（推荐√N到4√N）
+- `nprobe`：要搜索的聚类数（1到nlist，越高越准确）
 
-**Use when:**
-- Dataset 10K-1M vectors
-- Need fast approximate search
-- Can afford training time
+**使用场景：**
+- 数据集10K-1M个向量
+- 需要快速近似搜索
+- 可以承受训练时间
 
-### Tuning nprobe
+### 调整nprobe
 
 ```python
-# Test different nprobe values
+# 测试不同的nprobe值
 for nprobe in [1, 5, 10, 20, 50]:
     index.nprobe = nprobe
     distances, indices = index.search(query, k)
-    # Measure recall/speed trade-off
+    # 测量召回率/速度权衡
 ```
 
-**Guidelines:**
-- `nprobe=1`: Fastest, ~50% recall
-- `nprobe=10`: Good balance, ~95% recall
-- `nprobe=nlist`: Exact search (same as Flat)
+**指南：**
+- `nprobe=1`：最快，约50%召回率
+- `nprobe=10`：良好平衡，约95%召回率
+- `nprobe=nlist`：精确搜索（与Flat相同）
 
-## HNSW indices (graph-based)
+## HNSW索引（基于图）
 
-### IndexHNSWFlat - Hierarchical NSW
+### IndexHNSWFlat - 分层NSW
 
 ```python
-# HNSW index
-M = 32  # Number of connections per layer (16-64)
+# HNSW索引
+M = 32  # 每层连接数（16-64）
 index = faiss.IndexHNSWFlat(d, M)
 
-# Optional: Set ef_construction (build time parameter)
-index.hnsw.efConstruction = 40  # Higher = better quality, slower build
+# 可选：设置ef_construction（构建时间参数）
+index.hnsw.efConstruction = 40  # 越高质量越好，构建越慢
 
-# Add vectors (no training needed!)
+# 添加向量（无需训练！）
 index.add(vectors)
 
-# Search
-index.hnsw.efSearch = 16  # Search time parameter
+# 搜索
+index.hnsw.efSearch = 16  # 搜索时间参数
 distances, indices = index.search(query, k)
 ```
 
-**Parameters:**
-- `M`: Connections per layer (16-64, default 32)
-- `efConstruction`: Build quality (40-200, higher = better)
-- `efSearch`: Search quality (16-512, higher = more accurate)
+**参数：**
+- `M`：每层连接数（16-64，默认32）
+- `efConstruction`：构建质量（40-200，越高越好）
+- `efSearch`：搜索质量（16-512，越高越准确）
 
-**Use when:**
-- Need best quality approximate search
-- Can afford higher memory (more connections)
-- Dataset 1M-10M vectors
+**使用场景：**
+- 需要最佳质量的近似搜索
+- 可以承受更高内存（更多连接）
+- 数据集1M-10M个向量
 
-## PQ indices (product quantization)
+## PQ索引（乘积量化）
 
-### IndexPQ - Memory-efficient
+### IndexPQ - 内存高效
 
 ```python
-# PQ reduces memory by 16-32×
-m = 8   # Number of subquantizers (divides d)
-nbits = 8  # Bits per subquantizer
+# PQ将内存减少16-32倍
+m = 8   # 子量化器数量（分割d）
+nbits = 8  # 每个子量化器的位数
 
 index = faiss.IndexPQ(d, m, nbits)
 
-# Train (required!)
+# 训练（必需！）
 index.train(vectors)
 
-# Add vectors
+# 添加向量
 index.add(vectors)
 
-# Search
+# 搜索
 distances, indices = index.search(query, k)
 ```
 
-**Parameters:**
-- `m`: Subquantizers (d must be divisible by m)
-- `nbits`: Bits per code (8 or 16)
+**参数：**
+- `m`：子量化器数量（d必须能被m整除）
+- `nbits`：每个码的位数（8或16）
 
-**Memory savings:**
-- Original: d × 4 bytes (float32)
-- PQ: m bytes
-- Compression ratio: 4d/m
+**内存节省：**
+- 原始：d × 4字节（float32）
+- PQ：m字节
+- 压缩比：4d/m
 
-**Use when:**
-- Limited memory
-- Large datasets (> 10M vectors)
-- Can accept ~90-95% accuracy
+**使用场景：**
+- 内存受限
+- 大型数据集（> 10M向量）
+- 可以接受约90-95%准确性
 
-### IndexIVFPQ - IVF + PQ combined
+### IndexIVFPQ - IVF + PQ组合
 
 ```python
-# Best for very large datasets
+# 适合超大型数据集
 nlist = 4096
 m = 8
 nbits = 8
@@ -183,98 +188,98 @@ nbits = 8
 quantizer = faiss.IndexFlatL2(d)
 index = faiss.IndexIVFPQ(quantizer, d, nlist, m, nbits)
 
-# Train
+# 训练
 index.train(vectors)
 index.add(vectors)
 
-# Search
+# 搜索
 index.nprobe = 32
 distances, indices = index.search(query, k)
 ```
 
-**Use when:**
-- Dataset > 10M vectors
-- Need fast search + low memory
-- Can accept 90-95% accuracy
+**使用场景：**
+- 数据集 > 10M向量
+- 需要快速搜索 + 低内存
+- 可以接受90-95%准确性
 
-## GPU indices
+## GPU索引
 
-### Single GPU
+### 单GPU
 
 ```python
 import faiss
 
-# Create CPU index
+# 创建CPU索引
 index_cpu = faiss.IndexFlatL2(d)
 
-# Move to GPU
-res = faiss.StandardGpuResources()  # GPU resources
+# 移动到GPU
+res = faiss.StandardGpuResources()  # GPU资源
 index_gpu = faiss.index_cpu_to_gpu(res, 0, index_cpu)  # GPU 0
 
-# Use normally
+# 正常使用
 index_gpu.add(vectors)
 distances, indices = index_gpu.search(query, k)
 ```
 
-### Multi-GPU
+### 多GPU
 
 ```python
-# Use all available GPUs
+# 使用所有可用GPU
 index_gpu = faiss.index_cpu_to_all_gpus(index_cpu)
 
-# Or specific GPUs
-gpus = [0, 1, 2, 3]  # Use GPUs 0-3
+# 或指定GPU
+gpus = [0, 1, 2, 3]  # 使用GPU 0-3
 index_gpu = faiss.index_cpu_to_gpus_list(index_cpu, gpus)
 ```
 
-**Speedup:**
-- Single GPU: 10-50× faster than CPU
-- Multi-GPU: Near-linear scaling
+**加速：**
+- 单GPU：比CPU快10-50倍
+- 多GPU：近线性扩展
 
-## Index factory
+## 索引工厂
 
 ```python
-# Easy index creation with string descriptors
+# 使用字符串描述符轻松创建索引
 index = faiss.index_factory(d, "IVF100,Flat")
 index = faiss.index_factory(d, "HNSW32")
 index = faiss.index_factory(d, "IVF4096,PQ8")
 
-# Train and use
+# 训练和使用
 index.train(vectors)
 index.add(vectors)
 ```
 
-**Common descriptors:**
-- `"Flat"`: Exact search
-- `"IVF100,Flat"`: IVF with 100 clusters
-- `"HNSW32"`: HNSW with M=32
-- `"IVF4096,PQ8"`: IVF + PQ compression
+**常用描述符：**
+- `"Flat"`：精确搜索
+- `"IVF100,Flat"`：100个聚类的IVF
+- `"HNSW32"`：M=32的HNSW
+- `"IVF4096,PQ8"`：IVF + PQ压缩
 
-## Performance comparison
+## 性能比较
 
-### Search speed (1M vectors, k=10)
+### 搜索速度（1M向量，k=10）
 
-| Index | Build Time | Search Time | Memory | Recall |
+| 索引 | 构建时间 | 搜索时间 | 内存 | 召回率 |
 |-------|------------|-------------|--------|--------|
-| Flat | 0s | 50ms | 512 MB | 100% |
-| IVF100 | 5s | 2ms | 512 MB | 95% |
-| HNSW32 | 60s | 1ms | 1GB | 99% |
-| IVF4096+PQ8 | 30s | 3ms | 32 MB | 90% |
+| Flat | 0秒 | 50ms | 512 MB | 100% |
+| IVF100 | 5秒 | 2ms | 512 MB | 95% |
+| HNSW32 | 60秒 | 1ms | 1GB | 99% |
+| IVF4096+PQ8 | 30秒 | 3ms | 32 MB | 90% |
 
-*CPU (16 cores), 128-dim vectors*
+*CPU（16核），128维向量*
 
-## Best practices
+## 最佳实践
 
-1. **Start with Flat** - Baseline for comparison
-2. **Use IVF for medium datasets** - Good balance
-3. **Use HNSW for best quality** - If memory allows
-4. **Add PQ for memory savings** - Large datasets
-5. **GPU for > 100K vectors** - 10-50× speedup
-6. **Tune nprobe/efSearch** - Trade-off speed/accuracy
-7. **Train on representative data** - Better clustering
-8. **Save trained indices** - Avoid retraining
+1. **从Flat开始** - 作为基准对比
+2. **中型数据集使用IVF** - 良好的平衡
+3. **质量优先使用HNSW** - 如果内存允许
+4. **内存节省添加PQ** - 大型数据集
+5. **100K以上使用GPU** - 10-50倍加速
+6. **调优nprobe/efSearch** - 权衡速度/准确性
+7. **用代表性数据训练** - 更好的聚类
+8. **保存训练好的索引** - 避免重新训练
 
-## Resources
+## 资源
 
 - **Wiki**: https://github.com/facebookresearch/faiss/wiki
-- **Paper**: https://arxiv.org/abs/1702.08734
+- **论文**: https://arxiv.org/abs/1702.08734

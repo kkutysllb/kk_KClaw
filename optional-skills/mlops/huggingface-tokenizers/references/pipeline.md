@@ -1,285 +1,285 @@
-# Tokenization Pipeline Components
+# 分词管道组件
 
-Complete guide to normalizers, pre-tokenizers, models, post-processors, and decoders.
+标准化器、预分词器、模型、后处理器和解码器的完整指南。
 
-## Pipeline overview
+## 管道概述
 
-**Full tokenization pipeline**:
+**完整分词管道**：
 ```
-Raw Text
+原始文本
   ↓
-Normalization (cleaning, lowercasing)
+标准化（清理、小写）
   ↓
-Pre-tokenization (split into words)
+预分词（分割成单词）
   ↓
-Model (apply BPE/WordPiece/Unigram)
+模型（应用BPE/WordPiece/Unigram）
   ↓
-Post-processing (add special tokens)
+后处理（添加特殊token）
   ↓
-Token IDs
-```
-
-**Decoding reverses the process**:
-```
-Token IDs
-  ↓
-Decoder (handle special encodings)
-  ↓
-Raw Text
+Token ID
 ```
 
-## Normalizers
+**解码反转这个过程**：
+```
+Token ID
+  ↓
+解码器（处理特殊编码）
+  ↓
+原始文本
+```
 
-Clean and standardize input text.
+## 标准化器
 
-### Common normalizers
+清理和标准化输入文本。
 
-**Lowercase**:
+### 常见标准化器
+
+**小写**：
 ```python
 from tokenizers.normalizers import Lowercase
 
 tokenizer.normalizer = Lowercase()
 
-# Input: "Hello WORLD"
-# Output: "hello world"
+# 输入: "Hello WORLD"
+# 输出: "hello world"
 ```
 
-**Unicode normalization**:
+**Unicode标准化**：
 ```python
 from tokenizers.normalizers import NFD, NFC, NFKD, NFKC
 
-# NFD: Canonical decomposition
+# NFD：规范分解
 tokenizer.normalizer = NFD()
-# "é" → "e" + "́" (separate characters)
+# "é" → "e" + "́" (分离的字符)
 
-# NFC: Canonical composition (default)
+# NFC：规范组合（默认）
 tokenizer.normalizer = NFC()
-# "e" + "́" → "é" (composed)
+# "e" + "́" → "é" (组合)
 
-# NFKD: Compatibility decomposition
+# NFKD：兼容性分解
 tokenizer.normalizer = NFKD()
 # "ﬁ" → "f" + "i"
 
-# NFKC: Compatibility composition
+# NFKC：兼容性组合
 tokenizer.normalizer = NFKC()
-# Most aggressive normalization
+# 最激进标准化
 ```
 
-**Strip accents**:
+**去除重音**：
 ```python
 from tokenizers.normalizers import StripAccents
 
 tokenizer.normalizer = StripAccents()
 
-# Input: "café"
-# Output: "cafe"
+# 输入: "café"
+# 输出: "cafe"
 ```
 
-**Whitespace handling**:
+**空白处理**：
 ```python
 from tokenizers.normalizers import Strip, StripAccents
 
-# Remove leading/trailing whitespace
+# 移除前导/尾随空白
 tokenizer.normalizer = Strip()
 
-# Input: "  hello  "
-# Output: "hello"
+# 输入: "  hello  "
+# 输出: "hello"
 ```
 
-**Replace patterns**:
+**替换模式**：
 ```python
 from tokenizers.normalizers import Replace
 
-# Replace newlines with spaces
+# 用空格替换换行符
 tokenizer.normalizer = Replace("\\n", " ")
 
-# Input: "hello\\nworld"
-# Output: "hello world"
+# 输入: "hello\nworld"
+# 输出: "hello world"
 ```
 
-### Combining normalizers
+### 组合标准化器
 
 ```python
 from tokenizers.normalizers import Sequence, NFD, Lowercase, StripAccents
 
-# BERT-style normalization
+# BERT风格标准化
 tokenizer.normalizer = Sequence([
-    NFD(),           # Unicode decomposition
-    Lowercase(),     # Convert to lowercase
-    StripAccents()   # Remove accents
+    NFD(),           # Unicode分解
+    Lowercase(),     # 转换为小写
+    StripAccents()   # 移除重音
 ])
 
-# Input: "Café au Lait"
-# After NFD: "Café au Lait" (e + ́)
-# After Lowercase: "café au lait"
-# After StripAccents: "cafe au lait"
+# 输入: "Café au Lait"
+# NFD后: "Café au Lait" (e + ́)
+# Lowercase后: "café au lait"
+# StripAccents后: "cafe au lait"
 ```
 
-### Use case examples
+### 使用场景示例
 
-**Case-insensitive model (BERT)**:
+**不区分大小写的模型（BERT）**：
 ```python
 from tokenizers.normalizers import BertNormalizer
 
-# All-in-one BERT normalization
+# 一体化BERT标准化
 tokenizer.normalizer = BertNormalizer(
-    clean_text=True,        # Remove control characters
-    handle_chinese_chars=True,  # Add spaces around Chinese
-    strip_accents=True,     # Remove accents
-    lowercase=True          # Lowercase
+    clean_text=True,        # 移除控制字符
+    handle_chinese_chars=True,  # 在中文周围添加空格
+    strip_accents=True,     # 移除重音
+    lowercase=True          # 小写
 )
 ```
 
-**Case-sensitive model (GPT-2)**:
+**区分大小写的模型（GPT-2）**：
 ```python
-# Minimal normalization
-tokenizer.normalizer = NFC()  # Only normalize Unicode
+# 最小标准化
+tokenizer.normalizer = NFC()  # 仅标准化Unicode
 ```
 
-**Multilingual (mBERT)**:
+**多语言（mBERT）**：
 ```python
-# Preserve scripts, normalize form
+# 保留脚本，标准化形式
 tokenizer.normalizer = NFKC()
 ```
 
-## Pre-tokenizers
+## 预分词器
 
-Split text into word-like units before tokenization.
+在分词前将文本分割成类似单词的单元。
 
-### Whitespace splitting
+### 空白分割
 
 ```python
 from tokenizers.pre_tokenizers import Whitespace
 
 tokenizer.pre_tokenizer = Whitespace()
 
-# Input: "Hello world! How are you?"
-# Output: [("Hello", (0, 5)), ("world!", (6, 12)), ("How", (13, 16)), ("are", (17, 20)), ("you?", (21, 25))]
+# 输入: "Hello world! How are you?"
+# 输出: [("Hello", (0, 5)), ("world!", (6, 12)), ("How", (13, 16)), ("are", (17, 20)), ("you?", (21, 25))]
 ```
 
-### Punctuation isolation
+### 标点隔离
 
 ```python
 from tokenizers.pre_tokenizers import Punctuation
 
 tokenizer.pre_tokenizer = Punctuation()
 
-# Input: "Hello, world!"
-# Output: [("Hello", ...), (",", ...), ("world", ...), ("!", ...)]
+# 输入: "Hello, world!"
+# 输出: [("Hello", ...), (",", ...), ("world", ...), ("!", ...)]
 ```
 
-### Byte-level (GPT-2)
+### 字节级（GPT-2）
 
 ```python
 from tokenizers.pre_tokenizers import ByteLevel
 
 tokenizer.pre_tokenizer = ByteLevel(add_prefix_space=True)
 
-# Input: "Hello world"
-# Output: Byte-level tokens with Ġ prefix for spaces
+# 输入: "Hello world"
+# 输出: 带空格前缀Ġ的字节级token
 # [("ĠHello", ...), ("Ġworld", ...)]
 ```
 
-**Key feature**: Handles ALL Unicode characters (256 byte combinations)
+**关键特性**：处理所有Unicode字符（256字节组合）
 
-### Metaspace (SentencePiece)
+### Metaspace（SentencePiece）
 
 ```python
 from tokenizers.pre_tokenizers import Metaspace
 
 tokenizer.pre_tokenizer = Metaspace(replacement="▁", add_prefix_space=True)
 
-# Input: "Hello world"
-# Output: [("▁Hello", ...), ("▁world", ...)]
+# 输入: "Hello world"
+# 输出: [("▁Hello", ...), ("▁world", ...)]
 ```
 
-**Used by**: T5, ALBERT (via SentencePiece)
+**使用者**：T5、ALBERT（通过SentencePiece）
 
-### Digits splitting
+### 数字分割
 
 ```python
 from tokenizers.pre_tokenizers import Digits
 
-# Split digits individually
+# 单独分割数字
 tokenizer.pre_tokenizer = Digits(individual_digits=True)
 
-# Input: "Room 123"
-# Output: [("Room", ...), ("1", ...), ("2", ...), ("3", ...)]
+# 输入: "Room 123"
+# 输出: [("Room", ...), ("1", ...), ("2", ...), ("3", ...)]
 
-# Keep digits together
+# 保持数字在一起
 tokenizer.pre_tokenizer = Digits(individual_digits=False)
 
-# Input: "Room 123"
-# Output: [("Room", ...), ("123", ...)]
+# 输入: "Room 123"
+# 输出: [("Room", ...), ("123", ...)]
 ```
 
-### BERT pre-tokenizer
+### BERT预分词器
 
 ```python
 from tokenizers.pre_tokenizers import BertPreTokenizer
 
 tokenizer.pre_tokenizer = BertPreTokenizer()
 
-# Splits on whitespace and punctuation, preserves CJK
-# Input: "Hello, 世界!"
-# Output: [("Hello", ...), (",", ...), ("世", ...), ("界", ...), ("!", ...)]
+# 按空白和标点分割，保留中文
+# 输入: "Hello, 世界!"
+# 输出: [("Hello", ...), (",", ...), ("世", ...), ("界", ...), ("!", ...)]
 ```
 
-### Combining pre-tokenizers
+### 组合预分词器
 
 ```python
 from tokenizers.pre_tokenizers import Sequence, Whitespace, Punctuation
 
 tokenizer.pre_tokenizer = Sequence([
-    Whitespace(),     # Split on whitespace first
-    Punctuation()     # Then isolate punctuation
+    Whitespace(),     # 先按空白分割
+    Punctuation()     # 然后隔离标点
 ])
 
-# Input: "Hello, world!"
-# After Whitespace: [("Hello,", ...), ("world!", ...)]
-# After Punctuation: [("Hello", ...), (",", ...), ("world", ...), ("!", ...)]
+# 输入: "Hello, world!"
+# Whitespace后: [("Hello,", ...), ("world!", ...)]
+# Punctuation后: [("Hello", ...), (",", ...), ("world", ...), ("!", ...)]
 ```
 
-### Pre-tokenizer comparison
+### 预分词器对比
 
-| Pre-tokenizer     | Use Case                        | Example                                    |
+| 预分词器     | 使用场景                        | 示例                                    |
 |-------------------|---------------------------------|--------------------------------------------|
-| Whitespace        | Simple English                  | "Hello world" → ["Hello", "world"]         |
-| Punctuation       | Isolate symbols                 | "world!" → ["world", "!"]                  |
-| ByteLevel         | Multilingual, emojis            | "🌍" → byte tokens                          |
-| Metaspace         | SentencePiece-style             | "Hello" → ["▁Hello"]                       |
-| BertPreTokenizer  | BERT-style (CJK aware)          | "世界" → ["世", "界"]                        |
-| Digits            | Handle numbers                  | "123" → ["1", "2", "3"] or ["123"]        |
+| Whitespace        | 简单英文                  | "Hello world" → ["Hello", "world"]         |
+| Punctuation       | 隔离符号                 | "world!" → ["world", "!"]                  |
+| ByteLevel         | 多语言、emoji            | "🌍" → 字节token                          |
+| Metaspace         | SentencePiece风格             | "Hello" → ["▁Hello"]                       |
+| BertPreTokenizer  | BERT风格（中文感知）          | "世界" → ["世", "界"]                        |
+| Digits            | 处理数字                  | "123" → ["1", "2", "3"] 或 ["123"]        |
 
-## Models
+## 模型
 
-Core tokenization algorithms.
+核心分词算法。
 
-### BPE Model
+### BPE模型
 
 ```python
 from tokenizers.models import BPE
 
 model = BPE(
-    vocab=None,           # Or provide pre-built vocab
-    merges=None,          # Or provide merge rules
-    unk_token="[UNK]",    # Unknown token
+    vocab=None,           # 或提供预构建词表
+    merges=None,          # 或提供合并规则
+    unk_token="[UNK]",    # 未知token
     continuing_subword_prefix="",
     end_of_word_suffix="",
-    fuse_unk=False        # Keep unknown tokens separate
+    fuse_unk=False        # 保持未知token分离
 )
 
 tokenizer = Tokenizer(model)
 ```
 
-**Parameters**:
-- `vocab`: Dict of token → id
-- `merges`: List of merge rules `["a b", "ab c"]`
-- `unk_token`: Token for unknown words
-- `continuing_subword_prefix`: Prefix for subwords (empty for GPT-2)
-- `end_of_word_suffix`: Suffix for last subword (empty for GPT-2)
+**参数**：
+- `vocab`：token → id的字典
+- `merges`：合并规则列表`["a b", "ab c"]`
+- `unk_token`：未知词的token
+- `continuing_subword_prefix`：子词前缀（GPT-2为空）
+- `end_of_word_suffix`：最后一个子词的后缀（GPT-2为空）
 
-### WordPiece Model
+### WordPiece模型
 
 ```python
 from tokenizers.models import WordPiece
@@ -287,37 +287,37 @@ from tokenizers.models import WordPiece
 model = WordPiece(
     vocab=None,
     unk_token="[UNK]",
-    max_input_chars_per_word=100,  # Max word length
-    continuing_subword_prefix="##"  # BERT-style prefix
+    max_input_chars_per_word=100,  # 最大词长度
+    continuing_subword_prefix="##"  # BERT风格前缀
 )
 
 tokenizer = Tokenizer(model)
 ```
 
-**Key difference**: Uses `##` prefix for continuing subwords.
+**关键区别**：使用`##`前缀表示连续的子词。
 
-### Unigram Model
+### Unigram模型
 
 ```python
 from tokenizers.models import Unigram
 
 model = Unigram(
-    vocab=None,  # List of (token, score) tuples
-    unk_id=0,    # ID for unknown token
-    byte_fallback=False  # Fall back to bytes if no match
+    vocab=None,  # (token, score)元组列表
+    unk_id=0,    # 未知token的ID
+    byte_fallback=False  # 如果没有匹配则回退到字节
 )
 
 tokenizer = Tokenizer(model)
 ```
 
-**Probabilistic**: Selects tokenization with highest probability.
+**概率性**：选择最高概率的分词。
 
-### WordLevel Model
+### WordLevel模型
 
 ```python
 from tokenizers.models import WordLevel
 
-# Simple word-to-ID mapping (no subwords)
+# 简单词到ID映射（无子词）
 model = WordLevel(
     vocab=None,
     unk_token="[UNK]"
@@ -326,15 +326,15 @@ model = WordLevel(
 tokenizer = Tokenizer(model)
 ```
 
-**Warning**: Requires huge vocabulary (one token per word).
+**警告**：需要巨大词表（每个词一个token）。
 
-## Post-processors
+## 后处理器
 
-Add special tokens and format output.
+添加特殊token并格式化输出。
 
-### Template processing
+### 模板处理
 
-**BERT-style** (`[CLS] sentence [SEP]`):
+**BERT风格**（`[CLS] sentence [SEP]`）：
 ```python
 from tokenizers.processors import TemplateProcessing
 
@@ -347,16 +347,16 @@ tokenizer.post_processor = TemplateProcessing(
     ],
 )
 
-# Single sentence
+# 单句
 output = tokenizer.encode("Hello world")
 # [101, ..., 102]  ([CLS] hello world [SEP])
 
-# Sentence pair
+# 句子对
 output = tokenizer.encode("Hello", "world")
 # [101, ..., 102, ..., 102]  ([CLS] hello [SEP] world [SEP])
 ```
 
-**GPT-2 style** (`sentence <|endoftext|>`):
+**GPT-2风格**（`sentence <|endoftext|>`）：
 ```python
 tokenizer.post_processor = TemplateProcessing(
     single="$A <|endoftext|>",
@@ -366,7 +366,7 @@ tokenizer.post_processor = TemplateProcessing(
 )
 ```
 
-**RoBERTa style** (`<s> sentence </s>`):
+**RoBERTa风格**（`<s> sentence </s>`）：
 ```python
 tokenizer.post_processor = TemplateProcessing(
     single="<s> $A </s>",
@@ -378,9 +378,9 @@ tokenizer.post_processor = TemplateProcessing(
 )
 ```
 
-**T5 style** (no special tokens):
+**T5风格**（无特殊token）：
 ```python
-# T5 doesn't add special tokens via post-processor
+# T5不通过后处理器添加特殊token
 tokenizer.post_processor = None
 ```
 
@@ -392,8 +392,8 @@ from tokenizers.processors import RobertaProcessing
 tokenizer.post_processor = RobertaProcessing(
     sep=("</s>", 2),
     cls=("<s>", 0),
-    add_prefix_space=True,  # Add space before first token
-    trim_offsets=True       # Trim leading space from offsets
+    add_prefix_space=True,  # 在第一个token前添加空格
+    trim_offsets=True       # 从偏移量中修整前导空格
 )
 ```
 
@@ -403,44 +403,44 @@ tokenizer.post_processor = RobertaProcessing(
 from tokenizers.processors import ByteLevel as ByteLevelProcessing
 
 tokenizer.post_processor = ByteLevelProcessing(
-    trim_offsets=True  # Remove Ġ from offsets
+    trim_offsets=True  # 从偏移量中移除Ġ
 )
 ```
 
-## Decoders
+## 解码器
 
-Convert token IDs back to text.
+将Token ID转换回文本。
 
-### ByteLevel decoder
+### 字节级解码器
 
 ```python
 from tokenizers.decoders import ByteLevel
 
 tokenizer.decoder = ByteLevel()
 
-# Handles byte-level tokens
+# 处理字节级token
 # ["ĠHello", "Ġworld"] → "Hello world"
 ```
 
-### WordPiece decoder
+### WordPiece解码器
 
 ```python
 from tokenizers.decoders import WordPiece
 
 tokenizer.decoder = WordPiece(prefix="##")
 
-# Removes ## prefix and concatenates
+# 移除##前缀并连接
 # ["token", "##ization"] → "tokenization"
 ```
 
-### Metaspace decoder
+### Metaspace解码器
 
 ```python
 from tokenizers.decoders import Metaspace
 
 tokenizer.decoder = Metaspace(replacement="▁", add_prefix_space=True)
 
-# Converts ▁ back to spaces
+# 将▁转换回空格
 # ["▁Hello", "▁world"] → "Hello world"
 ```
 
@@ -451,24 +451,24 @@ from tokenizers.decoders import BPEDecoder
 
 tokenizer.decoder = BPEDecoder(suffix="</w>")
 
-# Removes suffix and concatenates
+# 移除后缀并连接
 # ["token", "ization</w>"] → "tokenization"
 ```
 
-### Sequence decoder
+### 序列解码器
 
 ```python
 from tokenizers.decoders import Sequence, ByteLevel, Strip
 
 tokenizer.decoder = Sequence([
-    ByteLevel(),      # Decode byte-level first
-    Strip(' ', 1, 1)  # Strip leading/trailing spaces
+    ByteLevel(),      # 先解码字节级
+    Strip(' ', 1, 1)  # 修整前导/尾随空格
 ])
 ```
 
-## Complete pipeline examples
+## 完整管道示例
 
-### BERT tokenizer
+### BERT分词器
 
 ```python
 from tokenizers import Tokenizer
@@ -478,33 +478,33 @@ from tokenizers.pre_tokenizers import BertPreTokenizer
 from tokenizers.processors import TemplateProcessing
 from tokenizers.decoders import WordPiece as WordPieceDecoder
 
-# Model
+# 模型
 tokenizer = Tokenizer(WordPiece(unk_token="[UNK]"))
 
-# Normalization
+# 标准化
 tokenizer.normalizer = BertNormalizer(lowercase=True)
 
-# Pre-tokenization
+# 预分词
 tokenizer.pre_tokenizer = BertPreTokenizer()
 
-# Post-processing
+# 后处理
 tokenizer.post_processor = TemplateProcessing(
     single="[CLS] $A [SEP]",
     pair="[CLS] $A [SEP] $B [SEP]",
     special_tokens=[("[CLS]", 101), ("[SEP]", 102)],
 )
 
-# Decoder
+# 解码器
 tokenizer.decoder = WordPieceDecoder(prefix="##")
 
-# Enable padding
+# 启用填充
 tokenizer.enable_padding(pad_id=0, pad_token="[PAD]")
 
-# Enable truncation
+# 启用截断
 tokenizer.enable_truncation(max_length=512)
 ```
 
-### GPT-2 tokenizer
+### GPT-2分词器
 
 ```python
 from tokenizers import Tokenizer
@@ -514,26 +514,26 @@ from tokenizers.pre_tokenizers import ByteLevel
 from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 from tokenizers.processors import TemplateProcessing
 
-# Model
+# 模型
 tokenizer = Tokenizer(BPE())
 
-# Normalization (minimal)
+# 标准化（最小）
 tokenizer.normalizer = NFC()
 
-# Byte-level pre-tokenization
+# 字节级预分词
 tokenizer.pre_tokenizer = ByteLevel(add_prefix_space=False)
 
-# Post-processing
+# 后处理
 tokenizer.post_processor = TemplateProcessing(
     single="$A <|endoftext|>",
     special_tokens=[("<|endoftext|>", 50256)],
 )
 
-# Byte-level decoder
+# 字节级解码器
 tokenizer.decoder = ByteLevelDecoder()
 ```
 
-### T5 tokenizer (SentencePiece-style)
+### T5分词器（SentencePiece风格）
 
 ```python
 from tokenizers import Tokenizer
@@ -542,27 +542,27 @@ from tokenizers.normalizers import NFKC
 from tokenizers.pre_tokenizers import Metaspace
 from tokenizers.decoders import Metaspace as MetaspaceDecoder
 
-# Model
+# 模型
 tokenizer = Tokenizer(Unigram())
 
-# Normalization
+# 标准化
 tokenizer.normalizer = NFKC()
 
-# Metaspace pre-tokenization
+# Metaspace预分词
 tokenizer.pre_tokenizer = Metaspace(replacement="▁", add_prefix_space=True)
 
-# No post-processing (T5 doesn't add CLS/SEP)
+# 无后处理（T5不添加CLS/SEP）
 tokenizer.post_processor = None
 
-# Metaspace decoder
+# Metaspace解码器
 tokenizer.decoder = MetaspaceDecoder(replacement="▁", add_prefix_space=True)
 ```
 
-## Alignment tracking
+## 对齐跟踪
 
-Track token positions in original text.
+跟踪原始文本中的token位置。
 
-### Basic alignment
+### 基础对齐
 
 ```python
 text = "Hello, world!"
@@ -571,7 +571,7 @@ output = tokenizer.encode(text)
 for token, (start, end) in zip(output.tokens, output.offsets):
     print(f"{token:10s} → [{start:2d}, {end:2d}): {text[start:end]!r}")
 
-# Output:
+# 输出:
 # [CLS]      → [ 0,  0): ''
 # hello      → [ 0,  5): 'Hello'
 # ,          → [ 5,  6): ','
@@ -580,21 +580,21 @@ for token, (start, end) in zip(output.tokens, output.offsets):
 # [SEP]      → [ 0,  0): ''
 ```
 
-### Word-level alignment
+### 词级对齐
 
 ```python
-# Get word_ids (which word each token belongs to)
+# 获取word_ids（每个token属于哪个词）
 encoding = tokenizer.encode("Hello world")
 word_ids = encoding.word_ids
 
 print(word_ids)
 # [None, 0, 0, 1, None]
-# None = special token, 0 = first word, 1 = second word
+# None = 特殊token，0 = 第一个词，1 = 第二个词
 ```
 
-**Use case**: Token classification (NER)
+**用途**：Token分类（NER）
 ```python
-# Align predictions to words
+# 将预测对齐到词
 predictions = ["O", "B-PER", "I-PER", "O", "O"]
 word_predictions = {}
 
@@ -603,19 +603,19 @@ for token_idx, word_idx in enumerate(encoding.word_ids):
         word_predictions[word_idx] = predictions[token_idx]
 
 print(word_predictions)
-# {0: "B-PER", 1: "O"}  # First word is PERSON, second is OTHER
+# {0: "B-PER", 1: "O"}  # 第一个词是PERSON，第二个是OTHER
 ```
 
-### Span alignment
+### 跨度对齐
 
 ```python
-# Find token span for character span
+# 查找字符跨度的token跨度
 text = "Machine learning is awesome"
 char_start, char_end = 8, 16  # "learning"
 
 encoding = tokenizer.encode(text)
 
-# Find token span
+# 查找token跨度
 token_start = encoding.char_to_token(char_start)
 token_end = encoding.char_to_token(char_end - 1) + 1
 
@@ -623,64 +623,64 @@ print(f"Tokens {token_start}:{token_end} = {encoding.tokens[token_start:token_en
 # Tokens 2:3 = ['learning']
 ```
 
-**Use case**: Question answering (extract answer span)
+**用途**：问答（提取答案跨度）
 
-## Custom components
+## 自定义组件
 
-### Custom normalizer
+### 自定义标准化器
 
 ```python
 from tokenizers import NormalizedString, Normalizer
 
 class CustomNormalizer:
     def normalize(self, normalized: NormalizedString):
-        # Custom normalization logic
+        # 自定义标准化逻辑
         normalized.lowercase()
-        normalized.replace("  ", " ")  # Replace double spaces
+        normalized.replace("  ", " ")  # 替换双空格
 
-# Use custom normalizer
+# 使用自定义标准化器
 tokenizer.normalizer = CustomNormalizer()
 ```
 
-### Custom pre-tokenizer
+### 自定义预分词器
 
 ```python
 from tokenizers import PreTokenizedString
 
 class CustomPreTokenizer:
     def pre_tokenize(self, pretok: PreTokenizedString):
-        # Custom pre-tokenization logic
+        # 自定义预分词逻辑
         pretok.split(lambda i, char: char.isspace())
 
 tokenizer.pre_tokenizer = CustomPreTokenizer()
 ```
 
-## Troubleshooting
+## 故障排除
 
-### Issue: Misaligned offsets
+### 问题：对齐偏移不匹配
 
-**Symptom**: Offsets don't match original text
+**症状**：偏移与原始文本不匹配
 ```python
-text = "  hello"  # Leading spaces
-offsets = [(0, 5)]  # Expects "  hel"
+text = "  hello"  # 前导空格
+offsets = [(0, 5)]  # 期望"  hel"
 ```
 
-**Solution**: Check normalization strips spaces
+**解决方案**：检查标准化是否修整空格
 ```python
-# Preserve offsets
+# 保留偏移
 tokenizer.normalizer = Sequence([
-    Strip(),  # This changes offsets!
+    Strip(),  # 这会改变偏移！
 ])
 
-# Use trim_offsets in post-processor instead
+# 改用post-processor中的trim_offsets
 tokenizer.post_processor = ByteLevelProcessing(trim_offsets=True)
 ```
 
-### Issue: Special tokens not added
+### 问题：特殊token未添加
 
-**Symptom**: No [CLS] or [SEP] in output
+**症状**：输出中没有[CLS]或[SEP]
 
-**Solution**: Check post-processor is set
+**解决方案**：检查是否设置了post-processor
 ```python
 tokenizer.post_processor = TemplateProcessing(
     single="[CLS] $A [SEP]",
@@ -688,36 +688,36 @@ tokenizer.post_processor = TemplateProcessing(
 )
 ```
 
-### Issue: Incorrect decoding
+### 问题：解码不正确
 
-**Symptom**: Decoded text has ## or ▁
+**症状**：解码文本有##或▁
 
-**Solution**: Set correct decoder
+**解决方案**：设置正确的解码器
 ```python
-# For WordPiece
+# 对于WordPiece
 tokenizer.decoder = WordPieceDecoder(prefix="##")
 
-# For SentencePiece
+# 对于SentencePiece
 tokenizer.decoder = MetaspaceDecoder(replacement="▁")
 ```
 
-## Best practices
+## 最佳实践
 
-1. **Match pipeline to model architecture**:
+1. **匹配管道到模型架构**：
    - BERT → BertNormalizer + BertPreTokenizer + WordPiece
    - GPT-2 → NFC + ByteLevel + BPE
    - T5 → NFKC + Metaspace + Unigram
 
-2. **Test pipeline on sample inputs**:
-   - Check normalization doesn't over-normalize
-   - Verify pre-tokenization splits correctly
-   - Ensure decoding reconstructs text
+2. **在样本输入上测试管道**：
+   - 检查标准化不过度标准化
+   - 验证预分词正确分割
+   - 确保解码重构文本
 
-3. **Preserve alignment for downstream tasks**:
-   - Use `trim_offsets` instead of stripping in normalizer
-   - Test `char_to_token()` on sample spans
+3. **为下游任务保留对齐**：
+   - 使用`trim_offsets`而非在标准化器中修整
+   - 在样本跨度上测试`char_to_token()`
 
-4. **Document your pipeline**:
-   - Save complete tokenizer config
-   - Document special tokens
-   - Note any custom components
+4. **记录你的管道**：
+   - 保存完整的分词器配置
+   - 记录特殊token
+   - 注明任何自定义组件

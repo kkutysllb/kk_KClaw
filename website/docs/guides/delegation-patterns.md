@@ -1,169 +1,166 @@
 ---
 sidebar_position: 13
-title: "Delegation & Parallel Work"
-description: "When and how to use subagent delegation — patterns for parallel research, code review, and multi-file work"
+title: "委托和并行工作"
+description: "何时以及如何使用子代理委托——并行研究、代码审查和多文件工作的模式"
 ---
 
-# Delegation & Parallel Work
+# 委托和并行工作
 
-KClaw can spawn isolated child agents to work on tasks in parallel. Each subagent gets its own conversation, terminal session, and toolset. Only the final summary comes back — intermediate tool calls never enter your context window.
+KClaw 可以生成隔离的子代理来并行处理任务。每个子代理获得自己的对话、终端会话和工具集。只有最终摘要返回——中间工具调用永远不会进入您的上下文窗口。
 
-For the full feature reference, see [Subagent Delegation](/docs/user-guide/features/delegation).
-
----
-
-## When to Delegate
-
-**Good candidates for delegation:**
-- Reasoning-heavy subtasks (debugging, code review, research synthesis)
-- Tasks that would flood your context with intermediate data
-- Parallel independent workstreams (research A and B simultaneously)
-- Fresh-context tasks where you want the agent to approach without bias
-
-**Use something else:**
-- Single tool call → just use the tool directly
-- Mechanical multi-step work with logic between steps → `execute_code`
-- Tasks needing user interaction → subagents can't use `clarify`
-- Quick file edits → do them directly
+有关完整功能参考，请参阅[子代理委托](/docs/user-guide/features/delegation)。
 
 ---
 
-## Pattern: Parallel Research
+## 何时委托
 
-Research three topics simultaneously and get structured summaries back:
+**委托的好候选：**
+- 重推理的子任务（调试、代码审查、研究综合）
+- 会用中间数据淹没您上下文的任务
+- 并行独立工作流（同时研究 A 和 B）
+- 需要代理无偏见地处理的全新上下文任务
+
+**使用其他方式：**
+- 单个工具调用 → 直接使用工具
+- 步骤之间有逻辑的机械多步工作 → `execute_code`
+- 需要用户交互的任务 → 子代理不能使用 `clarify`
+- 快速文件编辑 → 直接做
+
+---
+
+## 模式：并行研究
+
+同时研究三个主题并获得结构化摘要：
 
 ```
-Research these three topics in parallel:
-1. Current state of WebAssembly outside the browser
-2. RISC-V server chip adoption in 2025
-3. Practical quantum computing applications
+并行研究这三个主题：
+1. WebAssembly 在浏览器之外的现状
+2. 2025 年 RISC-V 服务器芯片的采用情况
+3. 实际量子计算应用
 
-Focus on recent developments and key players.
+关注近期发展和关键参与者。
 ```
 
-Behind the scenes, KClaw uses:
+幕后，KClaw 使用：
 
 ```python
 delegate_task(tasks=[
     {
-        "goal": "Research WebAssembly outside the browser in 2025",
-        "context": "Focus on: runtimes (Wasmtime, Wasmer), cloud/edge use cases, WASI progress",
+        "goal": "研究 2025 年浏览器之外的 WebAssembly",
+        "context": "关注：运行时（Wasmtime、Wasmer）、云/边缘用例、WASI 进展",
         "toolsets": ["web"]
     },
     {
-        "goal": "Research RISC-V server chip adoption",
-        "context": "Focus on: server chips shipping, cloud providers adopting, software ecosystem",
+        "goal": "研究 RISC-V 服务器芯片采用情况",
+        "context": "关注：正在出货的服务器芯片、正在采用的云提供商、软件生态系统",
         "toolsets": ["web"]
     },
     {
-        "goal": "Research practical quantum computing applications",
-        "context": "Focus on: error correction breakthroughs, real-world use cases, key companies",
+        "goal": "研究实际量子计算应用",
+        "context": "关注：纠错突破、实际用例、主要公司",
         "toolsets": ["web"]
     }
 ])
 ```
 
-All three run concurrently. Each subagent searches the web independently and returns a summary. The parent agent then synthesizes them into a coherent briefing.
+所有三个同时运行。每个子代理独立搜索网络并返回摘要。然后父代理将它们综合成一个连贯的简报。
 
 ---
 
-## Pattern: Code Review
+## 模式：代码审查
 
-Delegate a security review to a fresh-context subagent that approaches the code without preconceptions:
+将安全审查委托给全新上下文的子代理，它不带预判地处理代码：
 
 ```
-Review the authentication module at src/auth/ for security issues.
-Check for SQL injection, JWT validation problems, password handling,
-and session management. Fix anything you find and run the tests.
+审查 src/auth/ 中的身份验证模块的安全问题。
+检查 SQL 注入、JWT 验证问题、密码处理和会话管理。修复您发现的任何问题并运行测试。
 ```
 
-The key is the `context` field — it must include everything the subagent needs:
+关键是 `context` 字段——它必须包含子代理需要的一切：
 
 ```python
 delegate_task(
-    goal="Review src/auth/ for security issues and fix any found",
-    context="""Project at /home/user/webapp. Python 3.11, Flask, PyJWT, bcrypt.
-    Auth files: src/auth/login.py, src/auth/jwt.py, src/auth/middleware.py
-    Test command: pytest tests/auth/ -v
-    Focus on: SQL injection, JWT validation, password hashing, session management.
-    Fix issues found and verify tests pass.""",
+    goal="审查 src/auth/ 的安全问题并修复发现的任何问题",
+    context="""项目位于 /home/user/webapp。Python 3.11、Flask、PyJWT、bcrypt。
+    身份验证文件：src/auth/login.py、src/auth/jwt.py、src/auth/middleware.py
+    测试命令：pytest tests/auth/ -v
+    关注：SQL 注入、JWT 验证、密码哈希、会话管理。
+    修复发现的问题并验证测试通过。""",
     toolsets=["terminal", "file"]
 )
 ```
 
-:::warning The Context Problem
-Subagents know **absolutely nothing** about your conversation. They start completely fresh. If you delegate "fix the bug we were discussing," the subagent has no idea what bug you mean. Always pass file paths, error messages, project structure, and constraints explicitly.
+:::warning 上下文问题
+子代理对您的对话**绝对一无所知**。它们完全重新开始。如果您委托"修复我们正在讨论的 bug"，子代理不知道您指的是哪个 bug。始终显式传递文件路径、错误消息、项目结构和约束。
 :::
 
 ---
 
-## Pattern: Compare Alternatives
+## 模式：比较替代方案
 
-Evaluate multiple approaches to the same problem in parallel, then pick the best:
+并行评估同一问题的多种方法，然后选择最佳：
 
 ```
-I need to add full-text search to our Django app. Evaluate three approaches
-in parallel:
-1. PostgreSQL tsvector (built-in)
-2. Elasticsearch via django-elasticsearch-dsl
-3. Meilisearch via meilisearch-python
+我需要将全文搜索添加到我们的 Django 应用中。并行评估三种方法：
+1. PostgreSQL tsvector（内置）
+2. 通过 django-elasticsearch-dsl 的 Elasticsearch
+3. 通过 meilisearch-python 的 Meilisearch
 
-For each: setup complexity, query capabilities, resource requirements,
-and maintenance overhead. Compare them and recommend one.
+对于每个：设置复杂性、查询能力、资源需求和维护开销。比较它们并推荐一个。
 ```
 
-Each subagent researches one option independently. Because they're isolated, there's no cross-contamination — each evaluation stands on its own merits. The parent agent gets all three summaries and makes the comparison.
+每个子代理独立研究一个选项。因为它们是隔离的，所以没有交叉污染——每个评估都基于自身优点。父代理获得所有三个摘要并进行对比。
 
 ---
 
-## Pattern: Multi-File Refactoring
+## 模式：多文件重构
 
-Split a large refactoring task across parallel subagents, each handling a different part of the codebase:
+将大型重构任务拆分到并行子代理中，每个处理代码库的不同部分：
 
 ```python
 delegate_task(tasks=[
     {
-        "goal": "Refactor all API endpoint handlers to use the new response format",
-        "context": """Project at /home/user/api-server.
-        Files: src/handlers/users.py, src/handlers/auth.py, src/handlers/billing.py
-        Old format: return {"data": result, "status": "ok"}
-        New format: return APIResponse(data=result, status=200).to_dict()
-        Import: from src.responses import APIResponse
-        Run tests after: pytest tests/handlers/ -v""",
+        "goal": "重构所有 API 端点处理器以使用新的响应格式",
+        "context": """项目位于 /home/user/api-server。
+        文件：src/handlers/users.py、src/handlers/auth.py、src/handlers/billing.py
+        旧格式：return {"data": result, "status": "ok"}
+        新格式：return APIResponse(data=result, status=200).to_dict()
+        导入：from src.responses import APIResponse
+        之后运行测试：pytest tests/handlers/ -v""",
         "toolsets": ["terminal", "file"]
     },
     {
-        "goal": "Update all client SDK methods to handle the new response format",
-        "context": """Project at /home/user/api-server.
-        Files: sdk/python/client.py, sdk/python/models.py
-        Old parsing: result = response.json()["data"]
-        New parsing: result = response.json()["data"] (same key, but add status code checking)
-        Also update sdk/python/tests/test_client.py""",
+        "goal": "更新所有客户端 SDK 方法以处理新的响应格式",
+        "context": """项目位于 /home/user/api-server。
+        文件：sdk/python/client.py、sdk/python/models.py
+        旧解析：result = response.json()["data"]
+        新解析：result = response.json()["data"]（相同键，但添加状态码检查）
+        同时更新 sdk/python/tests/test_client.py""",
         "toolsets": ["terminal", "file"]
     },
     {
-        "goal": "Update API documentation to reflect the new response format",
-        "context": """Project at /home/user/api-server.
-        Docs at: docs/api/. Format: Markdown with code examples.
-        Update all response examples from old format to new format.
-        Add a 'Response Format' section to docs/api/overview.md explaining the schema.""",
+        "goal": "更新 API 文档以反映新的响应格式",
+        "context": """项目位于 /home/user/api-server。
+        文档位于：docs/api/。格式：带代码示例的 Markdown。
+        将所有响应示例从旧格式更新为新格式。
+        在 docs/api/overview.md 添加"响应格式"部分解释架构。""",
         "toolsets": ["terminal", "file"]
     }
 ])
 ```
 
 :::tip
-Each subagent gets its own terminal session. They can work on the same project directory without stepping on each other — as long as they're editing different files. If two subagents might touch the same file, handle that file yourself after the parallel work completes.
+每个子代理获得自己的终端会话。它们可以在同一项目目录上工作而不会相互干扰——只要它们编辑不同的文件。如果两个子代理可能触及同一文件，请在并行工作完成后自己处理该文件。
 :::
 
 ---
 
-## Pattern: Gather Then Analyze
+## 模式：先收集再分析
 
-Use `execute_code` for mechanical data gathering, then delegate the reasoning-heavy analysis:
+对机械数据收集使用 `execute_code`，然后对重推理的分析使用委托：
 
 ```python
-# Step 1: Mechanical gathering (execute_code is better here — no reasoning needed)
+# 步骤 1：机械收集（execute_code 在这里更好——不需要推理）
 execute_code("""
 from kclaw_tools import web_search, web_extract
 
@@ -173,67 +170,66 @@ for query in ["AI funding Q1 2026", "AI startup acquisitions 2026", "AI IPOs 202
     for item in r["data"]["web"]:
         results.append({"title": item["title"], "url": item["url"], "desc": item["description"]})
 
-# Extract full content from top 5 most relevant
+# 从前 5 个最相关的提取完整内容
 urls = [r["url"] for r in results[:5]]
 content = web_extract(urls)
 
-# Save for the analysis step
+# 保存以供分析步骤使用
 import json
 with open("/tmp/ai-funding-data.json", "w") as f:
     json.dump({"search_results": results, "extracted": content["results"]}, f)
 print(f"Collected {len(results)} results, extracted {len(content['results'])} pages")
 """)
 
-# Step 2: Reasoning-heavy analysis (delegation is better here)
+# 步骤 2：重推理分析（委托在这里更好）
 delegate_task(
-    goal="Analyze AI funding data and write a market report",
-    context="""Raw data at /tmp/ai-funding-data.json contains search results and
-    extracted web pages about AI funding, acquisitions, and IPOs in Q1 2026.
-    Write a structured market report: key deals, trends, notable players,
-    and outlook. Focus on deals over $100M.""",
+    goal="分析 AI 资金数据并撰写市场报告",
+    context="""原始数据位于 /tmp/ai-funding-data.json，包含关于 2026 年第一季度 AI 资金、
+    收购和 IPO 的搜索结果和提取的网页。撰写结构化市场报告：关键交易、趋势、
+    值得注意的参与者和展望。关注超过 1 亿美元的交易。""",
     toolsets=["terminal", "file"]
 )
 ```
 
-This is often the most efficient pattern: `execute_code` handles the 10+ sequential tool calls cheaply, then a subagent does the single expensive reasoning task with a clean context.
+这通常是最有效的模式：`execute_code` 廉价处理 10+ 顺序工具调用，然后子代理用干净上下文做一个昂贵的推理任务。
 
 ---
 
-## Toolset Selection
+## 工具集选择
 
-Choose toolsets based on what the subagent needs:
+根据子代理需要的内容选择工具集：
 
-| Task type | Toolsets | Why |
+| 任务类型 | 工具集 | 为什么 |
 |-----------|----------|-----|
-| Web research | `["web"]` | web_search + web_extract only |
-| Code work | `["terminal", "file"]` | Shell access + file operations |
-| Full-stack | `["terminal", "file", "web"]` | Everything except messaging |
-| Read-only analysis | `["file"]` | Can only read files, no shell |
+| 网络研究 | `["web"]` | 仅 web_search + web_extract |
+| 代码工作 | `["terminal", "file"]` | Shell 访问 + 文件操作 |
+| 全栈 | `["terminal", "file", "web"]` | 除消息外的一切 |
+| 只读分析 | `["file"]` | 只能读取文件，无 shell |
 
-Restricting toolsets keeps the subagent focused and prevents accidental side effects (like a research subagent running shell commands).
-
----
-
-## Constraints
-
-- **Max 3 parallel tasks** — batches are capped at 3 concurrent subagents
-- **No nesting** — subagents cannot call `delegate_task`, `clarify`, `memory`, `send_message`, or `execute_code`
-- **Separate terminals** — each subagent gets its own terminal session with separate working directory and state
-- **No conversation history** — subagents see only what you put in `goal` and `context`
-- **Default 50 iterations** — set `max_iterations` lower for simple tasks to save cost
+限制工具集保持子代理专注并防止意外副作用（如研究子代理运行 shell 命令）。
 
 ---
 
-## Tips
+## 约束
 
-**Be specific in goals.** "Fix the bug" is too vague. "Fix the TypeError in api/handlers.py line 47 where process_request() receives None from parse_body()" gives the subagent enough to work with.
-
-**Include file paths.** Subagents don't know your project structure. Always include absolute paths to relevant files, the project root, and the test command.
-
-**Use delegation for context isolation.** Sometimes you want a fresh perspective. Delegating forces you to articulate the problem clearly, and the subagent approaches it without the assumptions that built up in your conversation.
-
-**Check results.** Subagent summaries are just that — summaries. If a subagent says "fixed the bug and tests pass," verify by running the tests yourself or reading the diff.
+- **最多 3 个并行任务** — 批次限制为 3 个并发子代理
+- **无嵌套** — 子代理不能调用 `delegate_task`、`clarify`、`memory`、`send_message` 或 `execute_code`
+- **独立终端** — 每个子代理获得自己的终端会话，有独立工作目录和状态
+- **无对话历史** — 子代理只看到您放入 `goal` 和 `context` 的内容
+- **默认 50 次迭代** — 对简单任务设置更低的 `max_iterations` 以节省成本
 
 ---
 
-*For the complete delegation reference — all parameters, ACP integration, and advanced configuration — see [Subagent Delegation](/docs/user-guide/features/delegation).*
+## 提示
+
+**在目标中具体。** "修复 bug" 太模糊。"修复 api/handlers.py 第 47 行的 TypeError，其中 process_request() 从 parse_body() 接收到 None"给了子代理足够的工作内容。
+
+**包含文件路径。** 子代理不知道您的项目结构。始终包含相关文件的绝对路径、项目根目录和测试命令。
+
+**使用委托进行上下文隔离。** 有时您需要新的视角。委托强制您清晰地表达问题，子代理在没有对话中积累的假设的情况下处理它。
+
+**检查结果。** 子代理摘要只是摘要——而已。如果子代理说"修复了 bug 且测试通过"，通过自己运行测试或读取 diff 来验证。
+
+---
+
+*有关完整委托参考——所有参数、ACP 集成和高级配置——请参阅[子代理委托](/docs/user-guide/features/delegation)。*

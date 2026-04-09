@@ -1,171 +1,171 @@
 ---
 sidebar_position: 1
-title: "Quickstart"
-description: "Your first conversation with KClaw Agent — from install to chatting in 2 minutes"
+title: "快速入门"
+description: "KClaw Agent 的首次对话——从安装到 2 分钟内聊天"
 ---
 
-# Quickstart
+# 快速入门
 
-This guide walks you through installing KClaw Agent, setting up a provider, and having your first conversation. By the end, you'll know the key features and how to explore further.
+本指南引导您安装 KClaw Agent、设置提供商并进行首次对话。结束时，您将了解关键功能以及如何进一步探索。
 
-## 1. Install KClaw Agent
+## 1. 安装 KClaw Agent
 
-Run the one-line installer:
+运行一键安装程序：
 
 ```bash
 # Linux / macOS / WSL2
 curl -fsSL https://raw.githubusercontent.com/NousResearch/kclaw/main/scripts/install.sh | bash
 ```
 
-:::tip Windows Users
-Install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) first, then run the command above inside your WSL2 terminal.
+:::tip Windows 用户
+首先安装 [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install)，然后在 WSL2 终端内运行上面的命令。
 :::
 
-After it finishes, reload your shell:
+完成后，重新加载您的 shell：
 
 ```bash
-source ~/.bashrc   # or source ~/.zshrc
+source ~/.bashrc   # 或 source ~/.zshrc
 ```
 
-## 2. Set Up a Provider
+## 2. 设置提供商
 
-The installer configures your LLM provider automatically. To change it later, use one of these commands:
+安装程序自动配置您的 LLM 提供商。以后要更改它，请使用以下命令之一：
 
 ```bash
-kclaw model       # Choose your LLM provider and model
-kclaw tools       # Configure which tools are enabled
-kclaw setup       # Or configure everything at once
+kclaw model       # 选择您的 LLM 提供商和模型
+kclaw tools       # 配置启用哪些工具
+kclaw setup       # 或一次配置所有内容
 ```
 
-`kclaw model` walks you through selecting an inference provider:
+`kclaw model` 引导您选择推理提供商：
 
-| Provider | What it is | How to set up |
-|----------|-----------|---------------|
-| **Nous Portal** | Subscription-based, zero-config | OAuth login via `kclaw model` |
-| **OpenAI Codex** | ChatGPT OAuth, uses Codex models | Device code auth via `kclaw model` |
-| **Anthropic** | Claude models directly (Pro/Max or API key) | `kclaw model` with Claude Code auth, or an Anthropic API key |
-| **OpenRouter** | Multi-provider routing across many models | Enter your API key |
-| **Z.AI** | GLM / Zhipu-hosted models | Set `GLM_API_KEY` / `ZAI_API_KEY` |
-| **Kimi / Moonshot** | Moonshot-hosted coding and chat models | Set `KIMI_API_KEY` |
-| **MiniMax** | International MiniMax endpoint | Set `MINIMAX_API_KEY` |
-| **MiniMax China** | China-region MiniMax endpoint | Set `MINIMAX_CN_API_KEY` |
-| **Alibaba Cloud** | Qwen models via DashScope | Set `DASHSCOPE_API_KEY` |
-| **Hugging Face** | 20+ open models via unified router (Qwen, DeepSeek, Kimi, etc.) | Set `HF_TOKEN` |
-| **Kilo Code** | KiloCode-hosted models | Set `KILOCODE_API_KEY` |
-| **OpenCode Zen** | Pay-as-you-go access to curated models | Set `OPENCODE_ZEN_API_KEY` |
-| **OpenCode Go** | $10/month subscription for open models | Set `OPENCODE_GO_API_KEY` |
-| **DeepSeek** | Direct DeepSeek API access | Set `DEEPSEEK_API_KEY` |
-| **GitHub Copilot** | GitHub Copilot subscription (GPT-5.x, Claude, Gemini, etc.) | OAuth via `kclaw model`, or `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` |
-| **GitHub Copilot ACP** | Copilot ACP agent backend (spawns local `copilot` CLI) | `kclaw model` (requires `copilot` CLI + `copilot login`) |
-| **Vercel AI Gateway** | Vercel AI Gateway routing | Set `AI_GATEWAY_API_KEY` |
-| **Custom Endpoint** | VLLM, SGLang, Ollama, or any OpenAI-compatible API | Set base URL + API key |
+| 提供商 | 内容 | 如何设置 |
+|----------|-----------|------------|
+| **Nous Portal** | 基于订阅，零配置 | 通过 `kclaw model` 进行 OAuth 登录 |
+| **OpenAI Codex** | ChatGPT OAuth，使用 Codex 模型 | 通过 `kclaw model` 进行设备代码认证 |
+| **Anthropic** | 直接使用 Claude 模型（Pro/Max 或 API 密钥） | 使用 Claude Code 认证的 `kclaw model`，或 Anthropic API 密钥 |
+| **OpenRouter** | 跨多个模型的多元提供商路由 | 输入您的 API 密钥 |
+| **Z.AI** | GLM / Zhipu 托管模型 | 设置 `GLM_API_KEY` / `ZAI_API_KEY` |
+| **Kimi / Moonshot** | Moonshot 托管的编码和聊天模型 | 设置 `KIMI_API_KEY` |
+| **MiniMax** | 国际 MiniMax 端点 | 设置 `MINIMAX_API_KEY` |
+| **MiniMax China** | 中国区 MiniMax 端点 | 设置 `MINIMAX_CN_API_KEY` |
+| **Alibaba Cloud** | 通过 DashScope 的 Qwen 模型 | 设置 `DASHSCOPE_API_KEY` |
+| **Hugging Face** | 通过统一路由器访问 20+ 开放模型（Qwen、DeepSeek、Kimi 等） | 设置 `HF_TOKEN` |
+| **Kilo Code** | KiloCode 托管的模型 | 设置 `KILOCODE_API_KEY` |
+| **OpenCode Zen** | 按需访问精选模型 | 设置 `OPENCODE_ZEN_API_KEY` |
+| **OpenCode Go** | 10 美元/月订阅开放模型 | 设置 `OPENCODE_GO_API_KEY` |
+| **DeepSeek** | 直接 DeepSeek API 访问 | 设置 `DEEPSEEK_API_KEY` |
+| **GitHub Copilot** | GitHub Copilot 订阅（GPT-5.x、Claude、Gemini 等） | 通过 `kclaw model` 进行 OAuth，或 `COPILOT_GITHUB_TOKEN` / `GH_TOKEN` |
+| **GitHub Copilot ACP** | Copilot ACP 代理后端（生成本地 `copilot` CLI） | `kclaw model`（需要 `copilot` CLI + `copilot login`） |
+| **Vercel AI Gateway** | Vercel AI Gateway 路由 | 设置 `AI_GATEWAY_API_KEY` |
+| **自定义端点** | VLLM、SGLang、Ollama 或任何 OpenAI 兼容 API | 设置基础 URL + API 密钥 |
 
 :::tip
-You can switch providers at any time with `kclaw model` — no code changes, no lock-in. When configuring a custom endpoint, KClaw will prompt for the context window size and auto-detect it when possible. See [Context Length Detection](../integrations/providers.md#context-length-detection) for details.
+您可以随时通过 `kclaw model` 切换提供商——无需代码更改，无锁定。配置自定义端点时，KClaw 会提示上下文窗口大小，并在可能时自动检测。请参阅[上下文长度检测](../integrations/providers.md#context-length-detection)了解详细信息。
 :::
 
-## 3. Start Chatting
+## 3. 开始聊天
 
 ```bash
 kclaw
 ```
 
-That's it! You'll see a welcome banner with your model, available tools, and skills. Type a message and press Enter.
+就这样！您将看到欢迎横幅，显示您的模型、可用工具和技能。输入消息并按 Enter。
 
 ```
-❯ What can you help me with?
+❯ 您可以帮我做什么？
 ```
 
-The agent has access to tools for web search, file operations, terminal commands, and more — all out of the box.
+代理可以访问用于 Web 搜索、文件操作、终端命令等的工具——开箱即用。
 
-## 4. Try Key Features
+## 4. 尝试关键功能
 
-### Ask it to use the terminal
+### 让它使用终端
 
 ```
-❯ What's my disk usage? Show the top 5 largest directories.
+❯ 我的磁盘使用情况如何？显示前 5 个最大的目录。
 ```
 
-The agent will run terminal commands on your behalf and show you the results.
+代理将代表您运行终端命令并向您显示结果。
 
-### Use slash commands
+### 使用斜杠命令
 
-Type `/` to see an autocomplete dropdown of all commands:
+输入 `/` 查看所有命令的自动完成下拉列表：
 
-| Command | What it does |
+| 命令 | 功能 |
 |---------|-------------|
-| `/help` | Show all available commands |
-| `/tools` | List available tools |
-| `/model` | Switch models interactively |
-| `/personality pirate` | Try a fun personality |
-| `/save` | Save the conversation |
+| `/help` | 显示所有可用命令 |
+| `/tools` | 列出可用工具 |
+| `/model` | 交互式切换模型 |
+| `/personality pirate` | 尝试有趣的人格 |
+| `/save` | 保存对话 |
 
-### Multi-line input
+### 多行输入
 
-Press `Alt+Enter` or `Ctrl+J` to add a new line. Great for pasting code or writing detailed prompts.
+按 `Alt+Enter` 或 `Ctrl+J` 添加新行。非常适合粘贴代码或编写详细提示。
 
-### Interrupt the agent
+### 中断代理
 
-If the agent is taking too long, just type a new message and press Enter — it interrupts the current task and switches to your new instructions. `Ctrl+C` also works.
+如果代理花费时间太长，只需输入新消息并按 Enter——它会中断当前任务并切换到您的新指令。`Ctrl+C` 也可以工作。
 
-### Resume a session
+### 恢复会话
 
-When you exit, kclaw prints a resume command:
-
-```bash
-kclaw --continue    # Resume the most recent session
-kclaw -c            # Short form
-```
-
-## 5. Explore Further
-
-Here are some things to try next:
-
-### Set up a sandboxed terminal
-
-For safety, run the agent in a Docker container or on a remote server:
+退出时，kclaw 会打印恢复命令：
 
 ```bash
-kclaw config set terminal.backend docker    # Docker isolation
-kclaw config set terminal.backend ssh       # Remote server
+kclaw --continue    # 恢复最近的会话
+kclaw -c            # 简短形式
 ```
 
-### Connect messaging platforms
+## 5. 进一步探索
 
-Chat with KClaw from your phone or other surfaces via Telegram, Discord, Slack, WhatsApp, Signal, Email, or Home Assistant:
+以下是接下来可以尝试的一些内容：
+
+### 设置沙盒终端
+
+为了安全起见，在 Docker 容器或远程服务器上运行代理：
 
 ```bash
-kclaw gateway setup    # Interactive platform configuration
+kclaw config set terminal.backend docker    # Docker 隔离
+kclaw config set terminal.backend ssh       # 远程服务器
 ```
 
-### Add voice mode
+### 连接消息平台
 
-Want microphone input in the CLI or spoken replies in messaging?
+通过 Telegram、Discord、Slack、WhatsApp、Signal、Email 或 Home Assistant 从手机或其他界面与 KClaw 聊天：
+
+```bash
+kclaw gateway setup    # 交互式平台配置
+```
+
+### 添加语音模式
+
+想要在 CLI 中输入麦克风或在消息中获得语音回复吗？
 
 ```bash
 pip install "kclaw[voice]"
 
-# Optional but recommended for free local speech-to-text
+# 对于免费本地语音转文本是可选的但推荐
 pip install faster-whisper
 ```
 
-Then start KClaw and enable it inside the CLI:
+然后启动 KClaw 并在 CLI 内启用它：
 
 ```text
 /voice on
 ```
 
-Press `Ctrl+B` to record, or use `/voice tts` to have KClaw speak its replies. See [Voice Mode](../user-guide/features/voice-mode.md) for the full setup across CLI, Telegram, Discord, and Discord voice channels.
+按 `Ctrl+B` 录制，或使用 `/voice tts` 让 KClaw 说回复。请参阅 [语音模式](../user-guide/features/voice-mode.md) 了解 CLI、Telegram、Discord 和 Discord 语音频道的完整设置。
 
-### Schedule automated tasks
+### 计划自动化任务
 
 ```
-❯ Every morning at 9am, check Hacker News for AI news and send me a summary on Telegram.
+❯ 每天早上 9 点检查 Hacker News 上的 AI 新闻，并在 Telegram 上给我发送摘要。
 ```
 
-The agent will set up a cron job that runs automatically via the gateway.
+代理将设置一个通过网关自动运行的 cron 作业。
 
-### Browse and install skills
+### 浏览和安装技能
 
 ```bash
 kclaw skills search kubernetes
@@ -176,30 +176,30 @@ kclaw skills install official/security/1password
 kclaw skills install skills-sh/vercel-labs/json-render/json-render-react --force
 ```
 
-Tips:
-- Use `--source skills-sh` to search the public `skills.sh` directory.
-- Use `--source well-known` with a docs/site URL to discover skills from `/.well-known/skills/index.json`.
-- Use `--force` only after reviewing a third-party skill. It can override non-dangerous policy blocks, but not a `dangerous` scan verdict.
+提示：
+- 使用 `--source skills-sh` 搜索公共 `skills.sh` 目录。
+- 使用 `--source well-known` 和 docs/site URL 从 `/.well-known/skills/index.json` 发现技能。
+- 仅在审查第三方技能后使用 `--force`。它可以覆盖非危险策略块，但不能覆盖危险扫描判定。
 
-Or use the `/skills` slash command inside chat.
+或在聊天中使用 `/skills` 斜杠命令。
 
-### Use KClaw inside an editor via ACP
+### 通过 ACP 在编辑器中使用 KClaw
 
-KClaw can also run as an ACP server for ACP-compatible editors like VS Code, Zed, and JetBrains:
+KClaw 还可以作为 ACP 服务器运行，适用于 ACP 兼容的编辑器，如 VS Code、Zed 和 JetBrains：
 
 ```bash
 pip install -e '.[acp]'
 kclaw acp
 ```
 
-See [ACP Editor Integration](../user-guide/features/acp.md) for setup details.
+请参阅 [ACP 编辑器集成](../user-guide/features/acp.md) 了解设置详细信息。
 
-### Try MCP servers
+### 尝试 MCP 服务器
 
-Connect to external tools via the Model Context Protocol:
+通过模型上下文协议连接到外部工具：
 
 ```yaml
-# Add to ~/.kclaw/config.yaml
+# 添加到 ~/.kclaw/config.yaml
 mcp_servers:
   github:
     command: npx
@@ -210,22 +210,22 @@ mcp_servers:
 
 ---
 
-## Quick Reference
+## 快速参考
 
-| Command | Description |
+| 命令 | 描述 |
 |---------|-------------|
-| `kclaw` | Start chatting |
-| `kclaw model` | Choose your LLM provider and model |
-| `kclaw tools` | Configure which tools are enabled per platform |
-| `kclaw setup` | Full setup wizard (configures everything at once) |
-| `kclaw doctor` | Diagnose issues |
-| `kclaw update` | Update to latest version |
-| `kclaw gateway` | Start the messaging gateway |
-| `kclaw --continue` | Resume last session |
+| `kclaw` | 开始聊天 |
+| `kclaw model` | 选择您的 LLM 提供商和模型 |
+| `kclaw tools` | 配置每个平台启用哪些工具 |
+| `kclaw setup` | 完整设置向导（一次配置所有内容） |
+| `kclaw doctor` | 诊断问题 |
+| `kclaw update` | 更新到最新版本 |
+| `kclaw gateway` | 启动消息网关 |
+| `kclaw --continue` | 恢复上一个会话 |
 
-## Next Steps
+## 下一步
 
-- **[CLI Guide](../user-guide/cli.md)** — Master the terminal interface
-- **[Configuration](../user-guide/configuration.md)** — Customize your setup
-- **[Messaging Gateway](../user-guide/messaging/index.md)** — Connect Telegram, Discord, Slack, WhatsApp, Signal, Email, or Home Assistant
-- **[Tools & Toolsets](../user-guide/features/tools.md)** — Explore available capabilities
+- **[CLI 指南](../user-guide/cli.md)** — 掌握终端界面
+- **[配置](../user-guide/configuration.md)** — 自定义您的设置
+- **[消息网关](../user-guide/messaging/index.md)** — 连接 Telegram、Discord、Slack、WhatsApp、Signal、Email 或 Home Assistant
+- **[工具和工具集](../user-guide/features/tools.md)** — 探索可用功能

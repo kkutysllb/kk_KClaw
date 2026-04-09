@@ -1,30 +1,30 @@
-# Adding Custom Models to TorchTitan
+# 向TorchTitan添加自定义模型
 
-This guide explains how to add a new model to TorchTitan following the established patterns.
+本指南解释如何按照既定模式向TorchTitan添加新模型。
 
-## Directory Structure
+## 目录结构
 
 ```
 torchtitan/models/your_model/
 ├── model/
 │   ├── __init__.py
-│   ├── args.py          # Model arguments
-│   ├── model.py         # Model definition
-│   └── state_dict_adapter.py  # HF conversion (optional)
+│   ├── args.py          # 模型参数
+│   ├── model.py         # 模型定义
+│   └── state_dict_adapter.py  # HF转换（可选）
 ├── infra/
 │   ├── __init__.py
-│   ├── parallelize.py   # TP, FSDP, compile application
-│   └── pipeline.py      # PP application (optional)
+│   ├── parallelize.py   # TP、FSDP、compile应用
+│   └── pipeline.py      # PP应用（可选）
 ├── train_configs/
 │   ├── debug_model.toml
 │   └── your_model_XB.toml
-├── __init__.py          # TrainSpec registration
+├── __init__.py          # TrainSpec注册
 └── README.md
 ```
 
-## Step 1: Define Model Arguments
+## 步骤1：定义模型参数
 
-Inherit from `BaseModelArgs`:
+继承自`BaseModelArgs`：
 
 ```python
 # model/args.py
@@ -39,20 +39,20 @@ class YourModelArgs(BaseModelArgs):
     vocab_size: int = 128256
 
     def get_nparams_and_flops(self, seq_len: int) -> tuple[int, int]:
-        """Return (num_params, flops_per_token) for throughput calculation."""
-        nparams = self.vocab_size * self.dim + ...  # Calculate params
-        flops = 6 * nparams  # Approximate: 6 * params for forward+backward
+        """返回（参数数量，每词元FLOPs）用于吞吐量计算。"""
+        nparams = self.vocab_size * self.dim + ...  # 计算参数
+        flops = 6 * nparams  # 近似：forward+backward的6 * params
         return nparams, flops
 
     def update_from_config(self, job_config) -> "YourModelArgs":
-        """Update args from training config."""
-        # Override specific args from job_config if needed
+        """从训练配置更新参数。"""
+        # 如需要从job_config覆盖特定参数
         return self
 ```
 
-## Step 2: Define Model
+## 步骤2：定义模型
 
-Inherit from `ModelProtocol`:
+继承自`ModelProtocol`：
 
 ```python
 # model/model.py
@@ -79,7 +79,7 @@ class YourModel(ModelProtocol):
         return self.output(h)
 
     def init_weights(self):
-        """Initialize weights recursively."""
+        """递归初始化权重。"""
         for module in self.modules():
             if hasattr(module, 'init_weights') and module is not self:
                 module.init_weights()
@@ -87,13 +87,13 @@ class YourModel(ModelProtocol):
                 nn.init.normal_(module.weight, std=0.02)
 ```
 
-**Important guidelines**:
-- Write single-device model code (parallelism applied externally)
-- Use `nn.ModuleDict` for layers (preserves FQNs when deleting for PP)
-- Make input/output layers optional for PP compatibility
-- Define `init_weights()` recursively
+**重要指南**：
+- 编写单设备模型代码（并行性外部应用）
+- 对层使用`nn.ModuleDict`（删除用于PP时保留FQN）
+- 使输入/输出层可选以兼容PP
+- 递归定义`init_weights()`
 
-## Step 3: Parallelize Function
+## 步骤3：并行化函数
 
 ```python
 # infra/parallelize.py
@@ -106,13 +106,13 @@ def parallelize_your_model(
     parallel_dims: ParallelDims,
     job_config: JobConfig,
 ):
-    # Apply in this order: TP -> AC -> compile -> FSDP
+    # 按此顺序应用：TP -> AC -> compile -> FSDP
 
-    # 1. Tensor Parallelism
+    # 1. 张量并行
     if parallel_dims.tp_enabled:
         apply_tp(model, world_mesh["tp"], job_config)
 
-    # 2. Activation Checkpointing
+    # 2. 激活检查点
     if job_config.activation_checkpoint.mode == "full":
         apply_ac(model, job_config)
 
@@ -127,7 +127,7 @@ def parallelize_your_model(
     return model
 ```
 
-## Step 4: Create TrainSpec
+## 步骤4：创建TrainSpec
 
 ```python
 # __init__.py
@@ -146,22 +146,22 @@ def get_train_spec(flavor: str) -> TrainSpec:
         model_cls=YourModel,
         model_args=MODEL_CONFIGS[flavor],
         parallelize_fn=parallelize_your_model,
-        pipeline_fn=None,  # Or your_pipeline_fn for PP
-        build_optimizer_fn=build_optimizer,  # Reuse existing
-        build_lr_scheduler_fn=build_lr_scheduler,  # Reuse existing
-        build_dataloader_fn=build_dataloader,  # Reuse existing
-        build_tokenizer_fn=build_tokenizer,  # Reuse existing
-        build_loss_fn=build_loss,  # Reuse existing
-        state_dict_adapter=None,  # Or YourStateDictAdapter
+        pipeline_fn=None,  # 或用于PP的your_pipeline_fn
+        build_optimizer_fn=build_optimizer,  # 重用现有
+        build_lr_scheduler_fn=build_lr_scheduler,  # 重用现有
+        build_dataloader_fn=build_dataloader,  # 重用现有
+        build_tokenizer_fn=build_tokenizer,  # 重用现有
+        build_loss_fn=build_loss,  # 重用现有
+        state_dict_adapter=None,  # 或YourStateDictAdapter
     )
 
-# Register so train.py can find it
+# 注册以便train.py可以找到
 register_train_spec("your_model", get_train_spec)
 ```
 
-## Step 5: State Dict Adapter (Optional)
+## 步骤5：状态字典适配器（可选）
 
-For HuggingFace checkpoint conversion:
+用于HuggingFace检查点转换：
 
 ```python
 # model/state_dict_adapter.py
@@ -169,7 +169,7 @@ from torchtitan.protocols.state_dict_adapter import BaseStateDictAdapter
 
 class YourStateDictAdapter(BaseStateDictAdapter):
     def to_hf(self, state_dict: dict) -> dict:
-        """Convert torchtitan state dict to HF format."""
+        """将torchtitan状态字典转换为HF格式。"""
         hf_state_dict = {}
         for key, value in state_dict.items():
             hf_key = self._convert_key_to_hf(key)
@@ -177,7 +177,7 @@ class YourStateDictAdapter(BaseStateDictAdapter):
         return hf_state_dict
 
     def from_hf(self, state_dict: dict) -> dict:
-        """Convert HF state dict to torchtitan format."""
+        """将HF状态字典转换为torchtitan格式。"""
         tt_state_dict = {}
         for key, value in state_dict.items():
             tt_key = self._convert_key_from_hf(key)
@@ -185,13 +185,13 @@ class YourStateDictAdapter(BaseStateDictAdapter):
         return tt_state_dict
 ```
 
-## Step 6: Training Config
+## 步骤6：训练配置
 
 ```toml
 # train_configs/your_model_8b.toml
 [job]
 dump_folder = "./outputs"
-description = "Your Model 8B training"
+description = "Your Model 8B训练"
 
 [model]
 name = "your_model"
@@ -212,9 +212,9 @@ data_parallel_shard_degree = -1
 tensor_parallel_degree = 1
 ```
 
-## Step 7: Register Model
+## 步骤7：注册模型
 
-Add to `torchtitan/models/__init__.py`:
+添加到`torchtitan/models/__init__.py`：
 
 ```python
 from .your_model import get_train_spec as get_your_model_train_spec
@@ -222,19 +222,19 @@ from .your_model import get_train_spec as get_your_model_train_spec
 MODEL_REGISTRY["your_model"] = get_your_model_train_spec
 ```
 
-## Testing
+## 测试
 
-### Numerics Test
+### 数值测试
 
-Compare output with HuggingFace implementation:
+与HuggingFace实现比较输出：
 
 ```python
 def test_numerics():
-    # Load same checkpoint into both implementations
+    # 将相同检查点加载到两个实现
     tt_model = YourModel(args).load_checkpoint(...)
     hf_model = HFYourModel.from_pretrained(...)
 
-    # Compare outputs
+    # 比较输出
     input_ids = torch.randint(0, vocab_size, (1, 128))
     tt_output = tt_model(input_ids)
     hf_output = hf_model(input_ids).logits
@@ -242,17 +242,17 @@ def test_numerics():
     torch.testing.assert_close(tt_output, hf_output, atol=1e-4, rtol=1e-4)
 ```
 
-### Loss Convergence
+### 损失收敛
 
-Compare loss curves with verified baseline (see `docs/converging.md`).
+与经验证的基线比较损失曲线（参见`docs/converging.md`）。
 
-### Performance Benchmark
+### 性能基准
 
-Add benchmark config to `benchmarks/` folder.
+将基准配置添加到`benchmarks/`文件夹。
 
-## Guiding Principles
+## 指导原则
 
-1. **Readability over flexibility**: Don't over-abstract
-2. **Minimal model changes**: Parallelism applied externally
-3. **Clean, minimal codebase**: Reuse existing components where possible
-4. **Single-device semantics**: Model code should work on single GPU
+1. **可读性优先于灵活性**：不要过度抽象
+2. **最小的模型更改**：并行性外部应用
+3. **简洁的代码库**：尽可能重用现有组件
+4. **单设备语义**：模型代码应在单个GPU上工作

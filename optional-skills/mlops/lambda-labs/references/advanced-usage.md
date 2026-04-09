@@ -1,8 +1,8 @@
-# Lambda Labs Advanced Usage Guide
+# Lambda Labs高级用法指南
 
-## Multi-Node Distributed Training
+## 多节点分布式训练
 
-### PyTorch DDP across nodes
+### 跨节点的PyTorch DDP
 
 ```python
 # train_multi_node.py
@@ -12,7 +12,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 def setup_distributed():
-    # Environment variables set by launcher
+    # 启动器设置的环境变量
     rank = int(os.environ["RANK"])
     world_size = int(os.environ["WORLD_SIZE"])
     local_rank = int(os.environ["LOCAL_RANK"])
@@ -32,11 +32,11 @@ def main():
     model = MyModel().cuda(local_rank)
     model = DDP(model, device_ids=[local_rank])
 
-    # Training loop with synchronized gradients
+    # 带同步梯度的训练循环
     for epoch in range(num_epochs):
         train_one_epoch(model, dataloader)
 
-        # Save checkpoint on rank 0 only
+        # 仅在rank 0保存检查点
         if rank == 0:
             torch.save(model.module.state_dict(), f"checkpoint_{epoch}.pt")
 
@@ -46,11 +46,11 @@ if __name__ == "__main__":
     main()
 ```
 
-### Launch on multiple instances
+### 在多个实例上启动
 
 ```bash
-# On Node 0 (master)
-export MASTER_ADDR=<NODE0_PRIVATE_IP>
+# 在节点0（主节点）
+export MASTER_ADDR=<节点0私有IP>
 export MASTER_PORT=29500
 
 torchrun \
@@ -61,8 +61,8 @@ torchrun \
     --master_port=$MASTER_PORT \
     train_multi_node.py
 
-# On Node 1
-export MASTER_ADDR=<NODE0_PRIVATE_IP>
+# 在节点1
+export MASTER_ADDR=<节点0私有IP>
 export MASTER_PORT=29500
 
 torchrun \
@@ -74,14 +74,14 @@ torchrun \
     train_multi_node.py
 ```
 
-### FSDP for large models
+### FSDP用于大模型
 
 ```python
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 
-# Wrap policy for transformer models
+# transformer模型的包装策略
 auto_wrap_policy = functools.partial(
     transformer_auto_wrap_policy,
     transformer_layer_cls={LlamaDecoderLayer}
@@ -116,14 +116,14 @@ model = FSDP(
 ```
 
 ```bash
-# Launch with DeepSpeed
+# 使用DeepSpeed启动
 deepspeed --num_nodes=2 \
     --num_gpus=8 \
     --hostfile=hostfile.txt \
     train.py --deepspeed ds_config.json
 ```
 
-### Hostfile for multi-node
+### 多节点主机文件
 
 ```bash
 # hostfile.txt
@@ -131,9 +131,9 @@ node0_ip slots=8
 node1_ip slots=8
 ```
 
-## API Automation
+## API自动化
 
-### Auto-launch training jobs
+### 自动启动训练作业
 
 ```python
 import os
@@ -149,7 +149,7 @@ class LambdaJobManager:
         )
 
     def find_available_gpu(self, gpu_types: list[str], regions: list[str] = None):
-        """Find first available GPU type across regions."""
+        """跨区域查找第一个可用GPU类型。"""
         with lambda_cloud_client.ApiClient(self.config) as client:
             api = lambda_cloud_client.DefaultApi(client)
             types = api.instance_types()
@@ -166,7 +166,7 @@ class LambdaJobManager:
     def launch_and_wait(self, instance_type: str, region: str,
                         ssh_key: str, filesystem: str = None,
                         timeout: int = 900) -> dict:
-        """Launch instance and wait for it to be ready."""
+        """启动实例并等待其就绪。"""
         with lambda_cloud_client.ApiClient(self.config) as client:
             api = lambda_cloud_client.DefaultApi(client)
 
@@ -180,7 +180,7 @@ class LambdaJobManager:
             response = api.launch_instance(request)
             instance_id = response.data.instance_ids[0]
 
-            # Poll until ready
+            # 轮询直到就绪
             start = time.time()
             while time.time() - start < timeout:
                 instance = api.get_instance(instance_id)
@@ -192,10 +192,10 @@ class LambdaJobManager:
                     }
                 time.sleep(30)
 
-            raise TimeoutError(f"Instance {instance_id} not ready after {timeout}s")
+            raise TimeoutError(f"实例 {instance_id} 在{timeout}秒后未就绪")
 
     def terminate(self, instance_ids: list[str]):
-        """Terminate instances."""
+        """终止实例。"""
         from lambda_cloud_client.models import TerminateInstanceRequest
 
         with lambda_cloud_client.ApiClient(self.config) as client:
@@ -204,10 +204,10 @@ class LambdaJobManager:
             api.terminate_instance(request)
 
 
-# Usage
+# 使用
 manager = LambdaJobManager(os.environ["LAMBDA_API_KEY"])
 
-# Find available H100 or A100
+# 查找可用的H100或A100
 gpu_type, region = manager.find_available_gpu(
     ["gpu_8x_h100_sxm5", "gpu_8x_a100_80gb_sxm4"],
     regions=["us-west-1", "us-east-1"]
@@ -219,17 +219,17 @@ if gpu_type:
         ssh_key="my-key",
         filesystem="training-data"
     )
-    print(f"Ready: ssh ubuntu@{instance['ip']}")
+    print(f"就绪: ssh ubuntu@{instance['ip']}")
 ```
 
-### Batch job submission
+### 批量作业提交
 
 ```python
 import subprocess
 import paramiko
 
 def run_remote_job(ip: str, ssh_key_path: str, commands: list[str]):
-    """Execute commands on remote instance."""
+    """在远程实例上执行命令。"""
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(ip, username="ubuntu", key_filename=ssh_key_path)
@@ -238,11 +238,11 @@ def run_remote_job(ip: str, ssh_key_path: str, commands: list[str]):
         stdin, stdout, stderr = client.exec_command(cmd)
         print(stdout.read().decode())
         if stderr.read():
-            print(f"Error: {stderr.read().decode()}")
+            print(f"错误: {stderr.read().decode()}")
 
     client.close()
 
-# Submit training job
+# 提交训练作业
 commands = [
     "cd /lambda/nfs/storage/project",
     "git pull",
@@ -253,18 +253,18 @@ commands = [
 run_remote_job(instance["ip"], "~/.ssh/lambda_key", commands)
 ```
 
-### Monitor training progress
+### 监控训练进度
 
 ```python
 def monitor_job(ip: str, ssh_key_path: str, log_file: str = "train.log"):
-    """Stream training logs from remote instance."""
+    """从远程实例流式传输训练日志。"""
     import time
 
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(ip, username="ubuntu", key_filename=ssh_key_path)
 
-    # Tail log file
+    # 尾随日志文件
     stdin, stdout, stderr = client.exec_command(f"tail -f {log_file}")
 
     try:
@@ -276,9 +276,9 @@ def monitor_job(ip: str, ssh_key_path: str, log_file: str = "train.log"):
         client.close()
 ```
 
-## 1-Click Cluster Workflows
+## 1-Click集群工作流程
 
-### Slurm job submission
+### Slurm作业提交
 
 ```bash
 #!/bin/bash
@@ -290,11 +290,11 @@ def monitor_job(ip: str, ssh_key_path: str, log_file: str = "train.log"):
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 
-# Set up distributed environment
+# 设置分布式环境
 export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 export MASTER_PORT=29500
 
-# Launch training
+# 启动训练
 srun torchrun \
     --nnodes=$SLURM_NNODES \
     --nproc_per_node=$SLURM_GPUS_PER_NODE \
@@ -304,117 +304,117 @@ srun torchrun \
     --config config.yaml
 ```
 
-### Interactive cluster session
+### 交互式集群会话
 
 ```bash
-# Request interactive session
+# 请求交互式会话
 srun --nodes=1 --ntasks=1 --gpus=8 --time=4:00:00 --pty bash
 
-# Now on compute node with 8 GPUs
+# 现在在有8 GPU的计算节点上
 nvidia-smi
 python train.py
 ```
 
-### Monitoring cluster jobs
+### 监控集群作业
 
 ```bash
-# View job queue
+# 查看作业队列
 squeue
 
-# View job details
-scontrol show job <JOB_ID>
+# 查看作业详情
+scontrol show job <作业ID>
 
-# Cancel job
-scancel <JOB_ID>
+# 取消作业
+scancel <作业ID>
 
-# View node status
+# 查看节点状态
 sinfo
 
-# View GPU usage across cluster
+# 跨集群查看GPU使用情况
 srun --nodes=4 nvidia-smi --query-gpu=name,utilization.gpu --format=csv
 ```
 
-## Advanced Filesystem Usage
+## 高级文件系统用法
 
-### Data staging workflow
+### 数据分级工作流程
 
 ```bash
-# Stage data from S3 to filesystem (one-time)
+# 从S3将数据分级到文件系统（一次性）
 aws s3 sync s3://my-bucket/dataset /lambda/nfs/storage/datasets/
 
-# Or use rclone
+# 或使用rclone
 rclone sync s3:my-bucket/dataset /lambda/nfs/storage/datasets/
 ```
 
-### Shared filesystem across instances
+### 跨实例共享文件系统
 
 ```python
-# Instance 1: Write checkpoints
+# 实例1：写入检查点
 checkpoint_path = "/lambda/nfs/shared/checkpoints/model_step_1000.pt"
 torch.save(model.state_dict(), checkpoint_path)
 
-# Instance 2: Read checkpoints
+# 实例2：读取检查点
 model.load_state_dict(torch.load(checkpoint_path))
 ```
 
-### Filesystem best practices
+### 文件系统最佳实践
 
 ```bash
-# Organize for ML workflows
+# 为ML工作流组织
 /lambda/nfs/storage/
 ├── datasets/
-│   ├── raw/           # Original data
-│   └── processed/     # Preprocessed data
+│   ├── raw/           # 原始数据
+│   └── processed/     # 预处理数据
 ├── models/
-│   ├── pretrained/    # Base models
-│   └── fine-tuned/    # Your trained models
+│   ├── pretrained/    # 基础模型
+│   └── fine-tuned/    # 训练后的模型
 ├── checkpoints/
-│   └── experiment_1/  # Per-experiment checkpoints
+│   └── experiment_1/  # 每个实验的检查点
 ├── logs/
-│   └── tensorboard/   # Training logs
+│   └── tensorboard/   # 训练日志
 └── outputs/
-    └── inference/     # Inference results
+    └── inference/     # 推理结果
 ```
 
-## Environment Management
+## 环境管理
 
-### Custom Python environments
+### 自定义Python环境
 
 ```bash
-# Don't modify system Python, create venv
+# 不要修改系统Python，创建venv
 python -m venv ~/myenv
 source ~/myenv/bin/activate
 
-# Install packages
+# 安装包
 pip install torch transformers accelerate
 
-# Save to filesystem for reuse
+# 保存到文件系统以便重用
 cp -r ~/myenv /lambda/nfs/storage/envs/myenv
 ```
 
-### Conda environments
+### Conda环境
 
 ```bash
-# Install miniconda (if not present)
+# 安装miniconda（如果不存在）
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Miniconda3-latest-Linux-x86_64.sh -b -p ~/miniconda3
 
-# Create environment
+# 创建环境
 ~/miniconda3/bin/conda create -n ml python=3.10 pytorch pytorch-cuda=12.1 -c pytorch -c nvidia -y
 
-# Activate
+# 激活
 source ~/miniconda3/bin/activate ml
 ```
 
-### Docker containers
+### Docker容器
 
 ```bash
-# Pull and run NVIDIA container
+# 拉取并运行NVIDIA容器
 docker run --gpus all -it --rm \
     -v /lambda/nfs/storage:/data \
     nvcr.io/nvidia/pytorch:24.01-py3
 
-# Run training in container
+# 在容器中运行训练
 docker run --gpus all -d \
     -v /lambda/nfs/storage:/data \
     -v $(pwd):/workspace \
@@ -422,73 +422,73 @@ docker run --gpus all -d \
     python /workspace/train.py
 ```
 
-## Monitoring and Observability
+## 监控和可观测性
 
-### GPU monitoring
+### GPU监控
 
 ```bash
-# Real-time GPU stats
+# 实时GPU统计
 watch -n 1 nvidia-smi
 
-# GPU utilization over time
+# GPU利用率随时间
 nvidia-smi dmon -s u -d 1
 
-# Detailed GPU info
+# 详细GPU信息
 nvidia-smi -q
 ```
 
-### System monitoring
+### 系统监控
 
 ```bash
-# CPU and memory
+# CPU和内存
 htop
 
-# Disk I/O
+# 磁盘I/O
 iostat -x 1
 
-# Network
+# 网络
 iftop
 
-# All resources
+# 所有资源
 glances
 ```
 
-### TensorBoard integration
+### TensorBoard集成
 
 ```bash
-# Start TensorBoard
+# 启动TensorBoard
 tensorboard --logdir /lambda/nfs/storage/logs --port 6006 --bind_all
 
-# SSH tunnel from local machine
+# 从本地机器SSH隧道
 ssh -L 6006:localhost:6006 ubuntu@<IP>
 
-# Access at http://localhost:6006
+# 访问 http://localhost:6006
 ```
 
-### Weights & Biases integration
+### Weights & Biases集成
 
 ```python
 import wandb
 
-# Initialize with API key
+# 使用API密钥初始化
 wandb.login(key=os.environ["WANDB_API_KEY"])
 
-# Start run
+# 开始运行
 wandb.init(
     project="lambda-training",
     config={"learning_rate": 1e-4, "epochs": 100}
 )
 
-# Log metrics
+# 记录指标
 wandb.log({"loss": loss, "accuracy": acc})
 
-# Save artifacts to filesystem + W&B
+# 将工件保存到文件系统 + W&B
 wandb.save("/lambda/nfs/storage/checkpoints/best_model.pt")
 ```
 
-## Cost Optimization Strategies
+## 成本优化策略
 
-### Checkpointing for interruption recovery
+### 用于中断恢复的检查点
 
 ```python
 import os
@@ -509,17 +509,17 @@ def load_checkpoint(path, model, optimizer):
         return checkpoint['epoch'], checkpoint['loss']
     return 0, float('inf')
 
-# Save every N steps to filesystem
+# 每N步保存到文件系统
 checkpoint_path = "/lambda/nfs/storage/checkpoints/latest.pt"
 if step % 1000 == 0:
     save_checkpoint(model, optimizer, epoch, loss, checkpoint_path)
 ```
 
-### Instance selection by workload
+### 按工作负载选择实例
 
 ```python
 def recommend_instance(model_params: int, batch_size: int, task: str) -> str:
-    """Recommend Lambda instance based on workload."""
+    """根据工作负载推荐Lambda实例。"""
 
     if task == "inference":
         if model_params < 7e9:
@@ -538,19 +538,19 @@ def recommend_instance(model_params: int, batch_size: int, task: str) -> str:
             return "gpu_8x_h100_sxm5"  # $23.92/hr
 
     elif task == "pretraining":
-        return "gpu_8x_h100_sxm5"  # Maximum performance
+        return "gpu_8x_h100_sxm5"  # 最大性能
 
-    return "gpu_1x_a100"  # Default
+    return "gpu_1x_a100"  # 默认
 ```
 
-### Auto-terminate idle instances
+### 自动终止空闲实例
 
 ```python
 import time
 from datetime import datetime, timedelta
 
 def auto_terminate_idle(api_key: str, idle_threshold_hours: float = 2):
-    """Terminate instances idle for too long."""
+    """终止空闲时间过长的实例。"""
     manager = LambdaJobManager(api_key)
 
     with lambda_cloud_client.ApiClient(manager.config) as client:
@@ -558,54 +558,54 @@ def auto_terminate_idle(api_key: str, idle_threshold_hours: float = 2):
         instances = api.list_instances()
 
         for instance in instances.data:
-            # Check if instance has been running without activity
-            # (You'd need to track this separately)
+            # 检查实例是否运行时间过长而无活动
+            # （你需要单独跟踪这个）
             launch_time = instance.launched_at
             if datetime.now() - launch_time > timedelta(hours=idle_threshold_hours):
-                print(f"Terminating idle instance: {instance.id}")
+                print(f"终止空闲实例: {instance.id}")
                 manager.terminate([instance.id])
 ```
 
-## Security Best Practices
+## 安全最佳实践
 
-### SSH key rotation
+### SSH密钥轮换
 
 ```bash
-# Generate new key pair
+# 生成新密钥对
 ssh-keygen -t ed25519 -f ~/.ssh/lambda_key_new -C "lambda-$(date +%Y%m)"
 
-# Add new key via Lambda console or API
-# Update authorized_keys on running instances
+# 通过Lambda控制台或API添加新密钥
+# 在运行中的实例上更新authorized_keys
 ssh ubuntu@<IP> "echo '$(cat ~/.ssh/lambda_key_new.pub)' >> ~/.ssh/authorized_keys"
 
-# Test new key
+# 测试新密钥
 ssh -i ~/.ssh/lambda_key_new ubuntu@<IP>
 
-# Remove old key from Lambda console
+# 从Lambda控制台删除旧密钥
 ```
 
-### Firewall configuration
+### 防火墙配置
 
 ```bash
-# Lambda console: Only open necessary ports
-# Recommended:
-# - 22 (SSH) - Always needed
-# - 6006 (TensorBoard) - If using
-# - 8888 (Jupyter) - If using
-# - 29500 (PyTorch distributed) - For multi-node only
+# Lambda控制台：仅开放必要端口
+# 推荐：
+# - 22 (SSH) - 始终需要
+# - 6006 (TensorBoard) - 如使用
+# - 8888 (Jupyter) - 如使用
+# - 29500 (PyTorch分布式) - 仅多节点
 ```
 
-### Secrets management
+### 秘密管理
 
 ```bash
-# Don't hardcode API keys in code
-# Use environment variables
+# 不要在代码中硬编码API密钥
+# 使用环境变量
 export HF_TOKEN="hf_..."
 export WANDB_API_KEY="..."
 
-# Or use .env file (add to .gitignore)
+# 或使用.env文件（添加到.gitignore）
 source .env
 
-# On instance, store in ~/.bashrc
+# 在实例上，存储在~/.bashrc中
 echo 'export HF_TOKEN="..."' >> ~/.bashrc
 ```
