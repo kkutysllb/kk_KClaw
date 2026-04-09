@@ -1,33 +1,33 @@
 ---
 sidebar_position: 6
-title: "Event Hooks"
-description: "Run custom code at key lifecycle points — log activity, send alerts, post to webhooks"
+title: "事件钩子"
+description: "在关键生命周期点运行自定义代码——记录活动、发送警报、发布到 webhook"
 ---
 
-# Event Hooks
+# 事件钩子
 
-KClaw has two hook systems that run custom code at key lifecycle points:
+KClaw 有两个钩子系统，在关键生命周期点运行自定义代码：
 
-| System | Registered via | Runs in | Use case |
+| 系统 | 通过以下方式注册 | 运行在 | 使用场景 |
 |--------|---------------|---------|----------|
-| **[Gateway hooks](#gateway-event-hooks)** | `HOOK.yaml` + `handler.py` in `~/.kclaw/hooks/` | Gateway only | Logging, alerts, webhooks |
-| **[Plugin hooks](#plugin-hooks)** | `ctx.register_hook()` in a [plugin](/docs/user-guide/features/plugins) | CLI + Gateway | Tool interception, metrics, guardrails |
+| **[网关钩子](#gateway-event-hooks)** | `~/.kclaw/hooks/` 中的 `HOOK.yaml` + `handler.py` | 仅网关 | 日志、警报、webhook |
+| **[插件钩子](#plugin-hooks)** | [插件](/docs/user-guide/features/plugins)中的 `ctx.register_hook()` | CLI + 网关 | 工具拦截、指标、护栏 |
 
-Both systems are non-blocking — errors in any hook are caught and logged, never crashing the agent.
+两个系统都是非阻塞的——任何钩子中的错误都被捕获并记录，永不让代理崩溃。
 
-## Gateway Event Hooks
+## 网关事件钩子
 
-Gateway hooks fire automatically during gateway operation (Telegram, Discord, Slack, WhatsApp) without blocking the main agent pipeline.
+网关钩子在网关运行期间（Telegram、Discord、Slack、WhatsApp）自动触发，不会阻塞主代理管道。
 
-### Creating a Hook
+### 创建钩子
 
-Each hook is a directory under `~/.kclaw/hooks/` containing two files:
+每个钩子是 `~/.kclaw/hooks/` 下一个包含两个文件的目录：
 
 ```text
 ~/.kclaw/hooks/
 └── my-hook/
-    ├── HOOK.yaml      # Declares which events to listen for
-    └── handler.py     # Python handler function
+    ├── HOOK.yaml      # 声明监听哪些事件
+    └── handler.py     # Python 处理程序函数
 ```
 
 #### HOOK.yaml
@@ -41,7 +41,7 @@ events:
   - agent:step
 ```
 
-The `events` list determines which events trigger your handler. You can subscribe to any combination of events, including wildcards like `command:*`.
+`events` 列表确定哪些事件触发您的处理程序。您可以订阅任何事件组合，包括通配符如 `command:*`。
 
 #### handler.py
 
@@ -63,36 +63,36 @@ async def handle(event_type: str, context: dict):
         f.write(json.dumps(entry) + "\n")
 ```
 
-**Handler rules:**
-- Must be named `handle`
-- Receives `event_type` (string) and `context` (dict)
-- Can be `async def` or regular `def` — both work
-- Errors are caught and logged, never crashing the agent
+**处理程序规则：**
+- 必须命名为 `handle`
+- 接收 `event_type`（字符串）和 `context`（字典）
+- 可以是 `async def` 或常规 `def`——两者都可以
+- 错误被捕获并记录，永不让代理崩溃
 
-### Available Events
+### 可用事件
 
-| Event | When it fires | Context keys |
+| 事件 | 触发时机 | 上下文键 |
 |-------|---------------|--------------|
-| `gateway:startup` | Gateway process starts | `platforms` (list of active platform names) |
-| `session:start` | New messaging session created | `platform`, `user_id`, `session_id`, `session_key` |
-| `session:end` | Session ended (before reset) | `platform`, `user_id`, `session_key` |
-| `session:reset` | User ran `/new` or `/reset` | `platform`, `user_id`, `session_key` |
-| `agent:start` | Agent begins processing a message | `platform`, `user_id`, `session_id`, `message` |
-| `agent:step` | Each iteration of the tool-calling loop | `platform`, `user_id`, `session_id`, `iteration`, `tool_names` |
-| `agent:end` | Agent finishes processing | `platform`, `user_id`, `session_id`, `message`, `response` |
-| `command:*` | Any slash command executed | `platform`, `user_id`, `command`, `args` |
+| `gateway:startup` | 网关进程启动 | `platforms`（活动平台名称列表） |
+| `session:start` | 创建新消息会话 | `platform`, `user_id`, `session_id`, `session_key` |
+| `session:end` | 会话结束（重置前） | `platform`, `user_id`, `session_key` |
+| `session:reset` | 用户运行 `/new` 或 `/reset` | `platform`, `user_id`, `session_key` |
+| `agent:start` | 代理开始处理消息 | `platform`, `user_id`, `session_id`, `message` |
+| `agent:step` | 工具调用循环的每次迭代 | `platform`, `user_id`, `session_id`, `iteration`, `tool_names` |
+| `agent:end` | 代理完成处理 | `platform`, `user_id`, `session_id`, `message`, `response` |
+| `command:*` | 执行的任何斜杠命令 | `platform`, `user_id`, `command`, `args` |
 
-#### Wildcard Matching
+#### 通配符匹配
 
-Handlers registered for `command:*` fire for any `command:` event (`command:model`, `command:reset`, etc.). Monitor all slash commands with a single subscription.
+注册为 `command:*` 的处理程序为任何 `command:` 事件触发（`command:model`、`command:reset` 等）。使用单个订阅监控所有斜杠命令。
 
-### Examples
+### 示例
 
-#### Boot Checklist (BOOT.md) — Built-in
+#### 启动检查列表（BOOT.md）— 内置
 
-The gateway ships with a built-in `boot-md` hook that looks for `~/.kclaw/BOOT.md` on every startup. If the file exists, the agent runs its instructions in a background session. No installation needed — just create the file.
+网关附带内置的 `boot-md` 钩子，每次启动时查找 `~/.kclaw/BOOT.md`。如果文件存在，代理在后台会话中运行其指令。无需安装——只需创建文件。
 
-**Create `~/.kclaw/BOOT.md`:**
+**创建 `~/.kclaw/BOOT.md`：**
 
 ```markdown
 # Startup Checklist
@@ -102,15 +102,15 @@ The gateway ships with a built-in `boot-md` hook that looks for `~/.kclaw/BOOT.m
 3. Check if /opt/app/deploy.log has any errors from the last 24 hours
 ```
 
-The agent runs these instructions in a background thread so it doesn't block gateway startup. If nothing needs attention, the agent replies with `[SILENT]` and no message is delivered.
+代理在后台线程中运行这些指令，因此不会阻塞网关启动。如果不需要注意，代理回复 `[SILENT]` 且不发送消息。
 
 :::tip
-No BOOT.md? The hook silently skips — zero overhead. Create the file whenever you need startup automation, delete it when you don't.
+没有 BOOT.md？钩子静默跳过——零开销。当您需要启动自动化时创建文件，不需要时删除。
 :::
 
-#### Telegram Alert on Long Tasks
+#### 长时间任务的 Telegram 警报
 
-Send yourself a message when the agent takes more than 10 steps:
+当代理花费超过 10 步时向您发送消息：
 
 ```yaml
 # ~/.kclaw/hooks/long-task-alert/HOOK.yaml
@@ -141,9 +141,9 @@ async def handle(event_type: str, context: dict):
             )
 ```
 
-#### Command Usage Logger
+#### 命令使用记录器
 
-Track which slash commands are used:
+跟踪使用了哪些斜杠命令：
 
 ```yaml
 # ~/.kclaw/hooks/command-logger/HOOK.yaml
@@ -174,9 +174,9 @@ def handle(event_type: str, context: dict):
         f.write(json.dumps(entry) + "\n")
 ```
 
-#### Session Start Webhook
+#### 会话启动 Webhook
 
-POST to an external service on new sessions:
+在新会话时 POST 到外部服务：
 
 ```yaml
 # ~/.kclaw/hooks/session-webhook/HOOK.yaml
@@ -201,21 +201,21 @@ async def handle(event_type: str, context: dict):
         }, timeout=5)
 ```
 
-### How It Works
+### 工作原理
 
-1. On gateway startup, `HookRegistry.discover_and_load()` scans `~/.kclaw/hooks/`
-2. Each subdirectory with `HOOK.yaml` + `handler.py` is loaded dynamically
-3. Handlers are registered for their declared events
-4. At each lifecycle point, `hooks.emit()` fires all matching handlers
-5. Errors in any handler are caught and logged — a broken hook never crashes the agent
+1. 在网关启动时，`HookRegistry.discover_and_load()` 扫描 `~/.kclaw/hooks/`
+2. 每个带有 `HOOK.yaml` + `handler.py` 的子目录被动态加载
+3. 处理程序为其声明的事件注册
+4. 在每个生命周期点，`hooks.emit()` 触发所有匹配的处理程序
+5. 任何处理程序中的错误被捕获并记录——损坏的钩子永不让代理崩溃
 
 :::info
-Gateway hooks only fire in the **gateway** (Telegram, Discord, Slack, WhatsApp). The CLI does not load gateway hooks. For hooks that work everywhere, use [plugin hooks](#plugin-hooks).
+网关钩子仅在**网关**中触发（Telegram、Discord、Slack、WhatsApp）。CLI 不加载网关钩子。对于处处工作的钩子，请使用[插件钩子](#plugin-hooks)。
 :::
 
-## Plugin Hooks
+## 插件钩子
 
-[Plugins](/docs/user-guide/features/plugins) can register hooks that fire in **both CLI and gateway** sessions. These are registered programmatically via `ctx.register_hook()` in your plugin's `register()` function.
+[插件](/docs/user-guide/features/plugins)可以注册在 **CLI 和网关**会话中都触发的钩子。这些通过插件的 `register()` 函数中的 `ctx.register_hook()` 以编程方式注册。
 
 ```python
 def register(ctx):
@@ -227,48 +227,48 @@ def register(ctx):
     ctx.register_hook("on_session_end", my_cleanup_callback)
 ```
 
-**General rules for all hooks:**
+**所有钩子的一般规则：**
 
-- Callbacks receive **keyword arguments**. Always accept `**kwargs` for forward compatibility — new parameters may be added in future versions without breaking your plugin.
-- If a callback **crashes**, it's logged and skipped. Other hooks and the agent continue normally. A misbehaving plugin can never break the agent.
-- All hooks are **fire-and-forget observers** whose return values are ignored — except `pre_llm_call`, which can [inject context](#pre_llm_call).
+- 回调接收**关键字参数**。始终接受 `**kwargs` 以实现向前兼容——新参数可能在未来版本中添加而不会破坏您的插件。
+- 如果回调**崩溃**，它被记录并跳过。其他钩子和代理继续正常运行。行为不端的插件永不能让代理崩溃。
+- 所有钩子都是**即发即忘的观察者**，其返回值被忽略——除了 `pre_llm_call`，它可以[注入上下文](#pre_llm_call)。
 
-### Quick reference
+### 快速参考
 
-| Hook | Fires when | Returns |
+| 钩子 | 触发时机 | 返回 |
 |------|-----------|---------|
-| [`pre_tool_call`](#pre_tool_call) | Before any tool executes | ignored |
-| [`post_tool_call`](#post_tool_call) | After any tool returns | ignored |
-| [`pre_llm_call`](#pre_llm_call) | Once per turn, before the tool-calling loop | context injection |
-| [`post_llm_call`](#post_llm_call) | Once per turn, after the tool-calling loop | ignored |
-| [`on_session_start`](#on_session_start) | New session created (first turn only) | ignored |
-| [`on_session_end`](#on_session_end) | Session ends | ignored |
+| [`pre_tool_call`](#pre_tool_call) | 任何工具执行前 | ignored |
+| [`post_tool_call`](#post_tool_call) | 任何工具返回后 | ignored |
+| [`pre_llm_call`](#pre_llm_call) | 每轮一次，工具调用循环前 | context injection |
+| [`post_llm_call`](#post_llm_call) | 每轮一次，工具调用循环后 | ignored |
+| [`on_session_start`](#on_session_start) | 创建新会话时（仅第一轮） | ignored |
+| [`on_session_end`](#on_session_end) | 会话结束 | ignored |
 
 ---
 
 ### `pre_tool_call`
 
-Fires **immediately before** every tool execution — built-in tools and plugin tools alike.
+在每个工具执行**立即之前**触发——无论是内置工具还是插件工具。
 
-**Callback signature:**
+**回调签名：**
 
 ```python
 def my_callback(tool_name: str, args: dict, task_id: str, **kwargs):
 ```
 
-| Parameter | Type | Description |
+| 参数 | 类型 | 描述 |
 |-----------|------|-------------|
-| `tool_name` | `str` | Name of the tool about to execute (e.g. `"terminal"`, `"web_search"`, `"read_file"`) |
-| `args` | `dict` | The arguments the model passed to the tool |
-| `task_id` | `str` | Session/task identifier. Empty string if not set. |
+| `tool_name` | `str` | 即将执行的工具名称（例如 `"terminal"`、`"web_search"`、`"read_file"`） |
+| `args` | `dict` | 模型传递给工具的参数 |
+| `task_id` | `str` | 会话/任务标识符。如果未设置则为空字符串。 |
 
-**Fires:** In `model_tools.py`, inside `handle_function_call()`, before the tool's handler runs. Fires once per tool call — if the model calls 3 tools in parallel, this fires 3 times.
+**触发：** 在 `model_tools.py` 中，`handle_function_call()` 内部，在工具的处理程序运行之前。每个工具调用触发一次——如果模型并行调用 3 个工具，这触发 3 次。
 
-**Return value:** Ignored.
+**返回值：** 忽略。
 
-**Use cases:** Logging, audit trails, tool call counters, blocking dangerous operations (print a warning), rate limiting.
+**使用场景：** 日志、审计跟踪、工具调用计数、阻止危险操作（打印警告）、速率限制。
 
-**Example — tool call audit log:**
+**示例 — 工具调用审计日志：**
 
 ```python
 import json, logging
@@ -284,7 +284,7 @@ def register(ctx):
     ctx.register_hook("pre_tool_call", audit_tool_call)
 ```
 
-**Example — warn on dangerous tools:**
+**示例 — 危险工具警告：**
 
 ```python
 DANGEROUS = {"terminal", "write_file", "patch"}
@@ -301,28 +301,28 @@ def register(ctx):
 
 ### `post_tool_call`
 
-Fires **immediately after** every tool execution returns.
+在每个工具执行返回**立即之后**触发。
 
-**Callback signature:**
+**回调签名：**
 
 ```python
 def my_callback(tool_name: str, args: dict, result: str, task_id: str, **kwargs):
 ```
 
-| Parameter | Type | Description |
+| 参数 | 类型 | 描述 |
 |-----------|------|-------------|
-| `tool_name` | `str` | Name of the tool that just executed |
-| `args` | `dict` | The arguments the model passed to the tool |
-| `result` | `str` | The tool's return value (always a JSON string) |
-| `task_id` | `str` | Session/task identifier. Empty string if not set. |
+| `tool_name` | `str` | 刚执行的工具名称 |
+| `args` | `dict` | 模型传递给工具的参数 |
+| `result` | `str` | 工具的返回值（始终是 JSON 字符串） |
+| `task_id` | `str` | 会话/任务标识符。如果未设置则为空字符串。 |
 
-**Fires:** In `model_tools.py`, inside `handle_function_call()`, after the tool's handler returns. Fires once per tool call. Does **not** fire if the tool raised an unhandled exception (the error is caught and returned as an error JSON string instead, and `post_tool_call` fires with that error string as `result`).
+**触发：** 在 `model_tools.py` 中，`handle_function_call()` 内部，在工具的处理程序返回之后。每个工具调用触发一次。如果工具抛出未处理的异常**不**触发（错误被捕获并作为错误 JSON 字符串返回，`post_tool_call` 使用该错误字符串作为 `result` 触发）。
 
-**Return value:** Ignored.
+**返回值：** 忽略。
 
-**Use cases:** Logging tool results, metrics collection, tracking tool success/failure rates, sending notifications when specific tools complete.
+**使用场景：** 记录工具结果、指标收集、跟踪工具成功率、在特定工具完成时发送通知。
 
-**Example — track tool usage metrics:**
+**示例 — 跟踪工具使用指标：**
 
 ```python
 from collections import Counter
@@ -348,48 +348,48 @@ def register(ctx):
 
 ### `pre_llm_call`
 
-Fires **once per turn**, before the tool-calling loop begins. This is the **only hook whose return value is used** — it can inject context into the current turn's user message.
+在工具调用循环开始前**每轮触发一次**。这是**唯一使用返回值的钩子**——它可以向当前轮次的用户消息注入上下文。
 
-**Callback signature:**
+**回调签名：**
 
 ```python
 def my_callback(session_id: str, user_message: str, conversation_history: list,
                 is_first_turn: bool, model: str, platform: str, **kwargs):
 ```
 
-| Parameter | Type | Description |
+| 参数 | 类型 | 描述 |
 |-----------|------|-------------|
-| `session_id` | `str` | Unique identifier for the current session |
-| `user_message` | `str` | The user's original message for this turn (before any skill injection) |
-| `conversation_history` | `list` | Copy of the full message list (OpenAI format: `[{"role": "user", "content": "..."}]`) |
-| `is_first_turn` | `bool` | `True` if this is the first turn of a new session, `False` on subsequent turns |
-| `model` | `str` | The model identifier (e.g. `"anthropic/claude-sonnet-4.6"`) |
-| `platform` | `str` | Where the session is running: `"cli"`, `"telegram"`, `"discord"`, etc. |
+| `session_id` | `str` | 当前会话的唯一标识符 |
+| `user_message` | `str` | 用户此轮次的原始消息（在任何技能注入之前） |
+| `conversation_history` | `list` | 完整消息列表的副本（OpenAI 格式：`[{"role": "user", "content": "..."}]`） |
+| `is_first_turn` | `bool` | 如果这是新会话的第一轮则为 `True`，后续轮次为 `False` |
+| `model` | `str` | 模型标识符（例如 `"anthropic/claude-sonnet-4.6"`） |
+| `platform` | `str` | 会话运行在哪里：`"cli"`、`"telegram"`、`"discord"` 等 |
 
-**Fires:** In `run_agent.py`, inside `run_conversation()`, after context compression but before the main `while` loop. Fires once per `run_conversation()` call (i.e. once per user turn), not once per API call within the tool loop.
+**触发：** 在 `run_agent.py` 中，`run_conversation()` 内部，在上下文压缩之后但在主 `while` 循环之前。每 `run_conversation()` 调用触发一次（即每用户轮次一次），而不是在工具循环内的每次 API 调用触发一次。
 
-**Return value:** If the callback returns a dict with a `"context"` key, or a plain non-empty string, the text is appended to the current turn's user message. Return `None` for no injection.
+**返回值：** 如果回调返回带有 `"context"` 键的字典，或纯非空字符串，文本被附加到当前轮次的用户消息。返回 `None` 则不注入。
 
 ```python
-# Inject context
+# 注入上下文
 return {"context": "Recalled memories:\n- User likes Python\n- Working on kclaw"}
 
-# Plain string (equivalent)
+# 纯字符串（等效）
 return "Recalled memories:\n- User likes Python"
 
-# No injection
+# 不注入
 return None
 ```
 
-**Where context is injected:** Always the **user message**, never the system prompt. This preserves the prompt cache — the system prompt stays identical across turns, so cached tokens are reused. The system prompt is KClaw's territory (model guidance, tool enforcement, personality, skills). Plugins contribute context alongside the user's input.
+**注入到哪里：** 始终是**用户消息**，而不是系统提示。这保留了提示缓存——系统提示在轮次之间保持相同，因此缓存的令牌被重用。系统提示是 KClaw 的领地（模型指导、工具强制、人格、技能）。插件与用户的输入一起提供上下文。
 
-All injected context is **ephemeral** — added at API call time only. The original user message in the conversation history is never mutated, and nothing is persisted to the session database.
+所有注入的上下文都是**短暂的**——仅在 API 调用时添加。对话历史中的原始用户消息从未被改变，没有任何内容持久化到会话数据库。
 
-When **multiple plugins** return context, their outputs are joined with double newlines in plugin discovery order (alphabetical by directory name).
+当**多个插件**返回上下文时，它们的输出以双换行符连接，按插件发现顺序（按目录名称字母顺序）。
 
-**Use cases:** Memory recall, RAG context injection, guardrails, per-turn analytics.
+**使用场景：** 记忆召回、RAG 上下文注入、护栏、每轮分析。
 
-**Example — memory recall:**
+**示例 — 记忆召回：**
 
 ```python
 import httpx
@@ -414,7 +414,7 @@ def register(ctx):
     ctx.register_hook("pre_llm_call", recall)
 ```
 
-**Example — guardrails:**
+**示例 — 护栏：**
 
 ```python
 POLICY = "Never execute commands that delete files without explicit user confirmation."
@@ -430,31 +430,31 @@ def register(ctx):
 
 ### `post_llm_call`
 
-Fires **once per turn**, after the tool-calling loop completes and the agent has produced a final response. Only fires on **successful** turns — does not fire if the turn was interrupted.
+在工具调用循环完成且代理产生最终响应后**每轮触发一次**。仅在**成功**的轮次触发——如果轮次被中断则不触发。
 
-**Callback signature:**
+**回调签名：**
 
 ```python
 def my_callback(session_id: str, user_message: str, assistant_response: str,
                 conversation_history: list, model: str, platform: str, **kwargs):
 ```
 
-| Parameter | Type | Description |
+| 参数 | 类型 | 描述 |
 |-----------|------|-------------|
-| `session_id` | `str` | Unique identifier for the current session |
-| `user_message` | `str` | The user's original message for this turn |
-| `assistant_response` | `str` | The agent's final text response for this turn |
-| `conversation_history` | `list` | Copy of the full message list after the turn completed |
-| `model` | `str` | The model identifier |
-| `platform` | `str` | Where the session is running |
+| `session_id` | `str` | 当前会话的唯一标识符 |
+| `user_message` | `str` | 用户此轮次的原始消息 |
+| `assistant_response` | `str` | 代理此轮次的最终文本响应 |
+| `conversation_history` | `list` | 轮次完成后完整消息列表的副本 |
+| `model` | `str` | 模型标识符 |
+| `platform` | `str` | 会话运行在哪里 |
 
-**Fires:** In `run_agent.py`, inside `run_conversation()`, after the tool loop exits with a final response. Guarded by `if final_response and not interrupted` — so it does **not** fire when the user interrupts mid-turn or the agent hits the iteration limit without producing a response.
+**触发：** 在 `run_agent.py` 中，`run_conversation()` 内部，在工具循环以最终响应退出后。受 `if final_response and not interrupted` 保护——因此当用户在轮次中间中断或代理达到迭代限制而没有产生响应时**不**触发。
 
-**Return value:** Ignored.
+**返回值：** 忽略。
 
-**Use cases:** Syncing conversation data to an external memory system, computing response quality metrics, logging turn summaries, triggering follow-up actions.
+**使用场景：** 将对话数据同步到外部记忆系统、计算响应质量指标、记录轮次摘要、触发后续操作。
 
-**Example — sync to external memory:**
+**示例 — 同步到外部记忆：**
 
 ```python
 import httpx
@@ -475,7 +475,7 @@ def register(ctx):
     ctx.register_hook("post_llm_call", sync_memory)
 ```
 
-**Example — track response lengths:**
+**示例 — 跟踪响应长度：**
 
 ```python
 import logging
@@ -493,27 +493,27 @@ def register(ctx):
 
 ### `on_session_start`
 
-Fires **once** when a brand-new session is created. Does **not** fire on session continuation (when the user sends a second message in an existing session).
+在全新会话创建时触发**一次**。在会话继续时**不**触发（当用户在现有会话中发送第二条消息时）。
 
-**Callback signature:**
+**回调签名：**
 
 ```python
 def my_callback(session_id: str, model: str, platform: str, **kwargs):
 ```
 
-| Parameter | Type | Description |
+| 参数 | 类型 | 描述 |
 |-----------|------|-------------|
-| `session_id` | `str` | Unique identifier for the new session |
-| `model` | `str` | The model identifier |
-| `platform` | `str` | Where the session is running |
+| `session_id` | `str` | 新会话的唯一标识符 |
+| `model` | `str` | 模型标识符 |
+| `platform` | `str` | 会话运行在哪里 |
 
-**Fires:** In `run_agent.py`, inside `run_conversation()`, during the first turn of a new session — specifically after the system prompt is built but before the tool loop starts. The check is `if not conversation_history` (no prior messages = new session).
+**触发：** 在 `run_agent.py` 中，`run_conversation()` 内部，在新会话的第一轮——具体是在系统提示构建之后、工具循环开始之前。检查是 `if not conversation_history`（没有先前消息 = 新会话）。
 
-**Return value:** Ignored.
+**返回值：** 忽略。
 
-**Use cases:** Initializing session-scoped state, warming caches, registering the session with an external service, logging session starts.
+**使用场景：** 初始化会话作用域状态、预热缓存、向外部服务注册会话、记录会话开始。
 
-**Example — initialize a session cache:**
+**示例 — 初始化会话缓存：**
 
 ```python
 _session_caches = {}
@@ -534,32 +534,32 @@ def register(ctx):
 
 ### `on_session_end`
 
-Fires at the **very end** of every `run_conversation()` call, regardless of outcome. Also fires from the CLI's exit handler if the agent was mid-turn when the user quit.
+在每个 `run_conversation()` 调用**非常结束时**触发，无论结果如何。如果代理在用户退出时正处于轮次中间，也从 CLI 的退出处理程序触发。
 
-**Callback signature:**
+**回调签名：**
 
 ```python
 def my_callback(session_id: str, completed: bool, interrupted: bool,
                 model: str, platform: str, **kwargs):
 ```
 
-| Parameter | Type | Description |
+| 参数 | 类型 | 描述 |
 |-----------|------|-------------|
-| `session_id` | `str` | Unique identifier for the session |
-| `completed` | `bool` | `True` if the agent produced a final response, `False` otherwise |
-| `interrupted` | `bool` | `True` if the turn was interrupted (user sent new message, `/stop`, or quit) |
-| `model` | `str` | The model identifier |
-| `platform` | `str` | Where the session is running |
+| `session_id` | `str` | 会话的唯一标识符 |
+| `completed` | `bool` | 如果代理产生了最终响应则为 `True`，否则为 `False` |
+| `interrupted` | `bool` | 如果轮次被中断（用户发送了新消息、`/stop` 或退出）则为 `True` |
+| `model` | `str` | 模型标识符 |
+| `platform` | `str` | 会话运行在哪里 |
 
-**Fires:** In two places:
-1. **`run_agent.py`** — at the end of every `run_conversation()` call, after all cleanup. Always fires, even if the turn errored.
-2. **`cli.py`** — in the CLI's atexit handler, but **only** if the agent was mid-turn (`_agent_running=True`) when the exit occurred. This catches Ctrl+C and `/exit` during processing. In this case, `completed=False` and `interrupted=True`.
+**触发：** 在两个地方：
+1. **`run_agent.py`** — 在每个 `run_conversation()` 调用结束时，在所有清理之后。始终触发，即使轮次出错。
+2. **`cli.py`** — 在 CLI 的 atexit 处理程序中，但**仅当**代理在退出时正处于轮次中间（`_agent_running=True`）时。在这种情况下，`completed=False` 且 `interrupted=True`。
 
-**Return value:** Ignored.
+**返回值：** 忽略。
 
-**Use cases:** Flushing buffers, closing connections, persisting session state, logging session duration, cleanup of resources initialized in `on_session_start`.
+**使用场景：** 刷新缓冲区、关闭连接、持久化会话状态、记录会话持续时间、清理在 `on_session_start` 中初始化的资源。
 
-**Example — flush and cleanup:**
+**示例 — 刷新和清理：**
 
 ```python
 _session_caches = {}
@@ -575,7 +575,7 @@ def register(ctx):
     ctx.register_hook("on_session_end", cleanup_session)
 ```
 
-**Example — session duration tracking:**
+**示例 — 会话持续时间跟踪：**
 
 ```python
 import time, logging
@@ -600,4 +600,4 @@ def register(ctx):
 
 ---
 
-See the **[Build a Plugin guide](/docs/guides/build-a-kclaw-plugin)** for the full walkthrough including tool schemas, handlers, and advanced hook patterns.
+请参阅**[构建插件指南](/docs/guides/build-a-kclaw-plugin)**获取完整演练，包括工具模式、处理程序和高级钩子模式。

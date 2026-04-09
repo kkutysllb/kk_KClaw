@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """
-SQLite State Store for KClaw Agent.
+KClaw Agent 的 SQLite 状态存储。
 
-Provides persistent session storage with FTS5 full-text search, replacing
-the per-session JSONL file approach. Stores session metadata, full message
-history, and model configuration for CLI and gateway sessions.
+提供基于 FTS5 全文搜索的持久化会话存储，替代原有的逐会话 JSONL 文件方案。
+存储会话元数据、完整消息历史和 CLI 及网关会话的模型配置。
 
-Key design decisions:
-- WAL mode for concurrent readers + one writer (gateway multi-platform)
-- FTS5 virtual table for fast text search across all session messages
-- Compression-triggered session splitting via parent_session_id chains
-- Batch runner and RL trajectories are NOT stored here (separate systems)
-- Session source tagging ('cli', 'telegram', 'discord', etc.) for filtering
+核心设计决策：
+- WAL 模式支持并发读取 + 单写入（网关多平台）
+- FTS5 虚拟表实现跨所有会话消息的快速文本搜索
+- 通过 parent_session_id 链触发压缩会话分割
+- 批处理运行器和 RL 轨迹不存储在此处（独立系统）
+- 会话来源标签（'cli'、'telegram'、'discord' 等）用于过滤
 """
 
 import json
@@ -114,21 +113,21 @@ END;
 
 class SessionDB:
     """
-    SQLite-backed session storage with FTS5 search.
+    基于 SQLite 的会话存储，支持 FTS5 搜索。
 
-    Thread-safe for the common gateway pattern (multiple reader threads,
-    single writer via WAL mode). Each method opens its own cursor.
+    线程安全，适用于常见网关模式（多读取线程，
+    WAL 模式下的单写入线程）。每个方法使用独立的游标。
     """
 
-    # ── Write-contention tuning ──
-    # With multiple kclaw processes (gateway + CLI sessions + worktree agents)
-    # all sharing one state.db, WAL write-lock contention causes visible TUI
-    # freezes.  SQLite's built-in busy handler uses a deterministic sleep
-    # schedule that causes convoy effects under high concurrency.
+    # ── 写入竞争调优 ──
+    # 由于多个 kclaw 进程（网关 + CLI 会话 + 工作树代理）
+    # 共用同一个 state.db，WAL 写入锁竞争会导致 TUI 明显冻结。
+    # SQLite 内置的忙处理程序使用确定性睡眠调度，
+    # 在高并发下会造成车队效应。
     #
-    # Instead, we keep the SQLite timeout short (1s) and handle retries at the
-    # application level with random jitter, which naturally staggers competing
-    # writers and avoids the convoy.
+    # 替代方案：将 SQLite 超时保持较短（1秒），
+    # 并在应用层使用随机抖动处理重试，
+    # 这自然地使竞争的写入者交错，避免车队效应。
     _WRITE_MAX_RETRIES = 15
     _WRITE_RETRY_MIN_S = 0.020   # 20ms
     _WRITE_RETRY_MAX_S = 0.150   # 150ms
@@ -144,13 +143,12 @@ class SessionDB:
         self._conn = sqlite3.connect(
             str(self.db_path),
             check_same_thread=False,
-            # Short timeout — application-level retry with random jitter
-            # handles contention instead of sitting in SQLite's internal
-            # busy handler for up to 30s.
+            # 超时较短 — 应用层随机抖动重试处理竞争，
+            # 而不是让 SQLite 内部忙处理程序等待最多 30 秒。
             timeout=1.0,
-            # Autocommit mode: Python's default isolation_level="" auto-starts
-            # transactions on DML, which conflicts with our explicit
-            # BEGIN IMMEDIATE.  None = we manage transactions ourselves.
+            # 自动提交模式：Python 默认的 isolation_level="" 自动启动
+            # DML 事务，这与我们的显式 BEGIN IMMEDIATE 冲突。
+            # None = 我们自行管理事务。
             isolation_level=None,
         )
         self._conn.row_factory = sqlite3.Row
@@ -159,22 +157,21 @@ class SessionDB:
 
         self._init_schema()
 
-    # ── Core write helper ──
+    # ── 核心写入辅助方法 ──
 
     def _execute_write(self, fn: Callable[[sqlite3.Connection], T]) -> T:
-        """Execute a write transaction with BEGIN IMMEDIATE and jitter retry.
+        """执行带 BEGIN IMMEDIATE 和抖动重试的写入事务。
 
-        *fn* receives the connection and should perform INSERT/UPDATE/DELETE
-        statements.  The caller must NOT call ``commit()`` — that's handled
-        here after *fn* returns.
+        *fn* 接收连接并执行 INSERT/UPDATE/DELETE 语句。
+        调用者不得调用 ``commit()`` — 由本方法处理。
 
-        BEGIN IMMEDIATE acquires the WAL write lock at transaction start
-        (not at commit time), so lock contention surfaces immediately.
-        On ``database is locked``, we release the Python lock, sleep a
-        random 20-150ms, and retry — breaking the convoy pattern that
-        SQLite's built-in deterministic backoff creates.
+        BEGIN IMMEDIATE 在事务开始时获取 WAL 写入锁
+        （不是在提交时），因此锁竞争会立即暴露。
+        遇到 ``database is locked`` 时，释放 Python 锁，
+        随机睡眠 20-150ms，然后重试 — 打破 SQLite
+        内置确定性退避造成的车队模式。
 
-        Returns whatever *fn* returns.
+        返回 *fn* 的返回值。
         """
         last_err: Optional[Exception] = None
         for attempt in range(self._WRITE_MAX_RETRIES):
@@ -190,7 +187,7 @@ class SessionDB:
                         except Exception:
                             pass
                         raise
-                # Success — periodic best-effort checkpoint.
+                # 成功 — 定期尝试检查点。
                 self._write_count += 1
                 if self._write_count % self._CHECKPOINT_EVERY_N_WRITES == 0:
                     self._try_wal_checkpoint()
@@ -206,20 +203,20 @@ class SessionDB:
                         )
                         time.sleep(jitter)
                         continue
-                # Non-lock error or retries exhausted — propagate.
+                # 非锁错误或重试耗尽 — 向上传播。
                 raise
-        # Retries exhausted (shouldn't normally reach here).
+        # 重试耗尽（通常不应到达此处）。
         raise last_err or sqlite3.OperationalError(
             "database is locked after max retries"
         )
 
     def _try_wal_checkpoint(self) -> None:
-        """Best-effort PASSIVE WAL checkpoint.  Never blocks, never raises.
+        """尽力而为的 PASSIVE WAL 检查点。不阻塞，不抛出异常。
 
-        Flushes committed WAL frames back into the main DB file for any
-        frames that no other connection currently needs.  Keeps the WAL
-        from growing unbounded when many processes hold persistent
-        connections.
+        将已提交的 WAL 帧刷新回主数据库文件，
+        针对任何当前其他连接不需要的帧。
+        在多个进程持有持久连接时，
+        防止 WAL 文件无限增长。
         """
         try:
             with self._lock:
@@ -232,13 +229,13 @@ class SessionDB:
                         result[2], result[1],
                     )
         except Exception:
-            pass  # Best effort — never fatal.
+            pass  # 尽力而为 — 不会致命。
 
     def close(self):
-        """Close the database connection.
+        """关闭数据库连接。
 
-        Attempts a PASSIVE WAL checkpoint first so that exiting processes
-        help keep the WAL file from growing unbounded.
+        首先尝试 PASSIVE WAL 检查点，
+        使退出进程帮助防止 WAL 文件无限增长。
         """
         with self._lock:
             if self._conn:
@@ -250,12 +247,12 @@ class SessionDB:
                 self._conn = None
 
     def _init_schema(self):
-        """Create tables and FTS if they don't exist, run migrations."""
+        """创建表和 FTS（如果不存在），运行迁移。"""
         cursor = self._conn.cursor()
 
         cursor.executescript(SCHEMA_SQL)
 
-        # Check schema version and run migrations
+        # 检查 schema 版本并运行迁移
         cursor.execute("SELECT version FROM schema_version LIMIT 1")
         row = cursor.fetchone()
         if row is None:
@@ -263,28 +260,28 @@ class SessionDB:
         else:
             current_version = row["version"] if isinstance(row, sqlite3.Row) else row[0]
             if current_version < 2:
-                # v2: add finish_reason column to messages
+                # v2: 向 messages 添加 finish_reason 列
                 try:
                     cursor.execute("ALTER TABLE messages ADD COLUMN finish_reason TEXT")
                 except sqlite3.OperationalError:
-                    pass  # Column already exists
+                    pass  # 列已存在
                 cursor.execute("UPDATE schema_version SET version = 2")
             if current_version < 3:
-                # v3: add title column to sessions
+                # v3: 向 sessions 添加 title 列
                 try:
                     cursor.execute("ALTER TABLE sessions ADD COLUMN title TEXT")
                 except sqlite3.OperationalError:
-                    pass  # Column already exists
+                    pass  # 列已存在
                 cursor.execute("UPDATE schema_version SET version = 3")
             if current_version < 4:
-                # v4: add unique index on title (NULLs allowed, only non-NULL must be unique)
+                # v4: 在 title 上添加唯一索引（允许 NULL，仅非 NULL 必须唯一）
                 try:
                     cursor.execute(
                         "CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_title_unique "
                         "ON sessions(title) WHERE title IS NOT NULL"
                     )
                 except sqlite3.OperationalError:
-                    pass  # Index already exists
+                    pass  # 索引已存在
                 cursor.execute("UPDATE schema_version SET version = 4")
             if current_version < 5:
                 new_columns = [
@@ -302,20 +299,20 @@ class SessionDB:
                 ]
                 for name, column_type in new_columns:
                     try:
-                        # name and column_type come from the hardcoded tuple above,
-                        # not user input. Double-quote identifier escaping is applied
-                        # as defense-in-depth; SQLite DDL cannot be parameterized.
+                        # name 和 column_type 来自上面的硬编码元组，
+                        # 不是用户输入。双引号标识符转义作为深度防御；
+                        # SQLite DDL 无法参数化。
                         safe_name = name.replace('"', '""')
                         cursor.execute(f'ALTER TABLE sessions ADD COLUMN "{safe_name}" {column_type}')
                     except sqlite3.OperationalError:
                         pass
                 cursor.execute("UPDATE schema_version SET version = 5")
             if current_version < 6:
-                # v6: add reasoning columns to messages table — preserves assistant
-                # reasoning text and structured reasoning_details across gateway
-                # session turns.  Without these, reasoning chains are lost on
-                # session reload, breaking multi-turn reasoning continuity for
-                # providers that replay reasoning (OpenRouter, OpenAI, Nous).
+                # v6: 向 messages 表添加 reasoning 列 — 保留助手
+                # reasoning 文本和结构化 reasoning_details，跨网关
+                # 会话轮次。没有这些，重 reasoning 链会在
+                # 会话重新加载时丢失，破坏多轮 reasoning 连续性
+                # （对于重放 reasoning 的提供商：OpenRouter、OpenAI、Nous）。
                 for col_name, col_type in [
                     ("reasoning", "TEXT"),
                     ("reasoning_details", "TEXT"),
@@ -327,20 +324,21 @@ class SessionDB:
                             f'ALTER TABLE messages ADD COLUMN "{safe}" {col_type}'
                         )
                     except sqlite3.OperationalError:
-                        pass  # Column already exists
+                        pass  # 列已存在
                 cursor.execute("UPDATE schema_version SET version = 6")
 
-        # Unique title index — always ensure it exists (safe to run after migrations
-        # since the title column is guaranteed to exist at this point)
+        # 唯一 title 索引 — 确保存在（迁移后安全运行，
+        # 因为此时 title 列已保证存在）
         try:
             cursor.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_title_unique "
                 "ON sessions(title) WHERE title IS NOT NULL"
             )
         except sqlite3.OperationalError:
-            pass  # Index already exists
+            pass  # 索引已存在
 
-        # FTS5 setup (separate because CREATE VIRTUAL TABLE can't be in executescript with IF NOT EXISTS reliably)
+        # FTS5 设置（单独处理，因为 CREATE VIRTUAL TABLE
+        # 不能与 IF NOT EXISTS 可靠地在 executescript 中）
         try:
             cursor.execute("SELECT * FROM messages_fts LIMIT 0")
         except sqlite3.OperationalError:
@@ -349,7 +347,7 @@ class SessionDB:
         self._conn.commit()
 
     # =========================================================================
-    # Session lifecycle
+    # 会话生命周期
     # =========================================================================
 
     def create_session(
@@ -362,7 +360,7 @@ class SessionDB:
         user_id: str = None,
         parent_session_id: str = None,
     ) -> str:
-        """Create a new session record. Returns the session_id."""
+        """创建新会话记录。返回 session_id。"""
         def _do(conn):
             conn.execute(
                 """INSERT OR IGNORE INTO sessions (id, source, user_id, model, model_config,
@@ -383,7 +381,7 @@ class SessionDB:
         return session_id
 
     def end_session(self, session_id: str, end_reason: str) -> None:
-        """Mark a session as ended."""
+        """将会话标记为已结束。"""
         def _do(conn):
             conn.execute(
                 "UPDATE sessions SET ended_at = ?, end_reason = ? WHERE id = ?",
@@ -392,7 +390,7 @@ class SessionDB:
         self._execute_write(_do)
 
     def reopen_session(self, session_id: str) -> None:
-        """Clear ended_at/end_reason so a session can be resumed."""
+        """清除 ended_at/end_reason，以便恢复会话。"""
         def _do(conn):
             conn.execute(
                 "UPDATE sessions SET ended_at = NULL, end_reason = NULL WHERE id = ?",
@@ -401,7 +399,7 @@ class SessionDB:
         self._execute_write(_do)
 
     def update_system_prompt(self, session_id: str, system_prompt: str) -> None:
-        """Store the full assembled system prompt snapshot."""
+        """存储完整组装的 system prompt 快照。"""
         def _do(conn):
             conn.execute(
                 "UPDATE sessions SET system_prompt = ? WHERE id = ?",
@@ -428,14 +426,14 @@ class SessionDB:
         billing_mode: Optional[str] = None,
         absolute: bool = False,
     ) -> None:
-        """Update token counters and backfill model if not already set.
+        """更新 token 计数器并在未设置时回填模型。
 
-        When *absolute* is False (default), values are **incremented** — use
-        this for per-API-call deltas (CLI path).
+        当 *absolute* 为 False（默认）时，值会**递增** — 用于
+        每个 API 调用的增量（CLI 路径）。
 
-        When *absolute* is True, values are **set directly** — use this when
-        the caller already holds cumulative totals (gateway path, where the
-        cached agent accumulates across messages).
+        当 *absolute* 为 True 时，值会**直接设置** — 用于
+        调用者已持有累计总量的情况（网关路径，缓存代理
+        在消息间累计）。
         """
         if absolute:
             sql = """UPDATE sessions SET
@@ -505,11 +503,11 @@ class SessionDB:
         source: str = "unknown",
         model: str = None,
     ) -> None:
-        """Ensure a session row exists, creating it with minimal metadata if absent.
+        """确保会话行存在，必要时用最小元数据创建。
 
-        Used by _flush_messages_to_session_db to recover from a failed
-        create_session() call (e.g. transient SQLite lock at agent startup).
-        INSERT OR IGNORE is safe to call even when the row already exists.
+        由 _flush_messages_to_session_db 使用，用于从失败的
+        create_session() 调用中恢复（例如代理启动时的临时 SQLite 锁）。
+        INSERT OR IGNORE 即使在行已存在时也可以安全调用。
         """
         def _do(conn):
             conn.execute(
@@ -538,11 +536,11 @@ class SessionDB:
         billing_base_url: Optional[str] = None,
         billing_mode: Optional[str] = None,
     ) -> None:
-        """Set token counters to absolute values (not increment).
+        """将 token 计数器设置为绝对值（不是增量）。
 
-        Use this when the caller provides cumulative totals from a completed
-        conversation run (e.g. the gateway, where the cached agent's
-        session_prompt_tokens already reflects the running total).
+        当调用者提供已完成对话运行的累计总量时使用
+        （例如网关，缓存代理的 session_prompt_tokens
+        已反映运行总量）。
         """
         def _do(conn):
             conn.execute(
@@ -587,7 +585,7 @@ class SessionDB:
         self._execute_write(_do)
 
     def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """Get a session by ID."""
+        """通过 ID 获取会话。"""
         with self._lock:
             cursor = self._conn.execute(
                 "SELECT * FROM sessions WHERE id = ?", (session_id,)
@@ -596,11 +594,11 @@ class SessionDB:
         return dict(row) if row else None
 
     def resolve_session_id(self, session_id_or_prefix: str) -> Optional[str]:
-        """Resolve an exact or uniquely prefixed session ID to the full ID.
+        """将精确或带唯一前缀的会话 ID 解析为完整 ID。
 
-        Returns the exact ID when it exists. Otherwise treats the input as a
-        prefix and returns the single matching session ID if the prefix is
-        unambiguous. Returns None for no matches or ambiguous prefixes.
+        存在时返回精确 ID。否则将输入作为
+        前缀处理，如果前缀无歧义则返回单个匹配的会话 ID。
+        无匹配或前缀有歧义时返回 None。
         """
         exact = self.get_session(session_id_or_prefix)
         if exact:
@@ -622,41 +620,41 @@ class SessionDB:
             return matches[0]
         return None
 
-    # Maximum length for session titles
+    # 会话标题的最大长度
     MAX_TITLE_LENGTH = 100
 
     @staticmethod
     def sanitize_title(title: Optional[str]) -> Optional[str]:
-        """Validate and sanitize a session title.
+        """验证和清理会话标题。
 
-        - Strips leading/trailing whitespace
-        - Removes ASCII control characters (0x00-0x1F, 0x7F) and problematic
-          Unicode control chars (zero-width, RTL/LTR overrides, etc.)
-        - Collapses internal whitespace runs to single spaces
-        - Normalizes empty/whitespace-only strings to None
-        - Enforces MAX_TITLE_LENGTH
+        - 去除首尾空白
+        - 移除 ASCII 控制字符（0x00-0x1F、0x7F）和有问题的
+          Unicode 控制字符（零宽字符、RTL/LTR 覆盖等）
+        - 将内部空白序列压缩为单个空格
+        - 将空/仅空白字符串规范化为 None
+        - 强制执行 MAX_TITLE_LENGTH
 
-        Returns the cleaned title string or None.
-        Raises ValueError if the title exceeds MAX_TITLE_LENGTH after cleaning.
+        返回清理后的标题字符串或 None。
+        清理后标题超过 MAX_TITLE_LENGTH 时抛出 ValueError。
         """
         if not title:
             return None
 
-        # Remove ASCII control characters (0x00-0x1F, 0x7F) but keep
-        # whitespace chars (\t=0x09, \n=0x0A, \r=0x0D) so they can be
-        # normalized to spaces by the whitespace collapsing step below
+        # 移除 ASCII 控制字符（0x00-0x1F、0x7F）但保留
+        # 空白字符（\t=0x09、\n=0x0A、\r=0x0D），以便在下面的
+        # 空白压缩步骤中规范化为空格
         cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', title)
 
-        # Remove problematic Unicode control characters:
-        # - Zero-width chars (U+200B-U+200F, U+FEFF)
-        # - Directional overrides (U+202A-U+202E, U+2066-U+2069)
-        # - Object replacement (U+FFFC), interlinear annotation (U+FFF9-U+FFFB)
+        # 移除有问题的 Unicode 控制字符：
+        # - 零宽字符（U+200B-U+200F、U+FEFF）
+        # - 方向覆盖（U+202A-U+202E、U+2066-U+2069）
+        # - 对象替换（U+FFFC）、行间注释（U+FFF9-U+FFFB）
         cleaned = re.sub(
             r'[\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff\ufffc\ufff9-\ufffb]',
             '', cleaned,
         )
 
-        # Collapse internal whitespace runs and strip
+        # 压缩内部空白序列并去除首尾空白
         cleaned = re.sub(r'\s+', ' ', cleaned).strip()
 
         if not cleaned:
@@ -670,17 +668,17 @@ class SessionDB:
         return cleaned
 
     def set_session_title(self, session_id: str, title: str) -> bool:
-        """Set or update a session's title.
+        """设置或更新会话的标题。
 
-        Returns True if session was found and title was set.
-        Raises ValueError if title is already in use by another session,
-        or if the title fails validation (too long, invalid characters).
-        Empty/whitespace-only strings are normalized to None (clearing the title).
+        找到会话并成功设置标题时返回 True。
+        如果标题已被其他会话使用或标题验证失败
+        （太长、无效字符），抛出 ValueError。
+        空/仅空白字符串规范化为 None（清除标题）。
         """
         title = self.sanitize_title(title)
         def _do(conn):
             if title:
-                # Check uniqueness (allow the same session to keep its own title)
+                # 检查唯一性（允许同一会话保留自己的标题）
                 cursor = conn.execute(
                     "SELECT id FROM sessions WHERE title = ? AND id != ?",
                     (title, session_id),
@@ -699,7 +697,7 @@ class SessionDB:
         return rowcount > 0
 
     def get_session_title(self, session_id: str) -> Optional[str]:
-        """Get the title for a session, or None."""
+        """获取会话的标题，无则返回 None。"""
         with self._lock:
             cursor = self._conn.execute(
                 "SELECT title FROM sessions WHERE id = ?", (session_id,)
@@ -708,7 +706,7 @@ class SessionDB:
         return row["title"] if row else None
 
     def get_session_by_title(self, title: str) -> Optional[Dict[str, Any]]:
-        """Look up a session by exact title. Returns session dict or None."""
+        """通过精确标题查找会话。返回会话字典或 None。"""
         with self._lock:
             cursor = self._conn.execute(
                 "SELECT * FROM sessions WHERE title = ?", (title,)
@@ -717,18 +715,18 @@ class SessionDB:
         return dict(row) if row else None
 
     def resolve_session_by_title(self, title: str) -> Optional[str]:
-        """Resolve a title to a session ID, preferring the latest in a lineage.
+        """将标题解析为会话 ID，优先选择谱系中最新的。
 
-        If the exact title exists, returns that session's ID.
-        If not, searches for "title #N" variants and returns the latest one.
-        If the exact title exists AND numbered variants exist, returns the
-        latest numbered variant (the most recent continuation).
+        如果精确标题存在，返回该会话的 ID。
+        如果不存在，搜索 "title #N" 变体并返回最新一个。
+        如果精确标题存在且编号变体也存在，
+        返回最新编号变体（最近的续篇）。
         """
-        # First try exact match
+        # 首先尝试精确匹配
         exact = self.get_session_by_title(title)
 
-        # Also search for numbered variants: "title #2", "title #3", etc.
-        # Escape SQL LIKE wildcards (%, _) in the title to prevent false matches
+        # 同时搜索编号变体："title #2"、"title #3" 等。
+        # 转义标题中的 SQL LIKE 通配符（%、_）以防止误匹配
         escaped = title.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         with self._lock:
             cursor = self._conn.execute(
@@ -739,27 +737,27 @@ class SessionDB:
             numbered = cursor.fetchall()
 
         if numbered:
-            # Return the most recent numbered variant
+            # 返回最新的编号变体
             return numbered[0]["id"]
         elif exact:
             return exact["id"]
         return None
 
     def get_next_title_in_lineage(self, base_title: str) -> str:
-        """Generate the next title in a lineage (e.g., "my session" → "my session #2").
+        """生成谱系中的下一个标题（例如 "my session" → "my session #2"）。
 
-        Strips any existing " #N" suffix to find the base name, then finds
-        the highest existing number and increments.
+        剥离任何现有的 " #N" 后缀以找到基础名称，
+        然后找到最高的现有数字并递增。
         """
-        # Strip existing #N suffix to find the true base
+        # 剥离现有的 #N 后缀以找到真正的基础名称
         match = re.match(r'^(.*?) #(\d+)$', base_title)
         if match:
             base = match.group(1)
         else:
             base = base_title
 
-        # Find all existing numbered variants
-        # Escape SQL LIKE wildcards (%, _) in the base to prevent false matches
+        # 找到所有现有的编号变体
+        # 转义基础名称中的 SQL LIKE 通配符（%、_）以防止误匹配
         escaped = base.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         with self._lock:
             cursor = self._conn.execute(
@@ -769,10 +767,10 @@ class SessionDB:
             existing = [row["title"] for row in cursor.fetchall()]
 
         if not existing:
-            return base  # No conflict, use the base name as-is
+            return base  # 无冲突，按原样使用基础名称
 
-        # Find the highest number
-        max_num = 1  # The unnumbered original counts as #1
+        # 找到最高数字
+        max_num = 1  # 未编号的原版计为 #1
         for t in existing:
             m = re.match(r'^.* #(\d+)$', t)
             if m:
@@ -788,16 +786,16 @@ class SessionDB:
         offset: int = 0,
         include_children: bool = False,
     ) -> List[Dict[str, Any]]:
-        """List sessions with preview (first user message) and last active timestamp.
+        """列出带预览（首条用户消息）和最后活动时间的会话。
 
-        Returns dicts with keys: id, source, model, title, started_at, ended_at,
-        message_count, preview (first 60 chars of first user message),
-        last_active (timestamp of last message).
+        返回包含以下键的字典：id、source、model、title、started_at、ended_at、
+        message_count、preview（首条用户消息的前 60 个字符）、
+        last_active（最后消息的时间戳）。
 
-        Uses a single query with correlated subqueries instead of N+2 queries.
+        使用带相关子查询的单个查询而非 N+2 查询。
 
-        By default, child sessions (subagent runs, compression continuations)
-        are excluded.  Pass ``include_children=True`` to include them.
+        默认排除子会话（子代理运行、压缩继续）。
+        传入 ``include_children=True`` 以包含它们。
         """
         where_clauses = []
         params = []
@@ -839,7 +837,7 @@ class SessionDB:
         sessions = []
         for row in rows:
             s = dict(row)
-            # Build the preview from the raw substring
+            # 从原始子字符串构建预览
             raw = s.pop("_preview_raw", "").strip()
             if raw:
                 text = raw[:60]
@@ -851,7 +849,7 @@ class SessionDB:
         return sessions
 
     # =========================================================================
-    # Message storage
+    # 消息存储
     # =========================================================================
 
     def append_message(
@@ -869,12 +867,12 @@ class SessionDB:
         codex_reasoning_items: Any = None,
     ) -> int:
         """
-        Append a message to a session. Returns the message row ID.
+        向会话追加消息。返回消息行 ID。
 
-        Also increments the session's message_count (and tool_call_count
-        if role is 'tool' or tool_calls is present).
+        同时递增会话的 message_count
+        （如果 role 是 'tool' 或存在 tool_calls，则递增 tool_call_count）。
         """
-        # Serialize structured fields to JSON before entering the write txn
+        # 在进入写事务前将结构化字段序列化为 JSON
         reasoning_details_json = (
             json.dumps(reasoning_details)
             if reasoning_details else None
@@ -885,7 +883,7 @@ class SessionDB:
         )
         tool_calls_json = json.dumps(tool_calls) if tool_calls else None
 
-        # Pre-compute tool call count
+        # 预计算 tool call 数量
         num_tool_calls = 0
         if tool_calls is not None:
             num_tool_calls = len(tool_calls) if isinstance(tool_calls, list) else 1
@@ -913,7 +911,7 @@ class SessionDB:
             )
             msg_id = cursor.lastrowid
 
-            # Update counters
+            # 更新计数器
             if num_tool_calls > 0:
                 conn.execute(
                     """UPDATE sessions SET message_count = message_count + 1,
@@ -930,7 +928,7 @@ class SessionDB:
         return self._execute_write(_do)
 
     def get_messages(self, session_id: str) -> List[Dict[str, Any]]:
-        """Load all messages for a session, ordered by timestamp."""
+        """加载会话的所有消息，按时间戳排序。"""
         with self._lock:
             cursor = self._conn.execute(
                 "SELECT * FROM messages WHERE session_id = ? ORDER BY timestamp, id",
@@ -950,8 +948,8 @@ class SessionDB:
 
     def get_messages_as_conversation(self, session_id: str) -> List[Dict[str, Any]]:
         """
-        Load messages in the OpenAI conversation format (role + content dicts).
-        Used by the gateway to restore conversation history.
+        以 OpenAI 对话格式加载消息（role + content 字典）。
+        由网关用于恢复对话历史。
         """
         with self._lock:
             cursor = self._conn.execute(
@@ -973,9 +971,9 @@ class SessionDB:
                     msg["tool_calls"] = json.loads(row["tool_calls"])
                 except (json.JSONDecodeError, TypeError):
                     pass
-            # Restore reasoning fields on assistant messages so providers
-            # that replay reasoning (OpenRouter, OpenAI, Nous) receive
-            # coherent multi-turn reasoning context.
+            # 在助手消息上恢复 reasoning 字段，
+            # 以便重放 reasoning 的提供商
+            # （OpenRouter、OpenAI、Nous）收到连贯的多轮 reasoning 上下文。
             if row["role"] == "assistant":
                 if row["reasoning"]:
                     msg["reasoning"] = row["reasoning"]
@@ -993,27 +991,29 @@ class SessionDB:
         return messages
 
     # =========================================================================
-    # Search
+    # 搜索
     # =========================================================================
 
     @staticmethod
     def _sanitize_fts5_query(query: str) -> str:
-        """Sanitize user input for safe use in FTS5 MATCH queries.
+        """清理用户输入以安全用于 FTS5 MATCH 查询。
 
-        FTS5 has its own query syntax where characters like ``"``, ``(``, ``)``,
-        ``+``, ``*``, ``{``, ``}`` and bare boolean operators (``AND``, ``OR``,
-        ``NOT``) have special meaning.  Passing raw user input directly to
-        MATCH can cause ``sqlite3.OperationalError``.
+        FTS5 有自己的查询语法，``"``、``(``、``)``、
+        ``+``、``*``、``{``、``}`` 和裸布尔运算符
+        （``AND``、``OR``、``NOT``）具有特殊含义。
+        直接将原始用户输入传给 MATCH 可能导致
+        ``sqlite3.OperationalError``。
 
-        Strategy:
-        - Preserve properly paired quoted phrases (``"exact phrase"``)
-        - Strip unmatched FTS5-special characters that would cause errors
-        - Wrap unquoted hyphenated and dotted terms in quotes so FTS5
-          matches them as exact phrases instead of splitting on the
-          hyphen/dot (e.g. ``chat-send``, ``P2.2``, ``my-app.config.ts``)
+        策略：
+        - 保留正确配对的引号短语（``"exact phrase"``）
+        - 剥离会导致错误的未匹配 FTS5 特殊字符
+        - 将未加引号的连字符和点号术语用引号包裹，
+          使 FTS5 将其作为精确短语匹配，
+          而不是按连字符/点号拆分
+          （例如 ``chat-send``、``P2.2``、``my-app.config.ts``）
         """
-        # Step 1: Extract balanced double-quoted phrases and protect them
-        # from further processing via numbered placeholders.
+        # 步骤 1：提取平衡的双引号短语，
+        # 通过编号占位符保护它们免受进一步处理。
         _quoted_parts: list = []
 
         def _preserve_quoted(m: re.Match) -> str:
@@ -1022,28 +1022,28 @@ class SessionDB:
 
         sanitized = re.sub(r'"[^"]*"', _preserve_quoted, query)
 
-        # Step 2: Strip remaining (unmatched) FTS5-special characters
+        # 步骤 2：剥离剩余的（未匹配的）FTS5 特殊字符
         sanitized = re.sub(r'[+{}()\"^]', " ", sanitized)
 
-        # Step 3: Collapse repeated * (e.g. "***") into a single one,
-        # and remove leading * (prefix-only needs at least one char before *)
+        # 步骤 3：将重复的 *（例如 "***"）折叠为单个，
+        # 并移除开头的 *（前缀搜索需要至少一个字符在 * 之前）
         sanitized = re.sub(r"\*+", "*", sanitized)
         sanitized = re.sub(r"(^|\s)\*", r"\1", sanitized)
 
-        # Step 4: Remove dangling boolean operators at start/end that would
-        # cause syntax errors (e.g. "hello AND" or "OR world")
+        # 步骤 4：移除开头/结尾悬空的布尔运算符，
+        # 否则会导致语法错误（例如 "hello AND" 或 "OR world"）
         sanitized = re.sub(r"(?i)^(AND|OR|NOT)\b\s*", "", sanitized.strip())
         sanitized = re.sub(r"(?i)\s+(AND|OR|NOT)\s*$", "", sanitized.strip())
 
-        # Step 5: Wrap unquoted dotted and/or hyphenated terms in double
-        # quotes.  FTS5's tokenizer splits on dots and hyphens, turning
-        # ``chat-send`` into ``chat AND send`` and ``P2.2`` into ``p2 AND 2``.
-        # Quoting preserves phrase semantics.  A single pass avoids the
-        # double-quoting bug that would occur if dotted and hyphenated
-        # patterns were applied sequentially (e.g. ``my-app.config``).
+        # 步骤 5：将未加引号的点和/或连字符术语包裹在双引号中。
+        # FTS5 的分词器按点和连字符拆分，
+        # 将 ``chat-send`` 变成 ``chat AND send``，将 ``P2.2`` 变成 ``p2 AND 2``。
+        # 加引号保留短语语义。
+        # 单次传递避免了顺序应用点和连字符模式时
+        # 会出现的双重引号错误（例如 ``my-app.config``）。
         sanitized = re.sub(r"\b(\w+(?:[.-]\w+)+)\b", r'"\1"', sanitized)
 
-        # Step 6: Restore preserved quoted phrases
+        # 步骤 6：恢复保留的引号短语
         for i, quoted in enumerate(_quoted_parts):
             sanitized = sanitized.replace(f"\x00Q{i}\x00", quoted)
 
@@ -1059,16 +1059,16 @@ class SessionDB:
         offset: int = 0,
     ) -> List[Dict[str, Any]]:
         """
-        Full-text search across session messages using FTS5.
+        使用 FTS5 在会话消息中进行全文搜索。
 
-        Supports FTS5 query syntax:
-          - Simple keywords: "docker deployment"
-          - Phrases: '"exact phrase"'
-          - Boolean: "docker OR kubernetes", "python NOT java"
-          - Prefix: "deploy*"
+        支持 FTS5 查询语法：
+          - 简单关键词："docker deployment"
+          - 短语：'"exact phrase"'
+          - 布尔值："docker OR kubernetes"、"python NOT java"
+          - 前缀："deploy*"
 
-        Returns matching messages with session metadata, content snippet,
-        and surrounding context (1 message before and after the match).
+        返回匹配消息及会话元数据、内容片段和
+        周围上下文（匹配前后各 1 条消息）。
         """
         if not query or not query.strip():
             return []
@@ -1077,7 +1077,7 @@ class SessionDB:
         if not query:
             return []
 
-        # Build WHERE clauses dynamically
+        # 动态构建 WHERE 子句
         where_clauses = ["messages_fts MATCH ?"]
         params: list = [query]
 
@@ -1123,12 +1123,12 @@ class SessionDB:
             try:
                 cursor = self._conn.execute(sql, params)
             except sqlite3.OperationalError:
-                # FTS5 query syntax error despite sanitization — return empty
+                # 尽管已清理，FTS5 查询语法仍出错 — 返回空
                 return []
             matches = [dict(row) for row in cursor.fetchall()]
 
-        # Add surrounding context (1 message before + after each match).
-        # Done outside the lock so we don't hold it across N sequential queries.
+        # 添加周围上下文（每个匹配前后各 1 条消息）。
+        # 在锁外执行，这样不会在 N 个顺序查询期间持有锁。
         for match in matches:
             try:
                 with self._lock:
@@ -1146,7 +1146,7 @@ class SessionDB:
             except Exception:
                 match["context"] = []
 
-        # Remove full content from result (snippet is enough, saves tokens)
+        # 从结果中移除完整内容（片段已足够，节省 token）
         for match in matches:
             match.pop("content", None)
 
@@ -1158,7 +1158,7 @@ class SessionDB:
         limit: int = 20,
         offset: int = 0,
     ) -> List[Dict[str, Any]]:
-        """List sessions, optionally filtered by source."""
+        """列出会话，可按来源过滤。"""
         with self._lock:
             if source:
                 cursor = self._conn.execute(
@@ -1173,11 +1173,11 @@ class SessionDB:
             return [dict(row) for row in cursor.fetchall()]
 
     # =========================================================================
-    # Utility
+    # 工具方法
     # =========================================================================
 
     def session_count(self, source: str = None) -> int:
-        """Count sessions, optionally filtered by source."""
+        """统计会话数量，可按来源过滤。"""
         with self._lock:
             if source:
                 cursor = self._conn.execute(
@@ -1188,7 +1188,7 @@ class SessionDB:
             return cursor.fetchone()[0]
 
     def message_count(self, session_id: str = None) -> int:
-        """Count messages, optionally for a specific session."""
+        """统计消息数量，可针对特定会话。"""
         with self._lock:
             if session_id:
                 cursor = self._conn.execute(
@@ -1199,11 +1199,11 @@ class SessionDB:
             return cursor.fetchone()[0]
 
     # =========================================================================
-    # Export and cleanup
+    # 导出和清理
     # =========================================================================
 
     def export_session(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """Export a single session with all its messages as a dict."""
+        """导出单个会话及其所有消息为字典。"""
         session = self.get_session(session_id)
         if not session:
             return None
@@ -1212,8 +1212,8 @@ class SessionDB:
 
     def export_all(self, source: str = None) -> List[Dict[str, Any]]:
         """
-        Export all sessions (with messages) as a list of dicts.
-        Suitable for writing to a JSONL file for backup/analysis.
+        导出所有会话（带消息）为字典列表。
+        适合写入 JSONL 文件用于备份/分析。
         """
         sessions = self.search_sessions(source=source, limit=100000)
         results = []
@@ -1223,7 +1223,7 @@ class SessionDB:
         return results
 
     def clear_messages(self, session_id: str) -> None:
-        """Delete all messages for a session and reset its counters."""
+        """删除会话的所有消息并重置其计数器。"""
         def _do(conn):
             conn.execute(
                 "DELETE FROM messages WHERE session_id = ?", (session_id,)
@@ -1235,11 +1235,11 @@ class SessionDB:
         self._execute_write(_do)
 
     def delete_session(self, session_id: str) -> bool:
-        """Delete a session and all its messages.
+        """删除会话及其所有消息。
 
-        Child sessions are orphaned (parent_session_id set to NULL) rather
-        than cascade-deleted, so they remain accessible independently.
-        Returns True if the session was found and deleted.
+        子会话会被孤立（parent_session_id 设为 NULL）
+        而不是级联删除，因此它们保持独立可访问。
+        如果找到并删除了会话则返回 True。
         """
         def _do(conn):
             cursor = conn.execute(
@@ -1247,7 +1247,7 @@ class SessionDB:
             )
             if cursor.fetchone()[0] == 0:
                 return False
-            # Orphan child sessions so FK constraint is satisfied
+            # 孤立子会话以满足外键约束
             conn.execute(
                 "UPDATE sessions SET parent_session_id = NULL "
                 "WHERE parent_session_id = ?",
@@ -1259,11 +1259,11 @@ class SessionDB:
         return self._execute_write(_do)
 
     def prune_sessions(self, older_than_days: int = 90, source: str = None) -> int:
-        """Delete sessions older than N days. Returns count of deleted sessions.
+        """删除早于 N 天的会话。返回已删除会话的数量。
 
-        Only prunes ended sessions (not active ones).  Child sessions outside
-        the prune window are orphaned (parent_session_id set to NULL) rather
-        than cascade-deleted.
+        仅清理已结束的会话（非活动会话）。
+        清理窗口外的子会话会被孤立
+        （parent_session_id 设为 NULL）而不是级联删除。
         """
         cutoff = time.time() - (older_than_days * 86400)
 
@@ -1284,7 +1284,7 @@ class SessionDB:
             if not session_ids:
                 return 0
 
-            # Orphan any sessions whose parent is about to be deleted
+            # 孤立父会话即将被删除的任何子会话
             placeholders = ",".join("?" * len(session_ids))
             conn.execute(
                 f"UPDATE sessions SET parent_session_id = NULL "
