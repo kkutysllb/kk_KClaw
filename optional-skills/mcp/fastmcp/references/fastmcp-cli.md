@@ -1,79 +1,84 @@
-# FastMCP CLI Reference
+---
+name: fastmcp-cli
+description: FastMCP CLI工作流参考，用于构建、测试、检查、安装和部署MCP服务器。
+---
 
-Use this file when the task needs exact FastMCP CLI workflows rather than the higher-level guidance in `SKILL.md`.
+# FastMCP CLI参考
 
-## Install and Verify
+当任务需要精确的FastMCP CLI工作流而不是`SKILL.md`中的更高层指导时使用此文件。
+
+## 安装和验证
 
 ```bash
 pip install fastmcp
 fastmcp version
 ```
 
-FastMCP documents `pip install fastmcp` and `fastmcp version` as the baseline installation and verification path.
+FastMCP将`pip install fastmcp`和`fastmcp version`作为基线安装和验证路径。
 
-## Run a Server
+## 运行服务器
 
-Run a server object from a Python file:
+从Python文件运行服务器对象：
 
 ```bash
 fastmcp run server.py:mcp
 ```
 
-Run the same server over HTTP:
+通过HTTP运行相同服务器：
 
 ```bash
 fastmcp run server.py:mcp --transport http --host 127.0.0.1 --port 8000
 ```
 
-## Inspect a Server
+## 检查服务器
 
-Inspect what FastMCP will expose:
+检查FastMCP将暴露的内容：
 
 ```bash
 fastmcp inspect server.py:mcp
 ```
 
-This is also the check FastMCP recommends before deploying to Prefect Horizon.
+这也是FastMCP建议在部署到Prefect Horizon之前进行的检查。
 
-## List and Call Tools
+## 列出和调用工具
 
-List tools from a Python file:
+从Python文件列出工具：
 
 ```bash
 fastmcp list server.py --json
 ```
 
-List tools from an HTTP endpoint:
+从HTTP端点列出工具：
 
 ```bash
 fastmcp list http://127.0.0.1:8000/mcp --json
 ```
 
-Call a tool with key-value arguments:
+使用键值参数调用工具：
 
 ```bash
 fastmcp call server.py search_resources query=router limit=5 --json
 ```
 
-Call a tool with a full JSON input payload:
+使用完整JSON输入负载调用工具：
 
 ```bash
 fastmcp call server.py create_item '{"name": "Widget", "tags": ["sale"]}' --json
 ```
 
-## Discover Named MCP Servers
+## 发现命名的MCP服务器
 
-Find named servers already configured in local MCP-aware tools:
+查找本地MCP感知工具中已配置的命名服务器：
 
 ```bash
 fastmcp discover
 ```
 
-FastMCP documents name-based resolution for Claude Desktop, Claude Code, Cursor, Gemini, Goose, and `./mcp.json`.
+FastMCP记录了针对Claude Desktop、Claude Code、Cursor、Goose和`./mcp.json`的基于名称的解析。
 
-## Install into MCP Clients
+## 安装到MCP客户端
 
-Register a server with common clients:
+向常见客户端注册服务器：
 
 ```bash
 fastmcp install claude-code server.py
@@ -81,30 +86,30 @@ fastmcp install claude-desktop server.py
 fastmcp install cursor server.py -e .
 ```
 
-FastMCP notes that client installs run in isolated environments, so declare dependencies explicitly when needed with flags such as `--with`, `--env-file`, or editable installs.
+FastMCP指出客户端安装会在隔离环境中运行，因此需要时使用`--with`、`--env-file`或可编辑安装等标志明确声明依赖。
 
-## Deployment Checks
+## 部署检查
 
 ### Prefect Horizon
 
-Before pushing to Horizon:
+推送到Horizon之前：
 
 ```bash
 fastmcp inspect server.py:mcp
 ```
 
-FastMCP’s Horizon docs expect:
+FastMCP的Horizon文档期望：
 
-- a GitHub repo
-- a Python file containing the FastMCP server object
-- dependencies declared in `requirements.txt` or `pyproject.toml`
-- an entrypoint like `main.py:mcp`
+- 一个GitHub仓库
+- 包含FastMCP服务器对象的Python文件
+- 在`requirements.txt`或`pyproject.toml`中声明的依赖
+- 如`main.py:mcp`的入口点
 
-### Generic HTTP Hosting
+### 通用HTTP托管
 
-Before shipping to any other host:
+发布到任何其他主机之前：
 
-1. Start the server locally with HTTP transport.
-2. Verify `fastmcp list` against the local `/mcp` URL.
-3. Verify at least one `fastmcp call`.
-4. Document required environment variables.
+1. 使用HTTP传输在本地启动服务器。
+2. 针对本地`/mcp` URL验证`fastmcp list`。
+3. 验证至少一个`fastmcp call`。
+4. 记录所需的环境变量。

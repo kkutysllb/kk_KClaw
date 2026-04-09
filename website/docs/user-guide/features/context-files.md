@@ -1,135 +1,135 @@
 ---
 sidebar_position: 8
-title: "Context Files"
-description: "Project context files — .kclaw.md, AGENTS.md, CLAUDE.md, global SOUL.md, and .cursorrules — automatically injected into every conversation"
+title: "上下文文件"
+description: "项目上下文文件——.kclaw.md、AGENTS.md、CLAUDE.md、全局 SOUL.md 和 .cursorrules——自动注入每个对话"
 ---
 
-# Context Files
+# 上下文文件
 
-KClaw Agent automatically discovers and loads context files that shape how it behaves. Some are project-local and discovered from your working directory. `SOUL.md` is now global to the KClaw instance and is loaded from `KCLAW_HOME` only.
+KClaw Agent 自动发现并加载塑造其行为的上下文文件。有些是项目本地的，从您的工作目录中发现。`SOUL.md` 现在是 KClaw 实例的全局文件，仅从 `KCLAW_HOME` 加载。
 
-## Supported Context Files
+## 支持的上下文文件
 
-| File | Purpose | Discovery |
-|------|---------|-----------| 
-| **.kclaw.md** / **KCLAW.md** | Project instructions (highest priority) | Walks to git root |
-| **AGENTS.md** | Project instructions, conventions, architecture | CWD at startup + subdirectories progressively |
-| **CLAUDE.md** | Claude Code context files (also detected) | CWD at startup + subdirectories progressively |
-| **SOUL.md** | Global personality and tone customization for this KClaw instance | `KCLAW_HOME/SOUL.md` only |
-| **.cursorrules** | Cursor IDE coding conventions | CWD only |
-| **.cursor/rules/*.mdc** | Cursor IDE rule modules | CWD only |
+| 文件 | 用途 | 发现方式 |
+|------|---------|-----------|
+| **.kclaw.md** / **KCLAW.md** | 项目说明（最高优先级） | 走到 git 根目录 |
+| **AGENTS.md** | 项目说明、约定、架构 | 启动时 CWD + 子目录渐进式 |
+| **CLAUDE.md** | Claude Code 上下文文件（也会被检测） | 启动时 CWD + 子目录渐进式 |
+| **SOUL.md** | 此 KClaw 实例的全局人格和语气自定义 | 仅 `KCLAW_HOME/SOUL.md` |
+| **.cursorrules** | Cursor IDE 编码约定 | 仅 CWD |
+| **.cursor/rules/*.mdc** | Cursor IDE 规则模块 | 仅 CWD |
 
-:::info Priority system
-Only **one** project context type is loaded per session (first match wins): `.kclaw.md` → `AGENTS.md` → `CLAUDE.md` → `.cursorrules`. **SOUL.md** is always loaded independently as the agent identity (slot #1).
+:::info 优先级系统
+每个会话仅加载**一个**项目上下文类型（先到先得）：`.kclaw.md` → `AGENTS.md` → `CLAUDE.md` → `.cursorrules`。**SOUL.md** 始终作为代理身份独立加载（位置 #1）。
 :::
 
 ## AGENTS.md
 
-`AGENTS.md` is the primary project context file. It tells the agent how your project is structured, what conventions to follow, and any special instructions.
+`AGENTS.md` 是主要的项目上下文文件。它告诉代理项目的结构、遵循的约定以及任何特殊说明。
 
-### Progressive Subdirectory Discovery
+### 渐进式子目录发现
 
-At session start, KClaw loads the `AGENTS.md` from your working directory into the system prompt. As the agent navigates into subdirectories during the session (via `read_file`, `terminal`, `search_files`, etc.), it **progressively discovers** context files in those directories and injects them into the conversation at the moment they become relevant.
+在会话开始时，KClaw 将您的工作目录中的 `AGENTS.md` 加载到系统提示中。当代理在会话期间导航到子目录时（通过 `read_file`、`terminal`、`search_files` 等），它**渐进地发现**这些目录中的上下文文件，并在它们变得相关时将它们注入对话中。
 
 ```
 my-project/
-├── AGENTS.md              ← Loaded at startup (system prompt)
+├── AGENTS.md              ← 在启动时加载（系统提示）
 ├── frontend/
-│   └── AGENTS.md          ← Discovered when agent reads frontend/ files
+│   └── AGENTS.md          ← 当代理读取 frontend/ 文件时发现
 ├── backend/
-│   └── AGENTS.md          ← Discovered when agent reads backend/ files
+│   └── AGENTS.md          ← 当代理读取 backend/ 文件时发现
 └── shared/
-    └── AGENTS.md          ← Discovered when agent reads shared/ files
+    └── AGENTS.md          ← 当代理读取 shared/ 文件时发现
 ```
 
-This approach has two advantages over loading everything at startup:
-- **No system prompt bloat** — subdirectory hints only appear when needed
-- **Prompt cache preservation** — the system prompt stays stable across turns
+这种方法相对于在启动时加载所有内容有两个优点：
+- **无系统提示膨胀** — 子目录提示仅在需要时出现
+- **提示缓存保持** — 系统提示在轮次之间保持稳定
 
-Each subdirectory is checked at most once per session. The discovery also walks up parent directories, so reading `backend/src/main.py` will discover `backend/AGENTS.md` even if `backend/src/` has no context file of its own.
+每个子目录每个会话最多检查一次。发现还会向上走父目录，因此读取 `backend/src/main.py` 将发现 `backend/AGENTS.md`，即使 `backend/src/` 本身没有上下文文件。
 
 :::info
-Subdirectory context files go through the same [security scan](#security-prompt-injection-protection) as startup context files. Malicious files are blocked.
+子目录上下文文件在启动时与上下文文件经历相同的[安全扫描](#security-prompt-injection-protection)。恶意文件会被阻止。
 :::
 
-### Example AGENTS.md
+### AGENTS.md 示例
 
 ```markdown
-# Project Context
+# 项目上下文
 
-This is a Next.js 14 web application with a Python FastAPI backend.
+这是一个带有 Python FastAPI 后端的 Next.js 14 Web 应用程序。
 
-## Architecture
-- Frontend: Next.js 14 with App Router in `/frontend`
-- Backend: FastAPI in `/backend`, uses SQLAlchemy ORM
-- Database: PostgreSQL 16
-- Deployment: Docker Compose on a Hetzner VPS
+## 架构
+- 前端：位于 `/frontend` 的 Next.js 14 和 App Router
+- 后端：位于 `/backend` 的 FastAPI，使用 SQLAlchemy ORM
+- 数据库：PostgreSQL 16
+- 部署：Hetzner VPS 上的 Docker Compose
 
-## Conventions
-- Use TypeScript strict mode for all frontend code
-- Python code follows PEP 8, use type hints everywhere
-- All API endpoints return JSON with `{data, error, meta}` shape
-- Tests go in `__tests__/` directories (frontend) or `tests/` (backend)
+## 约定
+- 所有前端代码使用 TypeScript 严格模式
+- Python 代码遵循 PEP 8，到处使用类型提示
+- 所有 API 端点返回 `{data, error, meta}` 形状的 JSON
+- 测试位于 `__tests__/` 目录（前端）或 `tests/`（后端）
 
-## Important Notes
-- Never modify migration files directly — use Alembic commands
-- The `.env.local` file has real API keys, don't commit it
-- Frontend port is 3000, backend is 8000, DB is 5432
+## 重要说明
+- 永远不要直接修改迁移文件——使用 Alembic 命令
+- `.env.local` 文件有真正的 API 密钥，不要提交它
+- 前端端口是 3000，后端是 8000，DB 是 5432
 ```
 
 ## SOUL.md
 
-`SOUL.md` controls the agent's personality, tone, and communication style. See the [Personality](/docs/user-guide/features/personality) page for full details.
+`SOUL.md` 控制代理的人格、语气和沟通风格。参见[人格](/docs/user-guide/features/personality)页面了解完整详情。
 
-**Location:**
+**位置：**
 
 - `~/.kclaw/SOUL.md`
-- or `$KCLAW_HOME/SOUL.md` if you run KClaw with a custom home directory
+- 或者如果您使用自定义主目录运行 KClaw，则为 `$KCLAW_HOME/SOUL.md`
 
-Important details:
+重要细节：
 
-- KClaw seeds a default `SOUL.md` automatically if one does not exist yet
-- KClaw loads `SOUL.md` only from `KCLAW_HOME`
-- KClaw does not probe the working directory for `SOUL.md`
-- If the file is empty, nothing from `SOUL.md` is added to the prompt
-- If the file has content, the content is injected verbatim after scanning and truncation
+- KClaw 如果不存在会自动生成默认的 `SOUL.md`
+- KClaw 仅从 `KCLAW_HOME` 加载 `SOUL.md`
+- KClaw 不探测工作目录中的 `SOUL.md`
+- 如果文件为空，则不会从 `SOUL.md` 添加任何内容到提示
+- 如果文件有内容，则在扫描和截断后逐字注入内容
 
 ## .cursorrules
 
-KClaw is compatible with Cursor IDE's `.cursorrules` file and `.cursor/rules/*.mdc` rule modules. If these files exist in your project root and no higher-priority context file (`.kclaw.md`, `AGENTS.md`, or `CLAUDE.md`) is found, they're loaded as the project context.
+KClaw 兼容 Cursor IDE 的 `.cursorrules` 文件和 `.cursor/rules/*.mdc` 规则模块。如果这些文件存在于您的项目根目录中且没有找到更高优先级的上下文文件（`.kclaw.md`、`AGENTS.md` 或 `CLAUDE.md`），它们将作为项目上下文加载。
 
-This means your existing Cursor conventions automatically apply when using KClaw.
+这意味着您现有的 Cursor 约定在使用 KClaw 时自动应用。
 
-## How Context Files Are Loaded
+## 上下文文件如何加载
 
-### At startup (system prompt)
+### 在启动时（系统提示）
 
-Context files are loaded by `build_context_files_prompt()` in `agent/prompt_builder.py`:
+上下文文件由 `agent/prompt_builder.py` 中的 `build_context_files_prompt()` 加载：
 
-1. **Scan working directory** — checks for `.kclaw.md` → `AGENTS.md` → `CLAUDE.md` → `.cursorrules` (first match wins)
-2. **Content is read** — each file is read as UTF-8 text
-3. **Security scan** — content is checked for prompt injection patterns
-4. **Truncation** — files exceeding 20,000 characters are head/tail truncated (70% head, 20% tail, with a marker in the middle)
-5. **Assembly** — all sections are combined under a `# Project Context` header
-6. **Injection** — the assembled content is added to the system prompt
+1. **扫描工作目录** — 检查 `.kclaw.md` → `AGENTS.md` → `CLAUDE.md` → `.cursorrules`（先到先得）
+2. **读取内容** — 每个文件作为 UTF-8 文本读取
+3. **安全扫描** — 检查内容中的提示注入模式
+4. **截断** — 超过 20,000 字符的文件进行头部/尾部截断（头部 70%，尾部 20%，中间有标记）
+5. **组装** — 所有部分在 `# Project Context` 标题下组合
+6. **注入** — 组装的内容被添加到系统提示
 
-### During the session (progressive discovery)
+### 在会话期间（渐进发现）
 
-`SubdirectoryHintTracker` in `agent/subdirectory_hints.py` watches tool call arguments for file paths:
+`agent/subdirectory_hints.py` 中的 `SubdirectoryHintTracker` 监视工具调用参数中的文件路径：
 
-1. **Path extraction** — after each tool call, file paths are extracted from arguments (`path`, `workdir`, shell commands)
-2. **Ancestor walk** — the directory and up to 5 parent directories are checked (stopping at already-visited directories)
-3. **Hint loading** — if an `AGENTS.md`, `CLAUDE.md`, or `.cursorrules` is found, it's loaded (first match per directory)
-4. **Security scan** — same prompt injection scan as startup files
-5. **Truncation** — capped at 8,000 characters per file
-6. **Injection** — appended to the tool result, so the model sees it in context naturally
+1. **路径提取** — 每次工具调用后，从参数中提取文件路径（`path`、`workdir`、shell 命令）
+2. **祖先遍历** — 检查目录及向上最多 5 个父目录（在已访问目录处停止）
+3. **提示加载** — 如果找到 `AGENTS.md`、`CLAUDE.md` 或 `.cursorrules`，则加载（每个目录先到先得）
+4. **安全扫描** — 与启动文件相同的提示注入扫描
+5. **截断** — 每个文件上限为 8,000 字符
+6. **注入** — 附加到工具结果，以便模型自然地在上下文中看到它
 
-The final prompt section looks roughly like:
+最终提示部分大致如下：
 
 ```text
 # Project Context
 
-The following project context files have been loaded and should be followed:
+以下项目上下文文件已加载，应遵循：
 
 ## AGENTS.md
 
@@ -142,77 +142,77 @@ The following project context files have been loaded and should be followed:
 [Your SOUL.md content here]
 ```
 
-Notice that SOUL content is inserted directly, without extra wrapper text.
+请注意，SOUL 内容直接插入，没有额外的包装文本。
 
-## Security: Prompt Injection Protection
+## 安全：提示注入保护
 
-All context files are scanned for potential prompt injection before being included. The scanner checks for:
+所有上下文文件在包含之前都会扫描潜在的提示注入。扫描器检查：
 
-- **Instruction override attempts**: "ignore previous instructions", "disregard your rules"
-- **Deception patterns**: "do not tell the user"
-- **System prompt overrides**: "system prompt override"
-- **Hidden HTML comments**: `<!-- ignore instructions -->`
-- **Hidden div elements**: `<div style="display:none">`
-- **Credential exfiltration**: `curl ... $API_KEY`
-- **Secret file access**: `cat .env`, `cat credentials`
-- **Invisible characters**: zero-width spaces, bidirectional overrides, word joiners
+- **指令覆盖尝试**："忽略之前的指令"、"无视你的规则"
+- **欺骗模式**："不要告诉用户"
+- **系统提示覆盖**："system prompt override"
+- **隐藏 HTML 注释**：`<!-- ignore instructions -->`
+- **隐藏 div 元素**：`<div style="display:none">`
+- **凭证泄露**：`curl ... $API_KEY`
+- **密钥文件访问**：`cat .env`、`cat credentials`
+- **不可见字符**：零宽空格、双向覆盖、单词连接符
 
-If any threat pattern is detected, the file is blocked:
+如果检测到任何威胁模式，文件将被阻止：
 
 ```
 [BLOCKED: AGENTS.md contained potential prompt injection (prompt_injection). Content not loaded.]
 ```
 
 :::warning
-This scanner protects against common injection patterns, but it's not a substitute for reviewing context files in shared repositories. Always validate AGENTS.md content in projects you didn't author.
+此扫描器防止常见的注入模式，但不能替代审查共享仓库中的上下文文件。始终验证您未编写的项目中的 AGENTS.md 内容。
 :::
 
-## Size Limits
+## 大小限制
 
-| Limit | Value |
+| 限制 | 值 |
 |-------|-------|
-| Max chars per file | 20,000 (~7,000 tokens) |
-| Head truncation ratio | 70% |
-| Tail truncation ratio | 20% |
-| Truncation marker | 10% (shows char counts and suggests using file tools) |
+| 每个文件最大字符数 | 20,000（约 7,000 tokens） |
+| 头部截断比例 | 70% |
+| 尾部截断比例 | 20% |
+| 截断标记 | 10%（显示字符计数并建议使用文件工具） |
 
-When a file exceeds 20,000 characters, the truncation message reads:
+当文件超过 20,000 字符时，截断消息如下：
 
 ```
 [...truncated AGENTS.md: kept 14000+4000 of 25000 chars. Use file tools to read the full file.]
 ```
 
-## Tips for Effective Context Files
+## 有效上下文文件的提示
 
-:::tip Best practices for AGENTS.md
-1. **Keep it concise** — stay well under 20K chars; the agent reads it every turn
-2. **Structure with headers** — use `##` sections for architecture, conventions, important notes
-3. **Include concrete examples** — show preferred code patterns, API shapes, naming conventions
-4. **Mention what NOT to do** — "never modify migration files directly"
-5. **List key paths and ports** — the agent uses these for terminal commands
-6. **Update as the project evolves** — stale context is worse than no context
+:::tip AGENTS.md 最佳实践
+1. **保持简洁** — 保持在 20K 字符以下；代理每轮都读取它
+2. **用标题结构化** — 使用 `##` 章节来组织架构、约定、重要说明
+3. **包含具体示例** — 显示首选的代码模式、API 形状、命名约定
+4. **提及不要做什么** — "永远不要直接修改迁移文件"
+5. **列出关键路径和端口** — 代理使用这些进行终端命令
+6. **随着项目发展更新** — 过时的上下文比没有上下文更糟糕
 :::
 
-### Per-Subdirectory Context
+### 每个子目录上下文
 
-For monorepos, put subdirectory-specific instructions in nested AGENTS.md files:
+对于 monorepos，将子目录特定的说明放在嵌套的 AGENTS.md 文件中：
 
 ```markdown
 <!-- frontend/AGENTS.md -->
-# Frontend Context
+# 前端上下文
 
-- Use `pnpm` not `npm` for package management
-- Components go in `src/components/`, pages in `src/app/`
-- Use Tailwind CSS, never inline styles
-- Run tests with `pnpm test`
+- 使用 `pnpm` 而不是 `npm` 进行包管理
+- 组件放在 `src/components/` 中，页面放在 `src/app/` 中
+- 使用 Tailwind CSS，永远不要内联样式
+- 使用 `pnpm test` 运行测试
 ```
 
 ```markdown
 <!-- backend/AGENTS.md -->
-# Backend Context
+# 后端上下文
 
-- Use `poetry` for dependency management
-- Run the dev server with `poetry run uvicorn main:app --reload`
-- All endpoints need OpenAPI docstrings
-- Database models are in `models/`, schemas in `schemas/`
+- 使用 `poetry` 进行依赖管理
+- 使用 `poetry run uvicorn main:app --reload` 运行开发服务器
+- 所有端点需要 OpenAPI 文档字符串
+- 数据库模型在 `models/` 中，schema 在 `schemas/` 中
 ```

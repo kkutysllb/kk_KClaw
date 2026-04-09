@@ -1,14 +1,17 @@
-# Usage Patterns — Testing Environments and Evaluating Models
+---
+name: usage-patterns
+description: 测试环境和评估模型的使用模式，涵盖process模式、evaluate模式、serve模式等。
+---
 
-## Pattern 1: Test Your Environment Works (process mode)
+# 使用模式 — 测试环境和评估模型
 
-Use `process` mode to verify your environment runs end-to-end before
-committing. This generates trajectories without needing an Atropos
-training server.
+## 模式1：测试环境工作（process模式）
 
-**Before running:** Ask the user for their inference setup (see SKILL.md "Inference Setup" section). Replace `<BASE_URL>`, `<MODEL>`, and `<SERVER_TYPE>` below with their chosen values.
+使用`process`模式来验证环境端到端运行，然后再进行完整设置。这会生成轨迹而不需要Atropos训练服务器。
 
-### Step 1: Run 1 trajectory
+**运行前：** 询问用户的推理设置（参见SKILL.md"推理设置"部分）。用他们选择的具体值替换下面示例中的`<BASE_URL>`、`<MODEL>`和`<SERVER_TYPE>`。
+
+### 步骤1：运行1条轨迹
 
 ```bash
 cd ~/.kclaw/kclaw
@@ -25,43 +28,42 @@ python environments/your_env.py process \
   --openai.health_check false
 ```
 
-### Step 2: Verify the output
+### 步骤2：验证输出
 
 ```python
 import json
 for line in open("/tmp/test_output.jsonl"):
     data = json.loads(line)
-    print(f"Scores: {data.get('scores', [])}")
-    print(f"Token sequences: {len(data.get('tokens', []))}")
-    # Check messages include tool calls
+    print(f"分数: {data.get('scores', [])}")
+    print(f"令牌序列数: {len(data.get('tokens', []))}")
+    # 检查消息包含工具调用
     for msg_list in data.get("messages", []):
         roles = [m.get("role") for m in msg_list]
-        print(f"Roles: {roles}")
+        print(f"角色: {roles}")
         for m in reversed(msg_list):
             if m.get("role") == "assistant" and m.get("content"):
-                print(f"Response: {m['content'][:200]}...")
+                print(f"响应: {m['content'][:200]}...")
                 break
 ```
 
-### What to check:
-- **Scores are not all 0.0** — if so, compute_reward is broken
-- **Scores are in [0, 1]** — not negative, not >1
-- **Messages include "tool" role entries** — agent used tools
-- **Token sequences are non-empty**
-- **An HTML visualization is generated** next to the .jsonl
+### 检查项：
+- **分数不全为0.0** — 如果是，compute_reward有问题
+- **分数在[0, 1]范围内** — 不能为负数，不能大于1
+- **消息包含"tool"角色条目** — 智能体使用了工具
+- **令牌序列非空**
+- **在.jsonl旁边生成了HTML可视化**
 
-### Common failures:
-- `'AgentResult' object has no attribute 'X'` — accessing a field that doesn't exist. See agentresult-fields.md.
-- Score always 0.0 — reward function erroring silently
-- Score always 1.0 — verification too lenient or not running
+### 常见失败：
+- `'AgentResult' object has no attribute 'X'` — 访问了不存在的字段。参见agentresult-fields.md。
+- 分数始终为0.0 — 奖励函数静默出错
+- 分数始终为1.0 — 验证太宽松或未运行
 
 
-## Pattern 2: Evaluate a Model (evaluate mode)
+## 模式2：评估模型（evaluate模式）
 
-Use `evaluate` mode to benchmark a model on your environment's eval
-split. This runs the full agent loop with tools for each eval item.
+使用`evaluate`模式在环境的评估分割上对模型进行基准测试。这会为每个评估项目运行带工具的完整智能体循环。
 
-### Step 1: Run evaluation
+### 步骤1：运行评估
 
 ```bash
 python environments/your_env.py evaluate \
@@ -74,21 +76,21 @@ python environments/your_env.py evaluate \
   --openai.health_check false
 ```
 
-### Step 2: Read results
+### 步骤2：读取结果
 
-Stdout shows a lighteval-compatible table:
+标准输出显示lighteval兼容的表格：
 
 ```
-Evaluation Results: your-env_eval
-|Metric          |  Value|
-|mean correctness| 0.850 |
-|mean reward     | 0.920 |
-|mean tool calls | 4.300 |
-|n items         | 20    |
-Evaluation completed in 367 seconds
+评估结果: your-env_eval
+|指标          |  值|
+|平均正确性| 0.850 |
+|平均奖励     | 0.920 |
+|平均工具调用 | 4.300 |
+|项目数         | 20    |
+评估完成用时367秒
 ```
 
-JSON results saved to the eval directory:
+JSON结果保存到评估目录：
 
 ```python
 import json
@@ -97,20 +99,20 @@ for metric, value in data["results"]["all"].items():
     print(f"{metric}: {value}")
 ```
 
-### Step 3: Compare models
+### 步骤3：比较模型
 
-Run evaluate with different models and compare the metrics.json files.
+使用不同模型运行评估并比较metrics.json文件。
 
-### What to check:
-- **"data_dir_to_save_evals is not set"** — you forgot the flag, results won't be saved
-- **Tool usage rate = 0** — evaluate() is using chat_completion instead of KClawAgentLoop
-- **All scores identical** — judge failing, falling back to heuristic
-- **Very slow** — each item runs a full agent loop (~30-90s). Use `--env.eval_size 5` for quick checks.
+### 检查项：
+- **"data_dir_to_save_evals未设置"** — 忘记了标志，结果不会保存
+- **工具使用率 = 0** — evaluate()使用的是chat_completion而不是KClawAgentLoop
+- **所有分数相同** — judge失败，回退到启发式
+- **非常慢** — 每个项目运行完整智能体循环（~30-90秒）。使用`--env.eval_size 5`进行快速检查。
 
 
-## Pattern 3: Generate Training Data (process mode, larger scale)
+## 模式3：生成训练数据（process模式，更大规模）
 
-Generate trajectory data for offline training or analysis:
+生成用于离线训练或分析的轨迹数据：
 
 ```bash
 python environments/your_env.py process \
@@ -124,7 +126,7 @@ python environments/your_env.py process \
   --openai.health_check false
 ```
 
-### Analyze the distribution:
+### 分析分布：
 
 ```python
 import json
@@ -133,39 +135,39 @@ for line in open("data/trajectories.jsonl"):
     data = json.loads(line)
     scores.extend(data.get("scores", []))
 
-print(f"Total: {len(scores)}, Mean: {sum(scores)/len(scores):.3f}")
+print(f"总数: {len(scores)}, 平均: {sum(scores)/len(scores):.3f}")
 for bucket in [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]:
     count = sum(1 for s in scores if abs(s - bucket) < 0.1)
     print(f"  {bucket:.1f}: {'█' * count} ({count})")
 ```
 
-### What to check:
-- **Score distribution has variance** — RL needs score variance. All-same scores are useless.
+### 检查项：
+- **分数分布有方差** — RL需要分数方差。全相同的分数无用。
 
 
-## Pattern 4: Full RL Training (serve mode)
+## 模式4：完整RL训练（serve模式）
 
-For actual RL training with Atropos:
+使用Atropos进行实际RL训练：
 
 ```bash
-# Terminal 1: Start Atropos API server
+# 终端1：启动Atropos API服务器
 run-api
 
-# Terminal 2: Start your environment
+# 终端2：启动环境
 python environments/your_env.py serve \
   --config environments/your_env/default.yaml
 ```
 
-For Phase 2 with VLLM:
+使用VLLM的阶段2：
 
 ```bash
-# Terminal 1: VLLM server
+# 终端1：VLLM服务器
 python -m vllm.entrypoints.openai.api_server --model your-model --port 8000
 
-# Terminal 2: Atropos API
+# 终端2：Atropos API
 run-api
 
-# Terminal 3: Environment
+# 终端3：环境
 python environments/your_env.py serve \
   --openai.base_url http://localhost:8000/v1 \
   --openai.model_name your-model \
@@ -173,27 +175,27 @@ python environments/your_env.py serve \
 ```
 
 
-## Pattern 5: Quick Smoke Test
+## 模式5：快速冒烟测试
 
-Verify imports and config before spending money on API calls:
+在花钱调用API之前验证导入和配置：
 
 ```python
 from environments.your_env import YourEnv
-print(f"Name: {YourEnv.name}")
+print(f"名称: {YourEnv.name}")
 cfg, servers = YourEnv.config_init()
-print(f"Toolsets: {cfg.enabled_toolsets}")
-print(f"Server: {servers[0].model_name}")
-print("All imports OK")
+print(f"工具集: {cfg.enabled_toolsets}")
+print(f"服务器: {servers[0].model_name}")
+print("所有导入正常")
 ```
 
 
-## Timing Expectations
+## 时间预期
 
-| Mode | Items | Time per item | Total |
+| 模式 | 项目数 | 每项目时间 | 总计 |
 |------|-------|--------------|-------|
-| process (1 item) | 1 | 30-90s | ~1 min |
-| evaluate (5 items) | 5 | 30-90s | ~5 min |
-| evaluate (20 items) | 20 | 30-90s | ~15-30 min |
-| process (50 items) | 50 | 30-90s | ~30-75 min |
+| process（1个项目） | 1 | 30-90秒 | ~1分钟 |
+| evaluate（5个项目） | 5 | 30-90秒 | ~5分钟 |
+| evaluate（20个项目） | 20 | 30-90秒 | ~15-30分钟 |
+| process（50个项目） | 50 | 30-90秒 | ~30-75分钟 |
 
-Times are for cloud APIs with Claude Sonnet-class models. Local models may be faster or slower depending on hardware.
+时间是针对使用Claude Sonnet类模型的云API。本地模型可能更快或更慢，取决于硬件。

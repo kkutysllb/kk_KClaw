@@ -1,19 +1,24 @@
-# Performance Benchmarks
+---
+name: benchmarks
+description: Flash Attention性能基准测试，涵盖各GPU间的速度比较、内存使用分析、序列长度扩展等。
+---
 
-## Contents
-- Speed comparisons across GPUs
-- Memory usage analysis
-- Scaling with sequence length
-- Training vs inference performance
-- Flash Attention versions comparison
+# 性能基准测试
 
-## Speed comparisons across GPUs
+## 目录
+- 各GPU间的速度比较
+- 内存使用分析
+- 随序列长度扩展
+- 训练与推理性能
+- Flash Attention版本比较
+
+## 各GPU间的速度比较
 
 ### A100 80GB (Ampere)
 
-**Forward pass time** (milliseconds, batch=8, heads=32, dim=64):
+**前向传播时间**（毫秒，batch=8，heads=32，dim=64）：
 
-| Seq Length | Standard | Flash Attn 2 | Flash Attn 3 | Speedup (FA2) |
+| 序列长度 | 标准注意力 | Flash Attn 2 | Flash Attn 3 | 加速比 (FA2) |
 |------------|----------|--------------|--------------|---------------|
 | 512 | 1.2 | 0.9 | N/A | 1.3x |
 | 1024 | 3.8 | 1.4 | N/A | 2.7x |
@@ -23,9 +28,9 @@
 
 ### H100 80GB (Hopper)
 
-**Forward pass time** (milliseconds, same config):
+**前向传播时间**（毫秒，相同配置）：
 
-| Seq Length | Standard | Flash Attn 2 | Flash Attn 3 (FP16) | Flash Attn 3 (FP8) | Best Speedup |
+| 序列长度 | 标准注意力 | Flash Attn 2 | Flash Attn 3 (FP16) | Flash Attn 3 (FP8) | 最佳加速比 |
 |------------|----------|--------------|---------------------|--------------------|--------------|
 | 512 | 0.8 | 0.6 | 0.4 | 0.3 | 2.7x |
 | 1024 | 2.6 | 1.0 | 0.6 | 0.4 | 6.5x |
@@ -33,183 +38,183 @@
 | 4096 | 38.2 | 12.5 | 7.2 | 4.8 | 8.0x |
 | 8192 | 151.4 | 47.8 | 27.1 | 18.2 | 8.3x |
 
-**Key insight**: Flash Attention 3 on H100 with FP8 achieves ~1.2 PFLOPS (75% of theoretical max).
+**关键洞察**：H100上使用FP8的Flash Attention 3达到约1.2 PFLOPS（理论最大值的75%）。
 
 ### A10G 24GB (Ampere)
 
-**Forward pass time** (milliseconds, batch=4):
+**前向传播时间**（毫秒，batch=4）：
 
-| Seq Length | Standard | Flash Attn 2 | Speedup |
+| 序列长度 | 标准注意力 | Flash Attn 2 | 加速比 |
 |------------|----------|--------------|---------|
 | 512 | 2.1 | 1.6 | 1.3x |
 | 1024 | 6.8 | 2.8 | 2.4x |
 | 2048 | 25.9 | 9.4 | 2.8x |
 | 4096 | 102.1 | 35.2 | 2.9x |
 
-## Memory usage analysis
+## 内存使用分析
 
-### GPU memory consumption (batch=8, heads=32, dim=64)
+### GPU内存消耗（batch=8，heads=32，dim=64）
 
-**Standard attention memory**:
+**标准注意力内存**：
 
-| Seq Length | Attention Matrix | KV Cache | Total | Notes |
+| 序列长度 | 注意力矩阵 | KV缓存 | 总计 | 备注 |
 |------------|------------------|----------|-------|-------|
-| 512 | 8 MB | 32 MB | 40 MB | Manageable |
-| 2048 | 128 MB | 128 MB | 256 MB | Growing |
-| 8192 | 2048 MB (2 GB) | 512 MB | 2.5 GB | Large |
-| 32768 | 32768 MB (32 GB) | 2048 MB | 34 GB | OOM on 24GB GPUs |
+| 512 | 8 MB | 32 MB | 40 MB | 可控 |
+| 2048 | 128 MB | 128 MB | 256 MB | 增长中 |
+| 8192 | 2048 MB (2 GB) | 512 MB | 2.5 GB | 较大 |
+| 32768 | 32768 MB (32 GB) | 2048 MB | 34 GB | 24GB GPU上OOM |
 
-**Flash Attention 2 memory**:
+**Flash Attention 2内存**：
 
-| Seq Length | Attention (on-chip) | KV Cache | Total | Reduction |
+| 序列长度 | 注意力（芯片上） | KV缓存 | 总计 | 减少比例 |
 |------------|---------------------|----------|-------|-----------|
-| 512 | 0 MB (recomputed) | 32 MB | 32 MB | 20% |
+| 512 | 0 MB（重计算） | 32 MB | 32 MB | 20% |
 | 2048 | 0 MB | 128 MB | 128 MB | 50% |
 | 8192 | 0 MB | 512 MB | 512 MB | 80% |
 | 32768 | 0 MB | 2048 MB | 2 GB | 94% |
 
-**Key insight**: Flash Attention doesn't materialize attention matrix, saving O(N²) memory.
+**关键洞察**：Flash Attention不会物化注意力矩阵，节省O(N²)内存。
 
-### Memory scaling comparison
+### 内存扩展比较
 
-**Llama 2 7B model memory** (float16, batch=1):
+**Llama 2 7B模型内存**（float16，batch=1）：
 
-| Context Length | Standard Attention | Flash Attention 2 | Can Fit 24GB GPU? |
+| 上下文长度 | 标准注意力 | Flash Attention 2 | 能否装入24GB GPU？ |
 |----------------|-------------------|-------------------|-------------------|
-| 2K | 3.2 GB | 2.1 GB | Both: Yes |
-| 4K | 5.8 GB | 2.8 GB | Both: Yes |
-| 8K | 12.1 GB | 4.2 GB | Both: Yes |
-| 16K | 26.3 GB (OOM) | 7.8 GB | Only Flash: Yes |
-| 32K | OOM | 14.2 GB | Only Flash: Yes |
+| 2K | 3.2 GB | 2.1 GB | 两者：可以 |
+| 4K | 5.8 GB | 2.8 GB | 两者：可以 |
+| 8K | 12.1 GB | 4.2 GB | 两者：可以 |
+| 16K | 26.3 GB (OOM) | 7.8 GB | 仅Flash：可以 |
+| 32K | OOM | 14.2 GB | 仅Flash：可以 |
 
-### Training memory (Llama 2 7B, batch=4)
+### 训练内存（Llama 2 7B，batch=4）
 
-| Context | Standard (GB) | Flash Attn (GB) | Reduction |
+| 上下文 | 标准 (GB) | Flash Attn (GB) | 减少比例 |
 |---------|---------------|-----------------|-----------|
 | 2K | 18.2 | 12.4 | 32% |
 | 4K | 34.8 | 16.8 | 52% |
-| 8K | OOM (>40GB) | 26.2 | Fits! |
+| 8K | OOM (>40GB) | 26.2 | 可以装入！ |
 
-## Scaling with sequence length
+## 随序列长度扩展
 
-### Computational complexity
+### 计算复杂度
 
-**Standard attention**:
-- Time: O(N² × d)
-- Memory: O(N² + N × d)
+**标准注意力**：
+- 时间：O(N² × d)
+- 内存：O(N² + N × d)
 
-**Flash Attention**:
-- Time: O(N² × d) (same, but with better constants)
-- Memory: O(N × d) (linear!)
+**Flash Attention**：
+- 时间：O(N² × d)（相同，但常数更好）
+- 内存：O(N × d)（线性！）
 
-### Empirical scaling (A100, batch=1, heads=32, dim=64)
+### 经验扩展（A100，batch=1，heads=32，dim=64）
 
-**Time per token (milliseconds)**:
+**每词元时间**（毫秒）：
 
-| Sequence | 512 | 1K | 2K | 4K | 8K | 16K |
+| 序列 | 512 | 1K | 2K | 4K | 8K | 16K |
 |----------|-----|-----|-----|-----|-----|------|
-| Standard | 0.15 | 0.37 | 1.11 | 3.44 | 13.4 | 52.8 |
+| 标准注意力 | 0.15 | 0.37 | 1.11 | 3.44 | 13.4 | 52.8 |
 | Flash Attn 2 | 0.11 | 0.14 | 0.24 | 0.43 | 0.83 | 1.64 |
-| Speedup | 1.4x | 2.6x | 4.6x | 8.0x | 16.1x | 32.2x |
+| 加速比 | 1.4x | 2.6x | 4.6x | 8.0x | 16.1x | 32.2x |
 
-**Observation**: Speedup increases quadratically with sequence length!
+**观察**：加速比随序列长度呈二次增长！
 
-### Memory per token (MB)
+### 每词元内存（MB）
 
-| Sequence | 512 | 1K | 2K | 4K | 8K | 16K |
+| 序列 | 512 | 1K | 2K | 4K | 8K | 16K |
 |----------|-----|-----|-----|-----|-----|------|
-| Standard | 0.08 | 0.13 | 0.25 | 0.64 | 2.05 | 8.13 |
+| 标准注意力 | 0.08 | 0.13 | 0.25 | 0.64 | 2.05 | 8.13 |
 | Flash Attn 2 | 0.06 | 0.06 | 0.06 | 0.06 | 0.06 | 0.06 |
 
-**Observation**: Flash Attention memory per token is constant!
+**观察**：Flash Attention每词元内存是恒定的！
 
-## Training vs inference performance
+## 训练与推理性能
 
-### Training (forward + backward, Llama 2 7B, A100)
+### 训练（前向+反向，Llama 2 7B，A100）
 
-| Batch × Seq | Standard (samples/sec) | Flash Attn (samples/sec) | Speedup |
+| Batch × Seq | 标准 (样本/秒) | Flash Attn (样本/秒) | 加速比 |
 |-------------|------------------------|--------------------------|---------|
 | 4 × 2K | 1.2 | 3.1 | 2.6x |
 | 8 × 2K | 2.1 | 5.8 | 2.8x |
 | 4 × 4K | 0.4 | 1.3 | 3.3x |
-| 8 × 4K | OOM | 2.4 | Enabled |
+| 8 × 4K | OOM | 2.4 | 已启用 |
 | 2 × 8K | 0.1 | 0.4 | 4.0x |
 
-### Inference (generation, Llama 2 7B, A100)
+### 推理（生成，Llama 2 7B，A100）
 
-| Context Length | Standard (tokens/sec) | Flash Attn (tokens/sec) | Speedup |
+| 上下文长度 | 标准 (令牌/秒) | Flash Attn (令牌/秒) | 加速比 |
 |----------------|----------------------|-------------------------|---------|
 | 512 | 48 | 52 | 1.1x |
 | 2K | 42 | 62 | 1.5x |
 | 4K | 31 | 58 | 1.9x |
 | 8K | 18 | 51 | 2.8x |
-| 16K | OOM | 42 | Enabled |
+| 16K | OOM | 42 | 已启用 |
 
-**Note**: Inference speedup less dramatic than training because generation is memory-bound (KV cache accesses).
+**注意**：推理加速比训练小，因为生成受内存限制（KV缓存访问）。
 
-## Flash Attention versions comparison
+## Flash Attention版本比较
 
-### Flash Attention 1 vs 2 vs 3 (H100, seq=4096, batch=8)
+### FA1 vs FA2 vs FA3（H100，seq=4096，batch=8）
 
-| Metric | FA1 | FA2 | FA3 (FP16) | FA3 (FP8) |
+| 指标 | FA1 | FA2 | FA3 (FP16) | FA3 (FP8) |
 |--------|-----|-----|------------|-----------|
-| Forward time (ms) | 28.4 | 12.5 | 7.2 | 4.8 |
-| Memory (GB) | 4.8 | 4.2 | 4.2 | 2.8 |
+| 前向时间 (ms) | 28.4 | 12.5 | 7.2 | 4.8 |
+| 内存 (GB) | 4.8 | 4.2 | 4.2 | 2.8 |
 | TFLOPS | 180 | 420 | 740 | 1150 |
-| GPU util % | 35% | 55% | 75% | 82% |
+| GPU利用率 % | 35% | 55% | 75% | 82% |
 
-**Key improvements**:
-- FA2: 2.3x faster than FA1 (better parallelism)
-- FA3 (FP16): 1.7x faster than FA2 (H100 async optimizations)
-- FA3 (FP8): 2.6x faster than FA2 (low precision)
+**关键改进**：
+- FA2：比FA1快2.3倍（更好的并行性）
+- FA3 (FP16)：比FA2快1.7倍（H100异步优化）
+- FA3 (FP8)：比FA2快2.6倍（低精度）
 
-### Features by version
+### 各版本功能
 
-| Feature | FA1 | FA2 | FA3 |
+| 功能 | FA1 | FA2 | FA3 |
 |---------|-----|-----|-----|
-| Basic attention | ✅ | ✅ | ✅ |
-| Causal masking | ✅ | ✅ | ✅ |
-| Multi-query attention | ❌ | ✅ | ✅ |
-| Sliding window | ❌ | ✅ | ✅ |
-| Paged KV cache | ❌ | ✅ | ✅ |
-| FP8 support | ❌ | ❌ | ✅ (H100 only) |
-| Work partitioning | Basic | Advanced | Optimal |
+| 基本注意力 | ✅ | ✅ | ✅ |
+| 因果掩码 | ✅ | ✅ | ✅ |
+| 多查询注意力 | ❌ | ✅ | ✅ |
+| 滑动窗口 | ❌ | ✅ | ✅ |
+| 分页KV缓存 | ❌ | ✅ | ✅ |
+| FP8支持 | ❌ | ❌ | ✅（仅H100） |
+| 工作分区 | 基础 | 高级 | 最优 |
 
-## Real-world model benchmarks
+## 实际模型基准测试
 
-### Llama 2 models (A100 80GB, batch=4, seq=2048)
+### Llama 2模型（A100 80GB，batch=4，seq=2048）
 
-| Model | Params | Standard (samples/sec) | Flash Attn (samples/sec) | Speedup |
+| 模型 | 参数 | 标准 (样本/秒) | Flash Attn (样本/秒) | 加速比 |
 |-------|--------|------------------------|--------------------------|---------|
 | Llama 2 7B | 7B | 1.2 | 3.1 | 2.6x |
 | Llama 2 13B | 13B | 0.6 | 1.7 | 2.8x |
 | Llama 2 70B | 70B | 0.12 | 0.34 | 2.8x |
 
-### GPT-style models (seq=1024)
+### GPT风格模型（seq=1024）
 
-| Model | Standard (tokens/sec) | Flash Attn (tokens/sec) | Speedup |
+| 模型 | 标准 (令牌/秒) | Flash Attn (令牌/秒) | 加速比 |
 |-------|----------------------|-------------------------|---------|
 | GPT-2 (124M) | 520 | 680 | 1.3x |
 | GPT-J (6B) | 42 | 98 | 2.3x |
 | GPT-NeoX (20B) | 8 | 22 | 2.75x |
 
-## Recommendations by use case
+## 按用例建议
 
-**Training large models (>7B parameters)**:
-- Use Flash Attention 2 on A100
-- Use Flash Attention 3 FP8 on H100 for maximum speed
-- Expected: 2.5-3x speedup
+**训练大型模型（>7B参数）**：
+- 在A100上使用Flash Attention 2
+- 在H100上使用Flash Attention 3 FP8以获得最大速度
+- 预期：2.5-3倍加速
 
-**Long context inference (>4K tokens)**:
-- Flash Attention essential (enables contexts standard attention can't handle)
-- Expected: 2-4x speedup, 5-10x memory reduction
+**长上下文推理（>4K词元）**：
+- Flash Attention必不可少（启用标准注意力无法处理的上下文）
+- 预期：2-4倍加速，5-10倍内存减少
 
-**Short sequences (<512 tokens)**:
-- Flash Attention provides 1.2-1.5x speedup
-- Minimal memory benefit
-- Still worth enabling (no downside)
+**短序列（<512词元）**：
+- Flash Attention提供1.2-1.5倍加速
+- 内存收益最小
+- 仍然值得启用（没有缺点）
 
-**Multi-user serving**:
-- Flash Attention reduces per-request memory
-- Allows higher concurrent batch sizes
-- Can serve 2-3x more users on same hardware
+**多用户服务**：
+- Flash Attention减少每个请求的内存
+- 允许更高的并发batch大小
+- 同一硬件可以服务2-3倍的用户

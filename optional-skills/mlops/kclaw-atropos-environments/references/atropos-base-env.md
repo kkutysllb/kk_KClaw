@@ -1,65 +1,70 @@
-# Atropos BaseEnv Reference
+---
+name: atropos-base-env
+description: Atropos BaseEnv抽象类参考，涵盖抽象方法、可覆盖方法、数据结构等。
+---
 
-Source: `atroposlib/envs/base.py` (~2124 lines)
+# Atropos BaseEnv参考
 
-## Abstract Methods (MUST implement)
+来源：`atroposlib/envs/base.py`（~2124行）
 
-| Method | Signature | Description |
+## 抽象方法（必须实现）
+
+| 方法 | 签名 | 描述 |
 |--------|-----------|-------------|
-| `get_next_item()` | `async def get_next_item(self) -> Item` | Return next item for trajectory. Return None to pause. |
-| `evaluate()` | `async def evaluate(self, *args, **kwargs)` | Called every steps_per_eval steps. |
-| `setup()` | `async def setup(self)` | Called once at start. Load datasets, init models. |
-| `collect_trajectory()` | `async def collect_trajectory(self, item) -> Tuple[Optional[ScoredDataItem], List[Item]]` | Single rollout. Or override collect_trajectories instead. |
+| `get_next_item()` | `async def get_next_item(self) -> Item` | 返回下一个轨迹项目。返回None则暂停。 |
+| `evaluate()` | `async def evaluate(self, *args, **kwargs)` | 每steps_per_eval步调用一次。 |
+| `setup()` | `async def setup(self)` | 启动时调用一次。加载数据集，初始化模型。 |
+| `collect_trajectory()` | `async def collect_trajectory(self, item) -> Tuple[Optional[ScoredDataItem], List[Item]]` | 单次rollout。可选择覆盖collect_trajectories。 |
 
-## Overridable Methods
+## 可覆盖方法
 
-| Method | Default Behavior | Override When |
+| 方法 | 默认行为 | 覆盖时机 |
 |--------|-----------------|---------------|
-| `collect_trajectories()` | Runs collect_trajectory group_size times in parallel | Batch generation, MCTS, coupled rollouts |
-| `wandb_log()` | Logs completion lengths, rollout table, perf stats | Add custom metrics (always call super) |
-| `config_init()` | Returns (env_config_cls(), ServerBaseline()) | Custom defaults + server configs |
-| `postprocess_histories()` | Passthrough | Final processing before sending to trainer |
-| `save_checkpoint()` | Saves JSON to checkpoint_dir | Custom serialization |
-| `cleanup()` | No-op | Release resources after each rollout |
+| `collect_trajectories()` | 并行运行collect_trajectory group_size次 | 批量生成、MCTS、耦合rollouts |
+| `wandb_log()` | 记录完成长度、rollout表、性能统计 | 添加自定义指标（始终调用super） |
+| `config_init()` | 返回(env_config_cls(), ServerBaseline()) | 自定义默认值 + 服务器配置 |
+| `postprocess_histories()` | 直通 | 发送到训练器前的最终处理 |
+| `save_checkpoint()` | 保存JSON到checkpoint_dir | 自定义序列化 |
+| `cleanup()` | 无操作 | 每次rollout后释放资源 |
 
-## ScoredDataGroup Structure
+## ScoredDataGroup结构
 
 ```python
-ScoredDataGroup = TypedDict with:
-    tokens:             List[List[int]]       # Token IDs per rollout
-    masks:              List[List[int]]       # -100=prompt, token_id=completion
-    scores:             List[float]           # Score per rollout
-    advantages:         Optional[...]         # Per-token advantages
-    ref_logprobs:       Optional[...]         # Reference model logprobs
-    messages:           Optional[...]         # OpenAI-format messages
-    inference_logprobs: Optional[...]         # Inference logprobs
+ScoredDataGroup = TypedDict，包含：
+    tokens:             List[List[int]]       # 每次rollout的令牌ID
+    masks:              List[List[int]]       # -100=提示，token_id=补全
+    scores:             List[float]           # 每次rollout的分数
+    advantages:         Optional[...]         # 每令牌优势
+    ref_logprobs:       Optional[...]         # 参考模型logprobs
+    messages:           Optional[...]         # OpenAI格式消息
+    inference_logprobs: Optional[...]         # 推理logprobs
 ```
 
-## BaseEnvConfig Key Fields
+## BaseEnvConfig关键字段
 
-| Field | Default | Description |
+| 字段 | 默认 | 描述 |
 |-------|---------|-------------|
-| `group_size` | 4 | Responses grouped for scoring |
-| `steps_per_eval` | 100 | Steps between evaluations |
-| `max_token_length` | 2048 | Max token length for generations |
-| `total_steps` | 1000 | Total training steps |
-| `use_wandb` | True | Enable wandb logging |
-| `tokenizer_name` | DeepKClaw-3 | Tokenizer for token encoding |
-| `ensure_scores_are_not_same` | True | Skip groups with identical scores |
-| `worker_timeout` | 600 | Task timeout seconds |
+| `group_size` | 4 | 分组用于评分 |
+| `steps_per_eval` | 100 | 评估间隔步数 |
+| `max_token_length` | 2048 | 生成的最大令牌长度 |
+| `total_steps` | 1000 | 总训练步数 |
+| `use_wandb` | True | 启用wandb日志 |
+| `tokenizer_name` | DeepKClaw-3 | 用于令牌编码的分词器 |
+| `ensure_scores_are_not_same` | True | 跳过分数相同的组 |
+| `worker_timeout` | 600 | 任务超时秒数 |
 
-## Data Flow
+## 数据流
 
 ```
 env_manager() → add_train_workers() → handle_env()
     → collect_trajectories() → postprocess_histories()
-    → handle_send_to_api() → training server
+    → handle_send_to_api() → 训练服务器
 ```
 
-## Atropos Environment Statistics (82 environments analyzed)
+## Atropos环境统计（分析了82个环境）
 
-- 95% implement setup, collect_trajectories, evaluate, get_next_item
-- 76% override wandb_log
-- 54% have custom config class
-- Most use collect_trajectories (plural), not collect_trajectory (singular)
-- Common reward patterns: LLM-judge (~40), regex-extract (~35), code-exec (~12)
+- 95%实现了setup、collect_trajectories、evaluate、get_next_item
+- 76%覆盖了wandb_log
+- 54%有自定义配置类
+- 大多数使用collect_trajectories（复数），而不是collect_trajectory（单数）
+- 常见奖励模式：LLM-judge（~40）、regex提取（~35）、代码执行（~12）

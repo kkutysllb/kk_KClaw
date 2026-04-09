@@ -1,114 +1,114 @@
 ---
 sidebar_position: 10
-title: "Skins & Themes"
-description: "Customize the KClaw CLI with built-in and user-defined skins"
+title: "皮肤与主题"
+description: "使用内置和用户定义的皮肤自定义 KClaw CLI"
 ---
 
-# Skins & Themes
+# 皮肤与主题
 
-Skins control the **visual presentation** of the KClaw CLI: banner colors, spinner faces and verbs, response-box labels, branding text, and the tool activity prefix.
+皮肤控制 KClaw CLI 的**视觉呈现**：横幅颜色、微调器面孔和动词、响应框标签、品牌文字和工具活动前缀。
 
-Conversational style and visual style are separate concepts:
+对话风格和视觉风格是分开的概念：
 
-- **Personality** changes the agent's tone and wording.
-- **Skin** changes the CLI's appearance.
+- **人格**改变代理的语气和措辞。
+- **皮肤**改变 CLI 的外观。
 
-## Change skins
+## 更改皮肤
 
 ```bash
-/skin                # show the current skin and list available skins
-/skin ares           # switch to a built-in skin
-/skin mytheme        # switch to a custom skin from ~/.kclaw/skins/mytheme.yaml
+/skin                # 显示当前皮肤并列出可用皮肤
+/skin ares           # 切换到内置皮肤
+/skin mytheme        # 切换到 ~/.kclaw/skins/mytheme.yaml 的自定义皮肤
 ```
 
-Or set the default skin in `~/.kclaw/config.yaml`:
+或在 `~/.kclaw/config.yaml` 中设置默认皮肤：
 
 ```yaml
 display:
   skin: default
 ```
 
-## Built-in skins
+## 内置皮肤
 
-| Skin | Description | Agent branding | Visual character |
+| 皮肤 | 描述 | 代理品牌 | 视觉特征 |
 |------|-------------|----------------|------------------|
-| `default` | Classic KClaw — gold and kawaii | `KClaw Agent` | Warm gold borders, cornsilk text, kawaii faces in spinners. The familiar caduceus banner. Clean and inviting. |
-| `ares` | War-god theme — crimson and bronze | `Ares Agent` | Deep crimson borders with bronze accents. Aggressive spinner verbs ("forging", "marching", "tempering steel"). Custom sword-and-shield ASCII art banner. |
-| `mono` | Monochrome — clean grayscale | `KClaw Agent` | All grays — no color. Borders are `#555555`, text is `#c9d1d9`. Ideal for minimal terminal setups or screen recordings. |
-| `slate` | Cool blue — developer-focused | `KClaw Agent` | Royal blue borders (`#4169e1`), soft blue text. Calm and professional. No custom spinner — uses default faces. |
-| `poseidon` | Ocean-god theme — deep blue and seafoam | `Poseidon Agent` | Deep blue to seafoam gradient. Ocean-themed spinners ("charting currents", "sounding the depth"). Trident ASCII art banner. |
-| `sisyphus` | Sisyphean theme — austere grayscale with persistence | `Sisyphus Agent` | Light grays with stark contrast. Boulder-themed spinners ("pushing uphill", "resetting the boulder", "enduring the loop"). Boulder-and-hill ASCII art banner. |
-| `charizard` | Volcanic theme — burnt orange and ember | `Charizard Agent` | Warm burnt orange to ember gradient. Fire-themed spinners ("banking into the draft", "measuring burn"). Dragon-silhouette ASCII art banner. |
+| `default` | 经典 KClaw — 金色和 kawaii | `KClaw Agent` | 暖金色边框，玉米丝色文本，kawaii 面孔微调器。熟悉的杖杖横幅。简洁而吸引人。 |
+| `ares` | 战神主题 — 深红和青铜 | `Ares Agent` | 深红边框配青铜色强调。激进的微调器动词（"forging"、"marching"、"tempering steel"）。自定义剑盾 ASCII 艺术横幅。 |
+| `mono` | 单色 — 干净灰阶 | `KClaw Agent` | 全灰——无颜色。边框是 `#555555`，文本是 `#c9d1d9`。适合最小化终端设置或屏幕录制。 |
+| `slate` | 冷蓝 — 开发者导向 | `KClaw Agent` | 皇家蓝边框（`#4169e1`），柔和蓝色文本。冷静专业。没有自定义微调器——使用默认面孔。 |
+| `poseidon` | 海神主题 — 深蓝和海沫 | `Poseidon Agent` | 深蓝到海沫渐变。海洋主题微调器（"charting currents"、"sounding the depth"）。三叉戟 ASCII 艺术横幅。 |
+| `sisyphus` | 西西弗斯主题 — 严格灰阶与坚持 | `Sisyphus Agent` | 浅灰与强烈对比。巨石主题微调器（"pushing uphill"、"resetting the boulder"、"enduring the loop"）。巨石和山丘 ASCII 艺术横幅。 |
+| `charizard` | 火山主题 — 焦橙和余烬 | `Charizard Agent` | 暖焦橙到余烬渐变。火主题微调器（"banking into the draft"、"measuring burn"）。龙剪影 ASCII 艺术横幅。 |
 
-## Complete list of configurable keys
+## 可配置键的完整列表
 
-### Colors (`colors:`)
+### 颜色（`colors:`）
 
-Controls all color values throughout the CLI. Values are hex color strings.
+控制 CLI 中所有颜色值。值是十六进制颜色字符串。
 
-| Key | Description | Default (`default` skin) |
+| 键 | 描述 | 默认（`default` 皮肤） |
 |-----|-------------|--------------------------|
-| `banner_border` | Panel border around the startup banner | `#CD7F32` (bronze) |
-| `banner_title` | Title text color in the banner | `#FFD700` (gold) |
-| `banner_accent` | Section headers in the banner (Available Tools, etc.) | `#FFBF00` (amber) |
-| `banner_dim` | Muted text in the banner (separators, secondary labels) | `#B8860B` (dark goldenrod) |
-| `banner_text` | Body text in the banner (tool names, skill names) | `#FFF8DC` (cornsilk) |
-| `ui_accent` | General UI accent color (highlights, active elements) | `#FFBF00` |
-| `ui_label` | UI labels and tags | `#4dd0e1` (teal) |
-| `ui_ok` | Success indicators (checkmarks, completion) | `#4caf50` (green) |
-| `ui_error` | Error indicators (failures, blocked) | `#ef5350` (red) |
-| `ui_warn` | Warning indicators (caution, approval prompts) | `#ffa726` (orange) |
-| `prompt` | Interactive prompt text color | `#FFF8DC` |
-| `input_rule` | Horizontal rule above the input area | `#CD7F32` |
-| `response_border` | Border around the agent's response box (ANSI escape) | `#FFD700` |
-| `session_label` | Session label color | `#DAA520` |
-| `session_border` | Session ID dim border color | `#8B8682` |
+| `banner_border` | 启动横幅周围的面板边框 | `#CD7F32`（青铜） |
+| `banner_title` | 横幅中的标题文本颜色 | `#FFD700`（金色） |
+| `banner_accent` | 横幅中的部分标题（Available Tools 等） | `#FFBF00`（琥珀色） |
+| `banner_dim` | 横幅中柔和文本（分隔符、次要标签） | `#B8860B`（暗金合欢） |
+| `banner_text` | 横幅中的正文文本（工具名称、技能名称） | `#FFF8DC`（玉米丝色） |
+| `ui_accent` | 通用 UI 强调色（高亮、活跃元素） | `#FFBF00` |
+| `ui_label` | UI 标签和标签 | `#4dd0e1`（青色） |
+| `ui_ok` | 成功指示器（勾选、完成） | `#4caf50`（绿色） |
+| `ui_error` | 错误指示器（失败、阻止） | `#ef5350`（红色） |
+| `ui_warn` | 警告指示器（谨慎、批准提示） | `#ffa726`（橙色） |
+| `prompt` | 交互式提示文本颜色 | `#FFF8DC` |
+| `input_rule` | 输入区域上方的水平线 | `#CD7F32` |
+| `response_border` | 代理响应框边框（ANSI 转义） | `#FFD700` |
+| `session_label` | 会话标签颜色 | `#DAA520` |
+| `session_border` | 会话 ID 暗淡边框颜色 | `#8B8682` |
 
-### Spinner (`spinner:`)
+### 微调器（`spinner:`）
 
-Controls the animated spinner shown while waiting for API responses.
+控制等待 API 响应时显示的动画微调器。
 
-| Key | Type | Description | Example |
+| 键 | 类型 | 描述 | 示例 |
 |-----|------|-------------|---------|
-| `waiting_faces` | list of strings | Faces cycled while waiting for API response | `["(⚔)", "(⛨)", "(▲)"]` |
-| `thinking_faces` | list of strings | Faces cycled during model reasoning | `["(⚔)", "(⌁)", "(<>)"]` |
-| `thinking_verbs` | list of strings | Verbs shown in spinner messages | `["forging", "plotting", "hammering plans"]` |
-| `wings` | list of [left, right] pairs | Decorative brackets around the spinner | `[["⟪⚔", "⚔⟫"], ["⟪▲", "▲⟫"]]` |
+| `waiting_faces` | 字符串列表 | 等待 API 响应时循环的面孔 | `["(⚔)", "(⛨)", "(▲)"]` |
+| `thinking_faces` | 字符串列表 | 模型推理期间循环的面孔 | `["(⚔)", "(⌁)", "(<>)"]` |
+| `thinking_verbs` | 字符串列表 | 微调器消息中显示的动词 | `["forging", "plotting", "hammering plans"]` |
+| `wings` | [左，右] 对列表 | 微调器周围的装饰括号 | `[["⟪⚔", "⚔⟫"], ["⟪▲", "▲⟫"]]` |
 
-When spinner values are empty (like in `default` and `mono`), hardcoded defaults from `display.py` are used.
+当微调器值为空时（如 `default` 和 `mono`），使用 `display.py` 中的硬编码默认值。
 
-### Branding (`branding:`)
+### 品牌（`branding:`）
 
-Text strings used throughout the CLI interface.
+整个 CLI 界面使用的文本字符串。
 
-| Key | Description | Default |
+| 键 | 描述 | 默认 |
 |-----|-------------|---------|
-| `agent_name` | Name shown in banner title and status display | `KClaw Agent` |
-| `welcome` | Welcome message shown at CLI startup | `Welcome to KClaw Agent! Type your message or /help for commands.` |
-| `goodbye` | Message shown on exit | `Goodbye! ⚕` |
-| `response_label` | Label on the response box header | ` ⚕ KClaw ` |
-| `prompt_symbol` | Symbol before the user input prompt | `❯ ` |
-| `help_header` | Header text for the `/help` command output | `(^_^)? Available Commands` |
+| `agent_name` | 横幅标题和状态显示中显示的名称 | `KClaw Agent` |
+| `welcome` | CLI 启动时显示的欢迎消息 | `Welcome to KClaw Agent! Type your message or /help for commands.` |
+| `goodbye` | 退出时显示的消息 | `Goodbye! ⚕` |
+| `response_label` | 响应框标题上的标签 | ` ⚕ KClaw ` |
+| `prompt_symbol` | 用户输入提示前的符号 | `❯ ` |
+| `help_header` | `/help` 命令输出的标题文本 | `(^_^)? Available Commands` |
 
-### Other top-level keys
+### 其他顶级键
 
-| Key | Type | Description | Default |
+| 键 | 类型 | 描述 | 默认 |
 |-----|------|-------------|---------|
-| `tool_prefix` | string | Character prefixed to tool output lines in the CLI | `┊` |
-| `tool_emojis` | dict | Per-tool emoji overrides for spinners and progress (`{tool_name: emoji}`) | `{}` |
-| `banner_logo` | string | Rich-markup ASCII art logo (replaces the default KCLAW_AGENT banner) | `""` |
-| `banner_hero` | string | Rich-markup hero art (replaces the default caduceus art) | `""` |
+| `tool_prefix` | 字符串 | CLI 中工具输出行前缀的字符 | `┊` |
+| `tool_emojis` | dict | 微调器和进度的每工具表情符号覆盖（`{tool_name: emoji}`） | `{}` |
+| `banner_logo` | 字符串 | 富标记 ASCII 艺术 logo（替换默认 KCLAW_AGENT 横幅） | `""` |
+| `banner_hero` | 字符串 | 富标记英雄艺术（替换默认杖杖艺术） | `""` |
 
-## Custom skins
+## 自定义皮肤
 
-Create YAML files under `~/.kclaw/skins/`. User skins inherit missing values from the built-in `default` skin, so you only need to specify the keys you want to change.
+在 `~/.kclaw/skins/` 下创建 YAML 文件。用户皮肤继承内置 `default` 皮肤的缺失值，因此您只需要指定要更改的键。
 
-### Full custom skin YAML template
+### 完整自定义皮肤 YAML 模板
 
 ```yaml
 # ~/.kclaw/skins/mytheme.yaml
-# Complete skin template — all keys shown. Delete any you don't need;
-# missing values automatically inherit from the 'default' skin.
+# 完整皮肤模板——显示所有键。删除您不需要的；
+# 缺失值自动从 'default' 皮肤继承。
 
 name: mytheme
 description: My custom theme
@@ -158,22 +158,22 @@ branding:
 
 tool_prefix: "┊"
 
-# Per-tool emoji overrides (optional)
+# 每工具表情符号覆盖（可选）
 tool_emojis:
   terminal: "⚔"
   web_search: "🔮"
   read_file: "📄"
 
-# Custom ASCII art banners (optional, Rich markup supported)
+# 自定义 ASCII 艺术横幅（可选，支持 Rich 标记）
 # banner_logo: |
 #   [bold #FFD700] MY AGENT [/]
 # banner_hero: |
 #   [#FFD700]  Custom art here  [/]
 ```
 
-### Minimal custom skin example
+### 最小自定义皮肤示例
 
-Since everything inherits from `default`, a minimal skin only needs to change what's different:
+由于一切从 `default` 继承，最小皮肤只需要更改不同的内容：
 
 ```yaml
 name: cyberpunk
@@ -196,35 +196,35 @@ branding:
 tool_prefix: "▏"
 ```
 
-## KClaw Mod — Visual Skin Editor
+## KClaw Mod — 视觉皮肤编辑器
 
-[KClaw Mod](https://github.com/cocktailpeanut/kclaw-mod) is a community-built web UI for creating and managing skins visually. Instead of writing YAML by hand, you get a point-and-click editor with live preview.
+[KClaw Mod](https://github.com/cocktailpeanut/kclaw-mod) 是一个社区构建的 Web UI，用于可视地创建和管理皮肤。无需手动编写 YAML，您可以使用实时预览的点选编辑器。
 
-![KClaw Mod skin editor](https://raw.githubusercontent.com/cocktailpeanut/kclaw-mod/master/nous.png)
+![KClaw Mod 皮肤编辑器](https://raw.githubusercontent.com/cocktailpeanut/kclaw-mod/master/nous.png)
 
-**What it does:**
+**功能：**
 
-- Lists all built-in and custom skins
-- Opens any skin into a visual editor with all KClaw skin fields (colors, spinner, branding, tool prefix, tool emojis)
-- Generates `banner_logo` text art from a text prompt
-- Converts uploaded images (PNG, JPG, GIF, WEBP) into `banner_hero` ASCII art with multiple render styles (braille, ASCII ramp, blocks, dots)
-- Saves directly to `~/.kclaw/skins/`
-- Activates a skin by updating `~/.kclaw/config.yaml`
-- Shows the generated YAML and a live preview
+- 列出所有内置和自定义皮肤
+- 将任何皮肤打开为可视化编辑器，包含所有 KClaw 皮肤字段（颜色、微调器、品牌、工具前缀、工具表情符号）
+- 从文本提示生成 `banner_logo` 文字艺术
+- 将上传的图像（PNG、JPG、GIF、WEBP）转换为多种渲染样式（盲文、ASCII 坡道、块、点）的 `banner_hero` ASCII 艺术
+- 直接保存到 `~/.kclaw/skins/`
+- 通过更新 `~/.kclaw/config.yaml` 激活皮肤
+- 显示生成的 YAML 和实时预览
 
-### Install
+### 安装
 
-**Option 1 — Pinokio (1-click):**
+**选项 1 — Pinokio（1-click）：**
 
-Find it on [pinokio.computer](https://pinokio.computer) and install with one click.
+在 [pinokio.computer](https://pinokio.computer) 上找到它并一键安装。
 
-**Option 2 — npx (quickest from terminal):**
+**选项 2 — npx（从终端最快）：**
 
 ```bash
 npx -y kclaw-mod
 ```
 
-**Option 3 — Manual:**
+**选项 3 — 手动：**
 
 ```bash
 git clone https://github.com/cocktailpeanut/kclaw-mod.git
@@ -233,23 +233,23 @@ npm install
 npm start
 ```
 
-### Usage
+### 用法
 
-1. Start the app (via Pinokio or terminal).
-2. Open **Skin Studio**.
-3. Choose a built-in or custom skin to edit.
-4. Generate a logo from text and/or upload an image for hero art. Pick a render style and width.
-5. Edit colors, spinner, branding, and other fields.
-6. Click **Save** to write the skin YAML to `~/.kclaw/skins/`.
-7. Click **Activate** to set it as the current skin (updates `display.skin` in `config.yaml`).
+1. 启动应用（通过 Pinokio 或终端）。
+2. 打开 **Skin Studio**。
+3. 选择要编辑的内置或自定义皮肤。
+4. 从文本生成 logo 和/或上传图像作为英雄艺术。选择渲染样式和宽度。
+5. 编辑颜色、微调器、品牌和其他字段。
+6. 点击 **Save** 将皮肤 YAML 写入 `~/.kclaw/skins/`。
+7. 点击 **Activate** 将其设为当前皮肤（更新 `config.yaml` 中的 `display.skin`）。
 
-KClaw Mod respects the `KCLAW_HOME` environment variable, so it works with [profiles](/docs/user-guide/profiles) too.
+KClaw Mod 尊重 `KCLAW_HOME` 环境变量，因此它也可以与[配置文件](/docs/user-guide/profiles)配合使用。
 
-## Operational notes
+## 操作说明
 
-- Built-in skins load from `kclaw_cli/skin_engine.py`.
-- Unknown skins automatically fall back to `default`.
-- `/skin` updates the active CLI theme immediately for the current session.
-- User skins in `~/.kclaw/skins/` take precedence over built-in skins with the same name.
-- Skin changes via `/skin` are session-only. To make a skin your permanent default, set it in `config.yaml`.
-- The `banner_logo` and `banner_hero` fields support Rich console markup (e.g., `[bold #FF0000]text[/]`) for colored ASCII art.
+- 内置皮肤从 `kclaw_cli/skin_engine.py` 加载。
+- 未知皮肤自动回退到 `default`。
+- `/skin` 立即为当前会话更新活动 CLI 主题。
+- `~/.kclaw/skins/` 中的用户皮肤优先于同名的内置皮肤。
+- 通过 `/skin` 的皮肤更改仅限会话。要使皮肤成为永久默认，请在 `config.yaml` 中设置。
+- `banner_logo` 和 `banner_hero` 字段支持 Rich 控制台标记（例如 `[bold #FF0000]text[/]`）用于彩色 ASCII 艺术。

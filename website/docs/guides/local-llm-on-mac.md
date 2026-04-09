@@ -1,74 +1,74 @@
 ---
 sidebar_position: 2
-title: "Run Local LLMs on Mac"
-description: "Set up a local OpenAI-compatible LLM server on macOS with llama.cpp or MLX, including model selection, memory optimization, and real benchmarks on Apple Silicon"
+title: "在 Mac 上运行本地 LLM"
+description: "在 macOS 上使用 llama.cpp 或 MLX 设置本地 OpenAI 兼容 LLM 服务器，包括模型选择、内存优化和 Apple Silicon 上的真实基准测试"
 ---
 
-# Run Local LLMs on Mac
+# 在 Mac 上运行本地 LLM
 
-This guide walks you through running a local LLM server on macOS with an OpenAI-compatible API. You get full privacy, zero API costs, and surprisingly good performance on Apple Silicon.
+本指南带您完成在 macOS 上运行具有 OpenAI 兼容 API 的本地 LLM 服务器。您获得完全隐私、零 API 成本以及在 Apple Silicon 上令人惊讶的良好性能。
 
-We cover two backends:
+我们涵盖两个后端：
 
-| Backend | Install | Best at | Format |
+| 后端 | 安装 | 最擅长 | 格式 |
 |---------|---------|---------|--------|
-| **llama.cpp** | `brew install llama.cpp` | Fastest time-to-first-token, quantized KV cache for low memory | GGUF |
-| **omlx** | [omlx.ai](https://omlx.ai) | Fastest token generation, native Metal optimization | MLX (safetensors) |
+| **llama.cpp** | `brew install llama.cpp` | 首个令牌最快时间、量化 KV 缓存以降低内存 | GGUF |
+| **omlx** | [omlx.ai](https://omlx.ai) | 令牌生成最快、原生 Metal 优化 | MLX (safetensors) |
 
-Both expose an OpenAI-compatible `/v1/chat/completions` endpoint. KClaw works with either one — just point it at `http://localhost:8080` or `http://localhost:8000`.
+两者都暴露 OpenAI 兼容的 `/v1/chat/completions` 端点。KClaw 与任一者配合使用——只需将其指向 `http://localhost:8080` 或 `http://localhost:8000`。
 
-:::info Apple Silicon only
-This guide targets Macs with Apple Silicon (M1 and later). Intel Macs will work with llama.cpp but without GPU acceleration — expect significantly slower performance.
+:::info 仅 Apple Silicon
+本指南针对配备 Apple Silicon（M1 及更高版本）的 Mac。Intel Mac 可以使用 llama.cpp 但没有 GPU 加速——预期会明显更慢。
 :::
 
 ---
 
-## Choosing a model
+## 选择模型
 
-For getting started, we recommend **Qwen3.5-9B** — it's a strong reasoning model that fits comfortably in 8GB+ of unified memory with quantization.
+对于入门，我们推荐 **Qwen3.5-9B**——这是一个强大的推理模型，在量化的情况下可以舒适地容纳在 8GB+ 统一内存中。
 
-| Variant | Size on disk | RAM needed (128K context) | Backend |
+| 变体 | 磁盘大小 | 所需 RAM（128K 上下文） | 后端 |
 |---------|-------------|---------------------------|---------|
-| Qwen3.5-9B-Q4_K_M (GGUF) | 5.3 GB | ~10 GB with quantized KV cache | llama.cpp |
+| Qwen3.5-9B-Q4_K_M (GGUF) | 5.3 GB | ~10 GB（量化 KV 缓存） | llama.cpp |
 | Qwen3.5-9B-mlx-lm-mxfp4 (MLX) | ~5 GB | ~12 GB | omlx |
 
-**Memory rule of thumb:** model size + KV cache. A 9B Q4 model is ~5 GB. The KV cache at 128K context with Q4 quantization adds ~4-5 GB. With default (f16) KV cache, that balloons to ~16 GB. The quantized KV cache flags in llama.cpp are the key trick for memory-constrained systems.
+**内存经验法则：** 模型大小 + KV 缓存。Q4 9B 模型约为 5 GB。128K 上下文的 KV 缓存在 Q4 量化下增加约 4-5 GB。使用默认（f16）KV 缓存，这会膨胀到约 16 GB。llama.cpp 中的量化 KV 缓存标志是内存受限系统的关键技巧。
 
-For larger models (27B, 35B), you'll need 32 GB+ of unified memory. The 9B is the sweet spot for 8-16 GB machines.
+对于更大的模型（27B、35B），您需要 32 GB+ 统一内存。9B 是 8-16 GB 机器的最佳选择。
 
 ---
 
-## Option A: llama.cpp
+## 选项 A：llama.cpp
 
-llama.cpp is the most portable local LLM runtime. On macOS it uses Metal for GPU acceleration out of the box.
+llama.cpp 是最具可移植性的本地 LLM 运行时。在 macOS 上它开箱即用地使用 Metal 进行 GPU 加速。
 
-### Install
+### 安装
 
 ```bash
 brew install llama.cpp
 ```
 
-This gives you the `llama-server` command globally.
+这为您提供了全局的 `llama-server` 命令。
 
-### Download the model
+### 下载模型
 
-You need a GGUF-format model. The easiest source is Hugging Face via the `huggingface-cli`:
+您需要一个 GGUF 格式的模型。最简单的来源是通过 `huggingface-cli` 从 Hugging Face 下载：
 
 ```bash
 brew install huggingface-cli
 ```
 
-Then download:
+然后下载：
 
 ```bash
 huggingface-cli download unsloth/Qwen3.5-9B-GGUF Qwen3.5-9B-Q4_K_M.gguf --local-dir ~/models
 ```
 
-:::tip Gated models
-Some models on Hugging Face require authentication. Run `huggingface-cli login` first if you get a 401 or 404 error.
+:::tip 门控模型
+Hugging Face 上的一些模型需要身份验证。如果遇到 401 或 404 错误，先运行 `huggingface-cli login`。
 :::
 
-### Start the server
+### 启动服务器
 
 ```bash
 llama-server -m ~/models/Qwen3.5-9B-Q4_K_M.gguf \
@@ -81,40 +81,40 @@ llama-server -m ~/models/Qwen3.5-9B-Q4_K_M.gguf \
   --host 0.0.0.0
 ```
 
-Here's what each flag does:
+以下是每个标志的作用：
 
-| Flag | Purpose |
+| 标志 | 目的 |
 |------|---------|
-| `-ngl 99` | Offload all layers to GPU (Metal). Use a high number to ensure nothing stays on CPU. |
-| `-c 131072` | Context window size (128K tokens). Reduce this if you're low on memory. |
-| `-np 1` | Number of parallel slots. Keep at 1 for single-user use — more slots split your memory budget. |
-| `-fa on` | Flash attention. Reduces memory usage and speeds up long-context inference. |
-| `--cache-type-k q4_0` | Quantize the key cache to 4-bit. **This is the big memory saver.** |
-| `--cache-type-v q4_0` | Quantize the value cache to 4-bit. Together with the above, this cuts KV cache memory by ~75% vs f16. |
-| `--host 0.0.0.0` | Listen on all interfaces. Use `127.0.0.1` if you don't need network access. |
+| `-ngl 99` | 将所有层卸载到 GPU（Metal）。使用高数字以确保没有任何东西留在 CPU 上。 |
+| `-c 131072` | 上下文窗口大小（128K tokens）。如果内存不足，请减少此值。 |
+| `-np 1` | 并行槽数量。保持为 1 以供单用户使用——更多槽会分割您的内存预算。 |
+| `-fa on` | Flash attention。减少内存使用并加速长上下文推理。 |
+| `--cache-type-k q4_0` | 将键缓存量化为 4 位。**这是大内存节省器。** |
+| `--cache-type-v q4_0` | 将值缓存量化为 4 位。与上述一起，与 f16 相比将 KV 缓存内存减少约 75%。 |
+| `--host 0.0.0.0` | 监听所有接口。如果不需要网络访问，请使用 `127.0.0.1`。 |
 
-The server is ready when you see:
+当您看到以下内容时服务器已就绪：
 
 ```
 main: server is listening on http://0.0.0.0:8080
 srv  update_slots: all slots are idle
 ```
 
-### Memory optimization for constrained systems
+### 内存受限系统的内存优化
 
-The `--cache-type-k q4_0 --cache-type-v q4_0` flags are the most important optimization for systems with limited memory. Here's the impact at 128K context:
+`--cache-type-k q4_0 --cache-type-v q4_0` 标志是内存受限系统最重要的优化。以下是 128K 上下文的影响：
 
-| KV cache type | KV cache memory (128K ctx, 9B model) |
+| KV 缓存类型 | KV 缓存内存（128K 上下文，9B 模型） |
 |---------------|--------------------------------------|
-| f16 (default) | ~16 GB |
+| f16（默认） | ~16 GB |
 | q8_0 | ~8 GB |
 | **q4_0** | **~4 GB** |
 
-On an 8 GB Mac, use `q4_0` KV cache and reduce context to `-c 32768` (32K). On 16 GB, you can comfortably do 128K context. On 32 GB+, you can run larger models or multiple parallel slots.
+在 8GB Mac 上，使用 `q4_0` KV 缓存并将上下文减少到 `-c 32768`（32K）。在 16GB 上，您可以舒适地使用 128K 上下文。在 32GB+ 上，您可以运行更大的模型或多个并行槽。
 
-If you're still running out of memory, reduce context size first (`-c`), then try a smaller quantization (Q3_K_M instead of Q4_K_M).
+如果您仍然内存不足，首先减少上下文大小（`-c`），然后尝试更小的量化（Q3_K_M 而不是 Q4_K_M）。
 
-### Test it
+### 测试它
 
 ```bash
 curl -s http://localhost:8080/v1/chat/completions \
@@ -126,9 +126,9 @@ curl -s http://localhost:8080/v1/chat/completions \
   }' | jq .choices[0].message.content
 ```
 
-### Get the model name
+### 获取模型名称
 
-If you forget the model name, query the models endpoint:
+如果您忘记模型名称，请查询模型端点：
 
 ```bash
 curl -s http://localhost:8080/v1/models | jq '.data[].id'
@@ -136,23 +136,23 @@ curl -s http://localhost:8080/v1/models | jq '.data[].id'
 
 ---
 
-## Option B: MLX via omlx
+## 选项 B：通过 omlx 的 MLX
 
-[omlx](https://omlx.ai) is a macOS-native app that manages and serves MLX models. MLX is Apple's own machine learning framework, optimized specifically for Apple Silicon's unified memory architecture.
+[omlx](https://omlx.ai) 是一个 macOS 原生应用，管理和提供 MLX 模型。MLX 是 Apple 自己的机器学习框架，针对 Apple Silicon 的统一内存架构进行了专门优化。
 
-### Install
+### 安装
 
-Download and install from [omlx.ai](https://omlx.ai). It provides a GUI for model management and a built-in server.
+从 [omlx.ai](https://omlx.ai) 下载并安装。它提供模型管理的 GUI 和内置服务器。
 
-### Download the model
+### 下载模型
 
-Use the omlx app to browse and download models. Search for `Qwen3.5-9B-mlx-lm-mxfp4` and download it. Models are stored locally (typically in `~/.omlx/models/`).
+使用 omlx 应用浏览和下载模型。搜索 `Qwen3.5-9B-mlx-lm-mxfp4` 并下载。模型本地存储（通常在 `~/.omlx/models/`）。
 
-### Start the server
+### 启动服务器
 
-omlx serves models on `http://127.0.0.1:8000` by default. Start serving from the app UI, or use the CLI if available.
+omlx 默认在 `http://127.0.0.1:8000` 上提供模型。从应用 UI 开始服务，或使用 CLI（如果有）。
 
-### Test it
+### 测试它
 
 ```bash
 curl -s http://127.0.0.1:8000/v1/chat/completions \
@@ -164,9 +164,9 @@ curl -s http://127.0.0.1:8000/v1/chat/completions \
   }' | jq .choices[0].message.content
 ```
 
-### List available models
+### 列出可用模型
 
-omlx can serve multiple models simultaneously:
+omlx 可以同时提供多个模型：
 
 ```bash
 curl -s http://127.0.0.1:8000/v1/models | jq '.data[].id'
@@ -174,46 +174,46 @@ curl -s http://127.0.0.1:8000/v1/models | jq '.data[].id'
 
 ---
 
-## Benchmarks: llama.cpp vs MLX
+## 基准测试：llama.cpp vs MLX
 
-Both backends tested on the same machine (Apple M5 Max, 128 GB unified memory) running the same model (Qwen3.5-9B) at comparable quantization levels (Q4_K_M for GGUF, mxfp4 for MLX). Five diverse prompts, three runs each, backends tested sequentially to avoid resource contention.
+两个后端在同一台机器（Apple M5 Max，128 GB 统一内存）上测试，运行相同模型（Qwen3.5-9B）在可比量化级别（GGUF 的 Q4_K_M，MLX 的 mxfp4）。五个不同提示，各三次运行，后端顺序测试以避免资源争用。
 
-### Results
+### 结果
 
-| Metric | llama.cpp (Q4_K_M) | MLX (mxfp4) | Winner |
+| 指标 | llama.cpp (Q4_K_M) | MLX (mxfp4) | 胜者 |
 |--------|-------------------|-------------|--------|
-| **TTFT (avg)** | **67 ms** | 289 ms | llama.cpp (4.3x faster) |
-| **TTFT (p50)** | **66 ms** | 286 ms | llama.cpp (4.3x faster) |
-| **Generation (avg)** | 70 tok/s | **96 tok/s** | MLX (37% faster) |
-| **Generation (p50)** | 70 tok/s | **96 tok/s** | MLX (37% faster) |
-| **Total time (512 tokens)** | 7.3s | **5.5s** | MLX (25% faster) |
+| **TTFT（平均）** | **67 ms** | 289 ms | llama.cpp（4.3x 更快） |
+| **TTFT（p50）** | **66 ms** | 286 ms | llama.cpp（4.3x 更快） |
+| **生成（平均）** | 70 tok/s | **96 tok/s** | MLX（快 37%） |
+| **生成（p50）** | 70 tok/s | **96 tok/s** | MLX（快 37%） |
+| **总时间（512 tokens）** | 7.3s | **5.5s** | MLX（快 25%） |
 
-### What this means
+### 这意味着什么
 
-- **llama.cpp** excels at prompt processing — its flash attention + quantized KV cache pipeline gets you the first token in ~66ms. If you're building interactive applications where perceived responsiveness matters (chatbots, autocomplete), this is a meaningful advantage.
+- **llama.cpp** 在提示处理方面表现出色——其 flash attention + 量化 KV 缓存管道让您在大约 66ms 内获得第一个令牌。如果您正在构建感知响应重要的交互式应用程序（聊天机器人、自动完成），这是一个有意义的优势。
 
-- **MLX** generates tokens ~37% faster once it gets going. For batch workloads, long-form generation, or any task where total completion time matters more than initial latency, MLX finishes sooner.
+- **MLX** 一旦开始生成令牌，速度约快 37%。对于批处理工作负载、长表单生成或任何总完成时间比初始延迟更重要的任务，MLX 更快完成。
 
-- Both backends are **extremely consistent** — variance across runs was negligible. You can rely on these numbers.
+- 两个后端都**非常一致**——跨运行的差异可以忽略不计。您可以依赖这些数字。
 
-### Which one should you pick?
+### 您应该选择哪个？
 
-| Use case | Recommendation |
+| 使用场景 | 建议 |
 |----------|---------------|
-| Interactive chat, low-latency tools | llama.cpp |
-| Long-form generation, bulk processing | MLX (omlx) |
-| Memory-constrained (8-16 GB) | llama.cpp (quantized KV cache is unmatched) |
-| Serving multiple models simultaneously | omlx (built-in multi-model support) |
-| Maximum compatibility (Linux too) | llama.cpp |
+| 交互式聊天、低延迟工具 | llama.cpp |
+| 长表单生成、批量处理 | MLX (omlx) |
+| 内存受限（8-16 GB） | llama.cpp（量化 KV 缓存无与伦比） |
+| 同时提供多个模型 | omlx（内置多模型支持） |
+| 最大兼容性（也支持 Linux） | llama.cpp |
 
 ---
 
-## Connect to KClaw
+## 连接到 KClaw
 
-Once your local server is running:
+一旦您的本地服务器运行：
 
 ```bash
 kclaw model
 ```
 
-Select **Custom endpoint** and follow the prompts. It will ask for the base URL and model name — use the values from whichever backend you set up above.
+选择 **Custom endpoint** 并按照提示操作。它会询问基础 URL 和模型名称——使用您在上面设置的后端的值。

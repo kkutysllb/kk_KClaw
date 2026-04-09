@@ -1,66 +1,66 @@
-# OpenThoughts-TBLite Evaluation Environment
+# OpenThoughts-TBLite 评估环境
 
-This environment evaluates terminal agents on the [OpenThoughts-TBLite](https://huggingface.co/datasets/open-thoughts/OpenThoughts-TBLite) benchmark, a difficulty-calibrated subset of [Terminal-Bench 2.0](https://www.tbench.ai/leaderboard/terminal-bench/2.0).
+此环境在 [OpenThoughts-TBLite](https://huggingface.co/datasets/open-thoughts/OpenThoughts-TBLite) 基准上评估终端智能体，后者是 [Terminal-Bench 2.0](https://www.tbench.ai/leaderboard/terminal-bench/2.0) 的难度校准子集。
 
-## Source
+## 来源
 
-OpenThoughts-TBLite was created by the [OpenThoughts](https://www.openthoughts.ai/) Agent team in collaboration with [Snorkel AI](https://snorkel.ai/) and [Bespoke Labs](https://bespokelabs.ai/). The original dataset and documentation live at:
+OpenThoughts-TBLite由 [OpenThoughts](https://www.openthoughts.ai/) 智能体团队与 [Snorkel AI](https://snorkel.ai/) 和 [Bespoke Labs](https://bespokelabs.ai/) 合作创建。原始数据集和文档位于：
 
-- **Dataset (source):** [open-thoughts/OpenThoughts-TBLite](https://huggingface.co/datasets/open-thoughts/OpenThoughts-TBLite)
-- **GitHub:** [open-thoughts/OpenThoughts-TBLite](https://github.com/open-thoughts/OpenThoughts-TBLite)
-- **Blog post:** [openthoughts.ai/blog/openthoughts-tblite](https://www.openthoughts.ai/blog/openthoughts-tblite)
+- **数据集（来源）：** [open-thoughts/OpenThoughts-TBLite](https://huggingface.co/datasets/open-thoughts/OpenThoughts-TBLite)
+- **GitHub：** [open-thoughts/OpenThoughts-TBLite](https://github.com/open-thoughts/OpenThoughts-TBLite)
+- **博客文章：** [openthoughts.ai/blog/openthoughts-tblite](https://www.openthoughts.ai/blog/openthoughts-tblite)
 
-## Our Dataset
+## 我们的数据集
 
-We converted the source into the same schema used by our Terminal-Bench 2.0 environment (pre-built Docker Hub images, base64-encoded test tarballs, etc.) and published it as:
+我们将源数据转换为与Terminal-Bench 2.0环境相同的模式（预构建的Docker Hub镜像、base64编码的测试tarball等），并发布为：
 
-- **Dataset (ours):** [NousResearch/openthoughts-tblite](https://huggingface.co/datasets/NousResearch/openthoughts-tblite)
-- **Docker images:** `nousresearch/tblite-<task-name>:latest` on Docker Hub (100 images)
+- **数据集（我们的）：** [NousResearch/openthoughts-tblite](https://huggingface.co/datasets/NousResearch/openthoughts-tblite)
+- **Docker镜像：** Docker Hub上的 `nousresearch/tblite-<task-name>:latest`（100个镜像）
 
-The conversion script is at `scripts/prepare_tblite_dataset.py`.
+转换脚本位于 `scripts/prepare_tblite_dataset.py`。
 
-## Why TBLite?
+## 为什么选择TBLite？
 
-Terminal-Bench 2.0 is one of the strongest frontier evaluations for terminal agents, but when a model scores near the floor (e.g., Qwen 3 8B at <1%), many changes look identical in aggregate score. TBLite addresses this by calibrating task difficulty using Claude Haiku 4.5 as a reference:
+Terminal-Bench 2.0是终端智能体最强的前沿评估之一，但当模型得分接近下限时（例如Qwen 3 8B低于1%），许多变化在 aggregate score 看起来相同。TBLite通过使用Claude Haiku 4.5作为参考来校准任务难度来解决这个问题：
 
-| Difficulty | Pass Rate Range | Tasks |
+| 难度 | 通过率范围 | 任务数 |
 |------------|----------------|-------|
-| Easy       | >= 70%         | 40    |
-| Medium     | 40-69%         | 26    |
-| Hard       | 10-39%         | 26    |
-| Extreme    | < 10%          | 8     |
+| 简单       | >= 70%         | 40    |
+| 中等     | 40-69%         | 26    |
+| 困难       | 10-39%         | 26    |
+| 极端    | < 10%          | 8     |
 
-This gives enough solvable tasks to detect small improvements quickly, while preserving enough hard tasks to avoid saturation. The correlation between TBLite and TB2 scores is **r = 0.911**.
+这提供了足够的可解决问题来快速检测小改进，同时保留了足够的困难任务以避免饱和。TBLite和TB2分数之间的相关性为 **r = 0.911**。
 
-TBLite also runs 2.6-8x faster than the full TB2, making it practical for iteration loops.
+TBLite也比完整TB2快2.6-8倍，使其在迭代循环中实用。
 
-## Usage
+## 用法
 
 ```bash
-# Run the full benchmark
+# 运行完整基准
 python environments/benchmarks/tblite/tblite_env.py evaluate
 
-# Filter to specific tasks
+# 过滤到特定任务
 python environments/benchmarks/tblite/tblite_env.py evaluate \
     --env.task_filter "broken-python,pandas-etl"
 
-# Use a different model
+# 使用不同的模型
 python environments/benchmarks/tblite/tblite_env.py evaluate \
     --server.model_name "qwen/qwen3-30b"
 ```
 
-## Architecture
+## 架构
 
-`TBLiteEvalEnv` is a thin subclass of `TerminalBench2EvalEnv`. All evaluation logic (agent loop, Docker sandbox management, test verification, metrics) is inherited. Only the defaults differ:
+`TBLiteEvalEnv` 是 `TerminalBench2EvalEnv` 的一个薄子类。所有评估逻辑（智能体循环、Docker沙箱管理、测试验证、指标）都是继承的。只有默认值不同：
 
-| Setting        | TB2                              | TBLite                                  |
+| 设置        | TB2                              | TBLite                                  |
 |----------------|----------------------------------|-----------------------------------------|
-| Dataset        | `NousResearch/terminal-bench-2`  | `NousResearch/openthoughts-tblite`      |
-| Tasks          | 89                               | 100                                     |
-| Task timeout   | 1800s (30 min)                   | 1200s (20 min)                          |
-| Wandb name     | `terminal-bench-2`               | `openthoughts-tblite`                   |
+| 数据集        | `NousResearch/terminal-bench-2`  | `NousResearch/openthoughts-tblite`      |
+| 任务数          | 89                               | 100                                     |
+| 任务超时   | 1800秒（30分钟）                   | 1200秒（20分钟）                          |
+| Wandb名称     | `terminal-bench-2`               | `openthoughts-tblite`                   |
 
-## Citation
+## 引用
 
 ```bibtex
 @software{OpenThoughts-TBLite,

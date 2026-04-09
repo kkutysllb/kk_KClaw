@@ -1,128 +1,128 @@
 ---
 sidebar_position: 5
-title: "Scheduled Tasks (Cron)"
-description: "Schedule automated tasks with natural language, manage them with one cron tool, and attach one or more skills"
+title: "计划任务（Cron）"
+description: "使用自然语言安排自动化任务，使用一个 cron 工具管理它们，并附加一个或多个技能"
 ---
 
-# Scheduled Tasks (Cron)
+# 计划任务（Cron）
 
-Schedule tasks to run automatically with natural language or cron expressions. KClaw exposes cron management through a single `cronjob` tool with action-style operations instead of separate schedule/list/remove tools.
+使用自然语言或 cron 表达式安排任务自动运行。KClaw 通过单一的 `cronjob` 工具暴露 cron 管理，使用操作式而不是单独的 schedule/list/remove 工具。
 
-## What cron can do now
+## cron 现在能做什么
 
-Cron jobs can:
+Cron 作业可以：
 
-- schedule one-shot or recurring tasks
-- pause, resume, edit, trigger, and remove jobs
-- attach zero, one, or multiple skills to a job
-- deliver results back to the origin chat, local files, or configured platform targets
-- run in fresh agent sessions with the normal static tool list
+- 安排一次性或循环任务
+- 暂停、恢复、编辑、触发和删除作业
+- 附加零个、一个或多个技能到作业
+- 将结果返回到原始聊天、本地文件或已配置的平台目标
+- 在具有正常静态工具列表的新代理会话中运行
 
 :::warning
-Cron-run sessions cannot recursively create more cron jobs. KClaw disables cron management tools inside cron executions to prevent runaway scheduling loops.
+Cron 运行的会话不能递归创建更多 cron 作业。KClaw 在 cron 执行内部禁用 cron 管理工具，以防止失控的调度循环。
 :::
 
-## Creating scheduled tasks
+## 创建计划任务
 
-### In chat with `/cron`
+### 在聊天中使用 `/cron`
 
 ```bash
-/cron add 30m "Remind me to check the build"
-/cron add "every 2h" "Check server status"
-/cron add "every 1h" "Summarize new feed items" --skill blogwatcher
-/cron add "every 1h" "Use both skills and combine the result" --skill blogwatcher --skill find-nearby
+/cron add 30m "提醒我检查构建"
+/cron add "every 2h" "检查服务器状态"
+/cron add "every 1h" "总结新 feed 项目" --skill blogwatcher
+/cron add "every 1h" "使用两个技能并组合结果" --skill blogwatcher --skill find-nearby
 ```
 
-### From the standalone CLI
+### 从独立 CLI
 
 ```bash
-kclaw cron create "every 2h" "Check server status"
-kclaw cron create "every 1h" "Summarize new feed items" --skill blogwatcher
-kclaw cron create "every 1h" "Use both skills and combine the result" \
+kclaw cron create "every 2h" "检查服务器状态"
+kclaw cron create "every 1h" "总结新 feed 项目" --skill blogwatcher
+kclaw cron create "every 1h" "使用两个技能并组合结果" \
   --skill blogwatcher \
   --skill find-nearby \
-  --name "Skill combo"
+  --name "技能组合"
 ```
 
-### Through natural conversation
+### 通过自然对话
 
-Ask KClaw normally:
+正常询问 KClaw：
 
 ```text
-Every morning at 9am, check Hacker News for AI news and send me a summary on Telegram.
+每天早上 9 点，检查 Hacker News 上的 AI 新闻并在 Telegram 上给我发送摘要。
 ```
 
-KClaw will use the unified `cronjob` tool internally.
+KClaw 将在内部使用统一的 `cronjob` 工具。
 
-## Skill-backed cron jobs
+## 技能支持的 cron 作业
 
-A cron job can load one or more skills before it runs the prompt.
+Cron 作业可以在运行提示之前加载一个或多个技能。
 
-### Single skill
+### 单个技能
 
 ```python
 cronjob(
     action="create",
     skill="blogwatcher",
-    prompt="Check the configured feeds and summarize anything new.",
+    prompt="检查配置的 feed 并总结任何新内容。",
     schedule="0 9 * * *",
-    name="Morning feeds",
+    name="晨间 feed",
 )
 ```
 
-### Multiple skills
+### 多个技能
 
-Skills are loaded in order. The prompt becomes the task instruction layered on top of those skills.
+技能按顺序加载。提示成为叠加在这些技能之上的任务指令。
 
 ```python
 cronjob(
     action="create",
     skills=["blogwatcher", "find-nearby"],
-    prompt="Look for new local events and interesting nearby places, then combine them into one short brief.",
+    prompt="查找新的本地活动和相关附近地点，然后将它们组合成一份简短的简报。",
     schedule="every 6h",
-    name="Local brief",
+    name="本地简报",
 )
 ```
 
-This is useful when you want a scheduled agent to inherit reusable workflows without stuffing the full skill text into the cron prompt itself.
+当您希望计划代理继承可重用工作流而不必将完整技能文本塞入 cron 提示本身时，这很有用。
 
-## Editing jobs
+## 编辑作业
 
-You do not need to delete and recreate jobs just to change them.
+您不需要仅仅为了更改而删除和重新创建作业。
 
-### Chat
+### 聊天
 
 ```bash
 /cron edit <job_id> --schedule "every 4h"
-/cron edit <job_id> --prompt "Use the revised task"
+/cron edit <job_id> --prompt "使用修订后的任务"
 /cron edit <job_id> --skill blogwatcher --skill find-nearby
 /cron edit <job_id> --remove-skill blogwatcher
 /cron edit <job_id> --clear-skills
 ```
 
-### Standalone CLI
+### 独立 CLI
 
 ```bash
 kclaw cron edit <job_id> --schedule "every 4h"
-kclaw cron edit <job_id> --prompt "Use the revised task"
+kclaw cron edit <job_id> --prompt "使用修订后的任务"
 kclaw cron edit <job_id> --skill blogwatcher --skill find-nearby
 kclaw cron edit <job_id> --add-skill find-nearby
 kclaw cron edit <job_id> --remove-skill blogwatcher
 kclaw cron edit <job_id> --clear-skills
 ```
 
-Notes:
+备注：
 
-- repeated `--skill` replaces the job's attached skill list
-- `--add-skill` appends to the existing list without replacing it
-- `--remove-skill` removes specific attached skills
-- `--clear-skills` removes all attached skills
+- 重复的 `--skill` 替换作业附加的技能列表
+- `--add-skill` 追加到现有列表而不替换它
+- `--remove-skill` 移除特定的附加技能
+- `--clear-skills` 移除所有附加技能
 
-## Lifecycle actions
+## 生命周期操作
 
-Cron jobs now have a fuller lifecycle than just create/remove.
+Cron 作业现在有比创建/删除更完整的生命周期。
 
-### Chat
+### 聊天
 
 ```bash
 /cron list
@@ -132,7 +132,7 @@ Cron jobs now have a fuller lifecycle than just create/remove.
 /cron remove <job_id>
 ```
 
-### Standalone CLI
+### 独立 CLI
 
 ```bash
 kclaw cron list
@@ -144,71 +144,71 @@ kclaw cron status
 kclaw cron tick
 ```
 
-What they do:
+它们的作用：
 
-- `pause` — keep the job but stop scheduling it
-- `resume` — re-enable the job and compute the next future run
-- `run` — trigger the job on the next scheduler tick
-- `remove` — delete it entirely
+- `pause` — 保留作业但停止调度它
+- `resume` — 重新启用作业并计算下次运行时间
+- `run` — 在下一个调度器 tick 触发作业
+- `remove` — 完全删除它
 
-## How it works
+## 工作原理
 
-**Cron execution is handled by the gateway daemon.** The gateway ticks the scheduler every 60 seconds, running any due jobs in isolated agent sessions.
+**Cron 执行由网关守护程序处理。** 网关每 60 秒 tick 一次调度器，在隔离的代理会话中运行任何到期的作业。
 
 ```bash
-kclaw gateway install     # Install as a user service
-sudo kclaw gateway install --system   # Linux: boot-time system service for servers
-kclaw gateway             # Or run in foreground
+kclaw gateway install     # 安装为用户服务
+sudo kclaw gateway install --system   # Linux: 启动时系统服务（用于服务器）
+kclaw gateway             # 或在前台运行
 
 kclaw cron list
 kclaw cron status
 ```
 
-### Gateway scheduler behavior
+### 网关调度器行为
 
-On each tick KClaw:
+在每个 tick，KClaw：
 
-1. loads jobs from `~/.kclaw/cron/jobs.json`
-2. checks `next_run_at` against the current time
-3. starts a fresh `AIAgent` session for each due job
-4. optionally injects one or more attached skills into that fresh session
-5. runs the prompt to completion
-6. delivers the final response
-7. updates run metadata and the next scheduled time
+1. 从 `~/.kclaw/cron/jobs.json` 加载作业
+2. 检查 `next_run_at` 与当前时间
+3. 为每个到期的作业启动一个新的 `AIAgent` 会话
+4. 可选地将一个或多个附加技能注入那个新会话
+5. 运行提示直到完成
+6. 交付最终响应
+7. 更新运行元数据和下次计划时间
 
-A file lock at `~/.kclaw/cron/.tick.lock` prevents overlapping scheduler ticks from double-running the same job batch.
+`~/.kclaw/cron/.tick.lock` 处的文件锁防止重叠的调度器 tick 双运行同一批作业。
 
-## Delivery options
+## 交付选项
 
-When scheduling jobs, you specify where the output goes:
+安排作业时，您可以指定输出去向：
 
-| Option | Description | Example |
+| 选项 | 描述 | 示例 |
 |--------|-------------|---------|
-| `"origin"` | Back to where the job was created | Default on messaging platforms |
-| `"local"` | Save to local files only (`~/.kclaw/cron/output/`) | Default on CLI |
-| `"telegram"` | Telegram home channel | Uses `TELEGRAM_HOME_CHANNEL` |
-| `"telegram:123456"` | Specific Telegram chat by ID | Direct delivery |
-| `"telegram:-100123:17585"` | Specific Telegram topic | `chat_id:thread_id` format |
-| `"discord"` | Discord home channel | Uses `DISCORD_HOME_CHANNEL` |
-| `"discord:#engineering"` | Specific Discord channel | By channel name |
-| `"slack"` | Slack home channel | |
-| `"whatsapp"` | WhatsApp home | |
+| `"origin"` | 返回到创建作业的地方 | 消息平台上的默认值 |
+| `"local"` | 仅保存到本地文件（`~/.kclaw/cron/output/`） | CLI 上的默认值 |
+| `"telegram"` | Telegram 主页频道 | 使用 `TELEGRAM_HOME_CHANNEL` |
+| `"telegram:123456"` | 特定 Telegram 聊天（按 ID） | 直接交付 |
+| `"telegram:-100123:17585"` | 特定 Telegram 主题 | `chat_id:thread_id` 格式 |
+| `"discord"` | Discord 主页频道 | 使用 `DISCORD_HOME_CHANNEL` |
+| `"discord:#engineering"` | 特定 Discord 频道 | 按频道名称 |
+| `"slack"` | Slack 主页频道 | |
+| `"whatsapp"` | WhatsApp 主页 | |
 | `"signal"` | Signal | |
-| `"matrix"` | Matrix home room | |
-| `"mattermost"` | Mattermost home channel | |
-| `"email"` | Email | |
-| `"sms"` | SMS via Twilio | |
+| `"matrix"` | Matrix 主页房间 | |
+| `"mattermost"` | Mattermost 主页频道 | |
+| `"email"` | 电子邮件 | |
+| `"sms"` | 通过 Twilio 的 SMS | |
 | `"homeassistant"` | Home Assistant | |
 | `"dingtalk"` | DingTalk | |
 | `"feishu"` | Feishu/Lark | |
 | `"wecom"` | WeCom | |
 | `"bluebubbles"` | BlueBubbles (iMessage) | |
 
-The agent's final response is automatically delivered. You do not need to call `send_message` in the cron prompt.
+代理的最终响应会自动交付。您不需要在 cron 提示中调用 `send_message`。
 
-### Response wrapping
+### 响应包装
 
-By default, delivered cron output is wrapped with a header and footer so the recipient knows it came from a scheduled task:
+默认情况下，交付的 cron 输出被包装有标题和页脚，以便接收者知道它来自计划任务：
 
 ```
 Cronjob Response: Morning feeds
@@ -219,7 +219,7 @@ Cronjob Response: Morning feeds
 Note: The agent cannot see this message, and therefore cannot respond to it.
 ```
 
-To deliver the raw agent output without the wrapper, set `cron.wrap_response` to `false`:
+要交付没有包装器的原始代理输出，请将 `cron.wrap_response` 设置为 `false`：
 
 ```yaml
 # ~/.kclaw/config.yaml
@@ -227,64 +227,64 @@ cron:
   wrap_response: false
 ```
 
-### Silent suppression
+### 静默抑制
 
-If the agent's final response starts with `[SILENT]`, delivery is suppressed entirely. The output is still saved locally for audit (in `~/.kclaw/cron/output/`), but no message is sent to the delivery target.
+如果代理的最终响应以 `[SILENT]` 开头，交付被完全抑制。输出仍然保存到本地用于审计（在 `~/.kclaw/cron/output/` 中），但不会发送到交付目标。
 
-This is useful for monitoring jobs that should only report when something is wrong:
-
-```text
-Check if nginx is running. If everything is healthy, respond with only [SILENT].
-Otherwise, report the issue.
-```
-
-Failed jobs always deliver regardless of the `[SILENT]` marker — only successful runs can be silenced.
-
-## Schedule formats
-
-The agent's final response is automatically delivered — you do **not** need to include `send_message` in the cron prompt for that same destination. If a cron run calls `send_message` to the exact target the scheduler will already deliver to, KClaw skips that duplicate send and tells the model to put the user-facing content in the final response instead. Use `send_message` only for additional or different targets.
-
-### Relative delays (one-shot)
+这对于只应在出错时报告的监控作业很有用：
 
 ```text
-30m     → Run once in 30 minutes
-2h      → Run once in 2 hours
-1d      → Run once in 1 day
+检查 nginx 是否正在运行。如果一切健康，只响应 [SILENT]。
+否则，报告问题。
 ```
 
-### Intervals (recurring)
+失败的作业总是会交付，不管 `[SILENT]` 标记如何——只有成功的运行可以被静默。
 
-```text
-every 30m    → Every 30 minutes
-every 2h     → Every 2 hours
-every 1d     → Every day
+## 计划格式
+
+代理的最终响应自动交付——您**不需要**在 cron 提示中包含 `send_message` 以获得相同的目标。如果 cron 运行调用 `send_message` 到调度器已经交付的确切目标，KClaw 会跳过重复发送并告诉模型将面向用户的内容放在最终响应中。仅对额外或不同的目标使用 `send_message`。
+
+### 相对延迟（一次性）
+
+```
+30m     → 30 分钟后运行一次
+2h      → 2 小时后运行一次
+1d      → 1 天后运行一次
 ```
 
-### Cron expressions
+### 间隔（循环）
 
-```text
-0 9 * * *       → Daily at 9:00 AM
-0 9 * * 1-5     → Weekdays at 9:00 AM
-0 */6 * * *     → Every 6 hours
-30 8 1 * *      → First of every month at 8:30 AM
-0 0 * * 0       → Every Sunday at midnight
+```
+every 30m    → 每 30 分钟
+every 2h     → 每 2 小时
+every 1d     → 每天
 ```
 
-### ISO timestamps
+### Cron 表达式
 
-```text
-2026-03-15T09:00:00    → One-time at March 15, 2026 9:00 AM
+```
+0 9 * * *       → 每天上午 9:00
+0 9 * * 1-5     → 工作日上午 9:00
+0 */6 * * *     → 每 6 小时
+30 8 1 * *      → 每月 1 日上午 8:30
+0 0 * * 0       → 每周日午夜
 ```
 
-## Repeat behavior
+### ISO 时间戳
 
-| Schedule type | Default repeat | Behavior |
+```
+2026-03-15T09:00:00    → 2026 年 3 月 15 日上午 9:00 一次性
+```
+
+## 重复行为
+
+| 计划类型 | 默认重复 | 行为 |
 |--------------|----------------|----------|
-| One-shot (`30m`, timestamp) | 1 | Runs once |
-| Interval (`every 2h`) | forever | Runs until removed |
-| Cron expression | forever | Runs until removed |
+| 一次性（`30m`，时间戳） | 1 | 运行一次 |
+| 间隔（`every 2h`） | 永远 | 运行直到被删除 |
+| Cron 表达式 | 永远 | 运行直到被删除 |
 
-You can override it:
+您可以覆盖它：
 
 ```python
 cronjob(
@@ -295,9 +295,9 @@ cronjob(
 )
 ```
 
-## Managing jobs programmatically
+## 以编程方式管理作业
 
-The agent-facing API is one tool:
+代理面向的 API 是一个工具：
 
 ```python
 cronjob(action="create", ...)
@@ -309,24 +309,24 @@ cronjob(action="run", job_id="...")
 cronjob(action="remove", job_id="...")
 ```
 
-For `update`, pass `skills=[]` to remove all attached skills.
+对于 `update`，传递 `skills=[]` 以移除所有附加技能。
 
-## Job storage
+## 作业存储
 
-Jobs are stored in `~/.kclaw/cron/jobs.json`. Output from job runs is saved to `~/.kclaw/cron/output/{job_id}/{timestamp}.md`.
+作业存储在 `~/.kclaw/cron/jobs.json` 中。作业运行的输出保存到 `~/.kclaw/cron/output/{job_id}/{timestamp}.md`。
 
-The storage uses atomic file writes so interrupted writes do not leave a partially written job file behind.
+存储使用原子文件写入，因此中断的写入不会留下部分写入的作业文件。
 
-## Self-contained prompts still matter
+## 自包含提示仍然重要
 
-:::warning Important
-Cron jobs run in a completely fresh agent session. The prompt must contain everything the agent needs that is not already provided by attached skills.
+:::warning 重要
+Cron 作业在完全新的代理会话中运行。提示必须包含代理需要的、不已被附加技能提供的所有内容。
 :::
 
-**BAD:** `"Check on that server issue"`
+**错误：** `"检查那个服务器问题"`
 
-**GOOD:** `"SSH into server 192.168.1.100 as user 'deploy', check if nginx is running with 'systemctl status nginx', and verify https://example.com returns HTTP 200."`
+**正确：** `"SSH 登录到服务器 192.168.1.100（用户 'deploy'），检查 nginx 是否使用 'systemctl status nginx' 运行，并验证 https://example.com 返回 HTTP 200。"`
 
-## Security
+## 安全
 
-Scheduled task prompts are scanned for prompt-injection and credential-exfiltration patterns at creation and update time. Prompts containing invisible Unicode tricks, SSH backdoor attempts, or obvious secret-exfiltration payloads are blocked.
+计划任务提示在创建和更新时会被扫描提示注入和凭证泄露模式。包含不可见 Unicode 技巧、SSH 后门尝试或明显密钥泄露负载的提示会被阻止。

@@ -1,77 +1,77 @@
 ---
 sidebar_position: 1
-title: "Tools & Toolsets"
-description: "Overview of KClaw Agent's tools — what's available, how toolsets work, and terminal backends"
+title: "工具与工具集"
+description: "KClaw Agent 工具概述——可用工具、工具集如何工作以及终端后端"
 ---
 
-# Tools & Toolsets
+# 工具与工具集
 
-Tools are functions that extend the agent's capabilities. They're organized into logical **toolsets** that can be enabled or disabled per platform.
+工具是扩展代理能力的函数。它们被组织成逻辑**工具集**，可以在每个平台上启用或禁用。
 
-## Available Tools
+## 可用工具
 
-KClaw ships with a broad built-in tool registry covering web search, browser automation, terminal execution, file editing, memory, delegation, RL training, messaging delivery, Home Assistant, and more.
+KClaw 附带了一个广泛的内置工具注册表，覆盖网络搜索、浏览器自动化、终端执行、文件编辑、记忆、委托、强化学习训练、消息传递、Home Assistant 等。
 
 :::note
-**Honcho cross-session memory** is available as a memory provider plugin (`plugins/memory/honcho/`), not as a built-in toolset. See [Plugins](./plugins.md) for installation.
+**Honcho 跨会话记忆**作为记忆提供商插件提供（`plugins/memory/honcho/`），而非内置工具集。参见[插件](./plugins.md)了解安装方法。
 :::
 
-High-level categories:
+高级类别：
 
-| Category | Examples | Description |
+| 类别 | 示例 | 描述 |
 |----------|----------|-------------|
-| **Web** | `web_search`, `web_extract` | Search the web and extract page content. |
-| **Terminal & Files** | `terminal`, `process`, `read_file`, `patch` | Execute commands and manipulate files. |
-| **Browser** | `browser_navigate`, `browser_snapshot`, `browser_vision` | Interactive browser automation with text and vision support. |
-| **Media** | `vision_analyze`, `image_generate`, `text_to_speech` | Multimodal analysis and generation. |
-| **Agent orchestration** | `todo`, `clarify`, `execute_code`, `delegate_task` | Planning, clarification, code execution, and subagent delegation. |
-| **Memory & recall** | `memory`, `session_search` | Persistent memory and session search. |
-| **Automation & delivery** | `cronjob`, `send_message` | Scheduled tasks with create/list/update/pause/resume/run/remove actions, plus outbound messaging delivery. |
-| **Integrations** | `ha_*`, MCP server tools, `rl_*` | Home Assistant, MCP, RL training, and other integrations. |
+| **网络** | `web_search`, `web_extract` | 搜索网络并提取页面内容。 |
+| **终端与文件** | `terminal`, `process`, `read_file`, `patch` | 执行命令并操作文件。 |
+| **浏览器** | `browser_navigate`, `browser_snapshot`, `browser_vision` | 支持文本和视觉的交互式浏览器自动化。 |
+| **媒体** | `vision_analyze`, `image_generate`, `text_to_speech` | 多模态分析和生成。 |
+| **代理编排** | `todo`, `clarify`, `execute_code`, `delegate_task` | 规划、澄清、代码执行和子代理委托。 |
+| **记忆与检索** | `memory`, `session_search` | 持久记忆和会话搜索。 |
+| **自动化与传递** | `cronjob`, `send_message` | 具有创建/列表/更新/暂停/恢复/运行/删除操作的计划任务，以及出站消息传递。 |
+| **集成** | `ha_*`, MCP 服务器工具, `rl_*` | Home Assistant、MCP、强化学习训练以及其他集成。 |
 
-For the authoritative code-derived registry, see [Built-in Tools Reference](/docs/reference/tools-reference) and [Toolsets Reference](/docs/reference/toolsets-reference).
+有关权威的代码派生注册表，请参见[内置工具参考](/docs/reference/tools-reference)和[工具集参考](/docs/reference/toolsets-reference)。
 
-## Using Toolsets
+## 使用工具集
 
 ```bash
-# Use specific toolsets
+# 使用特定工具集
 kclaw chat --toolsets "web,terminal"
 
-# See all available tools
+# 查看所有可用工具
 kclaw tools
 
-# Configure tools per platform (interactive)
+# 按平台配置工具（交互式）
 kclaw tools
 ```
 
-Common toolsets include `web`, `terminal`, `file`, `browser`, `vision`, `image_gen`, `moa`, `skills`, `tts`, `todo`, `memory`, `session_search`, `cronjob`, `code_execution`, `delegation`, `clarify`, `homeassistant`, and `rl`.
+常用工具集包括 `web`、`terminal`、`file`、`browser`、`vision`、`image_gen`、`moa`、`skills`、`tts`、`todo`、`memory`、`session_search`、`cronjob`、`code_execution`、`delegation`、`clarify`、`homeassistant` 和 `rl`。
 
-See [Toolsets Reference](/docs/reference/toolsets-reference) for the full set, including platform presets such as `kclaw-cli`, `kclaw-telegram`, and dynamic MCP toolsets like `mcp-<server>`.
+请参阅[工具集参考](/docs/reference/toolsets-reference)了解完整集合，包括平台预设如 `kclaw-cli`、`kclaw-telegram` 以及动态 MCP 工具集如 `mcp-<server>`。
 
-## Terminal Backends
+## 终端后端
 
-The terminal tool can execute commands in different environments:
+终端工具可以在不同环境中执行命令：
 
-| Backend | Description | Use Case |
+| 后端 | 描述 | 使用场景 |
 |---------|-------------|----------|
-| `local` | Run on your machine (default) | Development, trusted tasks |
-| `docker` | Isolated containers | Security, reproducibility |
-| `ssh` | Remote server | Sandboxing, keep agent away from its own code |
-| `singularity` | HPC containers | Cluster computing, rootless |
-| `modal` | Cloud execution | Serverless, scale |
-| `daytona` | Cloud sandbox workspace | Persistent remote dev environments |
+| `local` | 在您的机器上运行（默认） | 开发、信任任务 |
+| `docker` | 隔离容器 | 安全性、可重复性 |
+| `ssh` | 远程服务器 | 沙箱化、让代理远离自己的代码 |
+| `singularity` | HPC 容器 | 集群计算、无 root |
+| `modal` | 云执行 | 无服务器、扩展 |
+| `daytona` | 云沙箱工作区 | 持久远程开发环境 |
 
-### Configuration
+### 配置
 
 ```yaml
-# In ~/.kclaw/config.yaml
+# 在 ~/.kclaw/config.yaml 中
 terminal:
-  backend: local    # or: docker, ssh, singularity, modal, daytona
-  cwd: "."          # Working directory
-  timeout: 180      # Command timeout in seconds
+  backend: local    # 或: docker, ssh, singularity, modal, daytona
+  cwd: "."          # 工作目录
+  timeout: 180      # 命令超时时间（秒）
 ```
 
-### Docker Backend
+### Docker 后端
 
 ```yaml
 terminal:
@@ -79,16 +79,16 @@ terminal:
   docker_image: python:3.11-slim
 ```
 
-### SSH Backend
+### SSH 后端
 
-Recommended for security — agent can't modify its own code:
+推荐用于安全——代理无法修改自己的代码：
 
 ```yaml
 terminal:
   backend: ssh
 ```
 ```bash
-# Set credentials in ~/.kclaw/.env
+# 在 ~/.kclaw/.env 中设置凭证
 TERMINAL_SSH_HOST=my-server.example.com
 TERMINAL_SSH_USER=myuser
 TERMINAL_SSH_KEY=~/.ssh/id_rsa
@@ -97,15 +97,15 @@ TERMINAL_SSH_KEY=~/.ssh/id_rsa
 ### Singularity/Apptainer
 
 ```bash
-# Pre-build SIF for parallel workers
+# 为并行工作者预构建 SIF
 apptainer build ~/python.sif docker://python:3.11-slim
 
-# Configure
+# 配置
 kclaw config set terminal.backend singularity
 kclaw config set terminal.singularity_image ~/python.sif
 ```
 
-### Modal (Serverless Cloud)
+### Modal（无服务器云）
 
 ```bash
 uv pip install modal
@@ -113,57 +113,57 @@ modal setup
 kclaw config set terminal.backend modal
 ```
 
-### Container Resources
+### 容器资源
 
-Configure CPU, memory, disk, and persistence for all container backends:
+为所有容器后端配置 CPU、内存、磁盘和持久性：
 
 ```yaml
 terminal:
-  backend: docker  # or singularity, modal, daytona
-  container_cpu: 1              # CPU cores (default: 1)
-  container_memory: 5120        # Memory in MB (default: 5GB)
-  container_disk: 51200         # Disk in MB (default: 50GB)
-  container_persistent: true    # Persist filesystem across sessions (default: true)
+  backend: docker  # 或 singularity, modal, daytona
+  container_cpu: 1              # CPU 核心数（默认：1）
+  container_memory: 5120        # 内存（MB）（默认：5GB）
+  container_disk: 51200         # 磁盘（MB）（默认：50GB）
+  container_persistent: true    # 跨会话持久化文件系统（默认：true）
 ```
 
-When `container_persistent: true`, installed packages, files, and config survive across sessions.
+当 `container_persistent: true` 时，安装的包、文件和配置跨会话保留。
 
-### Container Security
+### 容器安全
 
-All container backends run with security hardening:
+所有容器后端都使用安全加固运行：
 
-- Read-only root filesystem (Docker)
-- All Linux capabilities dropped
-- No privilege escalation
-- PID limits (256 processes)
-- Full namespace isolation
-- Persistent workspace via volumes, not writable root layer
+- 只读根文件系统（Docker）
+- 删除所有 Linux capabilities
+- 无权限提升
+- PID 限制（256 个进程）
+- 完全命名空间隔离
+- 通过卷而不是可写根层持久化工作区
 
-Docker can optionally receive an explicit env allowlist via `terminal.docker_forward_env`, but forwarded variables are visible to commands inside the container and should be treated as exposed to that session.
+Docker 可以选择通过 `terminal.docker_forward_env` 接收显式环境白名单，但转发的变量对容器内的命令可见，应被视为对该会话暴露。
 
-## Background Process Management
+## 后台进程管理
 
-Start background processes and manage them:
+启动后台进程并管理它们：
 
 ```python
 terminal(command="pytest -v tests/", background=true)
-# Returns: {"session_id": "proc_abc123", "pid": 12345}
+# 返回: {"session_id": "proc_abc123", "pid": 12345}
 
-# Then manage with the process tool:
-process(action="list")       # Show all running processes
-process(action="poll", session_id="proc_abc123")   # Check status
-process(action="wait", session_id="proc_abc123")   # Block until done
-process(action="log", session_id="proc_abc123")    # Full output
-process(action="kill", session_id="proc_abc123")   # Terminate
-process(action="write", session_id="proc_abc123", data="y")  # Send input
+# 然后使用 process 工具管理：
+process(action="list")       # 显示所有运行中的进程
+process(action="poll", session_id="proc_abc123")   # 检查状态
+process(action="wait", session_id="proc_abc123")   # 阻塞直到完成
+process(action="log", session_id="proc_abc123")    # 完整输出
+process(action="kill", session_id="proc_abc123")   # 终止
+process(action="write", session_id="proc_abc123", data="y")  # 发送输入
 ```
 
-PTY mode (`pty=true`) enables interactive CLI tools like Codex and Claude Code.
+PTY 模式（`pty=true`）启用交互式 CLI 工具如 Codex 和 Claude Code。
 
-## Sudo Support
+## Sudo 支持
 
-If a command needs sudo, you'll be prompted for your password (cached for the session). Or set `SUDO_PASSWORD` in `~/.kclaw/.env`.
+如果命令需要 sudo，系统会提示您输入密码（会话期间缓存）。或者在 `~/.kclaw/.env` 中设置 `SUDO_PASSWORD`。
 
 :::warning
-On messaging platforms, if sudo fails, the output includes a tip to add `SUDO_PASSWORD` to `~/.kclaw/.env`.
+在消息平台上，如果 sudo 失败，输出会包含一个提示，告知如何将 `SUDO_PASSWORD` 添加到 `~/.kclaw/.env`。
 :::

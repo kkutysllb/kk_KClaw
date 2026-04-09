@@ -1,31 +1,31 @@
 ---
 sidebar_position: 3
-title: "Persistent Memory"
-description: "How KClaw Agent remembers across sessions — MEMORY.md, USER.md, and session search"
+title: "持久记忆"
+description: "KClaw Agent 如何跨会话记住内容——MEMORY.md、USER.md 和会话搜索"
 ---
 
-# Persistent Memory
+# 持久记忆
 
-KClaw Agent has bounded, curated memory that persists across sessions. This lets it remember your preferences, your projects, your environment, and things it has learned.
+KClaw Agent 有界限的精选记忆，跨会话持久化。这使其能够记住您的偏好、项目、环境以及学到的东西。
 
-## How It Works
+## 工作原理
 
-Two files make up the agent's memory:
+两个文件组成代理的记忆：
 
-| File | Purpose | Char Limit |
+| 文件 | 用途 | 字符限制 |
 |------|---------|------------|
-| **MEMORY.md** | Agent's personal notes — environment facts, conventions, things learned | 2,200 chars (~800 tokens) |
-| **USER.md** | User profile — your preferences, communication style, expectations | 1,375 chars (~500 tokens) |
+| **MEMORY.md** | 代理的个人笔记——环境事实、约定、学到的东西 | 2,200 字符（约 800 tokens） |
+| **USER.md** | 用户档案——您的偏好、沟通风格、期望 | 1,375 字符（约 500 tokens） |
 
-Both are stored in `~/.kclaw/memories/` and are injected into the system prompt as a frozen snapshot at session start. The agent manages its own memory via the `memory` tool — it can add, replace, or remove entries.
+两者都存储在 `~/.kclaw/memories/` 中，并在会话开始时作为冻结快照注入到系统提示中。代理通过 `memory` 工具管理自己的记忆——可以添加、替换或删除条目。
 
 :::info
-Character limits keep memory focused. When memory is full, the agent consolidates or replaces entries to make room for new information.
+字符限制保持记忆专注。当记忆满时，代理会合并或替换条目以腾出空间给新信息。
 :::
 
-## How Memory Appears in the System Prompt
+## 记忆如何出现在系统提示中
 
-At the start of every session, memory entries are loaded from disk and rendered into the system prompt as a frozen block:
+在每个会话开始时，记忆条目从磁盘加载并渲染为系统提示中的冻结块：
 
 ```
 ══════════════════════════════════════════════
@@ -38,92 +38,92 @@ This machine runs Ubuntu 22.04, has Docker and Podman installed
 User prefers concise responses, dislikes verbose explanations
 ```
 
-The format includes:
-- A header showing which store (MEMORY or USER PROFILE)
-- Usage percentage and character counts so the agent knows capacity
-- Individual entries separated by `§` (section sign) delimiters
-- Entries can be multiline
+格式包括：
+- 显示哪个存储（MEMORY 或 USER PROFILE）的标题
+- 使用百分比和字符计数，以便代理知道容量
+- 用 `§`（章节符号）分隔符分隔的各个条目
+- 条目可以多行
 
-**Frozen snapshot pattern:** The system prompt injection is captured once at session start and never changes mid-session. This is intentional — it preserves the LLM's prefix cache for performance. When the agent adds/removes memory entries during a session, the changes are persisted to disk immediately but won't appear in the system prompt until the next session starts. Tool responses always show the live state.
+**冻结快照模式：** 系统提示注入在会话开始时捕获一次，中途不会改变。这是故意的——保持 LLM 的前缀缓存以提高性能。当代理在会话期间添加/删除记忆条目时，更改会立即持久化到磁盘，但在下次会话开始前不会出现在系统提示中。工具响应始终显示实时状态。
 
-## Memory Tool Actions
+## 记忆工具操作
 
-The agent uses the `memory` tool with these actions:
+代理使用 `memory` 工具进行以下操作：
 
-- **add** — Add a new memory entry
-- **replace** — Replace an existing entry with updated content (uses substring matching via `old_text`)
-- **remove** — Remove an entry that's no longer relevant (uses substring matching via `old_text`)
+- **add** — 添加新记忆条目
+- **replace** — 用更新后的内容替换现有条目（使用 `old_text` 的子字符串匹配）
+- **remove** — 删除不再相关的条目（使用 `old_text` 的子字符串匹配）
 
-There is no `read` action — memory content is automatically injected into the system prompt at session start. The agent sees its memories as part of its conversation context.
+没有 `read` 操作——记忆内容在会话开始时自动注入到系统提示中。代理将记忆作为对话上下文的一部分看到。
 
-### Substring Matching
+### 子字符串匹配
 
-The `replace` and `remove` actions use short unique substring matching — you don't need the full entry text. The `old_text` parameter just needs to be a unique substring that identifies exactly one entry:
+`replace` 和 `remove` 操作使用短唯一子字符串匹配——您不需要完整的条目文本。`old_text` 参数只需要是一个唯一子字符串，可以精确识别一个条目：
 
 ```python
-# If memory contains "User prefers dark mode in all editors"
+# 如果记忆包含 "User prefers dark mode in all editors"
 memory(action="replace", target="memory",
        old_text="dark mode",
        content="User prefers light mode in VS Code, dark mode in terminal")
 ```
 
-If the substring matches multiple entries, an error is returned asking for a more specific match.
+如果子字符串匹配多个条目，则返回错误，要求提供更具体的匹配。
 
-## Two Targets Explained
+## 两个目标解释
 
-### `memory` — Agent's Personal Notes
+### `memory` — 代理的个人笔记
 
-For information the agent needs to remember about the environment, workflows, and lessons learned:
+对于代理需要记住的关于环境、工作流和经验教训的信息：
 
-- Environment facts (OS, tools, project structure)
-- Project conventions and configuration
-- Tool quirks and workarounds discovered
-- Completed task diary entries
-- Skills and techniques that worked
+- 环境事实（操作系统、工具、项目结构）
+- 项目约定和配置
+- 发现的工具怪癖和变通方法
+- 已完成的任务日记条目
+- 有效的技能和技术
 
-### `user` — User Profile
+### `user` — 用户档案
 
-For information about the user's identity, preferences, and communication style:
+关于用户身份、偏好和沟通风格的信息：
 
-- Name, role, timezone
-- Communication preferences (concise vs detailed, format preferences)
-- Pet peeves and things to avoid
-- Workflow habits
-- Technical skill level
+- 姓名、角色、时区
+- 沟通偏好（简洁 vs 详细、格式偏好）
+- 雷区和需要避免的事情
+- 工作流习惯
+- 技术技能水平
 
-## What to Save vs Skip
+## 什么该保存 vs 跳过
 
-### Save These (Proactively)
+### 保存这些（主动地）
 
-The agent saves automatically — you don't need to ask. It saves when it learns:
+代理自动保存——您不需要问。当它学到时保存：
 
-- **User preferences:** "I prefer TypeScript over JavaScript" → save to `user`
-- **Environment facts:** "This server runs Debian 12 with PostgreSQL 16" → save to `memory`
-- **Corrections:** "Don't use `sudo` for Docker commands, user is in docker group" → save to `memory`
-- **Conventions:** "Project uses tabs, 120-char line width, Google-style docstrings" → save to `memory`
-- **Completed work:** "Migrated database from MySQL to PostgreSQL on 2026-01-15" → save to `memory`
-- **Explicit requests:** "Remember that my API key rotation happens monthly" → save to `memory`
+- **用户偏好：** "我更喜欢 TypeScript 而不是 JavaScript" → 保存到 `user`
+- **环境事实：** "这台服务器运行 Debian 12 和 PostgreSQL 16" → 保存到 `memory`
+- **纠正：** "Docker 命令不要使用 `sudo`，用户在 docker 组中" → 保存到 `memory`
+- **约定：** "项目使用制表符、120 字符行宽、Google 风格文档字符串" → 保存到 `memory`
+- **已完成的工作：** "2026-01-15 将数据库从 MySQL 迁移到 PostgreSQL" → 保存到 `memory`
+- **明确请求：** "请记住我的 API 密钥轮换每月进行一次" → 保存到 `memory`
 
-### Skip These
+### 跳过这些
 
-- **Trivial/obvious info:** "User asked about Python" — too vague to be useful
-- **Easily re-discovered facts:** "Python 3.12 supports f-string nesting" — can web search this
-- **Raw data dumps:** Large code blocks, log files, data tables — too big for memory
-- **Session-specific ephemera:** Temporary file paths, one-off debugging context
-- **Information already in context files:** SOUL.md and AGENTS.md content
+- **琐碎/明显的信息：** "用户询问了 Python"——太模糊而无用
+- **容易重新发现的事实：** "Python 3.12 支持 f-string 嵌套"——可以网络搜索
+- **原始数据转储：** 大代码块、日志文件、数据表——太大不适合记忆
+- **会话特定的临时内容：** 临时文件路径、一次性的调试上下文
+- **已在上下文文件中的信息：** SOUL.md 和 AGENTS.md 内容
 
-## Capacity Management
+## 容量管理
 
-Memory has strict character limits to keep system prompts bounded:
+记忆有严格的字符限制以保持系统提示有界限：
 
-| Store | Limit | Typical entries |
+| 存储 | 限制 | 典型条目 |
 |-------|-------|----------------|
-| memory | 2,200 chars | 8-15 entries |
-| user | 1,375 chars | 5-10 entries |
+| memory | 2,200 字符 | 8-15 条 |
+| user | 1,375 字符 | 5-10 条 |
 
-### What Happens When Memory is Full
+### 记忆满时会发生什么
 
-When you try to add an entry that would exceed the limit, the tool returns an error:
+当您尝试添加会超过限制的条目时，工具返回错误：
 
 ```json
 {
@@ -134,88 +134,88 @@ When you try to add an entry that would exceed the limit, the tool returns an er
 }
 ```
 
-The agent should then:
-1. Read the current entries (shown in the error response)
-2. Identify entries that can be removed or consolidated
-3. Use `replace` to merge related entries into shorter versions
-4. Then `add` the new entry
+然后代理应该：
+1. 读取当前条目（显示在错误响应中）
+2. 识别可以删除或合并的条目
+3. 使用 `replace` 将相关条目合并为更短的版本
+4. 然后 `add` 新条目
 
-**Best practice:** When memory is above 80% capacity (visible in the system prompt header), consolidate entries before adding new ones. For example, merge three separate "project uses X" entries into one comprehensive project description entry.
+**最佳实践：** 当记忆超过 80% 容量（可在系统提示标题中看到）时，在添加新条目之前合并条目。例如，将三个单独的"项目使用 X"条目合并为一个全面的项目描述条目。
 
-### Practical Examples of Good Memory Entries
+### 好的记忆条目实际示例
 
-**Compact, information-dense entries work best:**
+**紧凑、信息密集的条目效果最好：**
 
 ```
-# Good: Packs multiple related facts
+# 好：打包多个相关事实
 User runs macOS 14 Sonoma, uses Homebrew, has Docker Desktop and Podman. Shell: zsh with oh-my-zsh. Editor: VS Code with Vim keybindings.
 
-# Good: Specific, actionable convention
+# 好：具体、可操作的约定
 Project ~/code/api uses Go 1.22, sqlc for DB queries, chi router. Run tests with 'make test'. CI via GitHub Actions.
 
-# Good: Lesson learned with context
+# 好：带上下文的经验教训
 The staging server (10.0.1.50) needs SSH port 2222, not 22. Key is at ~/.ssh/staging_ed25519.
 
-# Bad: Too vague
+# 不好：太模糊
 User has a project.
 
-# Bad: Too verbose
+# 不好：太冗长
 On January 5th, 2026, the user asked me to look at their project which is
 located at ~/code/api. I discovered it uses Go version 1.22 and...
 ```
 
-## Duplicate Prevention
+## 重复预防
 
-The memory system automatically rejects exact duplicate entries. If you try to add content that already exists, it returns success with a "no duplicate added" message.
+记忆系统自动拒绝完全重复的条目。如果您尝试添加已存在的内容，它会返回成功并显示"未添加重复"消息。
 
-## Security Scanning
+## 安全扫描
 
-Memory entries are scanned for injection and exfiltration patterns before being accepted, since they're injected into the system prompt. Content matching threat patterns (prompt injection, credential exfiltration, SSH backdoors) or containing invisible Unicode characters is blocked.
+记忆条目在被接受之前会扫描注入和泄露模式，因为它们被注入到系统提示中。匹配威胁模式（提示注入、凭证泄露、SSH 后门）或包含不可见 Unicode 字符的内容会被阻止。
 
-## Session Search
+## 会话搜索
 
-Beyond MEMORY.md and USER.md, the agent can search its past conversations using the `session_search` tool:
+除了 MEMORY.md 和 USER.md，代理可以使用 `session_search` 工具搜索过去的对话：
 
-- All CLI and messaging sessions are stored in SQLite (`~/.kclaw/state.db`) with FTS5 full-text search
-- Search queries return relevant past conversations with Gemini Flash summarization
-- The agent can find things it discussed weeks ago, even if they're not in its active memory
+- 所有 CLI 和消息会话都存储在 SQLite（`~/.kclaw/state.db`）中，带有 FTS5 全文搜索
+- 搜索查询返回相关过去对话，带有 Gemini Flash 摘要
+- 代理可以找到几周前讨论的内容，即使它们不在活动记忆中
 
 ```bash
-kclaw sessions list    # Browse past sessions
+kclaw sessions list    # 浏览过去的会话
 ```
 
 ### session_search vs memory
 
-| Feature | Persistent Memory | Session Search |
+| 特性 | 持久记忆 | 会话搜索 |
 |---------|------------------|----------------|
-| **Capacity** | ~1,300 tokens total | Unlimited (all sessions) |
-| **Speed** | Instant (in system prompt) | Requires search + LLM summarization |
-| **Use case** | Key facts always available | Finding specific past conversations |
-| **Management** | Manually curated by agent | Automatic — all sessions stored |
-| **Token cost** | Fixed per session (~1,300 tokens) | On-demand (searched when needed) |
+| **容量** | 总共约 1,300 tokens | 无限（所有会话） |
+| **速度** | 即时（在系统提示中） | 需要搜索 + LLM 摘要 |
+| **用例** | 始终可用的关键事实 | 查找特定过去的对话 |
+| **管理** | 代理手动策划 | 自动——所有会话存储 |
+| **令牌成本** | 每个会话固定（约 1,300 tokens） | 按需（需要时搜索） |
 
-**Memory** is for critical facts that should always be in context. **Session search** is for "did we discuss X last week?" queries where the agent needs to recall specifics from past conversations.
+**记忆**用于应该始终在上下文中的关键事实。**会话搜索**用于"我们上周讨论过 X 吗？"查询，其中代理需要回忆过去对话中的细节。
 
-## Configuration
+## 配置
 
 ```yaml
-# In ~/.kclaw/config.yaml
+# 在 ~/.kclaw/config.yaml 中
 memory:
   memory_enabled: true
   user_profile_enabled: true
-  memory_char_limit: 2200   # ~800 tokens
-  user_char_limit: 1375     # ~500 tokens
+  memory_char_limit: 2200   # 约 800 tokens
+  user_char_limit: 1375     # 约 500 tokens
 ```
 
-## External Memory Providers
+## 外部记忆提供商
 
-For deeper, persistent memory that goes beyond MEMORY.md and USER.md, KClaw ships with 8 external memory provider plugins — including Honcho, OpenViking, Mem0, Hindsight, Holographic, RetainDB, ByteRover, and Supermemory.
+对于超越 MEMORY.md 和 USER.md 的更深层次、持久记忆，KClaw 附带 8 个外部记忆提供商插件——包括 Honcho、OpenViking、Mem0、Hindsight、Holographic、RetainDB、ByteRover 和 Supermemory。
 
-External providers run **alongside** built-in memory (never replacing it) and add capabilities like knowledge graphs, semantic search, automatic fact extraction, and cross-session user modeling.
+外部提供商与内置记忆**并行**运行（永远不会替换它），并增加知识图谱、语义搜索、自动事实提取和跨会话用户建模等能力。
 
 ```bash
-kclaw memory setup      # pick a provider and configure it
-kclaw memory status     # check what's active
+kclaw memory setup      # 选择提供商并配置
+kclaw memory status     # 检查已激活的内容
 ```
 
-See the [Memory Providers](./memory-providers.md) guide for full details on each provider, setup instructions, and comparison.
+请参阅[记忆提供商](./memory-providers.md)指南，了解每个提供商的完整详情、设置说明和比较。

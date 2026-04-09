@@ -1,28 +1,28 @@
 ---
 sidebar_position: 11
-title: "Automate Anything with Cron"
-description: "Real-world automation patterns using KClaw cron — monitoring, reports, pipelines, and multi-skill workflows"
+title: "使用 Cron 自动化一切"
+description: "使用 KClaw cron 的真实自动化模式——监控、报告、管道和多技能工作流"
 ---
 
-# Automate Anything with Cron
+# 使用 Cron 自动化一切
 
-The [daily briefing bot tutorial](/docs/guides/daily-briefing-bot) covers the basics. This guide goes further — five real-world automation patterns you can adapt for your own workflows.
+[每日简报机器人教程](/docs/guides/daily-briefing-bot) 涵盖了基础知识。本指南更进一步——五种您可以为自己的工作流调整的真实自动化模式。
 
-For the full feature reference, see [Scheduled Tasks (Cron)](/docs/user-guide/features/cron).
+有关完整功能参考，请参见[计划任务（Cron）](/docs/user-guide/features/cron)。
 
-:::info Key Concept
-Cron jobs run in fresh agent sessions with no memory of your current chat. Prompts must be **completely self-contained** — include everything the agent needs to know.
+:::info 关键概念
+Cron 作业在新的代理会话中运行，没有您当前聊天的记忆。提示必须**完全自包含**——包括代理需要知道的一切。
 :::
 
 ---
 
-## Pattern 1: Website Change Monitor
+## 模式 1：网站变化监控器
 
-Watch a URL for changes and get notified only when something is different.
+监视 URL 变化，仅在有变化时收到通知。
 
-The `script` parameter is the secret weapon here. A Python script runs before each execution, and its stdout becomes context for the agent. The script handles the mechanical work (fetching, diffing); the agent handles the reasoning (is this change interesting?).
+`script` 参数是这里的秘密武器。Python 脚本在每次执行前运行，其 stdout 成为代理的上下文。脚本处理机械工作（获取、diff）；代理处理推理（这个变化有趣吗？）。
 
-Create the monitoring script:
+创建监控脚本：
 
 ```bash
 mkdir -p ~/.kclaw/scripts
@@ -34,22 +34,22 @@ import hashlib, json, os, urllib.request
 URL = "https://example.com/pricing"
 STATE_FILE = os.path.expanduser("~/.kclaw/scripts/.watch-site-state.json")
 
-# Fetch current content
+# 获取当前内容
 req = urllib.request.Request(URL, headers={"User-Agent": "KClaw-Monitor/1.0"})
 content = urllib.request.urlopen(req, timeout=30).read().decode()
 current_hash = hashlib.sha256(content.encode()).hexdigest()
 
-# Load previous state
+# 加载之前状态
 prev_hash = None
 if os.path.exists(STATE_FILE):
     with open(STATE_FILE) as f:
         prev_hash = json.load(f).get("hash")
 
-# Save current state
+# 保存当前状态
 with open(STATE_FILE, "w") as f:
     json.dump({"hash": current_hash, "url": URL}, f)
 
-# Output for the agent
+# 输出给代理
 if prev_hash and prev_hash != current_hash:
     print(f"CHANGE DETECTED on {URL}")
     print(f"Previous hash: {prev_hash}")
@@ -59,21 +59,21 @@ else:
     print("NO_CHANGE")
 ```
 
-Set up the cron job:
+设置 cron 作业：
 
 ```bash
 /cron add "every 1h" "If the script output says CHANGE DETECTED, summarize what changed on the page and why it might matter. If it says NO_CHANGE, respond with just [SILENT]." --script ~/.kclaw/scripts/watch-site.py --name "Pricing monitor" --deliver telegram
 ```
 
-:::tip The [SILENT] Trick
-When the agent's final response contains `[SILENT]`, delivery is suppressed. This means you only get notified when something actually happens — no spam on quiet hours.
+:::tip [SILENT] 技巧
+当代理的最终响应包含 `[SILENT]` 时，交付被抑制。这意味着您只在实际发生事情时收到通知——安静时间不会收到垃圾通知。
 :::
 
 ---
 
-## Pattern 2: Weekly Report
+## 模式 2：周报
 
-Compile information from multiple sources into a formatted summary. This runs once a week and delivers to your home channel.
+将来自多个来源的信息编译成格式化摘要。这每周运行一次并交付到您的主频道。
 
 ```bash
 /cron add "0 9 * * 1" "Generate a weekly report covering:
@@ -86,7 +86,7 @@ Format as a clean summary with sections for each source. Include links.
 Keep it under 500 words — highlight only what matters." --name "Weekly AI digest" --deliver telegram
 ```
 
-From the CLI:
+从 CLI：
 
 ```bash
 kclaw cron create "0 9 * * 1" \
@@ -95,13 +95,13 @@ kclaw cron create "0 9 * * 1" \
   --deliver telegram
 ```
 
-The `0 9 * * 1` is a standard cron expression: 9:00 AM every Monday.
+`0 9 * * 1` 是标准 cron 表达式：每周一上午 9:00。
 
 ---
 
-## Pattern 3: GitHub Repository Watcher
+## 模式 3：GitHub 仓库监视器
 
-Monitor a repository for new issues, PRs, or releases.
+监视仓库的新 issues、PRs 或 releases。
 
 ```bash
 /cron add "every 6h" "Check the GitHub repository NousResearch/kclaw for:
@@ -117,15 +117,15 @@ Filter to only items from the last 6 hours. If nothing new, respond with [SILENT
 Otherwise, provide a concise summary of the activity." --name "Repo watcher" --deliver discord
 ```
 
-:::warning Self-Contained Prompts
-Notice how the prompt includes the exact `gh` commands. The cron agent has no memory of previous runs or your preferences — spell everything out.
+:::warning 自包含提示
+注意提示如何包含确切的 `gh` 命令。cron 代理没有之前运行的记忆或您的偏好——要详细说明一切。
 :::
 
 ---
 
-## Pattern 4: Data Collection Pipeline
+## 模式 4：数据收集管道
 
-Scrape data at regular intervals, save to files, and detect trends over time. This pattern combines a script (for collection) with the agent (for analysis).
+定期抓取数据，保存到文件，并检测趋势。这个模式结合脚本（用于收集）和代理（用于分析）。
 
 ```python title="~/.kclaw/scripts/collect-prices.py"
 import json, os, urllib.request
@@ -134,21 +134,21 @@ from datetime import datetime
 DATA_DIR = os.path.expanduser("~/.kclaw/data/prices")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# Fetch current data (example: crypto prices)
+# 获取当前数据（示例：加密货币价格）
 url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd"
 data = json.loads(urllib.request.urlopen(url, timeout=30).read())
 
-# Append to history file
+# 追加到历史文件
 entry = {"timestamp": datetime.now().isoformat(), "prices": data}
 history_file = os.path.join(DATA_DIR, "history.jsonl")
 with open(history_file, "a") as f:
     f.write(json.dumps(entry) + "\n")
 
-# Load recent history for analysis
+# 加载最近历史用于分析
 lines = open(history_file).readlines()
-recent = [json.loads(l) for l in lines[-24:]]  # Last 24 data points
+recent = [json.loads(l) for l in lines[-24:]]  # 最后 24 个数据点
 
-# Output for the agent
+# 输出给代理
 print(f"Current: BTC=${data['bitcoin']['usd']}, ETH=${data['ethereum']['usd']}")
 print(f"Data points collected: {len(lines)} total, showing last {len(recent)}")
 print(f"\nRecent history:")
@@ -169,23 +169,23 @@ If there's a significant move, explain what happened." \
   --deliver telegram
 ```
 
-The script does the mechanical collection; the agent adds the reasoning layer.
+脚本做机械收集；代理添加推理层。
 
 ---
 
-## Pattern 5: Multi-Skill Workflow
+## 模式 5：多技能工作流
 
-Chain skills together for complex scheduled tasks. Skills are loaded in order before the prompt executes.
+将技能链接在一起以完成复杂的计划任务。技能在提示执行前按顺序加载。
 
 ```bash
-# Use the arxiv skill to find papers, then the obsidian skill to save notes
+# 使用 arxiv 技能查找论文，然后使用 obsidian 技能保存笔记
 /cron add "0 8 * * *" "Search arXiv for the 3 most interesting papers on 'language model reasoning' from the past day. For each paper, create an Obsidian note with the title, authors, abstract summary, and key contribution." \
   --skill arxiv \
   --skill obsidian \
   --name "Paper digest"
 ```
 
-From the tool directly:
+直接从工具：
 
 ```python
 cronjob(
@@ -198,64 +198,64 @@ cronjob(
 )
 ```
 
-Skills are loaded in order — `arxiv` first (teaches the agent how to search papers), then `obsidian` (teaches how to write notes). The prompt ties them together.
+技能按顺序加载——首先 `arxiv`（教代理如何搜索论文），然后 `obsidian`（教如何写笔记）。提示将它们绑在一起。
 
 ---
 
-## Managing Your Jobs
+## 管理您的作业
 
 ```bash
-# List all active jobs
+# 列出所有活动作业
 /cron list
 
-# Trigger a job immediately (for testing)
+# 立即触发作业（用于测试）
 /cron run <job_id>
 
-# Pause a job without deleting it
+# 暂停作业而不删除
 /cron pause <job_id>
 
-# Edit a running job's schedule or prompt
+# 编辑运行中作业的计划或提示
 /cron edit <job_id> --schedule "every 4h"
 /cron edit <job_id> --prompt "Updated task description"
 
-# Add or remove skills from an existing job
+# 从现有作业添加或删除技能
 /cron edit <job_id> --skill arxiv --skill obsidian
 /cron edit <job_id> --clear-skills
 
-# Remove a job permanently
+# 永久删除作业
 /cron remove <job_id>
 ```
 
 ---
 
-## Delivery Targets
+## 交付目标
 
-The `--deliver` flag controls where results go:
+`--deliver` 标志控制结果去向：
 
-| Target | Example | Use case |
+| 目标 | 示例 | 使用场景 |
 |--------|---------|----------|
-| `origin` | `--deliver origin` | Same chat that created the job (default) |
-| `local` | `--deliver local` | Save to local file only |
-| `telegram` | `--deliver telegram` | Your Telegram home channel |
-| `discord` | `--deliver discord` | Your Discord home channel |
-| `slack` | `--deliver slack` | Your Slack home channel |
-| Specific chat | `--deliver telegram:-1001234567890` | A specific Telegram group |
-| Threaded | `--deliver telegram:-1001234567890:17585` | A specific Telegram topic thread |
+| `origin` | `--deliver origin` | 创建作业的同一聊天（默认） |
+| `local` | `--deliver local` | 仅保存到本地文件 |
+| `telegram` | `--deliver telegram` | 您的 Telegram 主频道 |
+| `discord` | `--deliver discord` | 您的 Discord 主频道 |
+| `slack` | `--deliver slack` | 您的 Slack 主频道 |
+| 特定聊天 | `--deliver telegram:-1001234567890` | 特定 Telegram 群组 |
+| 线程化 | `--deliver telegram:-1001234567890:17585` | 特定 Telegram 主题线程 |
 
 ---
 
-## Tips
+## 提示
 
-**Make prompts self-contained.** The agent in a cron job has no memory of your conversations. Include URLs, repo names, format preferences, and delivery instructions directly in the prompt.
+**使提示自包含。** cron 作业中的代理没有您对话的记忆。在提示中直接包含 URL、仓库名称、格式偏好和交付指令。
 
-**Use `[SILENT]` liberally.** For monitoring jobs, always include instructions like "if nothing changed, respond with `[SILENT]`." This prevents notification noise.
+**自由使用 `[SILENT]`。** 对于监控作业，始终包含类似"如果没有变化，响应 `[SILENT]`"的指令。这可以防止通知噪音。
 
-**Use scripts for data collection.** The `script` parameter lets a Python script handle the boring parts (HTTP requests, file I/O, state tracking). The agent only sees the script's stdout and applies reasoning to it. This is cheaper and more reliable than having the agent do the fetching itself.
+**使用脚本进行数据收集。** `script` 参数让 Python 脚本处理无聊的部分（HTTP 请求、文件 I/O、状态跟踪）。代理只看到脚本的 stdout 并对其应用推理。这比让代理自己获取更便宜和更可靠。
 
-**Test with `/cron run`.** Before waiting for the schedule to trigger, use `/cron run <job_id>` to execute immediately and verify the output looks right.
+**使用 `/cron run` 测试。** 在等待计划触发之前，使用 `/cron run <job_id>` 立即执行并验证输出看起来正确。
 
-**Schedule expressions.** Human-readable formats like `every 2h`, `30m`, and `daily at 9am` all work alongside standard cron expressions like `0 9 * * *`.
+**计划表达式。** 人类可读的格式如 `every 2h`、`30m` 和 `daily at 9am` 都与标准 cron 表达式如 `0 9 * * *` 一起工作。
 
 ---
 
-*For the complete cron reference — all parameters, edge cases, and internals — see [Scheduled Tasks (Cron)](/docs/user-guide/features/cron).*
+*有关完整的 cron 参考——所有参数、边缘情况和内部原理——请参见[计划任务（Cron）](/docs/user-guide/features/cron)。*

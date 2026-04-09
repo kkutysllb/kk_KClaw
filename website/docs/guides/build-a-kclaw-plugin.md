@@ -1,32 +1,32 @@
 ---
 sidebar_position: 9
-sidebar_label: "Build a Plugin"
-title: "Build a KClaw Plugin"
-description: "Step-by-step guide to building a complete KClaw plugin with tools, hooks, data files, and skills"
+sidebar_label: "构建插件"
+title: "构建 KClaw 插件"
+description: "从头开始构建完整 KClaw 插件的分步指南——包含工具、钩子、数据文件和技能"
 ---
 
-# Build a KClaw Plugin
+# 构建 KClaw 插件
 
-This guide walks through building a complete KClaw plugin from scratch. By the end you'll have a working plugin with multiple tools, lifecycle hooks, shipped data files, and a bundled skill — everything the plugin system supports.
+本指南从头开始构建一个完整的 KClaw 插件。最后您将拥有一个包含多个工具、生命周期钩子、附带数据文件和捆绑技能的可用插件——插件系统支持的一切。
 
-## What you're building
+## 您正在构建什么
 
-A **calculator** plugin with two tools:
-- `calculate` — evaluate math expressions (`2**16`, `sqrt(144)`, `pi * 5**2`)
-- `unit_convert` — convert between units (`100 F → 37.78 C`, `5 km → 3.11 mi`)
+一个**计算器**插件，包含两个工具：
+- `calculate` — 计算数学表达式（`2**16`、`sqrt(144)`、`pi * 5**2`）
+- `unit_convert` — 单位转换（`100 F → 37.78 C`、`5 km → 3.11 mi`）
 
-Plus a hook that logs every tool call, and a bundled skill file.
+加上一个记录每个工具调用的钩子，以及一个捆绑的技能文件。
 
-## Step 1: Create the plugin directory
+## 步骤 1：创建插件目录
 
 ```bash
 mkdir -p ~/.kclaw/plugins/calculator
 cd ~/.kclaw/plugins/calculator
 ```
 
-## Step 2: Write the manifest
+## 步骤 2：编写清单
 
-Create `plugin.yaml`:
+创建 `plugin.yaml`：
 
 ```yaml
 name: calculator
@@ -39,9 +39,9 @@ provides_hooks:
   - post_tool_call
 ```
 
-This tells KClaw: "I'm a plugin called calculator, I provide tools and hooks." The `provides_tools` and `provides_hooks` fields are lists of what the plugin registers.
+这告诉 KClaw："我是一个名为 calculator 的插件，我提供工具和钩子。"`provides_tools` 和 `provides_hooks` 字段是插件注册的内容列表。
 
-Optional fields you could add:
+可以添加的可选字段：
 ```yaml
 author: Your Name
 requires_env:          # gate loading on env vars; prompted during install
@@ -52,9 +52,9 @@ requires_env:          # gate loading on env vars; prompted during install
     secret: true
 ```
 
-## Step 3: Write the tool schemas
+## 步骤 3：编写工具模式
 
-Create `schemas.py` — this is what the LLM reads to decide when to call your tools:
+创建 `schemas.py` — 这是 LLM 读取以决定何时调用您的工具的内容：
 
 ```python
 """Tool schemas — what the LLM sees."""
@@ -107,11 +107,11 @@ UNIT_CONVERT = {
 }
 ```
 
-**Why schemas matter:** The `description` field is how the LLM decides when to use your tool. Be specific about what it does and when to use it. The `parameters` define what arguments the LLM passes.
+**为什么模式重要：** `description` 字段是 LLM 决定何时使用您的工具的方式。要具体说明它做什么以及何时使用它。`parameters` 定义 LLM 传递的参数。
 
-## Step 4: Write the tool handlers
+## 步骤 4：编写工具处理程序
 
-Create `tools.py` — this is the code that actually executes when the LLM calls your tools:
+创建 `tools.py` — 这是 LLM 调用您的工具时实际执行的代码：
 
 ```python
 """Tool handlers — the code that runs when the LLM calls each tool."""
@@ -196,15 +196,15 @@ def unit_convert(args: dict, **kwargs) -> str:
         return json.dumps({"error": f"Conversion failed: {e}"})
 ```
 
-**Key rules for handlers:**
-1. **Signature:** `def my_handler(args: dict, **kwargs) -> str`
-2. **Return:** Always a JSON string. Success and errors alike.
-3. **Never raise:** Catch all exceptions, return error JSON instead.
-4. **Accept `**kwargs`:** KClaw may pass additional context in the future.
+**处理程序的关键规则：**
+1. **签名：** `def my_handler(args: dict, **kwargs) -> str`
+2. **返回：** 始终是 JSON 字符串。成功和错误都一样。
+3. **永不抛出：** 捕获所有异常，改而返回错误 JSON。
+4. **接受 `**kwargs`：** KClaw 未来可能传递额外上下文。
 
-## Step 5: Write the registration
+## 步骤 5：编写注册
 
-Create `__init__.py` — this wires schemas to handlers:
+创建 `__init__.py` — 这将模式连接到处理程序：
 
 ```python
 """Calculator plugin — registration."""
@@ -237,24 +237,24 @@ def register(ctx):
     ctx.register_hook("post_tool_call", _on_post_tool_call)
 ```
 
-**What `register()` does:**
-- Called exactly once at startup
-- `ctx.register_tool()` puts your tool in the registry — the model sees it immediately
-- `ctx.register_hook()` subscribes to lifecycle events
-- `ctx.register_cli_command()` registers a CLI subcommand (e.g. `kclaw my-plugin <subcommand>`)
-- If this function crashes, the plugin is disabled but KClaw continues fine
+**`register()` 做什么：**
+- 在启动时恰好调用一次
+- `ctx.register_tool()` 将您的工具放入注册表——模型立即看到它
+- `ctx.register_hook()` 订阅生命周期事件
+- `ctx.register_cli_command()` 注册 CLI 子命令（例如 `kclaw my-plugin <subcommand>`）
+- 如果此函数崩溃，插件被禁用但 KClaw 继续正常运行
 
-## Step 6: Test it
+## 步骤 6：测试它
 
-Start KClaw:
+启动 KClaw：
 
 ```bash
 kclaw
 ```
 
-You should see `calculator: calculate, unit_convert` in the banner's tool list.
+您应该在横幅的工具列表中看到 `calculator: calculate, unit_convert`。
 
-Try these prompts:
+尝试这些提示：
 ```
 What's 2 to the power of 16?
 Convert 100 fahrenheit to celsius
@@ -262,18 +262,18 @@ What's the square root of 2 times pi?
 How many gigabytes is 1.5 terabytes?
 ```
 
-Check plugin status:
+检查插件状态：
 ```
 /plugins
 ```
 
-Output:
+输出：
 ```
 Plugins (1):
   ✓ calculator v1.0.0 (2 tools, 1 hooks)
 ```
 
-## Your plugin's final structure
+## 插件的最终结构
 
 ```
 ~/.kclaw/plugins/calculator/
@@ -283,17 +283,17 @@ Plugins (1):
 └── tools.py         # What runs (calculate, unit_convert functions)
 ```
 
-Four files, clear separation:
-- **Manifest** declares what the plugin is
-- **Schemas** describe tools for the LLM
-- **Handlers** implement the actual logic
-- **Registration** connects everything
+四个文件，清晰分离：
+- **清单**声明插件是什么
+- **模式**为 LLM 描述工具
+- **处理程序**实现实际逻辑
+- **注册**连接一切
 
-## What else can plugins do?
+## 插件还能做什么？
 
-### Ship data files
+### 附带数据文件
 
-Put any files in your plugin directory and read them at import time:
+将任何文件放入插件目录并在导入时读取：
 
 ```python
 # In tools.py or __init__.py
@@ -306,9 +306,9 @@ with open(_DATA_FILE) as f:
     _DATA = yaml.safe_load(f)
 ```
 
-### Bundle a skill
+### 捆绑技能
 
-Include a `skill.md` file and install it during registration:
+包含 `skill.md` 文件并在注册期间安装：
 
 ```python
 import shutil
@@ -335,9 +335,9 @@ def register(ctx):
     _install_skill()
 ```
 
-### Gate on environment variables
+### 环境变量门控
 
-If your plugin needs an API key:
+如果您的插件需要 API 密钥：
 
 ```yaml
 # plugin.yaml — simple format (backwards-compatible)
@@ -345,11 +345,11 @@ requires_env:
   - WEATHER_API_KEY
 ```
 
-If `WEATHER_API_KEY` isn't set, the plugin is disabled with a clear message. No crash, no error in the agent — just "Plugin weather disabled (missing: WEATHER_API_KEY)".
+如果 `WEATHER_API_KEY` 未设置，插件被禁用并显示清晰消息。没有崩溃，没有代理错误——只是"Plugin weather disabled (missing: WEATHER_API_KEY)"。
 
-When users run `kclaw plugins install`, they're **prompted interactively** for any missing `requires_env` variables. Values are saved to `.env` automatically.
+当用户运行 `kclaw plugins install` 时，会**交互式提示**任何缺失的 `requires_env` 变量。值自动保存到 `.env`。
 
-For a better install experience, use the rich format with descriptions and signup URLs:
+为了更好的安装体验，使用带有描述和注册 URL 的丰富格式：
 
 ```yaml
 # plugin.yaml — rich format
@@ -360,18 +360,18 @@ requires_env:
     secret: true
 ```
 
-| Field | Required | Description |
+| 字段 | 必需 | 描述 |
 |-------|----------|-------------|
-| `name` | Yes | Environment variable name |
-| `description` | No | Shown to user during install prompt |
-| `url` | No | Where to get the credential |
-| `secret` | No | If `true`, input is hidden (like a password field) |
+| `name` | 是 | 环境变量名 |
+| `description` | 否 | 安装提示期间显示给用户 |
+| `url` | 否 | 在哪里获取凭证 |
+| `secret` | 否 | 如果为 `true`，输入被隐藏（像密码字段） |
 
-Both formats can be mixed in the same list. Already-set variables are skipped silently.
+两种格式可以在同一列表中混合。已设置的变量被静默跳过。
 
-### Conditional tool availability
+### 条件工具可用性
 
-For tools that depend on optional libraries:
+对于依赖于可选库的工具：
 
 ```python
 ctx.register_tool(
@@ -382,7 +382,7 @@ ctx.register_tool(
 )
 ```
 
-### Register multiple hooks
+### 注册多个钩子
 
 ```python
 def register(ctx):
@@ -393,30 +393,30 @@ def register(ctx):
     ctx.register_hook("on_session_end", on_session_end)
 ```
 
-### Hook reference
+### 钩子参考
 
-Each hook is documented in full on the **[Event Hooks reference](/docs/user-guide/features/hooks#plugin-hooks)** — callback signatures, parameter tables, exactly when each fires, and examples. Here's the summary:
+每个钩子都在**[事件钩子参考](/docs/user-guide/features/hooks#plugin-hooks)**中有完整文档——回调签名、参数表、确切触发时机和示例。这是摘要：
 
-| Hook | Fires when | Callback signature | Returns |
+| 钩子 | 触发时机 | 回调签名 | 返回 |
 |------|-----------|-------------------|---------|
-| [`pre_tool_call`](/docs/user-guide/features/hooks#pre_tool_call) | Before any tool executes | `tool_name: str, args: dict, task_id: str` | ignored |
-| [`post_tool_call`](/docs/user-guide/features/hooks#post_tool_call) | After any tool returns | `tool_name: str, args: dict, result: str, task_id: str` | ignored |
-| [`pre_llm_call`](/docs/user-guide/features/hooks#pre_llm_call) | Once per turn, before the tool-calling loop | `session_id: str, user_message: str, conversation_history: list, is_first_turn: bool, model: str, platform: str` | [context injection](#pre_llm_call-context-injection) |
-| [`post_llm_call`](/docs/user-guide/features/hooks#post_llm_call) | Once per turn, after the tool-calling loop (successful turns only) | `session_id: str, user_message: str, assistant_response: str, conversation_history: list, model: str, platform: str` | ignored |
-| [`on_session_start`](/docs/user-guide/features/hooks#on_session_start) | New session created (first turn only) | `session_id: str, model: str, platform: str` | ignored |
-| [`on_session_end`](/docs/user-guide/features/hooks#on_session_end) | End of every `run_conversation` call + CLI exit | `session_id: str, completed: bool, interrupted: bool, model: str, platform: str` | ignored |
-| [`pre_api_request`](/docs/user-guide/features/hooks#pre_api_request) | Before each HTTP request to the LLM provider | `method: str, url: str, headers: dict, body: dict` | ignored |
-| [`post_api_request`](/docs/user-guide/features/hooks#post_api_request) | After each HTTP response from the LLM provider | `method: str, url: str, status_code: int, response: dict` | ignored |
+| [`pre_tool_call`](/docs/user-guide/features/hooks#pre_tool_call) | 任何工具执行前 | `tool_name: str, args: dict, task_id: str` | ignored |
+| [`post_tool_call`](/docs/user-guide/features/hooks#post_tool_call) | 任何工具返回后 | `tool_name: str, args: dict, result: str, task_id: str` | ignored |
+| [`pre_llm_call`](/docs/user-guide/features/hooks#pre_llm_call) | 每轮一次，工具调用循环前 | `session_id: str, user_message: str, conversation_history: list, is_first_turn: bool, model: str, platform: str` | [context injection](#pre_llm_call-context-injection) |
+| [`post_llm_call`](/docs/user-guide/features/hooks#post_llm_call) | 每轮一次，工具调用循环后（仅成功轮次） | `session_id: str, user_message: str, assistant_response: str, conversation_history: list, model: str, platform: str` | ignored |
+| [`on_session_start`](/docs/user-guide/features/hooks#on_session_start) | 创建新会话时（仅第一轮） | `session_id: str, model: str, platform: str` | ignored |
+| [`on_session_end`](/docs/user-guide/features/hooks#on_session_end) | 每个 `run_conversation` 调用结束时 + CLI 退出 | `session_id: str, completed: bool, interrupted: bool, model: str, platform: str` | ignored |
+| [`pre_api_request`](/docs/user-guide/features/hooks#pre_api_request) | 每次 HTTP 请求到 LLM 提供商前 | `method: str, url: str, headers: dict, body: dict` | ignored |
+| [`post_api_request`](/docs/user-guide/features/hooks#post_api_request) | 每次从 LLM 提供商收到 HTTP 响应后 | `method: str, url: str, status_code: int, response: dict` | ignored |
 
-Most hooks are fire-and-forget observers — their return values are ignored. The exception is `pre_llm_call`, which can inject context into the conversation.
+大多数钩子是即发即忘的观察者——它们的返回值被忽略。例外是 `pre_llm_call`，它可以向对话注入上下文。
 
-All callbacks should accept `**kwargs` for forward compatibility. If a hook callback crashes, it's logged and skipped. Other hooks and the agent continue normally.
+所有回调应该接受 `**kwargs` 以实现向前兼容。如果钩子回调崩溃，它被记录并跳过。其他钩子和代理继续正常运行。
 
-### `pre_llm_call` context injection
+### `pre_llm_call` 上下文注入
 
-This is the only hook whose return value matters. When a `pre_llm_call` callback returns a dict with a `"context"` key (or a plain string), KClaw injects that text into the **current turn's user message**. This is the mechanism for memory plugins, RAG integrations, guardrails, and any plugin that needs to provide the model with additional context.
+这是唯一返回值重要的钩子。当 `pre_llm_call` 回调返回带有 `"context"` 键的字典（或纯字符串）时，KClaw 将该文本注入**当前轮次的用户消息**。这是记忆插件、RAG 集成、护栏和任何需要向模型提供额外上下文的插件的机制。
 
-#### Return format
+#### 返回格式
 
 ```python
 # Dict with context key
@@ -429,17 +429,17 @@ return "Recalled memories:\n- User prefers dark mode"
 return None
 ```
 
-Any non-None, non-empty return with a `"context"` key (or a plain non-empty string) is collected and appended to the user message for the current turn.
+任何带有 `"context"` 键的非 None、非空返回（或纯非空字符串）被收集并附加到当前轮次的用户消息。
 
-#### How injection works
+#### 注入如何工作
 
-Injected context is appended to the **user message**, not the system prompt. This is a deliberate design choice:
+注入的上下文被附加到**用户消息**，而不是系统提示。这是一个深思熟虑的设计选择：
 
-- **Prompt cache preservation** — the system prompt stays identical across turns. Anthropic and OpenRouter cache the system prompt prefix, so keeping it stable saves 75%+ on input tokens in multi-turn conversations. If plugins modified the system prompt, every turn would be a cache miss.
-- **Ephemeral** — the injection happens at API call time only. The original user message in the conversation history is never mutated, and nothing is persisted to the session database.
-- **The system prompt is KClaw's territory** — it contains model-specific guidance, tool enforcement rules, personality instructions, and cached skill content. Plugins contribute context alongside the user's input, not by altering the agent's core instructions.
+- **提示缓存保持** — 系统提示在轮次之间保持相同。Anthropic 和 OpenRouter 缓存系统提示前缀，因此保持稳定可节省多轮对话中 75%+ 的输入令牌。如果插件修改系统提示，每轮都将是缓存未命中。
+- **短暂的** — 注入仅在 API 调用时发生。对话历史中的原始用户消息从未被改变，没有任何内容持久化到会话数据库。
+- **系统提示是 KClaw 的领地** — 它包含模型特定指导、工具强制规则、人格指令和缓存技能内容。插件与用户输入一起提供上下文，而不是通过改变代理的核心指令。
 
-#### Example: Memory recall plugin
+#### 示例：记忆召回插件
 
 ```python
 """Memory plugin — recalls relevant context from a vector store."""
@@ -469,7 +469,7 @@ def register(ctx):
     ctx.register_hook("pre_llm_call", recall_context)
 ```
 
-#### Example: Guardrails plugin
+#### 示例：护栏插件
 
 ```python
 """Guardrails plugin — enforces content policies."""
@@ -487,7 +487,7 @@ def register(ctx):
     ctx.register_hook("pre_llm_call", inject_guardrails)
 ```
 
-#### Example: Observer-only hook (no injection)
+#### 仅观察者钩子示例（无注入）
 
 ```python
 """Analytics plugin — tracks turn metadata without injecting context."""
@@ -505,13 +505,13 @@ def register(ctx):
     ctx.register_hook("pre_llm_call", log_turn)
 ```
 
-#### Multiple plugins returning context
+#### 多个插件返回上下文
 
-When multiple plugins return context from `pre_llm_call`, their outputs are joined with double newlines and appended to the user message together. The order follows plugin discovery order (alphabetical by plugin directory name).
+当多个插件从 `pre_llm_call` 返回上下文时，它们的输出用双换行符连接并一起附加到用户消息。顺序遵循插件发现顺序（按插件目录名称字母顺序）。
 
-### Register CLI commands
+### 注册 CLI 命令
 
-Plugins can add their own `kclaw <plugin>` subcommand tree:
+插件可以添加自己的 `kclaw <plugin>` 子命令树：
 
 ```python
 def _my_command(args):
@@ -541,15 +541,15 @@ def register(ctx):
     )
 ```
 
-After registration, users can run `kclaw my-plugin status`, `kclaw my-plugin config`, etc.
+注册后，用户可以运行 `kclaw my-plugin status`、`kclaw my-plugin config` 等。
 
-**Memory provider plugins** use a convention-based approach instead: add a `register_cli(subparser)` function to your plugin's `cli.py` file. The memory plugin discovery system finds it automatically — no `ctx.register_cli_command()` call needed. See the [Memory Provider Plugin guide](/docs/developer-guide/memory-provider-plugin#adding-cli-commands) for details.
+**记忆提供商插件**使用基于约定的方法：将 `register_cli(subparser)` 函数添加到插件的 `cli.py` 文件中。记忆插件发现系统自动找到它——不需要 `ctx.register_cli_command()` 调用。详情请参见[记忆提供商插件指南](/docs/developer-guide/memory-provider-plugin#adding-cli-commands)。
 
-**Active-provider gating:** Memory plugin CLI commands only appear when their provider is the active `memory.provider` in config. If a user hasn't set up your provider, your CLI commands won't clutter the help output.
+**活动提供商门控：** 记忆插件 CLI 命令仅在其提供商是配置中活动的 `memory.provider` 时出现。如果用户未设置您的提供商，您的 CLI 命令不会弄乱帮助输出。
 
-### Distribute via pip
+### 通过 pip 分发
 
-For sharing plugins publicly, add an entry point to your Python package:
+对于公开共享插件，将入口点添加到您的 Python 包：
 
 ```toml
 # pyproject.toml
@@ -562,9 +562,9 @@ pip install kclaw-plugin-calculator
 # Plugin auto-discovered on next kclaw startup
 ```
 
-## Common mistakes
+## 常见错误
 
-**Handler doesn't return JSON string:**
+**处理程序不返回 JSON 字符串：**
 ```python
 # Wrong — returns a dict
 def handler(args, **kwargs):
@@ -575,7 +575,7 @@ def handler(args, **kwargs):
     return json.dumps({"result": 42})
 ```
 
-**Missing `**kwargs` in handler signature:**
+**处理程序签名缺少 `**kwargs`：**
 ```python
 # Wrong — will break if KClaw passes extra context
 def handler(args):
@@ -586,7 +586,7 @@ def handler(args, **kwargs):
     ...
 ```
 
-**Handler raises exceptions:**
+**处理程序抛出异常：**
 ```python
 # Wrong — exception propagates, tool call fails
 def handler(args, **kwargs):
@@ -602,7 +602,7 @@ def handler(args, **kwargs):
         return json.dumps({"error": str(e)})
 ```
 
-**Schema description too vague:**
+**模式描述太模糊：**
 ```python
 # Bad — model doesn't know when to use it
 "description": "Does stuff"

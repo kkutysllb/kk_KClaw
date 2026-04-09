@@ -1,70 +1,70 @@
 ---
 sidebar_position: 4
-title: "Tutorial: Team Telegram Assistant"
-description: "Step-by-step guide to setting up a Telegram bot that your whole team can use for code help, research, system admin, and more"
+title: "教程：团队 Telegram 助手"
+description: "设置供整个团队使用的 Telegram 机器人的分步指南——用于代码帮助、研究、系统管理等"
 ---
 
-# Set Up a Team Telegram Assistant
+# 设置团队 Telegram 助手
 
-This tutorial walks you through setting up a Telegram bot powered by KClaw Agent that multiple team members can use. By the end, your team will have a shared AI assistant they can message for help with code, research, system administration, and anything else — secured with per-user authorization.
+本教程带您完成设置由 KClaw Agent 驱动的 Telegram 机器人，多个团队成员可以使用。到最后，您的团队将拥有一个共享的 AI 助手，他们可以发送消息寻求代码帮助、研究、系统管理等帮助——通过每用户授权保护。
 
-## What We're Building
+## 我们正在构建什么
 
-A Telegram bot that:
+一个 Telegram 机器人，具有以下功能：
 
-- **Any authorized team member** can DM for help — code reviews, research, shell commands, debugging
-- **Runs on your server** with full tool access — terminal, file editing, web search, code execution
-- **Per-user sessions** — each person gets their own conversation context
-- **Secure by default** — only approved users can interact, with two authorization methods
-- **Scheduled tasks** — daily standups, health checks, and reminders delivered to a team channel
+- **任何授权团队成员**都可以 DM 寻求帮助——代码审查、研究、shell 命令、调试
+- **在您的服务器上运行**——具有完整工具访问权限：终端、文件编辑、网络搜索、代码执行
+- **每用户会话**——每个人获得自己的对话上下文
+- **默认安全**——只有批准的用户可以交互，有两种授权方法
+- **计划任务**——每日站会、健康检查和提醒传递到团队频道
 
 ---
 
-## Prerequisites
+## 先决条件
 
-Before starting, make sure you have:
+在开始之前，请确保您拥有：
 
-- **KClaw Agent installed** on a server or VPS (not your laptop — the bot needs to stay running). Follow the [installation guide](/docs/getting-started/installation) if you haven't yet.
-- **A Telegram account** for yourself (the bot owner)
-- **An LLM provider configured** — at minimum, an API key for OpenAI, Anthropic, or another supported provider in `~/.kclaw/.env`
+- **在服务器或 VPS 上安装 KClaw Agent**（不是您的笔记本电脑——机器人需要保持运行）。如果尚未安装，请遵循[安装指南](/docs/getting-started/installation)。
+- **您自己的 Telegram 账户**（机器人所有者）
+- **配置了 LLM 提供商**——至少需要在 `~/.kclaw/.env` 中设置 OpenAI、Anthropic 或其他受支持提供商的 API 密钥
 
 :::tip
-A $5/month VPS is plenty for running the gateway. KClaw itself is lightweight — the LLM API calls are what cost money, and those happen remotely.
+每月 $5 的 VPS 足以运行网关。KClaw 本身是轻量级的——LLM API 调用才是花钱的地方，那些是远程发生的。
 :::
 
 ---
 
-## Step 1: Create a Telegram Bot
+## 步骤 1：创建 Telegram 机器人
 
-Every Telegram bot starts with **@BotFather** — Telegram's official bot for creating bots.
+每个 Telegram 机器人从 **@BotFather** 开始——Telegram 官方用于创建机器人的工具。
 
-1. **Open Telegram** and search for `@BotFather`, or go to [t.me/BotFather](https://t.me/BotFather)
+1. **打开 Telegram** 并搜索 `@BotFather`，或前往 [t.me/BotFather](https://t.me/BotFather)
 
-2. **Send `/newbot`** — BotFather will ask you two things:
-   - **Display name** — what users see (e.g., `Team KClaw Assistant`)
-   - **Username** — must end in `bot` (e.g., `myteam_kclaw_bot`)
+2. **发送 `/newbot`** — BotFather 会问您两个问题：
+   - **显示名称** — 用户看到的（例如 `Team KClaw Assistant`）
+   - **用户名** — 必须以 `bot` 结尾（例如 `myteam_kclaw_bot`）
 
-3. **Copy the bot token** — BotFather replies with something like:
+3. **复制机器人令牌** — BotFather 回复类似：
    ```
    Use this token to access the HTTP API:
    7123456789:AAH1bGciOiJSUzI1NiIsInR5cCI6Ikp...
    ```
-   Save this token — you'll need it in the next step.
+   保存此令牌——您下一步需要它。
 
-4. **Set a description** (optional but recommended):
+4. **设置描述**（可选但推荐）：
    ```
    /setdescription
    ```
-   Choose your bot, then enter something like:
+   选择您的机器人，然后输入类似：
    ```
    Team AI assistant powered by KClaw Agent. DM me for help with code, research, debugging, and more.
    ```
 
-5. **Set bot commands** (optional — gives users a command menu):
+5. **设置机器人命令**（可选——为用户提供命令菜单）：
    ```
    /setcommands
    ```
-   Choose your bot, then paste:
+   选择您的机器人，然后粘贴：
    ```
    new - Start a fresh conversation
    model - Show or change the AI model
@@ -74,60 +74,60 @@ Every Telegram bot starts with **@BotFather** — Telegram's official bot for cr
    ```
 
 :::warning
-Keep your bot token secret. Anyone with the token can control the bot. If it leaks, use `/revoke` in BotFather to generate a new one.
+保持您的机器人令牌秘密。任何拥有令牌的人都可以控制机器人。如果泄露，使用 `/revoke` 在 BotFather 中生成新的。
 :::
 
 ---
 
-## Step 2: Configure the Gateway
+## 步骤 2：配置网关
 
-You have two options: the interactive setup wizard (recommended) or manual configuration.
+您有两个选项：交互式设置向导（推荐）或手动配置。
 
-### Option A: Interactive Setup (Recommended)
+### 选项 A：交互式设置（推荐）
 
 ```bash
 kclaw gateway setup
 ```
 
-This walks you through everything with arrow-key selection. Pick **Telegram**, paste your bot token, and enter your user ID when prompted.
+这将带您使用方向键选择完成一切。选择 **Telegram**，粘贴您的机器人令牌，并在提示时输入您的用户 ID。
 
-### Option B: Manual Configuration
+### 选项 B：手动配置
 
-Add these lines to `~/.kclaw/.env`:
+将这些行添加到 `~/.kclaw/.env`：
 
 ```bash
-# Telegram bot token from BotFather
+# Telegram 机器人令牌（来自 BotFather）
 TELEGRAM_BOT_TOKEN=7123456789:AAH1bGciOiJSUzI1NiIsInR5cCI6Ikp...
 
-# Your Telegram user ID (numeric)
+# 您的 Telegram 用户 ID（数字）
 TELEGRAM_ALLOWED_USERS=123456789
 ```
 
-### Finding Your User ID
+### 查找您的用户 ID
 
-Your Telegram user ID is a numeric value (not your username). To find it:
+您的 Telegram 用户 ID 是一个数字值（不是您的用户名）。要找到它：
 
-1. Message [@userinfobot](https://t.me/userinfobot) on Telegram
-2. It instantly replies with your numeric user ID
-3. Copy that number into `TELEGRAM_ALLOWED_USERS`
+1. 在 Telegram 上消息 [@userinfobot](https://t.me/userinfobot)
+2. 它会立即回复您的数字用户 ID
+3. 将该数字复制到 `TELEGRAM_ALLOWED_USERS`
 
 :::info
-Telegram user IDs are permanent numbers like `123456789`. They're different from your `@username`, which can change. Always use the numeric ID for allowlists.
+Telegram 用户 ID 是像 `123456789` 这样的永久数字。它们与您的 `@username` 不同，后者可以更改。始终使用数字 ID 进行允许列表。
 :::
 
 ---
 
-## Step 3: Start the Gateway
+## 步骤 3：启动网关
 
-### Quick Test
+### 快速测试
 
-Run the gateway in the foreground first to make sure everything works:
+首先在前台运行网关以确保一切正常：
 
 ```bash
 kclaw gateway
 ```
 
-You should see output like:
+您应该看到类似以下的输出：
 
 ```
 [Gateway] Starting KClaw Gateway...
@@ -135,163 +135,163 @@ You should see output like:
 [Gateway] Cron scheduler started (tick every 60s)
 ```
 
-Open Telegram, find your bot, and send it a message. If it replies, you're in business. Press `Ctrl+C` to stop.
+打开 Telegram，找到您的机器人并发送消息。如果它回复，您就成功了。按 `Ctrl+C` 停止。
 
-### Production: Install as a Service
+### 生产环境：安装为服务
 
-For a persistent deployment that survives reboots:
+对于在重启后持续存在的持久部署：
 
 ```bash
 kclaw gateway install
-sudo kclaw gateway install --system   # Linux only: boot-time system service
+sudo kclaw gateway install --system   # 仅 Linux：启动时系统服务
 ```
 
-This creates a background service: a user-level **systemd** service on Linux by default, a **launchd** service on macOS, or a boot-time Linux system service if you pass `--system`.
+这会创建一个后台服务：在 Linux 上默认为用户级 **systemd** 服务，在 macOS 上为 **launchd** 服务，或者如果您传递 `--system` 则为启动时 Linux 系统服务。
 
 ```bash
-# Linux — manage the default user service
+# Linux — 管理默认用户服务
 kclaw gateway start
 kclaw gateway stop
 kclaw gateway status
 
-# View live logs
+# 查看实时日志
 journalctl --user -u kclaw-gateway -f
 
-# Keep running after SSH logout
+# SSH 登出后保持运行
 sudo loginctl enable-linger $USER
 
-# Linux servers — explicit system-service commands
+# Linux 服务器 — 明确的系统服务命令
 sudo kclaw gateway start --system
 sudo kclaw gateway status --system
 journalctl -u kclaw-gateway -f
 ```
 
 ```bash
-# macOS — manage the service
+# macOS — 管理服务
 kclaw gateway start
 kclaw gateway stop
 tail -f ~/.kclaw/logs/gateway.log
 ```
 
 :::tip macOS PATH
-The launchd plist captures your shell PATH at install time so gateway subprocesses can find tools like Node.js and ffmpeg. If you install new tools later, re-run `kclaw gateway install` to update the plist.
+launchd plist 在安装时捕获您的 shell PATH，以便网关子进程可以找到 Node.js 和 ffmpeg 等工具。如果以后安装新工具，请重新运行 `kclaw gateway install` 以更新 plist。
 :::
 
-### Verify It's Running
+### 验证它正在运行
 
 ```bash
 kclaw gateway status
 ```
 
-Then send a test message to your bot on Telegram. You should get a response within a few seconds.
+然后在 Telegram 上向您的机器人发送测试消息。您应该在几秒钟内收到回复。
 
 ---
 
-## Step 4: Set Up Team Access
+## 步骤 4：设置团队访问
 
-Now let's give your teammates access. There are two approaches.
+现在让我们给您的队友访问权限。有两种方法。
 
-### Approach A: Static Allowlist
+### 方法 A：静态允许列表
 
-Collect each team member's Telegram user ID (have them message [@userinfobot](https://t.me/userinfobot)) and add them as a comma-separated list:
+收集每个团队成员的 Telegram 用户 ID（让他们消息 [@userinfobot](https://t.me/userinfobot)）并以逗号分隔列表添加：
 
 ```bash
-# In ~/.kclaw/.env
+# 在 ~/.kclaw/.env 中
 TELEGRAM_ALLOWED_USERS=123456789,987654321,555555555
 ```
 
-Restart the gateway after changes:
+更改后重启网关：
 
 ```bash
 kclaw gateway stop && kclaw gateway start
 ```
 
-### Approach B: DM Pairing (Recommended for Teams)
+### 方法 B：DM 配对（推荐用于团队）
 
-DM pairing is more flexible — you don't need to collect user IDs upfront. Here's how it works:
+DM 配对更灵活——您不需要预先收集用户 ID。以下是它的工作方式：
 
-1. **Teammate DMs the bot** — since they're not on the allowlist, the bot replies with a one-time pairing code:
+1. **队友 DM 机器人** — 由于他们不在允许列表中，机器人回复一次性配对码：
    ```
    🔐 Pairing code: XKGH5N7P
    Send this code to the bot owner for approval.
    ```
 
-2. **Teammate sends you the code** (via any channel — Slack, email, in person)
+2. **队友向您发送代码**（通过任何渠道——Slack、email、当面）
 
-3. **You approve it** on the server:
+3. **您在服务器上批准**：
    ```bash
    kclaw pairing approve telegram XKGH5N7P
    ```
 
-4. **They're in** — the bot immediately starts responding to their messages
+4. **他们进来了** — 机器人立即开始回复他们的消息
 
-**Managing paired users:**
+**管理配对用户：**
 
 ```bash
-# See all pending and approved users
+# 查看所有待处理和已批准的用户
 kclaw pairing list
 
-# Revoke someone's access
+# 撤销某人的访问权限
 kclaw pairing revoke telegram 987654321
 
-# Clear expired pending codes
+# 清除过期的待处理代码
 kclaw pairing clear-pending
 ```
 
 :::tip
-DM pairing is ideal for teams because you don't need to restart the gateway when adding new users. Approvals take effect immediately.
+DM 配对是团队的理想选择，因为您在添加新用户时不需要重启网关。批准立即生效。
 :::
 
-### Security Considerations
+### 安全注意事项
 
-- **Never set `GATEWAY_ALLOW_ALL_USERS=true`** on a bot with terminal access — anyone who finds your bot could run commands on your server
-- Pairing codes expire after **1 hour** and use cryptographic randomness
-- Rate limiting prevents brute-force attacks: 1 request per user per 10 minutes, max 3 pending codes per platform
-- After 5 failed approval attempts, the platform enters a 1-hour lockout
-- All pairing data is stored with `chmod 0600` permissions
+- **永远不要在具有终端访问的机器人上设置 `GATEWAY_ALLOW_ALL_USERS=true`** — 任何找到您的机器人的人都可能在您的服务器上运行命令
+- 配对码在 **1 小时**后过期，使用加密随机性
+- 速率限制防止暴力攻击：每个用户每 10 分钟 1 次请求，每个平台最多 3 个待处理代码
+- 5 次失败的批准尝试后，平台进入 1 小时锁定
+- 所有配对数据以 `chmod 0600` 权限存储
 
 ---
 
-## Step 5: Configure the Bot
+## 步骤 5：配置机器人
 
-### Set a Home Channel
+### 设置主频道
 
-A **home channel** is where the bot delivers cron job results and proactive messages. Without one, scheduled tasks have nowhere to send output.
+**主频道**是机器人传递 cron 作业结果和主动消息的地方。没有主频道，计划任务就没有地方发送输出。
 
-**Option 1:** Use the `/sethome` command in any Telegram group or chat where the bot is a member.
+**选项 1：** 在机器人所在的任何 Telegram 群组或聊天中使用 `/sethome` 命令。
 
-**Option 2:** Set it manually in `~/.kclaw/.env`:
+**选项 2：** 在 `~/.kclaw/.env` 中手动设置：
 
 ```bash
 TELEGRAM_HOME_CHANNEL=-1001234567890
 TELEGRAM_HOME_CHANNEL_NAME="Team Updates"
 ```
 
-To find a channel ID, add [@userinfobot](https://t.me/userinfobot) to the group — it will report the group's chat ID.
+要查找频道 ID，请将 [@userinfobot](https://t.me/userinfobot) 添加到群组——它将报告群组的聊天 ID。
 
-### Configure Tool Progress Display
+### 配置工具进度显示
 
-Control how much detail the bot shows when using tools. In `~/.kclaw/config.yaml`:
+控制在使用工具时机器人显示多少细节。在 `~/.kclaw/config.yaml` 中：
 
 ```yaml
 display:
   tool_progress: new    # off | new | all | verbose
 ```
 
-| Mode | What You See |
+| 模式 | 您看到的内容 |
 |------|-------------|
-| `off` | Clean responses only — no tool activity |
-| `new` | Brief status for each new tool call (recommended for messaging) |
-| `all` | Every tool call with details |
-| `verbose` | Full tool output including command results |
+| `off` | 仅干净响应——无工具活动 |
+| `new` | 每个新工具调用的简要状态（推荐用于消息传递） |
+| `all` | 每个工具调用及其详情 |
+| `verbose` | 完整工具输出，包括命令结果 |
 
-Users can also change this per-session with the `/verbose` command in chat.
+用户也可以在聊天中使用 `/verbose` 命令更改此每会话设置。
 
-### Set Up a Personality with SOUL.md
+### 使用 SOUL.md 设置人格
 
-Customize how the bot communicates by editing `~/.kclaw/SOUL.md`:
+通过编辑 `~/.kclaw/SOUL.md` 自定义机器人的沟通方式：
 
-For a full guide, see [Use SOUL.md with KClaw](/docs/guides/use-soul-with-kclaw).
+有关完整指南，请参见[在 KClaw 中使用 SOUL.md](/docs/guides/use-soul-with-kclaw)。
 
 ```markdown
 # Soul
@@ -301,9 +301,9 @@ values directness. When debugging, always ask for error logs
 before guessing at solutions.
 ```
 
-### Add Project Context
+### 添加项目上下文
 
-If your team works on specific projects, create context files so the bot knows your stack:
+如果您的团队从事特定项目，请创建上下文文件以便机器人了解您的技术栈：
 
 ```markdown
 <!-- ~/.kclaw/AGENTS.md -->
@@ -316,18 +316,18 @@ If your team works on specific projects, create context files so the bot knows y
 ```
 
 :::info
-Context files are injected into every session's system prompt. Keep them concise — every character counts against your token budget.
+上下文文件被注入每个会话的系统提示中。保持它们简洁——每个字符都计入您的令牌预算。
 :::
 
 ---
 
-## Step 6: Set Up Scheduled Tasks
+## 步骤 6：设置计划任务
 
-With the gateway running, you can schedule recurring tasks that deliver results to your team channel.
+网关运行后，您可以安排将结果传递到团队频道的重复任务。
 
-### Daily Standup Summary
+### 每日站会摘要
 
-Message the bot on Telegram:
+在 Telegram 上向机器人发送消息：
 
 ```
 Every weekday at 9am, check the GitHub repository at
@@ -338,9 +338,9 @@ github.com/myorg/myproject for:
 Format as a brief standup-style summary.
 ```
 
-The agent creates a cron job automatically and delivers results to the chat where you asked (or the home channel).
+代理自动创建 cron 作业并将结果传递到您询问的聊天（或主频道）。
 
-### Server Health Check
+### 服务器健康检查
 
 ```
 Every 6 hours, check disk usage with 'df -h', memory with 'free -h',
@@ -348,37 +348,37 @@ and Docker container status with 'docker ps'. Report anything unusual —
 partitions above 80%, containers that have restarted, or high memory usage.
 ```
 
-### Managing Scheduled Tasks
+### 管理计划任务
 
 ```bash
-# From the CLI
-kclaw cron list          # View all scheduled jobs
-kclaw cron status        # Check if scheduler is running
+# 从 CLI
+kclaw cron list          # 查看所有计划作业
+kclaw cron status        # 检查调度器是否正在运行
 
-# From Telegram chat
-/cron list                # View jobs
-/cron remove <job_id>     # Remove a job
+# 从 Telegram 聊天
+/cron list                # 查看作业
+/cron remove <job_id>     # 删除作业
 ```
 
 :::warning
-Cron job prompts run in completely fresh sessions with no memory of prior conversations. Make sure each prompt contains **all** the context the agent needs — file paths, URLs, server addresses, and clear instructions.
+Cron 作业提示在完全新的会话中运行，没有之前对话的记忆。确保每个提示包含代理所需的**所有**上下文——文件路径、URL、服务器地址和清晰指令。
 :::
 
 ---
 
-## Production Tips
+## 生产提示
 
-### Use Docker for Safety
+### 使用 Docker 以确保安全
 
-On a shared team bot, use Docker as the terminal backend so agent commands run in a container instead of on your host:
+在共享团队机器人上，使用 Docker 作为终端后端，以便代理命令在容器中运行而不是在您的主机上：
 
 ```bash
-# In ~/.kclaw/.env
+# 在 ~/.kclaw/.env 中
 TERMINAL_BACKEND=docker
 TERMINAL_DOCKER_IMAGE=nikolaik/python-nodejs:python3.11-nodejs20
 ```
 
-Or in `~/.kclaw/config.yaml`:
+或在 `~/.kclaw/config.yaml` 中：
 
 ```yaml
 terminal:
@@ -388,54 +388,54 @@ terminal:
   container_persistent: true
 ```
 
-This way, even if someone asks the bot to run something destructive, your host system is protected.
+这样，即使有人要求机器人运行破坏性内容，您的主机系统也受到保护。
 
-### Monitor the Gateway
+### 监控网关
 
 ```bash
-# Check if the gateway is running
+# 检查网关是否正在运行
 kclaw gateway status
 
-# Watch live logs (Linux)
+# 查看实时日志（Linux）
 journalctl --user -u kclaw-gateway -f
 
-# Watch live logs (macOS)
+# 查看实时日志（macOS）
 tail -f ~/.kclaw/logs/gateway.log
 ```
 
-### Keep KClaw Updated
+### 保持 KClaw 更新
 
-From Telegram, send `/update` to the bot — it will pull the latest version and restart. Or from the server:
+从 Telegram，向机器人发送 `/update` — 它将拉取最新版本并重启。或者从服务器：
 
 ```bash
 kclaw update
 kclaw gateway stop && kclaw gateway start
 ```
 
-### Log Locations
+### 日志位置
 
-| What | Location |
+| 内容 | 位置 |
 |------|----------|
-| Gateway logs | `journalctl --user -u kclaw-gateway` (Linux) or `~/.kclaw/logs/gateway.log` (macOS) |
-| Cron job output | `~/.kclaw/cron/output/{job_id}/{timestamp}.md` |
-| Cron job definitions | `~/.kclaw/cron/jobs.json` |
-| Pairing data | `~/.kclaw/pairing/` |
-| Session history | `~/.kclaw/sessions/` |
+| 网关日志 | `journalctl --user -u kclaw-gateway`（Linux）或 `~/.kclaw/logs/gateway.log`（macOS） |
+| Cron 作业输出 | `~/.kclaw/cron/output/{job_id}/{timestamp}.md` |
+| Cron 作业定义 | `~/.kclaw/cron/jobs.json` |
+| 配对数据 | `~/.kclaw/pairing/` |
+| 会话历史 | `~/.kclaw/sessions/` |
 
 ---
 
-## Going Further
+## 进一步探索
 
-You've got a working team Telegram assistant. Here are some next steps:
+您现在有一个可用的团队 Telegram 助手。以下是接下来可以探索的步骤：
 
-- **[Security Guide](/docs/user-guide/security)** — deep dive into authorization, container isolation, and command approval
-- **[Messaging Gateway](/docs/user-guide/messaging)** — full reference for gateway architecture, session management, and chat commands
-- **[Telegram Setup](/docs/user-guide/messaging/telegram)** — platform-specific details including voice messages and TTS
-- **[Scheduled Tasks](/docs/user-guide/features/cron)** — advanced cron scheduling with delivery options and cron expressions
-- **[Context Files](/docs/user-guide/features/context-files)** — AGENTS.md, SOUL.md, and .cursorrules for project knowledge
-- **[Personality](/docs/user-guide/features/personality)** — built-in personality presets and custom persona definitions
-- **Add more platforms** — the same gateway can simultaneously run [Discord](/docs/user-guide/messaging/discord), [Slack](/docs/user-guide/messaging/slack), and [WhatsApp](/docs/user-guide/messaging/whatsapp)
+- **[安全指南](/docs/user-guide/security)** — 深入了解授权、容器隔离和命令批准
+- **[消息网关](/docs/user-guide/messaging)** — 网关架构、会话管理和聊天命令的完整参考
+- **[Telegram 设置](/docs/user-guide/messaging/telegram)** — 特定平台详情，包括语音消息和 TTS
+- **[计划任务](/docs/user-guide/features/cron)** — 具有交付选项和 cron 表达式的高级 cron 调度
+- **[上下文文件](/docs/user-guide/features/context-files)** — 用于项目知识的 AGENTS.md、SOUL.md 和 .cursorrules
+- **[人格](/docs/user-guide/features/personality)** — 内置人格预设和自定义 persona 定义
+- **添加更多平台** — 同一网关可以同时运行 [Discord](/docs/user-guide/messaging/discord)、[Slack](/docs/user-guide/messaging/slack) 和 [WhatsApp](/docs/user-guide/messaging/whatsapp)
 
 ---
 
-*Questions or issues? Open an issue on GitHub — contributions are welcome.*
+*有问题或问题？在 GitHub 上打开 issue——欢迎贡献。*

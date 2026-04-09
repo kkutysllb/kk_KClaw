@@ -1,216 +1,216 @@
 ---
 sidebar_position: 7
-title: "Subagent Delegation"
-description: "Spawn isolated child agents for parallel workstreams with delegate_task"
+title: "子代理委托"
+description: "使用 delegate_task 生成具有隔离上下文的子代理进行并行工作流"
 ---
 
-# Subagent Delegation
+# 子代理委托
 
-The `delegate_task` tool spawns child AIAgent instances with isolated context, restricted toolsets, and their own terminal sessions. Each child gets a fresh conversation and works independently — only its final summary enters the parent's context.
+`delegate_task` 工具生成具有隔离上下文、受限工具集和自己的终端会话的子 AIAgent 实例。每个子代理获得一个新的对话并独立工作——只有其最终摘要进入父代理的上下文。
 
-## Single Task
+## 单个任务
 
 ```python
 delegate_task(
-    goal="Debug why tests fail",
-    context="Error: assertion in test_foo.py line 42",
+    goal="调试为什么测试失败",
+    context="错误：test_foo.py 第 42 行的断言",
     toolsets=["terminal", "file"]
 )
 ```
 
-## Parallel Batch
+## 并行批次
 
-Up to 3 concurrent subagents:
+最多 3 个并发子代理：
 
 ```python
 delegate_task(tasks=[
-    {"goal": "Research topic A", "toolsets": ["web"]},
-    {"goal": "Research topic B", "toolsets": ["web"]},
-    {"goal": "Fix the build", "toolsets": ["terminal", "file"]}
+    {"goal": "研究主题 A", "toolsets": ["web"]},
+    {"goal": "研究主题 B", "toolsets": ["web"]},
+    {"goal": "修复构建", "toolsets": ["terminal", "file"]}
 ])
 ```
 
-## How Subagent Context Works
+## 子代理上下文如何工作
 
-:::warning Critical: Subagents Know Nothing
-Subagents start with a **completely fresh conversation**. They have zero knowledge of the parent's conversation history, prior tool calls, or anything discussed before delegation. The subagent's only context comes from the `goal` and `context` fields you provide.
+:::warning 关键：子代理一无所知
+子代理从一个**完全新鲜的对话**开始。它们对父代理的对话历史、之前的工具调用或委托前讨论的任何内容都没有了解。子代理的唯一上下文来自您提供的 `goal` 和 `context` 字段。
 :::
 
-This means you must pass **everything** the subagent needs:
+这意味着您必须传递子代理需要的**一切**：
 
 ```python
-# BAD - subagent has no idea what "the error" is
-delegate_task(goal="Fix the error")
+# 错误 - 子代理不知道"错误"是什么
+delegate_task(goal="修复错误")
 
-# GOOD - subagent has all context it needs
+# 正确 - 子代理有其需要的完整上下文
 delegate_task(
-    goal="Fix the TypeError in api/handlers.py",
-    context="""The file api/handlers.py has a TypeError on line 47:
-    'NoneType' object has no attribute 'get'.
-    The function process_request() receives a dict from parse_body(),
-    but parse_body() returns None when Content-Type is missing.
-    The project is at /home/user/myproject and uses Python 3.11."""
+    goal="修复 api/handlers.py 中的 TypeError",
+    context="""文件 api/handlers.py 在第 47 行有 TypeError：
+    'NoneType' object has no attribute 'get'。
+    函数 process_request() 从 parse_body() 接收字典，
+    但 parse_body() 在 Content-Type 缺失时返回 None。
+    项目位于 /home/user/myproject，使用 Python 3.11。"""
 )
 ```
 
-The subagent receives a focused system prompt built from your goal and context, instructing it to complete the task and provide a structured summary of what it did, what it found, any files modified, and any issues encountered.
+子代理接收从您的 goal 和 context 构建的专注系统提示，指导它完成任务并提供其工作的结构化摘要，包括做了什么、发现了什么、修改了哪些文件以及遇到的任何问题。
 
-## Practical Examples
+## 实际示例
 
-### Parallel Research
+### 并行研究
 
-Research multiple topics simultaneously and collect summaries:
+同时研究多个主题并收集摘要：
 
 ```python
 delegate_task(tasks=[
     {
-        "goal": "Research the current state of WebAssembly in 2025",
-        "context": "Focus on: browser support, non-browser runtimes, language support",
+        "goal": "研究 2025 年 WebAssembly 的现状",
+        "context": "关注：浏览器支持、非浏览器运行时、语言支持",
         "toolsets": ["web"]
     },
     {
-        "goal": "Research the current state of RISC-V adoption in 2025",
-        "context": "Focus on: server chips, embedded systems, software ecosystem",
+        "goal": "研究 2025 年 RISC-V 采用的现状",
+        "context": "关注：服务器芯片、嵌入式系统、软件生态系统",
         "toolsets": ["web"]
     },
     {
-        "goal": "Research quantum computing progress in 2025",
-        "context": "Focus on: error correction breakthroughs, practical applications, key players",
+        "goal": "研究 2025 年量子计算进展",
+        "context": "关注：纠错突破、实际应用、主要参与者",
         "toolsets": ["web"]
     }
 ])
 ```
 
-### Code Review + Fix
+### 代码审查 + 修复
 
-Delegate a review-and-fix workflow to a fresh context:
+将审查和修复工作流委托给新的上下文：
 
 ```python
 delegate_task(
-    goal="Review the authentication module for security issues and fix any found",
-    context="""Project at /home/user/webapp.
-    Auth module files: src/auth/login.py, src/auth/jwt.py, src/auth/middleware.py.
-    The project uses Flask, PyJWT, and bcrypt.
-    Focus on: SQL injection, JWT validation, password handling, session management.
-    Fix any issues found and run the test suite (pytest tests/auth/).""",
+    goal="审查身份验证模块的安全问题并修复发现的任何问题",
+    context="""项目位于 /home/user/webapp。
+    身份验证模块文件：src/auth/login.py、src/auth/jwt.py、src/auth/middleware.py。
+    项目使用 Flask、PyJWT 和 bcrypt。
+    关注：SQL 注入、JWT 验证、密码处理、会话管理。
+    修复发现的任何问题并运行测试套件（pytest tests/auth/）。""",
     toolsets=["terminal", "file"]
 )
 ```
 
-### Multi-File Refactoring
+### 多文件重构
 
-Delegate a large refactoring task that would flood the parent's context:
+将可能淹没父代理上下文的大型重构任务委托：
 
 ```python
 delegate_task(
-    goal="Refactor all Python files in src/ to replace print() with proper logging",
-    context="""Project at /home/user/myproject.
-    Use the 'logging' module with logger = logging.getLogger(__name__).
-    Replace print() calls with appropriate log levels:
+    goal="重构 src/ 中的所有 Python 文件，将 print() 替换为适当的日志",
+    context="""项目位于 /home/user/myproject。
+    使用 'logging' 模块和 logger = logging.getLogger(__name__)。
+    替换 print() 调用为适当的日志级别：
     - print(f"Error: ...") -> logger.error(...)
     - print(f"Warning: ...") -> logger.warning(...)
     - print(f"Debug: ...") -> logger.debug(...)
-    - Other prints -> logger.info(...)
-    Don't change print() in test files or CLI output.
-    Run pytest after to verify nothing broke.""",
+    - 其他 print -> logger.info(...)
+    不要更改测试文件或 CLI 输出中的 print()。
+    之后运行 pytest 验证没有破坏任何东西。""",
     toolsets=["terminal", "file"]
 )
 ```
 
-## Batch Mode Details
+## 批次模式详情
 
-When you provide a `tasks` array, subagents run in **parallel** using a thread pool:
+当您提供 `tasks` 数组时，子代理使用线程池**并行**运行：
 
-- **Maximum concurrency:** 3 tasks (the `tasks` array is truncated to 3 if longer)
-- **Thread pool:** Uses `ThreadPoolExecutor` with `MAX_CONCURRENT_CHILDREN = 3` workers
-- **Progress display:** In CLI mode, a tree-view shows tool calls from each subagent in real-time with per-task completion lines. In gateway mode, progress is batched and relayed to the parent's progress callback
-- **Result ordering:** Results are sorted by task index to match input order regardless of completion order
-- **Interrupt propagation:** Interrupting the parent (e.g., sending a new message) interrupts all active children
+- **最大并发：** 3 个任务（如果 `tasks` 数组更长，则截断为 3）
+- **线程池：** 使用 `ThreadPoolExecutor` 和 `MAX_CONCURRENT_CHILDREN = 3` 个工作者
+- **进度显示：** 在 CLI 模式下，树形视图实时显示每个子代理的工具调用，带有每任务完成行。在网关模式下，进度被批处理并传递到父代理的进度回调
+- **结果排序：** 结果按任务索引排序以匹配输入顺序，无论完成顺序如何
+- **中断传播：** 中断父代理（例如发送新消息）会中断所有活动子代理
 
-Single-task delegation runs directly without thread pool overhead.
+单任务委托直接运行，没有线程池开销。
 
-## Model Override
+## 模型覆盖
 
-You can configure a different model for subagents via `config.yaml` — useful for delegating simple tasks to cheaper/faster models:
+您可以通过 `config.yaml` 为子代理配置不同的模型——对于将简单任务委托给更便宜/更快的模型很有用：
 
 ```yaml
-# In ~/.kclaw/config.yaml
+# 在 ~/.kclaw/config.yaml 中
 delegation:
-  model: "google/gemini-flash-2.0"    # Cheaper model for subagents
-  provider: "openrouter"              # Optional: route subagents to a different provider
+  model: "google/gemini-flash-2.0"    # 子代理的更便宜模型
+  provider: "openrouter"              # 可选：将子代理路由到不同的提供商
 ```
 
-If omitted, subagents use the same model as the parent.
+如果省略，子代理使用与父代理相同的模型。
 
-## Toolset Selection Tips
+## 工具集选择提示
 
-The `toolsets` parameter controls what tools the subagent has access to. Choose based on the task:
+`toolsets` 参数控制子代理可以访问哪些工具。根据任务选择：
 
-| Toolset Pattern | Use Case |
+| 工具集模式 | 使用场景 |
 |----------------|----------|
-| `["terminal", "file"]` | Code work, debugging, file editing, builds |
-| `["web"]` | Research, fact-checking, documentation lookup |
-| `["terminal", "file", "web"]` | Full-stack tasks (default) |
-| `["file"]` | Read-only analysis, code review without execution |
-| `["terminal"]` | System administration, process management |
+| `["terminal", "file"]` | 代码工作、调试、文件编辑、构建 |
+| `["web"]` | 研究、事实核查、文档查找 |
+| `["terminal", "file", "web"]` | 全栈任务（默认） |
+| `["file"]` | 只读分析，无需执行的代码审查 |
+| `["terminal"]` | 系统管理、进程管理 |
 
-Certain toolsets are **always blocked** for subagents regardless of what you specify:
-- `delegation` — no recursive delegation (prevents infinite spawning)
-- `clarify` — subagents cannot interact with the user
-- `memory` — no writes to shared persistent memory
-- `code_execution` — children should reason step-by-step
-- `send_message` — no cross-platform side effects (e.g., sending Telegram messages)
+某些工具集无论您指定什么，**始终被阻止**用于子代理：
+- `delegation` — 无递归委托（防止无限生成）
+- `clarify` — 子代理不能与用户交互
+- `memory` — 不写入共享持久记忆
+- `code_execution` — 子代理应该逐步推理
+- `send_message` — 无跨平台副作用（例如发送 Telegram 消息）
 
-## Max Iterations
+## 最大迭代次数
 
-Each subagent has an iteration limit (default: 50) that controls how many tool-calling turns it can take:
+每个子代理有迭代限制（默认：50），控制它可以进行多少次工具调用轮次：
 
 ```python
 delegate_task(
-    goal="Quick file check",
-    context="Check if /etc/nginx/nginx.conf exists and print its first 10 lines",
-    max_iterations=10  # Simple task, don't need many turns
+    goal="快速文件检查",
+    context="检查 /etc/nginx/nginx.conf 是否存在并打印前 10 行",
+    max_iterations=10  # 简单任务，不需要很多轮次
 )
 ```
 
-## Depth Limit
+## 深度限制
 
-Delegation has a **depth limit of 2** — a parent (depth 0) can spawn children (depth 1), but children cannot delegate further. This prevents runaway recursive delegation chains.
+委托有**深度限制 2** — 父代理（深度 0）可以生成子代理（深度 1），但子代理不能再委托。这防止了失控的递归委托链。
 
-## Key Properties
+## 关键属性
 
-- Each subagent gets its **own terminal session** (separate from the parent)
-- **No nested delegation** — children cannot delegate further (no grandchildren)
-- Subagents **cannot** call: `delegate_task`, `clarify`, `memory`, `send_message`, `execute_code`
-- **Interrupt propagation** — interrupting the parent interrupts all active children
-- Only the final summary enters the parent's context, keeping token usage efficient
-- Subagents inherit the parent's **API key, provider configuration, and credential pool** (enabling key rotation on rate limits)
+- 每个子代理获得自己的**终端会话**（与父代理分开）
+- **无嵌套委托** — 子代理不能再委托（没有孙代理）
+- 子代理**不能**调用：`delegate_task`、`clarify`、`memory`、`send_message`、`execute_code`
+- **中断传播** — 中断父代理会中断所有活动子代理
+- 只有最终摘要进入父代理的上下文，保持令牌使用高效
+- 子代理继承父代理的**API 密钥、提供商配置和凭证池**（在速率限制时启用密钥轮换）
 
-## Delegation vs execute_code
+## 委托 vs execute_code
 
-| Factor | delegate_task | execute_code |
+| 因素 | delegate_task | execute_code |
 |--------|--------------|-------------|
-| **Reasoning** | Full LLM reasoning loop | Just Python code execution |
-| **Context** | Fresh isolated conversation | No conversation, just script |
-| **Tool access** | All non-blocked tools with reasoning | 7 tools via RPC, no reasoning |
-| **Parallelism** | Up to 3 concurrent subagents | Single script |
-| **Best for** | Complex tasks needing judgment | Mechanical multi-step pipelines |
-| **Token cost** | Higher (full LLM loop) | Lower (only stdout returned) |
-| **User interaction** | None (subagents can't clarify) | None |
+| **推理** | 完整 LLM 推理循环 | 只是 Python 代码执行 |
+| **上下文** | 新鲜隔离对话 | 无对话，只有脚本 |
+| **工具访问** | 带推理的所有非阻止工具 | 通过 RPC 的 7 个工具，无推理 |
+| **并行性** | 最多 3 个并发子代理 | 单个脚本 |
+| **适用于** | 需要判断的复杂任务 | 机械多步数据处理 |
+| **令牌成本** | 更高（完整 LLM 循环） | 更低（只返回 stdout） |
+| **用户交互** | 无（子代理不能澄清） | 无 |
 
-**Rule of thumb:** Use `delegate_task` when the subtask requires reasoning, judgment, or multi-step problem solving. Use `execute_code` when you need mechanical data processing or scripted workflows.
+**经验法则：** 当子任务需要推理、判断或逐步问题解决时使用 `delegate_task`。当您需要机械数据处理或脚本化工作流时使用 `execute_code`。
 
-## Configuration
+## 配置
 
 ```yaml
-# In ~/.kclaw/config.yaml
+# 在 ~/.kclaw/config.yaml 中
 delegation:
-  max_iterations: 50                        # Max turns per child (default: 50)
-  default_toolsets: ["terminal", "file", "web"]  # Default toolsets
-  model: "google/gemini-3-flash-preview"             # Optional provider/model override
-  provider: "openrouter"                             # Optional built-in provider
+  max_iterations: 50                        # 每个子代理的最大轮次（默认：50）
+  default_toolsets: ["terminal", "file", "web"]  # 默认工具集
+  model: "google/gemini-3-flash-preview"             # 可选的提供商/模型覆盖
+  provider: "openrouter"                             # 可选的内置提供商
 
-# Or use a direct custom endpoint instead of provider:
+# 或使用直接自定义端点而不是提供商：
 delegation:
   model: "qwen2.5-coder"
   base_url: "http://localhost:1234/v1"
@@ -218,5 +218,5 @@ delegation:
 ```
 
 :::tip
-The agent handles delegation automatically based on the task complexity. You don't need to explicitly ask it to delegate — it will do so when it makes sense.
+代理根据任务复杂性自动处理委托。您不需要明确要求它委托——它在有意义时会这样做。
 :::

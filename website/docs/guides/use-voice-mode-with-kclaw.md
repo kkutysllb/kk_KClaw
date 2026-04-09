@@ -1,90 +1,90 @@
 ---
 sidebar_position: 8
-title: "Use Voice Mode with KClaw"
-description: "A practical guide to setting up and using KClaw voice mode across CLI, Telegram, Discord, and Discord voice channels"
+title: "在 KClaw 中使用语音模式"
+description: "在 CLI、Telegram、Discord 和 Discord 语音频道中设置和使用 KClaw 语音模式的实用指南"
 ---
 
-# Use Voice Mode with KClaw
+# 在 KClaw 中使用语音模式
 
-This guide is the practical companion to the [Voice Mode feature reference](/docs/user-guide/features/voice-mode).
+本指南是[语音模式功能参考](/docs/user-guide/features/voice-mode)的实用伴侣。
 
-If the feature page explains what voice mode can do, this guide shows how to actually use it well.
+如果功能页面解释了语音模式可以做什么，本指南展示如何实际很好地使用它。
 
-## What voice mode is good for
+## 语音模式适用于什么
 
-Voice mode is especially useful when:
-- you want a hands-free CLI workflow
-- you want spoken responses in Telegram or Discord
-- you want KClaw sitting in a Discord voice channel for live conversation
-- you want quick idea capture, debugging, or back-and-forth while walking around instead of typing
+语音模式特别有用当：
+- 您想要免提的 CLI 工作流
+- 您想要在 Telegram 或 Discord 中获得语音回复
+- 您想要 KClaw 坐在 Discord 语音频道中进行实时对话
+- 您想要在走动时快速捕捉想法、调试或来回交流，而不是打字
 
-## Choose your voice mode setup
+## 选择您的语音模式设置
 
-There are really three different voice experiences in KClaw.
+KClaw 中实际上有三种不同的语音体验。
 
-| Mode | Best for | Platform |
+| 模式 | 最适合 | 平台 |
 |---|---|---|
-| Interactive microphone loop | Personal hands-free use while coding or researching | CLI |
-| Voice replies in chat | Spoken responses alongside normal messaging | Telegram, Discord |
-| Live voice channel bot | Group or personal live conversation in a VC | Discord voice channels |
+| 交互式麦克风循环 | 编码或研究时个人免提使用 | CLI |
+| 聊天中的语音回复 | 正常消息传递旁的语音回复 | Telegram, Discord |
+| 实时语音频道机器人 | VC 中的小组或个人实时对话 | Discord 语音频道 |
 
-A good path is:
-1. get text working first
-2. enable voice replies second
-3. move to Discord voice channels last if you want the full experience
+一个好路径是：
+1. 首先让文本工作
+2. 第二启用语音回复
+3. 如果您想要完整体验，最后转到 Discord 语音频道
 
-## Step 1: make sure normal KClaw works first
+## 步骤 1：首先确保正常 KClaw 工作
 
-Before touching voice mode, verify that:
-- KClaw starts
-- your provider is configured
-- the agent can answer text prompts normally
+在触及语音模式之前，验证：
+- KClaw 启动
+- 您的提供商已配置
+- 代理可以正常回答文本提示
 
 ```bash
 kclaw
 ```
 
-Ask something simple:
+问一些简单的问题：
 
 ```text
 What tools do you have available?
 ```
 
-If that is not solid yet, fix text mode first.
+如果这还不稳定，先修复文本模式。
 
-## Step 2: install the right extras
+## 步骤 2：安装正确的额外组件
 
-### CLI microphone + playback
+### CLI 麦克风 + 播放
 
 ```bash
 pip install "kclaw[voice]"
 ```
 
-### Messaging platforms
+### 消息平台
 
 ```bash
 pip install "kclaw[messaging]"
 ```
 
-### Premium ElevenLabs TTS
+### 高级 ElevenLabs TTS
 
 ```bash
 pip install "kclaw[tts-premium]"
 ```
 
-### Local NeuTTS (optional)
+### 本地 NeuTTS（可选）
 
 ```bash
 python -m pip install -U neutts[all]
 ```
 
-### Everything
+### 一切
 
 ```bash
 pip install "kclaw[all]"
 ```
 
-## Step 3: install system dependencies
+## 步骤 3：安装系统依赖
 
 ### macOS
 
@@ -100,63 +100,63 @@ sudo apt install portaudio19-dev ffmpeg libopus0
 sudo apt install espeak-ng
 ```
 
-Why these matter:
-- `portaudio` → microphone input / playback for CLI voice mode
-- `ffmpeg` → audio conversion for TTS and messaging delivery
-- `opus` → Discord voice codec support
-- `espeak-ng` → phonemizer backend for NeuTTS
+为什么这些重要：
+- `portaudio` → CLI 语音模式的麦克风输入/播放
+- `ffmpeg` → TTS 和消息传递的音频转换
+- `opus` → Discord 语音编解码器支持
+- `espeak-ng` → NeuTTS 的音素化后端
 
-## Step 4: choose STT and TTS providers
+## 步骤 4：选择 STT 和 TTS 提供商
 
-KClaw supports both local and cloud speech stacks.
+KClaw 支持本地和云语音栈。
 
-### Easiest / cheapest setup
+### 最简单/最便宜的设置
 
-Use local STT and free Edge TTS:
-- STT provider: `local`
-- TTS provider: `edge`
+使用本地 STT 和免费 Edge TTS：
+- STT 提供商：`local`
+- TTS 提供商：`edge`
 
-This is usually the best place to start.
+这通常是最好的起点。
 
-### Environment file example
+### 环境文件示例
 
-Add to `~/.kclaw/.env`:
+添加到 `~/.kclaw/.env`：
 
 ```bash
-# Cloud STT options (local needs no key)
+# 云 STT 选项（本地不需要密钥）
 GROQ_API_KEY=***
 VOICE_TOOLS_OPENAI_KEY=***
 
-# Premium TTS (optional)
+# 高级 TTS（可选）
 ELEVENLABS_API_KEY=***
 ```
 
-### Provider recommendations
+### 提供商建议
 
-#### Speech-to-text
+#### 语音转文本
 
-- `local` → best default for privacy and zero-cost use
-- `groq` → very fast cloud transcription
-- `openai` → good paid fallback
+- `local` → 隐私和零成本使用的最佳默认
+- `groq` → 非常快速的云转录
+- `openai` → 好的付费备选
 
-#### Text-to-speech
+#### 文本转语音
 
-- `edge` → free and good enough for most users
-- `neutts` → free local/on-device TTS
-- `elevenlabs` → best quality
-- `openai` → good middle ground
+- `edge` → 对大多数用户免费且足够好
+- `neutts` → 免费本地/设备上 TTS
+- `elevenlabs` → 最佳质量
+- `openai` → 好的中间地带
 
-### If you use `kclaw setup`
+### 如果您使用 `kclaw setup`
 
-If you choose NeuTTS in the setup wizard, KClaw checks whether `neutts` is already installed. If it is missing, the wizard tells you NeuTTS needs the Python package `neutts` and the system package `espeak-ng`, offers to install them for you, installs `espeak-ng` with your platform package manager, and then runs:
+如果您在设置向导中选择 NeuTTS，KClaw 检查 `neutts` 是否已安装。如果缺失，向导告诉您 NeuTTS 需要 Python 包 `neutts` 和系统包 `espeak-ng`，可以为您安装它们，使用您的平台包管理器安装 `espeak-ng`，然后运行：
 
 ```bash
 python -m pip install -U neutts[all]
 ```
 
-If you skip that install or it fails, the wizard falls back to Edge TTS.
+如果您跳过该安装或失败，向导回退到 Edge TTS。
 
-## Step 5: recommended config
+## 步骤 5：推荐配置
 
 ```yaml
 voice:
@@ -177,9 +177,9 @@ tts:
     voice: "en-US-AriaNeural"
 ```
 
-This is a good conservative default for most people.
+这是对大多数人的良好保守默认。
 
-If you want local TTS instead, switch the `tts` block to:
+如果您想要本地 TTS，切换 `tts` 块到：
 
 ```yaml
 tts:
@@ -191,36 +191,36 @@ tts:
     device: cpu
 ```
 
-## Use case 1: CLI voice mode
+## 使用场景 1：CLI 语音模式
 
-## Turn it on
+## 打开它
 
-Start KClaw:
+启动 KClaw：
 
 ```bash
 kclaw
 ```
 
-Inside the CLI:
+在 CLI 内：
 
 ```text
 /voice on
 ```
 
-### Recording flow
+### 录制流程
 
-Default key:
+默认按键：
 - `Ctrl+B`
 
-Workflow:
-1. press `Ctrl+B`
-2. speak
-3. wait for silence detection to stop recording automatically
-4. KClaw transcribes and responds
-5. if TTS is on, it speaks the answer
-6. the loop can automatically restart for continuous use
+工作流：
+1. 按 `Ctrl+B`
+2. 说话
+3. 等待静默检测自动停止录音
+4. KClaw 转录并回复
+5. 如果 TTS 开启，它会说话回答
+6. 循环可以自动重新开始以持续使用
 
-### Useful commands
+### 有用的命令
 
 ```text
 /voice
@@ -230,136 +230,136 @@ Workflow:
 /voice status
 ```
 
-### Good CLI workflows
+### 好的 CLI 工作流
 
-#### Walk-up debugging
+#### 走动调试
 
-Say:
+说：
 
 ```text
 I keep getting a docker permission error. Help me debug it.
 ```
 
-Then continue hands-free:
+然后继续免提：
 - "Read the last error again"
 - "Explain the root cause in simpler terms"
 - "Now give me the exact fix"
 
-#### Research / brainstorming
+#### 研究/头脑风暴
 
-Great for:
-- walking around while thinking
-- dictating half-formed ideas
-- asking KClaw to structure your thoughts in real time
+非常适合：
+- 走路时思考
+- 口述半成形的想法
+- 让 KClaw 实时构建您的思路
 
-#### Accessibility / low-typing sessions
+#### 无障碍/低打字会话
 
-If typing is inconvenient, voice mode is one of the fastest ways to stay in the full KClaw loop.
+如果打字不方便，语音模式是保持在完整 KClaw 循环中最快的方式之一。
 
-## Tuning CLI behavior
+## 调优 CLI 行为
 
-### Silence threshold
+### 静默阈值
 
-If KClaw starts/stops too aggressively, tune:
+如果 KClaw 太激进地开始/停止，调整：
 
 ```yaml
 voice:
   silence_threshold: 250
 ```
 
-Higher threshold = less sensitive.
+更高阈值 = 更低灵敏度。
 
-### Silence duration
+### 静默持续时间
 
-If you pause a lot between sentences, increase:
+如果您在句子之间经常停顿，增加：
 
 ```yaml
 voice:
   silence_duration: 4.0
 ```
 
-### Record key
+### 录制按键
 
-If `Ctrl+B` conflicts with your terminal or tmux habits:
+如果 `Ctrl+B` 与您的终端或 tmux 习惯冲突：
 
 ```yaml
 voice:
   record_key: "ctrl+space"
 ```
 
-## Use case 2: voice replies in Telegram or Discord
+## 使用场景 2：在 Telegram 或 Discord 中语音回复
 
-This mode is simpler than full voice channels.
+此模式比完整语音频道更简单。
 
-KClaw stays a normal chat bot, but can speak replies.
+KClaw 保持正常聊天机器人，但可以说话回复。
 
-### Start the gateway
+### 启动网关
 
 ```bash
 kclaw gateway
 ```
 
-### Turn on voice replies
+### 打开语音回复
 
-Inside Telegram or Discord:
+在 Telegram 或 Discord 内：
 
 ```text
 /voice on
 ```
 
-or
+或
 
 ```text
 /voice tts
 ```
 
-### Modes
+### 模式
 
-| Mode | Meaning |
+| 模式 | 含义 |
 |---|---|
-| `off` | text only |
-| `voice_only` | speak only when the user sent voice |
-| `all` | speak every reply |
+| `off` | 仅文本 |
+| `voice_only` | 仅在用户发送语音时说话 |
+| `all` | 每次回复都说话 |
 
-### When to use which mode
+### 何时使用哪种模式
 
-- `/voice on` if you want spoken replies only for voice-originating messages
-- `/voice tts` if you want a full spoken assistant all the time
+- 如果您希望仅对语音发起消息获得语音回复，使用 `/voice on`
+- 如果您一直想要完整的语音助手，使用 `/voice tts`
 
-### Good messaging workflows
+### 好的消息传递工作流
 
-#### Telegram assistant on your phone
+#### 手机上的 Telegram 助手
 
-Use when:
-- you are away from your machine
-- you want to send voice notes and get quick spoken replies
-- you want KClaw to function like a portable research or ops assistant
+使用当：
+- 您不在机器旁边
+- 您想发送语音笔记并获得快速语音回复
+- 您希望 KClaw 像便携式研究或运营助手一样工作
 
-#### Discord DMs with spoken output
+#### Discord DM 与语音输出
 
-Useful when you want private interaction without server-channel mention behavior.
+当您想要私密交互而不需要服务器频道提及行为时很有用。
 
-## Use case 3: Discord voice channels
+## 使用场景 3：Discord 语音频道
 
-This is the most advanced mode.
+这是最高级的模式。
 
-KClaw joins a Discord VC, listens to user speech, transcribes it, runs the normal agent pipeline, and speaks replies back into the channel.
+KClaw 加入 Discord VC，监听用户语音，转录它，运行正常代理管道，并将回复语音说回频道。
 
-## Required Discord permissions
+## 所需 Discord 权限
 
-In addition to the normal text-bot setup, make sure the bot has:
-- Connect
-- Speak
-- preferably Use Voice Activity
+除了正常文本机器人设置外，确保机器人有：
+- 连接
+- 说话
+- 最好使用语音活动
 
-Also enable privileged intents in the Developer Portal:
+同时在开发者门户中启用特权 intents：
 - Presence Intent
 - Server Members Intent
 - Message Content Intent
 
-## Join and leave
+## 加入和离开
 
-In a Discord text channel where the bot is present:
+在机器人存在的 Discord 文本频道中：
 
 ```text
 /voice join
@@ -367,88 +367,88 @@ In a Discord text channel where the bot is present:
 /voice status
 ```
 
-### What happens when joined
+### 加入时会发生什么
 
-- users speak in the VC
-- KClaw detects speech boundaries
-- transcripts are posted in the associated text channel
-- KClaw responds in text and audio
-- the text channel is the one where `/voice join` was issued
+- 用户在 VC 中说话
+- KClaw 检测语音边界
+- 转录发布在关联的文本频道
+- KClaw 以文本和音频回复
+- 文本频道是发出 `/voice join` 的那个
 
-### Best practices for Discord VC use
+### Discord VC 使用最佳实践
 
-- keep `DISCORD_ALLOWED_USERS` tight
-- use a dedicated bot/testing channel at first
-- verify STT and TTS work in ordinary text-chat voice mode before trying VC mode
+- 保持 `DISCORD_ALLOWED_USERS` 严格
+- 首先使用专用机器人/测试频道
+- 在尝试 VC 模式之前，在普通文本聊天语音模式中验证 STT 和 TTS 工作
 
-## Voice quality recommendations
+## 语音质量建议
 
-### Best quality setup
+### 最佳质量设置
 
-- STT: local `large-v3` or Groq `whisper-large-v3`
-- TTS: ElevenLabs
+- STT：本地 `large-v3` 或 Groq `whisper-large-v3`
+- TTS：ElevenLabs
 
-### Best speed / convenience setup
+### 最佳速度/便利设置
 
-- STT: local `base` or Groq
-- TTS: Edge
+- STT：本地 `base` 或 Groq
+- TTS：Edge
 
-### Best zero-cost setup
+### 最佳零成本设置
 
-- STT: local
-- TTS: Edge
+- STT：本地
+- TTS：Edge
 
-## Common failure modes
+## 常见失败模式
 
-### "No audio device found"
+### "未找到音频设备"
 
-Install `portaudio`.
+安装 `portaudio`。
 
-### "Bot joins but hears nothing"
+### "机器人加入但听不到任何东西"
 
-Check:
-- your Discord user ID is in `DISCORD_ALLOWED_USERS`
-- you are not muted
-- privileged intents are enabled
-- the bot has Connect/Speak permissions
+检查：
+- 您的 Discord 用户 ID 在 `DISCORD_ALLOWED_USERS` 中
+- 您没有静音
+- 特权 intents 已启用
+- 机器人有连接/说话权限
 
-### "It transcribes but does not speak"
+### "它转录但不说话"
 
-Check:
-- TTS provider config
-- API key / quota for ElevenLabs or OpenAI
-- `ffmpeg` install for Edge conversion paths
+检查：
+- TTS 提供商配置
+- ElevenLabs 或 OpenAI 的 API 密钥/配额
+- Edge 转换路径的 `ffmpeg` 安装
 
-### "Whisper outputs garbage"
+### "Whisper 输出垃圾"
 
-Try:
-- quieter environment
-- higher `silence_threshold`
-- different STT provider/model
-- shorter, clearer utterances
+尝试：
+- 更安静的环境
+- 更高的 `silence_threshold`
+- 不同的 STT 提供商/模型
+- 更短、更清晰的语音
 
-### "It works in DMs but not in server channels"
+### "它在 DM 中工作但在服务器频道中不工作"
 
-That is often mention policy.
+这通常是指提及策略。
 
-By default, the bot needs an `@mention` in Discord server text channels unless configured otherwise.
+默认情况下，机器人在 Discord 服务器文本频道中需要 `@mention`，除非另有配置。
 
-## Suggested first-week setup
+## 建议的第一周设置
 
-If you want the shortest path to success:
+如果您想要最短的成功路径：
 
-1. get text KClaw working
-2. install `kclaw[voice]`
-3. use CLI voice mode with local STT + Edge TTS
-4. then enable `/voice on` in Telegram or Discord
-5. only after that, try Discord VC mode
+1. 让文本 KClaw 工作
+2. 安装 `kclaw[voice]`
+3. 使用本地 STT + Edge TTS 的 CLI 语音模式
+4. 然后在 Telegram 或 Discord 中启用 `/voice on`
+5. 只有在那之后，才尝试 Discord VC 模式
 
-That progression keeps the debugging surface small.
+这种进展保持了小的调试表面。
 
-## Where to read next
+## 接下来阅读的地方
 
-- [Voice Mode feature reference](/docs/user-guide/features/voice-mode)
-- [Messaging Gateway](/docs/user-guide/messaging)
-- [Discord setup](/docs/user-guide/messaging/discord)
-- [Telegram setup](/docs/user-guide/messaging/telegram)
-- [Configuration](/docs/user-guide/configuration)
+- [语音模式功能参考](/docs/user-guide/features/voice-mode)
+- [消息网关](/docs/user-guide/messaging)
+- [Discord 设置](/docs/user-guide/messaging/discord)
+- [Telegram 设置](/docs/user-guide/messaging/telegram)
+- [配置](/docs/user-guide/configuration)
