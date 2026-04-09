@@ -4,7 +4,14 @@
 
 # KClaw Agent ☤
 
-**由 [kktysllb](https://nousresearch.com) 构建的自改进型 AI 智能体。** 它是唯一内置学习闭环的智能体——从经验中创建技能，使用中自我改进，主动持久化知识，搜索自己的历史对话，并在跨会话中不断深化对你的理解。可以在 5 美元的 VPS 上运行，也可以在 GPU 集群或空闲时几乎零成本的无服务器基础设施上运行。它不局限于你的笔记本——你可以在 Telegram 上与它对话，而它在云虚拟机上工作。
+<p align="center">
+  <a href="https://hermes-agent.nousresearch.com/docs/"><img src="https://img.shields.io/badge/文档-hermes--agent.nousresearch.com-FFD700?style=for-the-badge" alt="文档"></a>
+  <a href="https://discord.gg/NousResearch"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
+  <a href="https://github.com/NousResearch/hermes-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/许可证-MIT-green?style=for-the-badge" alt="许可证: MIT"></a>
+  <a href="https://nousresearch.com"><img src="https://img.shields.io/badge/由-Nous%20Research-构建-blueviolet?style=for-the-badge" alt="由 Nous Research 构建"></a>
+</p>
+
+**由 [kktysllb](https://nousresearch.com) 构建的自改进型 AI 智能体。** 它是唯一内置学习闭环的智能体——从经验中创建技能，使用中自我改进，主动持久化知识，搜索自己的历史对话，并在跨会话中不断深化对你的理解。可以在 VPS 上运行，也可以在 GPU 集群或空闲时几乎零成本的无服务器基础设施上运行。它不局限于你的笔记本——你可以在 Telegram 上与它对话，而它在云虚拟机上工作。
 
 支持任意模型——[Nous Portal](https://portal.nousresearch.com)、[OpenRouter](https://openrouter.ai)（200+ 模型）、[z.ai/GLM](https://z.ai)、[Kimi/Moonshot](https://platform.moonshot.ai)、[MiniMax](https://www.minimax.io)、OpenAI 或你自己的端点。使用 `kclaw model` 切换——无需改代码，无供应商锁定。
 
