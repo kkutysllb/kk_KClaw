@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /Users/libing/kk_Projects/kk_KClaw/*.md)",
+      "Bash(ls /Users/libing/kk_Projects/kk_KClaw/tools/*.py)"
+    ]
+  }
+}
