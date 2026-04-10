@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 """
-Model Tools Module
+模型工具模块
 
-Thin orchestration layer over the tool registry. Each tool file in tools/
-self-registers its schema, handler, and metadata via tools.registry.register().
-This module triggers discovery (by importing all tool modules), then provides
-the public API that run_agent.py, cli.py, batch_runner.py, and the RL
-environments consume.
+工具注册表之上的精简编排层。tools/ 目录中的每个工具文件
+通过 tools.registry.register() 自注册其 schema、handler 和元数据。
+本模块触发发现（通过导入所有工具模块），然后提供
+run_agent.py、cli.py、batch_runner.py 和 RL 环境消费的公共 API。
 
-Public API (signatures preserved from the original 2,400-line version):
+公共 API（保留自原始 2400 行版本的签名）：
     get_tool_definitions(enabled_toolsets, disabled_toolsets, quiet_mode) -> list
     handle_function_call(function_name, function_args, task_id, user_task) -> str
-    TOOL_TO_TOOLSET_MAP: dict          (for batch_runner.py)
-    TOOLSET_REQUIREMENTS: dict         (for cli.py, doctor.py)
+    TOOL_TO_TOOLSET_MAP: dict          (用于 batch_runner.py)
+    TOOLSET_REQUIREMENTS: dict         (用于 cli.py, doctor.py)
     get_all_tool_names() -> list
     get_toolset_for_tool(name) -> str
     get_available_toolsets() -> dict
@@ -33,21 +32,20 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Async Bridging  (single source of truth -- used by registry.dispatch too)
+# 异步桥接  （单一真相来源 — 也被 registry.dispatch 使用）
 # =============================================================================
 
-_tool_loop = None          # persistent loop for the main (CLI) thread
+_tool_loop = None          # 主（CLI）线程的持久化循环
 _tool_loop_lock = threading.Lock()
-_worker_thread_local = threading.local()  # per-worker-thread persistent loops
+_worker_thread_local = threading.local()  # 每个工作线程的持久化循环
 
 
 def _get_tool_loop():
-    """Return a long-lived event loop for running async tool handlers.
+    """返回用于运行异步工具处理程序的持久化事件循环。
 
-    Using a persistent loop (instead of asyncio.run() which creates and
-    *closes* a fresh loop every time) prevents "Event loop is closed"
-    errors that occur when cached httpx/AsyncOpenAI clients attempt to
-    close their transport on a dead loop during garbage collection.
+    使用持久化循环（而非 asyncio.run() 每次创建和
+    *关闭*一个新循环）可防止当缓存的 httpx/AsyncOpenAI 客户端尝试
+    在垃圾回收期间关闭已死循环上的传输时出现的"Event loop is closed"错误。
     """
     global _tool_loop
     with _tool_loop_lock:
@@ -57,18 +55,17 @@ def _get_tool_loop():
 
 
 def _get_worker_loop():
-    """Return a persistent event loop for the current worker thread.
+    """返回当前工作线程的持久化事件循环。
 
-    Each worker thread (e.g., delegate_task's ThreadPoolExecutor threads)
-    gets its own long-lived loop stored in thread-local storage.  This
-    prevents the "Event loop is closed" errors that occurred when
-    asyncio.run() was used per-call: asyncio.run() creates a loop, runs
-    the coroutine, then *closes* the loop — but cached httpx/AsyncOpenAI
-    clients remain bound to that now-dead loop and raise RuntimeError
-    during garbage collection or subsequent use.
+    每个工作线程（例如 delegate_task 的 ThreadPoolExecutor 线程）
+    在线程本地存储中获得自己的持久化循环。这样
+    可以防止使用 asyncio.run() 时出现的"Event loop is closed"错误：
+    asyncio.run() 创建一个循环，运行协程，然后*关闭*循环 — 但缓存的
+    httpx/AsyncOpenAI 客户端仍然绑定到那个已死的循环，在垃圾回收
+    或后续使用时引发 RuntimeError。
 
-    By keeping the loop alive for the thread's lifetime, cached clients
-    stay valid and their cleanup runs on a live loop.
+    通过在线程生命周期内保持循环存活，缓存的客户端
+    保持有效，其清理在活跃循环上运行。
     """
     loop = getattr(_worker_thread_local, 'loop', None)
     if loop is None or loop.is_closed():
@@ -79,26 +76,24 @@ def _get_worker_loop():
 
 
 def _run_async(coro):
-    """Run an async coroutine from a sync context.
+    """从同步上下文运行异步协程。
 
-    If the current thread already has a running event loop (e.g., inside
-    the gateway's async stack or Atropos's event loop), we spin up a
-    disposable thread so asyncio.run() can create its own loop without
-    conflicting.
+    如果当前线程已有运行中的事件循环（例如在
+    网关的异步堆栈或 Atropos 的事件循环中），我们启动一个
+    临时线程以便 asyncio.run() 可以创建自己的循环而不冲突。
 
-    For the common CLI path (no running loop), we use a persistent event
-    loop so that cached async clients (httpx / AsyncOpenAI) remain bound
-    to a live loop and don't trigger "Event loop is closed" on GC.
+    对于常见的 CLI 路径（无运行中的循环），我们使用持久化事件
+    循环，以便缓存的异步客户端（httpx / AsyncOpenAI）保持绑定
+    到活跃循环，不会因 GC 而触发"Event loop is closed"。
 
-    When called from a worker thread (parallel tool execution), we use a
-    per-thread persistent loop to avoid both contention with the main
-    thread's shared loop AND the "Event loop is closed" errors caused by
-    asyncio.run()'s create-and-destroy lifecycle.
+    从工作线程调用时（并行工具执行），我们使用
+    每线程持久化循环，以避免与主线程共享循环的竞争，
+    同时避免 asyncio.run() 创建-销毁生命周期导致的"Event loop is closed"错误。
 
-    This is the single source of truth for sync->async bridging in tool
-    handlers. The RL paths (agent_loop.py, tool_context.py) also provide
-    outer thread-pool wrapping as defense-in-depth, but each handler is
-    self-protecting via this function.
+    这是工具处理程序中同步->异步桥接的单一真相来源。
+    RL 路径（agent_loop.py、tool_context.py）也提供
+    外层线程池包装作为纵深防御，但每个处理程序
+    通过此函数自我保护。
     """
     try:
         loop = asyncio.get_running_loop()
@@ -106,17 +101,16 @@ def _run_async(coro):
         loop = None
 
     if loop and loop.is_running():
-        # Inside an async context (gateway, RL env) — run in a fresh thread.
+        # 在异步上下文中（网关、RL 环境）— 在新线程中运行。
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             future = pool.submit(asyncio.run, coro)
             return future.result(timeout=300)
 
-    # If we're on a worker thread (e.g., parallel tool execution in
-    # delegate_task), use a per-thread persistent loop.  This avoids
-    # contention with the main thread's shared loop while keeping cached
-    # httpx/AsyncOpenAI clients bound to a live loop for the thread's
-    # lifetime — preventing "Event loop is closed" on GC cleanup.
+    # 如果在 worker 线程上（例如 delegate_task 中的并行工具执行），
+    # 使用每线程持久化循环。这避免了与主线程共享循环的竞争，
+    # 同时在线程生命周期内保持缓存的 httpx/AsyncOpenAI 客户端绑定到活跃循环 —
+    # 防止 GC 清理时的"Event loop is closed"。
     if threading.current_thread() is not threading.main_thread():
         worker_loop = _get_worker_loop()
         return worker_loop.run_until_complete(coro)
@@ -126,14 +120,14 @@ def _run_async(coro):
 
 
 # =============================================================================
-# Tool Discovery  (importing each module triggers its registry.register calls)
+# 工具发现  （导入每个模块会触发其 registry.register 调用）
 # =============================================================================
 
 def _discover_tools():
-    """Import all tool modules to trigger their registry.register() calls.
+    """导入所有工具模块以触发其 registry.register() 调用。
 
-    Wrapped in a function so import errors in optional tools (e.g., fal_client
-    not installed) don't prevent the rest from loading.
+    包装在函数中，以便可选工具中的导入错误（例如未安装 fal_client）
+    不会阻止其余部分加载。
     """
     _modules = [
         "tools.web_tools",
@@ -156,7 +150,7 @@ def _discover_tools():
         "tools.delegate_tool",
         "tools.process_registry",
         "tools.send_message_tool",
-        # "tools.honcho_tools",  # Removed — Honcho is now a memory provider plugin
+        # "tools.honcho_tools",  # 已移除 — Honcho 现在是内存 provider 插件
         "tools.homeassistant_tool",
     ]
     import importlib
@@ -164,41 +158,41 @@ def _discover_tools():
         try:
             importlib.import_module(mod_name)
         except Exception as e:
-            logger.warning("Could not import tool module %s: %s", mod_name, e)
+            logger.warning("无法导入工具模块 %s: %s", mod_name, e)
 
 
 _discover_tools()
 
-# MCP tool discovery (external MCP servers from config)
+# MCP 工具发现（来自配置文件的外部 MCP 服务器）
 try:
     from tools.mcp_tool import discover_mcp_tools
     discover_mcp_tools()
 except Exception as e:
-    logger.debug("MCP tool discovery failed: %s", e)
+    logger.debug("MCP 工具发现失败: %s", e)
 
-# Plugin tool discovery (user/project/pip plugins)
+# 插件工具发现（用户/项目/pip 插件）
 try:
     from kclaw_cli.plugins import discover_plugins
     discover_plugins()
 except Exception as e:
-    logger.debug("Plugin discovery failed: %s", e)
+    logger.debug("插件发现失败: %s", e)
 
 
 # =============================================================================
-# Backward-compat constants  (built once after discovery)
+# 向后兼容常量  （发现后构建一次）
 # =============================================================================
 
 TOOL_TO_TOOLSET_MAP: Dict[str, str] = registry.get_tool_to_toolset_map()
 
 TOOLSET_REQUIREMENTS: Dict[str, dict] = registry.get_toolset_requirements()
 
-# Resolved tool names from the last get_tool_definitions() call.
-# Used by code_execution_tool to know which tools are available in this session.
+# 上次 get_tool_definitions() 调用解析的工具名称。
+# 由 code_execution_tool 使用以了解此会话中哪些工具可用。
 _last_resolved_tool_names: List[str] = []
 
 
 # =============================================================================
-# Legacy toolset name mapping  (old _tools-suffixed names -> tool name lists)
+# 旧工具集名称映射  （旧的 _tools 后缀名称 -> 工具名称列表）
 # =============================================================================
 
 _LEGACY_TOOLSET_MAP = {
@@ -228,7 +222,7 @@ _LEGACY_TOOLSET_MAP = {
 
 
 # =============================================================================
-# get_tool_definitions  (the main schema provider)
+# get_tool_definitions  （主要 schema 提供者）
 # =============================================================================
 
 def get_tool_definitions(
@@ -237,19 +231,19 @@ def get_tool_definitions(
     quiet_mode: bool = False,
 ) -> List[Dict[str, Any]]:
     """
-    Get tool definitions for model API calls with toolset-based filtering.
+    获取用于模型 API 调用的工具定义，支持基于工具集的过滤。
 
-    All tools must be part of a toolset to be accessible.
+    所有工具必须属于某个工具集才能访问。
 
-    Args:
-        enabled_toolsets: Only include tools from these toolsets.
-        disabled_toolsets: Exclude tools from these toolsets (if enabled_toolsets is None).
-        quiet_mode: Suppress status prints.
+    参数：
+        enabled_toolsets: 仅包含这些工具集中的工具。
+        disabled_toolsets: 排除这些工具集中的工具（当 enabled_toolsets 为 None 时）。
+        quiet_mode: 抑制状态打印。
 
-    Returns:
-        Filtered list of OpenAI-format tool definitions.
+    返回：
+        过滤后的 OpenAI 格式工具定义列表。
     """
-    # Determine which tool names the caller wants
+    # 确定调用者想要的工具名称集合
     tools_to_include: set = set()
 
     if enabled_toolsets is not None:
@@ -258,15 +252,15 @@ def get_tool_definitions(
                 resolved = resolve_toolset(toolset_name)
                 tools_to_include.update(resolved)
                 if not quiet_mode:
-                    print(f"✅ Enabled toolset '{toolset_name}': {', '.join(resolved) if resolved else 'no tools'}")
+                    print(f"✅ 已启用工具集 '{toolset_name}': {', '.join(resolved) if resolved else '无工具'}")
             elif toolset_name in _LEGACY_TOOLSET_MAP:
                 legacy_tools = _LEGACY_TOOLSET_MAP[toolset_name]
                 tools_to_include.update(legacy_tools)
                 if not quiet_mode:
-                    print(f"✅ Enabled legacy toolset '{toolset_name}': {', '.join(legacy_tools)}")
+                    print(f"✅ 已启用旧工具集 '{toolset_name}': {', '.join(legacy_tools)}")
             else:
                 if not quiet_mode:
-                    print(f"⚠️  Unknown toolset: {toolset_name}")
+                    print(f"⚠️  未知工具集: {toolset_name}")
 
     elif disabled_toolsets:
         from toolsets import get_all_toolsets
@@ -278,39 +272,36 @@ def get_tool_definitions(
                 resolved = resolve_toolset(toolset_name)
                 tools_to_include.difference_update(resolved)
                 if not quiet_mode:
-                    print(f"🚫 Disabled toolset '{toolset_name}': {', '.join(resolved) if resolved else 'no tools'}")
+                    print(f"🚫 已禁用工具集 '{toolset_name}': {', '.join(resolved) if resolved else '无工具'}")
             elif toolset_name in _LEGACY_TOOLSET_MAP:
                 legacy_tools = _LEGACY_TOOLSET_MAP[toolset_name]
                 tools_to_include.difference_update(legacy_tools)
                 if not quiet_mode:
-                    print(f"🚫 Disabled legacy toolset '{toolset_name}': {', '.join(legacy_tools)}")
+                    print(f"🚫 已禁用旧工具集 '{toolset_name}': {', '.join(legacy_tools)}")
             else:
                 if not quiet_mode:
-                    print(f"⚠️  Unknown toolset: {toolset_name}")
+                    print(f"⚠️  未知工具集: {toolset_name}")
     else:
         from toolsets import get_all_toolsets
         for ts_name in get_all_toolsets():
             tools_to_include.update(resolve_toolset(ts_name))
 
-    # Plugin-registered tools are now resolved through the normal toolset
-    # path — validate_toolset() / resolve_toolset() / get_all_toolsets()
-    # all check the tool registry for plugin-provided toolsets.  No bypass
-    # needed; plugins respect enabled_toolsets / disabled_toolsets like any
-    # other toolset.
+    # 插件注册的工具现在通过正常工具集路径解析
+    # — validate_toolset() / resolve_toolset() / get_all_toolsets()
+    # 都检查插件提供的工具集的注册表。无需旁路；
+    # 插件像任何其他工具集一样尊重 enabled_toolsets / disabled_toolsets。
 
-    # Ask the registry for schemas (only returns tools whose check_fn passes)
+    # 向注册表请求 schema（仅返回 check_fn 通过的工具）
     filtered_tools = registry.get_definitions(tools_to_include, quiet=quiet_mode)
 
-    # The set of tool names that actually passed check_fn filtering.
-    # Use this (not tools_to_include) for any downstream schema that references
-    # other tools by name — otherwise the model sees tools mentioned in
-    # descriptions that don't actually exist, and hallucinates calls to them.
+    # 实际通过 check_fn 过滤的工具名称集合。
+    # 用于任何按名称引用其他工具的下游 schema —
+    # 否则模型会看到描述中提到但实际不存在的工具，并幻觉调用它们。
     available_tool_names = {t["function"]["name"] for t in filtered_tools}
 
-    # Rebuild execute_code schema to only list sandbox tools that are actually
-    # available.  Without this, the model sees "web_search is available in
-    # execute_code" even when the API key isn't configured or the toolset is
-    # disabled (#560-discord).
+    # 重建 execute_code schema，仅列出实际可用的沙箱工具。
+    # 否则模型会看到"web_search 在 execute_code 中可用"，
+    # 即使 API 密钥未配置或工具集被禁用（#560-discord）。
     if "execute_code" in available_tool_names:
         from tools.code_execution_tool import SANDBOX_ALLOWED_TOOLS, build_execute_code_schema
         sandbox_enabled = SANDBOX_ALLOWED_TOOLS & available_tool_names
@@ -320,10 +311,9 @@ def get_tool_definitions(
                 filtered_tools[i] = {"type": "function", "function": dynamic_schema}
                 break
 
-    # Strip web tool cross-references from browser_navigate description when
-    # web_search / web_extract are not available.  The static schema says
-    # "prefer web_search or web_extract" which causes the model to hallucinate
-    # those tools when they're missing.
+    # 当 web_search / web_extract 不可用时，从 browser_navigate 描述中
+    # 去除 web 工具交叉引用。静态 schema 说"优先使用 web_search 或 web_extract"，
+    # 这会导致模型在缺少这些工具时幻觉调用它们。
     if "browser_navigate" in available_tool_names:
         web_tools_available = {"web_search", "web_extract"} & available_tool_names
         if not web_tools_available:
@@ -343,9 +333,9 @@ def get_tool_definitions(
     if not quiet_mode:
         if filtered_tools:
             tool_names = [t["function"]["name"] for t in filtered_tools]
-            print(f"🛠️  Final tool selection ({len(filtered_tools)} tools): {', '.join(tool_names)}")
+            print(f"🛠️  最终工具选择（{len(filtered_tools)} 个工具）: {', '.join(tool_names)}")
         else:
-            print("🛠️  No tools selected (all filtered out or unavailable)")
+            print("🛠️  未选择工具（全部被过滤或不可用）")
 
     global _last_resolved_tool_names
     _last_resolved_tool_names = [t["function"]["name"] for t in filtered_tools]
@@ -354,32 +344,32 @@ def get_tool_definitions(
 
 
 # =============================================================================
-# handle_function_call  (the main dispatcher)
+# handle_function_call  （主要分发器）
 # =============================================================================
 
-# Tools whose execution is intercepted by the agent loop (run_agent.py)
-# because they need agent-level state (TodoStore, MemoryStore, etc.).
-# The registry still holds their schemas; dispatch just returns a stub error
-# so if something slips through, the LLM sees a sensible message.
+# 其执行被 agent 循环（run_agent.py）拦截的工具
+# 因为它们需要 agent 级状态（TodoStore、MemoryStore 等）。
+# 注册表仍然保存它们的 schema；分发只是返回一个 stub 错误
+# 以便如果有什么东西漏掉了，LLM 会看到一条合理的消息。
 _AGENT_LOOP_TOOLS = {"todo", "memory", "session_search", "delegate_task"}
 _READ_SEARCH_TOOLS = {"read_file", "search_files"}
 
 
 # =========================================================================
-# Tool argument type coercion
+# 工具参数类型强制转换
 # =========================================================================
 
 def coerce_tool_args(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
-    """Coerce tool call arguments to match their JSON Schema types.
+    """将工具调用参数强制转换为匹配其 JSON Schema 类型。
 
-    LLMs frequently return numbers as strings (``"42"`` instead of ``42``)
-    and booleans as strings (``"true"`` instead of ``true``).  This compares
-    each argument value against the tool's registered JSON Schema and attempts
-    safe coercion when the value is a string but the schema expects a different
-    type.  Original values are preserved when coercion fails.
+    LLM 经常将数字作为字符串返回（``"42"`` 而非 ``42``），
+    布尔值作为字符串（``"true"`` 而非 ``true``）。这会比较
+    每个参数值与工具注册的 JSON Schema，并在值为字符串
+    但 schema 期望不同类型时尝试安全强制转换。
+    强制转换失败时保留原始值。
 
-    Handles ``"type": "integer"``, ``"type": "number"``, ``"type": "boolean"``,
-    and union types (``"type": ["integer", "string"]``).
+    处理 ``"type": "integer"``、``"type": "number"``、``"type": "boolean"``，
+    和联合类型（``"type": ["integer", "string"]``）。
     """
     if not args or not isinstance(args, dict):
         return args
@@ -409,12 +399,12 @@ def coerce_tool_args(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _coerce_value(value: str, expected_type):
-    """Attempt to coerce a string *value* to *expected_type*.
+    """尝试将字符串 *value* 强制转换为 *expected_type*。
 
-    Returns the original string when coercion is not applicable or fails.
+    当强制转换不适用或失败时返回原始字符串。
     """
     if isinstance(expected_type, list):
-        # Union type — try each in order, return first successful coercion
+        # 联合类型 — 按顺序尝试每个，返回第一个成功的强制转换
         for t in expected_type:
             result = _coerce_value(value, t)
             if result is not value:
@@ -429,25 +419,25 @@ def _coerce_value(value: str, expected_type):
 
 
 def _coerce_number(value: str, integer_only: bool = False):
-    """Try to parse *value* as a number.  Returns original string on failure."""
+    """尝试将 *value* 解析为数字。失败时返回原始字符串。"""
     try:
         f = float(value)
     except (ValueError, OverflowError):
         return value
-    # Guard against inf/nan before int() conversion
+    # 在 int() 转换前防范 inf/nan
     if f != f or f == float("inf") or f == float("-inf"):
         return f
-    # If it looks like an integer (no fractional part), return int
+    # 如果看起来像整数（无小数部分），返回 int
     if f == int(f):
         return int(f)
     if integer_only:
-        # Schema wants an integer but value has decimals — keep as string
+        # Schema 想要整数但值有小数 — 保持为字符串
         return value
     return f
 
 
 def _coerce_boolean(value: str):
-    """Try to parse *value* as a boolean.  Returns original string on failure."""
+    """尝试将 *value* 解析为布尔值。失败时返回原始字符串。"""
     low = value.strip().lower()
     if low == "true":
         return True
@@ -466,36 +456,35 @@ def handle_function_call(
     enabled_tools: Optional[List[str]] = None,
 ) -> str:
     """
-    Main function call dispatcher that routes calls to the tool registry.
+    主要函数调用分发器，将调用路由到工具注册表。
 
-    Args:
-        function_name: Name of the function to call.
-        function_args: Arguments for the function.
-        task_id: Unique identifier for terminal/browser session isolation.
-        user_task: The user's original task (for browser_snapshot context).
-        enabled_tools: Tool names enabled for this session.  When provided,
-                       execute_code uses this list to determine which sandbox
-                       tools to generate.  Falls back to the process-global
-                       ``_last_resolved_tool_names`` for backward compat.
+    参数：
+        function_name: 要调用的函数名称。
+        function_args: 函数的参数。
+        task_id: 终端/浏览器会话隔离的唯一标识符。
+        user_task: 用户的原始任务（用于 browser_snapshot 上下文）。
+        enabled_tools: 此会话启用的工具名称。提供时，
+                       execute_code 使用此列表来确定要生成的沙箱工具。
+                       回退到进程全局 ``_last_resolved_tool_names`` 以保持向后兼容。
 
-    Returns:
-        Function result as a JSON string.
+    返回：
+        函数结果的 JSON 字符串。
     """
-    # Coerce string arguments to their schema-declared types (e.g. "42"→42)
+    # 将字符串参数强制转换为其 schema 声明的类型（例如 "42"→42）
     function_args = coerce_tool_args(function_name, function_args)
 
-    # Notify the read-loop tracker when a non-read/search tool runs,
-    # so the *consecutive* counter resets (reads after other work are fine).
+    # 当非读/搜索工具运行时，通知读循环跟踪器，
+    # 以便*连续*计数器重置（其他工作后的读操作是正常的）。
     if function_name not in _READ_SEARCH_TOOLS:
         try:
             from tools.file_tools import notify_other_tool_call
             notify_other_tool_call(task_id or "default")
         except Exception:
-            pass  # file_tools may not be loaded yet
+            pass  # file_tools 可能尚未加载
 
     try:
         if function_name in _AGENT_LOOP_TOOLS:
-            return json.dumps({"error": f"{function_name} must be handled by the agent loop"})
+            return json.dumps({"error": f"{function_name} 必须由 agent 循环处理"})
 
         try:
             from kclaw_cli.plugins import invoke_hook
@@ -511,8 +500,8 @@ def handle_function_call(
             pass
 
         if function_name == "execute_code":
-            # Prefer the caller-provided list so subagents can't overwrite
-            # the parent's tool set via the process-global.
+            # 优先使用调用者提供的列表，以防子代理通过
+            # 进程全局变量覆盖父级的工具集。
             sandbox_enabled = enabled_tools if enabled_tools is not None else _last_resolved_tool_names
             result = registry.dispatch(
                 function_name, function_args,
@@ -543,35 +532,35 @@ def handle_function_call(
         return result
 
     except Exception as e:
-        error_msg = f"Error executing {function_name}: {str(e)}"
+        error_msg = f"执行 {function_name} 时出错: {str(e)}"
         logger.error(error_msg)
         return json.dumps({"error": error_msg}, ensure_ascii=False)
 
 
 # =============================================================================
-# Backward-compat wrapper functions
+# 向后兼容包装函数
 # =============================================================================
 
 def get_all_tool_names() -> List[str]:
-    """Return all registered tool names."""
+    """返回所有已注册的工具名称。"""
     return registry.get_all_tool_names()
 
 
 def get_toolset_for_tool(tool_name: str) -> Optional[str]:
-    """Return the toolset a tool belongs to."""
+    """返回工具所属的工具集。"""
     return registry.get_toolset_for_tool(tool_name)
 
 
 def get_available_toolsets() -> Dict[str, dict]:
-    """Return toolset availability info for UI display."""
+    """返回用于 UI 显示的工具集可用性信息。"""
     return registry.get_available_toolsets()
 
 
 def check_toolset_requirements() -> Dict[str, bool]:
-    """Return {toolset: available_bool} for every registered toolset."""
+    """返回每个已注册工具集的 {toolset: available_bool}。"""
     return registry.check_toolset_requirements()
 
 
 def check_tool_availability(quiet: bool = False) -> Tuple[List[str], List[dict]]:
-    """Return (available_toolsets, unavailable_info)."""
+    """返回 (available_toolsets, unavailable_info)。"""
     return registry.check_tool_availability(quiet=quiet)

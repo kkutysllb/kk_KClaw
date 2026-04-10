@@ -1,28 +1,28 @@
 #!/usr/bin/env python3
 """
-SWE Runner with KClaw Trajectory Format
+使用 KClaw 轨迹格式的 SWE Runner
 
-A runner that uses KClaw-Agent's built-in execution environments
-(local, docker, modal) and outputs trajectories in the KClaw-Agent format
-compatible with batch_runner.py and trajectory_compressor.py.
+一个使用 KClaw-Agent 内置执行环境（local、docker、modal）
+并以 KClaw-Agent 格式输出轨迹的运行器，与 batch_runner.py
+和 trajectory_compressor.py 兼容。
 
-Features:
-- Uses KClaw-Agent's Docker, Modal, or Local environments for command execution
-- Outputs trajectories in KClaw format (from/value pairs with <tool_call>/<tool_response> XML)
-- Compatible with the trajectory compression pipeline
-- Supports batch processing from JSONL prompt files
+特性：
+- 使用 KClaw-Agent 的 Docker、Modal 或 Local 环境执行命令
+- 以 KClaw 格式输出轨迹（from/value 对，包含 <tool_call>/<tool_response> XML）
+- 与轨迹压缩管道兼容
+- 支持从 JSONL 提示文件批量处理
 
-Usage:
-    # Run a single task with local environment
+使用方法：
+    # 使用本地环境运行单个任务
     python mini_swe_runner.py --task "Create a hello world Python script" --env local
-    
-    # Run with Docker
+
+    # 使用 Docker 运行
     python mini_swe_runner.py --task "List files in /tmp" --env docker --image python:3.11-slim
-    
-    # Run with Modal (cloud)
+
+    # 使用 Modal（云端）运行
     python mini_swe_runner.py --task "Install numpy and test it" --env modal --image python:3.11-slim
-    
-    # Batch mode from JSONL file
+
+    # 从 JSONL 文件批量模式
     python mini_swe_runner.py --prompts_file prompts.jsonl --output_file trajectories.jsonl --env docker
 """
 
@@ -39,53 +39,53 @@ from typing import List, Dict, Any, Optional, Literal
 import fire
 from dotenv import load_dotenv
 
-# Load environment variables
+# 加载环境变量
 load_dotenv()
 
 
 
 
 # ============================================================================
-# Terminal Tool Definition (matches KClaw-Agent format)
+# 终端工具定义（匹配 KClaw-Agent 格式）
 # ============================================================================
 
 TERMINAL_TOOL_DEFINITION = {
     "type": "function",
     "function": {
         "name": "terminal",
-        "description": """Execute bash commands in a sandboxed environment.
+        "description": """在沙箱环境中执行 bash 命令。
 
-**Environment:**
-- Isolated execution environment (local, Docker, or Modal cloud)
-- Filesystem persists between tool calls within the same task
-- Internet access available
+**环境：**
+- 隔离的执行环境（local、Docker 或 Modal 云端）
+- 文件系统在同一个任务内的工具调用之间持久化
+- 可访问互联网
 
-**Command Execution:**
-- Provide the command to execute via the 'command' parameter
-- Optional 'timeout' parameter in seconds (default: 60)
+**命令执行：**
+- 通过 'command' 参数提供要执行的命令
+- 可选的 'timeout' 参数（秒，默认：60）
 
-**Examples:**
-- Run command: `{"command": "ls -la"}`
-- With timeout: `{"command": "long_task.sh", "timeout": 300}`
+**示例：**
+- 运行命令：`{"command": "ls -la"}`
+- 带超时：`{"command": "long_task.sh", "timeout": 300}`
 
-**Best Practices:**
-- Use non-interactive commands (avoid vim, nano, interactive python)
-- Pipe to cat if output might be large
-- Install tools with apt-get or pip as needed
+**最佳实践：**
+- 使用非交互式命令（避免 vim、nano、interactive python）
+- 如果输出可能很大，管道到 cat
+- 根据需要使用 apt-get 或 pip 安装工具
 
-**Completion:**
-- When task is complete, output: echo "MINI_SWE_AGENT_FINAL_OUTPUT" followed by your result
+**完成：**
+- 任务完成时，输出：echo "MINI_SWE_AGENT_FINAL_OUTPUT" 后跟结果
 """,
         "parameters": {
             "type": "object",
             "properties": {
                 "command": {
                     "type": "string",
-                    "description": "The bash command to execute"
+                    "description": "要执行的 bash 命令"
                 },
                 "timeout": {
                     "type": "integer",
-                    "description": "Command timeout in seconds (default: 60)"
+                    "description": "命令超时秒数（默认：60）"
                 }
             },
             "required": ["command"]
@@ -95,7 +95,7 @@ TERMINAL_TOOL_DEFINITION = {
 
 
 # ============================================================================
-# Environment Factory
+# 环境工厂
 # ============================================================================
 
 def create_environment(
@@ -106,44 +106,43 @@ def create_environment(
     **kwargs
 ):
     """
-    Create an execution environment using KClaw-Agent's built-in backends.
-    
-    Args:
-        env_type: One of "local", "docker", "modal"
-        image: Docker/Modal image name (ignored for local)
-        cwd: Working directory
-        timeout: Default command timeout
-        **kwargs: Additional environment-specific options
-        
-    Returns:
-        Environment instance with execute() and cleanup() methods
+    使用 KClaw-Agent 内置后端创建执行环境。
+
+    参数：
+        env_type: "local"、"docker"、"modal" 之一
+        image: Docker/Modal 镜像名称（local 时忽略）
+        cwd: 工作目录
+        timeout: 默认命令超时
+        **kwargs: 额外的环境特定选项
+
+    返回：
+        带有 execute() 和 cleanup() 方法的环境实例
     """
     if env_type == "local":
         from tools.environments.local import LocalEnvironment
         return LocalEnvironment(cwd=cwd, timeout=timeout)
-    
+
     elif env_type == "docker":
         from tools.environments.docker import DockerEnvironment
         return DockerEnvironment(image=image, cwd=cwd, timeout=timeout, **kwargs)
-    
+
     elif env_type == "modal":
         from tools.environments.modal import ModalEnvironment
         return ModalEnvironment(image=image, cwd=cwd, timeout=timeout, **kwargs)
-    
+
     else:
-        raise ValueError(f"Unknown environment type: {env_type}. Use 'local', 'docker', or 'modal'")
+        raise ValueError(f"未知环境类型: {env_type}。请使用 'local'、'docker' 或 'modal'")
 
 
 # ============================================================================
-# Mini-SWE Runner with KClaw Trajectory Format
+# 使用 KClaw 轨迹格式的 Mini-SWE Runner
 # ============================================================================
 
 class MiniSWERunner:
     """
-    Agent runner that uses KClaw-Agent's built-in execution environments
-    and outputs trajectories in KClaw-Agent format.
+    使用 KClaw-Agent 内置执行环境并以 KClaw-Agent 格式输出轨迹的 Agent 运行器。
     """
-    
+
     def __init__(
         self,
         model: str = "anthropic/claude-sonnet-4.6",
@@ -157,18 +156,18 @@ class MiniSWERunner:
         verbose: bool = False,
     ):
         """
-        Initialize the Mini-SWE Runner.
-        
-        Args:
-            model: Model name for OpenAI-compatible API
-            base_url: API base URL (optional, uses env vars if not provided)
-            api_key: API key (optional, uses env vars if not provided)
-            env_type: Environment type - "local", "docker", or "modal"
-            image: Docker/Modal image (ignored for local)
-            cwd: Working directory for commands
-            max_iterations: Maximum tool-calling iterations
-            command_timeout: Default timeout for commands
-            verbose: Enable verbose logging
+        初始化 Mini-SWE Runner。
+
+        参数：
+            model: OpenAI 兼容 API 的模型名称
+            base_url: API 基础 URL（可选，未提供时使用环境变量）
+            api_key: API 密钥（可选，未提供时使用环境变量）
+            env_type: 环境类型 - "local"、"docker" 或 "modal"
+            image: Docker/Modal 镜像（local 时忽略）
+            cwd: 命令工作目录
+            max_iterations: 最大工具调用迭代次数
+            command_timeout: 命令默认超时
+            verbose: 启用详细日志
         """
         self.model = model
         self.max_iterations = max_iterations
@@ -177,18 +176,18 @@ class MiniSWERunner:
         self.env_type = env_type
         self.image = image
         self.cwd = cwd
-        
-        # Setup logging
+
+        # 设置日志
         logging.basicConfig(
             level=logging.DEBUG if verbose else logging.INFO,
             format='%(asctime)s - %(levelname)s - %(message)s',
             datefmt='%H:%M:%S'
         )
         self.logger = logging.getLogger(__name__)
-        
-        # Initialize LLM client via centralized provider router.
-        # If explicit api_key/base_url are provided (e.g. from CLI args),
-        # construct directly.  Otherwise use the router for OpenRouter.
+
+        # 通过集中式 provider 路由器初始化 LLM 客户端。
+        # 如果提供了显式 api_key/base_url（例如来自 CLI 参数），
+        # 直接构造。否则使用 OpenRouter 的路由器。
         if api_key or base_url:
             from openai import OpenAI
             client_kwargs = {
@@ -203,61 +202,61 @@ class MiniSWERunner:
             from agent.auxiliary_client import resolve_provider_client
             self.client, _ = resolve_provider_client("openrouter", model=model)
             if self.client is None:
-                # Fallback: try auto-detection
+                # 回退：尝试自动检测
                 self.client, _ = resolve_provider_client("auto", model=model)
             if self.client is None:
                 from openai import OpenAI
                 self.client = OpenAI(
                     base_url="https://openrouter.ai/api/v1",
                     api_key=os.getenv("OPENROUTER_API_KEY", ""))
-        
-        # Environment will be created per-task
+
+        # 环境将在每个任务中创建
         self.env = None
-        
-        # Tool definition
+
+        # 工具定义
         self.tools = [TERMINAL_TOOL_DEFINITION]
-        
-        print("🤖 Mini-SWE Runner initialized")
+
+        print("🤖 Mini-SWE Runner 已初始化")
         print(f"   Model: {self.model}")
         print(f"   Environment: {self.env_type}")
         if self.env_type != "local":
             print(f"   Image: {self.image}")
         print(f"   Max iterations: {self.max_iterations}")
-    
+
     def _create_env(self):
-        """Create the execution environment."""
-        print(f"🔧 Creating {self.env_type} environment...")
+        """创建执行环境。"""
+        print(f"🔧 正在创建 {self.env_type} 环境...")
         self.env = create_environment(
             env_type=self.env_type,
             image=self.image,
             cwd=self.cwd,
             timeout=self.command_timeout
         )
-        print("✅ Environment ready")
-    
+        print("✅ 环境已就绪")
+
     def _cleanup_env(self):
-        """Cleanup the execution environment."""
+        """清理执行环境。"""
         if self.env is not None:
             if hasattr(self.env, 'cleanup'):
                 self.env.cleanup()
             elif hasattr(self.env, 'stop'):
                 self.env.stop()
             self.env = None
-    
+
     def _execute_command(self, command: str, timeout: int = None) -> Dict[str, Any]:
         """
-        Execute a command in the environment.
-        
-        Args:
-            command: Bash command to execute
-            timeout: Optional timeout override
-            
-        Returns:
-            Dict with 'output' and 'returncode'
+        在环境中执行命令。
+
+        参数：
+            command: 要执行的 bash 命令
+            timeout: 可选的超时覆盖
+
+        返回：
+            包含 'output' 和 'returncode' 的字典
         """
         if self.env is None:
             self._create_env()
-        
+
         try:
             result = self.env.execute(command, timeout=timeout or self.command_timeout)
             return {
@@ -271,9 +270,9 @@ class MiniSWERunner:
                 "exit_code": -1,
                 "error": str(e)
             }
-    
+
     def _format_tools_for_system_message(self) -> str:
-        """Format tool definitions for the system message."""
+        """格式化系统消息的工具定义。"""
         formatted_tools = []
         for tool in self.tools:
             func = tool["function"]
@@ -284,7 +283,7 @@ class MiniSWERunner:
                 "required": None
             })
         return json.dumps(formatted_tools, ensure_ascii=False)
-    
+
     def _convert_to_kclaw_format(
         self,
         messages: List[Dict[str, Any]],
@@ -292,13 +291,13 @@ class MiniSWERunner:
         completed: bool
     ) -> List[Dict[str, Any]]:
         """
-        Convert internal message format to KClaw trajectory format.
-        
-        This produces the exact format used by batch_runner.py.
+        将内部消息格式转换为 KClaw 轨迹格式。
+
+        这会产生与 batch_runner.py 完全相同的格式。
         """
         trajectory = []
-        
-        # System message with tool definitions
+
+        # 带工具定义的系统消息
         system_msg = (
             "You are a function calling AI model. You are provided with function signatures within <tools> </tools> XML tags. "
             "You may call one or more functions to assist with the user query. If available tools are not relevant in assisting "
@@ -312,28 +311,24 @@ class MiniSWERunner:
             "Each function call should be enclosed within <tool_call> </tool_call> XML tags.\n"
             "Example:\n<tool_call>\n{'name': <function-name>,'arguments': <args-dict>}\n</tool_call>"
         )
-        
+
         trajectory.append({"from": "system", "value": system_msg})
         trajectory.append({"from": "human", "value": user_query})
-        
-        # Process messages (skip first user message as we already added it)
+
+        # 处理消息（跳过第一条用户消息，因为已经添加）
         i = 1
         while i < len(messages):
             msg = messages[i]
-            
+
             if msg["role"] == "assistant":
-                if "tool_calls" in msg and msg["tool_calls"]:
-                    # Assistant message with tool calls
+                # 助手消息可能包含工具调用
+                if msg.get("tool_calls"):
                     content = ""
-                    
-                    # Add reasoning if present
-                    if msg.get("reasoning"):
-                        content = f"<think>{msg['reasoning']}</think>"
-                    
+
                     if msg.get("content"):
                         content += msg["content"] + "\n"
-                    
-                    # Add tool calls in XML format
+
+                    # 以 XML 格式添加工具调用
                     for tool_call in msg["tool_calls"]:
                         if not tool_call or not isinstance(tool_call, dict): continue
                         try:
@@ -342,29 +337,29 @@ class MiniSWERunner:
                                 else tool_call["function"]["arguments"]
                         except json.JSONDecodeError:
                             arguments = {}
-                        
+
                         tool_call_json = {
                             "name": tool_call["function"]["name"],
                             "arguments": arguments
                         }
                         content += f"<tool_call>\n{json.dumps(tool_call_json, ensure_ascii=False)}\n</tool_call>\n"
-                    
+
                     trajectory.append({"from": "gpt", "value": content.rstrip()})
-                    
-                    # Collect subsequent tool responses
+
+                    # 收集后续工具响应
                     tool_responses = []
                     j = i + 1
                     while j < len(messages) and messages[j]["role"] == "tool":
                         tool_msg = messages[j]
                         tool_content = tool_msg["content"]
-                        
-                        # Try to parse as JSON
+
+                        # 尝试解析为 JSON
                         try:
                             if tool_content.strip().startswith(("{", "[")):
                                 tool_content = json.loads(tool_content)
                         except (json.JSONDecodeError, AttributeError):
                             pass
-                        
+
                         tool_response = "<tool_response>\n"
                         tool_response += json.dumps({
                             "tool_call_id": tool_msg.get("tool_call_id", ""),
@@ -375,47 +370,47 @@ class MiniSWERunner:
                         tool_response += "\n</tool_response>"
                         tool_responses.append(tool_response)
                         j += 1
-                    
+
                     if tool_responses:
                         trajectory.append({"from": "tool", "value": "\n".join(tool_responses)})
                         i = j - 1
-                
+
                 else:
-                    # Regular assistant message (no tool calls)
+                    # 常规助手消息（无工具调用）
                     content = ""
                     if msg.get("reasoning"):
-                        content = f"<think>{msg['reasoning']}</think>"
+                        content = f"<think>{msg['reasoning']}\n</think>\n"
                     content += msg.get("content") or ""
                     trajectory.append({"from": "gpt", "value": content})
-            
+
             elif msg["role"] == "user":
                 trajectory.append({"from": "human", "value": msg["content"]})
-            
+
             i += 1
-        
+
         return trajectory
-    
+
     def run_task(self, task: str) -> Dict[str, Any]:
         """
-        Run a single task and return the result with trajectory.
-        
-        Args:
-            task: The task/prompt to execute
-            
-        Returns:
-            Dict with trajectory, completion status, and metadata
+        运行单个任务并返回带轨迹的结果。
+
+        参数：
+            task: 要执行的任务/提示
+
+        返回：
+            包含轨迹、完成状态和元数据的字典
         """
         print(f"\n{'='*60}")
         print(f"📝 Task: {task[:80]}{'...' if len(task) > 80 else ''}")
         print(f"{'='*60}")
-        
-        # Initialize environment
+
+        # 初始化环境
         self._create_env()
-        
-        # Message history
+
+        # 消息历史
         messages = [{"role": "user", "content": task}]
-        
-        # System prompt for the LLM (ephemeral - not saved to trajectory)
+
+        # LLM 的系统提示（临时的 — 不保存到轨迹）
         system_prompt = """You are an AI agent that can execute bash commands to complete tasks.
 
 When you need to run commands, use the 'terminal' tool with your bash command.
@@ -427,20 +422,20 @@ When you need to run commands, use the 'terminal' tool with your bash command.
 - Avoid interactive commands (no vim, nano, less, etc.)
 
 Complete the user's task step by step."""
-        
+
         api_call_count = 0
         completed = False
         final_response = None
-        
+
         try:
             while api_call_count < self.max_iterations:
                 api_call_count += 1
                 print(f"\n🔄 API call #{api_call_count}/{self.max_iterations}")
-                
-                # Prepare API messages
+
+                # 准备 API 消息
                 api_messages = [{"role": "system", "content": system_prompt}] + messages
-                
-                # Make API call
+
+                # 发起 API 调用
                 try:
                     response = self.client.chat.completions.create(
                         model=self.model,
@@ -449,20 +444,20 @@ Complete the user's task step by step."""
                         timeout=300.0
                     )
                 except Exception as e:
-                    self.logger.error(f"API call failed: {e}")
+                    self.logger.error(f"API 调用失败: {e}")
                     break
-                
+
                 assistant_message = response.choices[0].message
-                
-                # Log assistant response
+
+                # 记录助手响应
                 if assistant_message.content:
                     print(f"🤖 Assistant: {assistant_message.content[:100]}...")
-                
-                # Check for tool calls
+
+                # 检查工具调用
                 if assistant_message.tool_calls:
                     print(f"🔧 Tool calls: {len(assistant_message.tool_calls)}")
-                    
-                    # Add assistant message with tool calls
+
+                    # 添加带工具调用的助手消息
                     messages.append({
                         "role": "assistant",
                         "content": assistant_message.content,
@@ -478,23 +473,23 @@ Complete the user's task step by step."""
                             for tc in assistant_message.tool_calls
                         ]
                     })
-                    
-                    # Execute each tool call
+
+                    # 执行每个工具调用
                     for tc in assistant_message.tool_calls:
                         try:
                             args = json.loads(tc.function.arguments)
                         except json.JSONDecodeError:
                             args = {}
-                        
+
                         command = args.get("command", "echo 'No command provided'")
                         timeout = args.get("timeout", self.command_timeout)
-                        
+
                         print(f"   📞 terminal: {command[:60]}...")
-                        
-                        # Execute command
+
+                        # 执行命令
                         result = self._execute_command(command, timeout)
-                        
-                        # Format result
+
+                        # 格式化结果
                         result_json = json.dumps({
                             "content": {
                                 "output": result["output"],
@@ -502,47 +497,47 @@ Complete the user's task step by step."""
                                 "error": result["error"]
                             }
                         }, ensure_ascii=False)
-                        
-                        # Check for task completion signal
+
+                        # 检查任务完成信号
                         if "MINI_SWE_AGENT_FINAL_OUTPUT" in result["output"]:
-                            print("   ✅ Task completion signal detected!")
+                            print("   ✅ 任务完成信号已检测！")
                             completed = True
-                        
-                        # Add tool response
+
+                        #添加工具响应
                         messages.append({
                             "role": "tool",
                             "content": result_json,
                             "tool_call_id": tc.id
                         })
-                        
+
                         print(f"   ✅ exit_code={result['exit_code']}, output={len(result['output'])} chars")
-                    
-                    # If task completed, we can stop
+
+                    # 如果任务完成，我们可以停止
                     if completed:
                         final_response = assistant_message.content
                         break
-                
+
                 else:
-                    # No tool calls - final response
+                    # 无工具调用 — 最终响应
                     final_response = assistant_message.content or ""
                     messages.append({
                         "role": "assistant",
                         "content": final_response
                     })
                     completed = True
-                    print("🎉 Agent finished (no more tool calls)")
+                    print("🎉 Agent 完成（无更多工具调用）")
                     break
-            
+
             if api_call_count >= self.max_iterations:
-                print(f"⚠️  Reached max iterations ({self.max_iterations})")
-        
+                print(f"⚠️  达到最大迭代次数 ({self.max_iterations})")
+
         finally:
-            # Cleanup environment
+            # 清理环境
             self._cleanup_env()
-        
-        # Convert to KClaw trajectory format
+
+        # 转换为 KClaw 轨迹格式
         trajectory = self._convert_to_kclaw_format(messages, task, completed)
-        
+
         return {
             "conversations": trajectory,
             "completed": completed,
@@ -553,45 +548,45 @@ Complete the user's task step by step."""
                 "timestamp": datetime.now().isoformat()
             }
         }
-    
+
     def run_batch(
         self,
         prompts: List[str],
         output_file: str
     ) -> List[Dict[str, Any]]:
         """
-        Run multiple tasks and save trajectories to a JSONL file.
-        
-        Args:
-            prompts: List of task prompts
-            output_file: Output JSONL file path
-            
-        Returns:
-            List of results
+        运行多个任务并将轨迹保存到 JSONL 文件。
+
+        参数：
+            prompts: 任务提示列表
+            output_file: 输出 JSONL 文件路径
+
+        返回：
+            结果列表
         """
         results = []
-        
-        print(f"\n📦 Running batch of {len(prompts)} tasks")
+
+        print(f"\n📦 正在运行 {len(prompts)} 个任务的批次")
         print(f"📁 Output: {output_file}")
-        
+
         with open(output_file, 'w', encoding='utf-8') as f:
             for i, prompt in enumerate(prompts, 1):
                 print(f"\n{'='*60}")
                 print(f"📋 Task {i}/{len(prompts)}")
                 print(f"{'='*60}")
-                
+
                 try:
                     result = self.run_task(prompt)
                     results.append(result)
-                    
-                    # Write to file immediately
+
+                    # 立即写入文件
                     f.write(json.dumps(result, ensure_ascii=False) + "\n")
                     f.flush()
-                    
-                    print(f"✅ Task {i} completed (api_calls={result['api_calls']})")
-                    
+
+                    print(f"✅ Task {i} 完成 (api_calls={result['api_calls']})")
+
                 except Exception as e:
-                    self.logger.error(f"Error on task {i}: {e}")
+                    self.logger.error(f"Task {i} 出错: {e}")
                     error_result = {
                         "conversations": [],
                         "completed": False,
@@ -602,13 +597,13 @@ Complete the user's task step by step."""
                     results.append(error_result)
                     f.write(json.dumps(error_result, ensure_ascii=False) + "\n")
                     f.flush()
-        
-        print(f"\n✅ Batch complete! {len(results)} trajectories saved to {output_file}")
+
+        print(f"\n✅ 批次完成！{len(results)} 个轨迹已保存到 {output_file}")
         return results
 
 
 # ============================================================================
-# CLI Interface
+# CLI 接口
 # ============================================================================
 
 def main(
@@ -626,36 +621,36 @@ def main(
     verbose: bool = False,
 ):
     """
-    Run SWE tasks with KClaw trajectory format output.
-    
-    Args:
-        task: Single task to run (use this OR prompts_file)
-        prompts_file: JSONL file with prompts (each line: {"prompt": "..."})
-        output_file: Output JSONL file for trajectories
-        model: Model name (default: claude-sonnet-4-20250514)
-        base_url: API base URL (optional)
-        api_key: API key (optional, uses env vars)
-        env: Environment type - "local", "docker", or "modal"
-        image: Docker/Modal image (default: python:3.11-slim)
-        cwd: Working directory (default: /tmp)
-        max_iterations: Maximum tool-calling iterations (default: 15)
-        timeout: Command timeout in seconds (default: 60)
-        verbose: Enable verbose logging
-        
-    Examples:
-        # Single task with local environment
+    使用 KClaw 轨迹格式输出运行 SWE 任务。
+
+    参数：
+        task: 要运行的单个任务（使用此参数或 prompts_file）
+        prompts_file: 包含提示的 JSONL 文件（每行：{"prompt": "..."}）
+        output_file: 轨迹输出 JSONL 文件
+        model: 模型名称（默认：claude-sonnet-4-20250514）
+        base_url: API 基础 URL（可选）
+        api_key: API 密钥（可选，使用环境变量）
+        env: 环境类型 - "local"、"docker" 或 "modal"
+        image: Docker/Modal 镜像（默认：python:3.11-slim）
+        cwd: 工作目录（默认：/tmp）
+        max_iterations: 最大工具调用迭代次数（默认：15）
+        timeout: 命令超时秒数（默认：60）
+        verbose: 启用详细日志
+
+    示例：
+        # 使用本地环境的单个任务
         python mini_swe_runner.py --task "Create hello.py that prints Hello World"
-        
-        # Single task with Docker
+
+        # 使用 Docker 的单个任务
         python mini_swe_runner.py --task "List files" --env docker
-        
-        # Batch from file
+
+        # 从文件批量运行
         python mini_swe_runner.py --prompts_file tasks.jsonl --output_file results.jsonl
     """
     print("🚀 Mini-SWE Runner with KClaw Trajectory Format")
     print("=" * 60)
-    
-    # Initialize runner
+
+    # 初始化 runner
     runner = MiniSWERunner(
         model=model,
         base_url=base_url,
@@ -667,22 +662,22 @@ def main(
         command_timeout=timeout,
         verbose=verbose,
     )
-    
+
     if task:
-        # Single task mode
+        # 单任务模式
         result = runner.run_task(task)
-        
-        # Save to file
+
+        # 保存到文件
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(json.dumps(result, ensure_ascii=False) + "\n")
-        
-        print(f"\n📁 Trajectory saved to: {output_file}")
-        print(f"✅ Completed: {result['completed']}")
-        print(f"📞 API calls: {result['api_calls']}")
-        print(f"💬 Turns: {len(result['conversations'])}")
-        
+
+        print(f"\n📁 轨迹已保存到: {output_file}")
+        print(f"✅ 已完成: {result['completed']}")
+        print(f"📞 API 调用: {result['api_calls']}")
+        print(f"💬 对话轮次: {len(result['conversations'])}")
+
     elif prompts_file:
-        # Batch mode
+        # 批量模式
         prompts = []
         with open(prompts_file, 'r', encoding='utf-8') as f:
             for line in f:
@@ -693,16 +688,16 @@ def main(
                         prompts.append(entry.get("prompt", entry.get("task", "")))
                     except json.JSONDecodeError:
                         prompts.append(line)
-        
+
         if not prompts:
-            print(f"❌ No prompts found in {prompts_file}")
+            print(f"❌ 在 {prompts_file} 中未找到提示")
             return
-        
+
         runner.run_batch(prompts, output_file)
-    
+
     else:
-        print("❌ Please provide either --task or --prompts_file")
-        print("   Example: python mini_swe_runner.py --task 'Create a hello world script'")
+        print("❌ 请提供 --task 或 --prompts_file")
+        print("   示例：python mini_swe_runner.py --task 'Create a hello world script'")
 
 
 if __name__ == "__main__":

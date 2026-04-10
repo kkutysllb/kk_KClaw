@@ -10,7 +10,7 @@ const config: Config = {
   url: 'https://kclaw.nousresearch.com',
   baseUrl: '/docs/',
 
-  organizationName: 'NousResearch',
+  organizationName: 'kkutysllb',
   projectName: 'kclaw',
 
   onBrokenLinks: 'warn',
@@ -49,7 +49,7 @@ const config: Config = {
         docs: {
           routeBasePath: '/',  // Docs at the root of /docs/
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/NousResearch/kclaw/edit/main/website/',
+          editUrl: 'https://github.com/kkutysllb/kk_KClaw/edit/main/website/',
         },
         blog: false,
         theme: {
@@ -95,7 +95,7 @@ const config: Config = {
           position: 'right',
         },
         {
-          href: 'https://github.com/NousResearch/kclaw',
+          href: 'https://github.com/kkutysllb/kk_KClaw',
           label: 'GitHub',
           position: 'right',
         },
@@ -122,14 +122,14 @@ const config: Config = {
           title: 'Community',
           items: [
             { label: 'Discord', href: 'https://discord.gg/NousResearch' },
-            { label: 'GitHub Discussions', href: 'https://github.com/NousResearch/kclaw/discussions' },
+            { label: 'GitHub Discussions', href: 'https://github.com/kkutysllb/kk_KClaw/discussions' },
             { label: 'Skills Hub', href: 'https://agentskills.io' },
           ],
         },
         {
           title: 'More',
           items: [
-            { label: 'GitHub', href: 'https://github.com/NousResearch/kclaw' },
+            { label: 'GitHub', href: 'https://github.com/kkutysllb/kk_KClaw' },
             { label: 'kkutysllb', href: 'https://nousresearch.com' },
           ],
         },

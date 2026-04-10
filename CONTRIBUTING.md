@@ -63,7 +63,7 @@
 ### 克隆和安装
 
 ```bash
-git clone --recurse-submodules https://github.com/NousResearch/kclaw.git
+git clone --recurse-submodules https://github.com/kkutysllb/kk_KClaw.git
 cd kclaw
 
 # 使用 Python 3.11 创建 venv
@@ -639,7 +639,7 @@ test(tools): 为 file_operations 添加单元测试
 
 ## 报告问题
 
-- 使用 [GitHub Issues](https://github.com/NousResearch/kclaw/issues)
+- 使用 [GitHub Issues](https://github.com/kkutysllb/kk_KClaw/issues)
 - 包括：操作系统、Python 版本、KClaw 版本（`kclaw version`）、完整错误跟踪
 - 包括复现步骤
 - 在创建重复项之前检查现有问题

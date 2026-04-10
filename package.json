@@ -8,13 +8,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NousResearch/KClaw-Agent.git"
+    "url": "git+https://github.com/kkutysllb/kk_KClaw.git"
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/NousResearch/KClaw-Agent/issues"
+    "url": "https://github.com/kkutysllb/kk_KClaw/issues"
   },
-  "homepage": "https://github.com/NousResearch/KClaw-Agent#readme",
+  "homepage": "https://github.com/kkutysllb/kk_KClaw#readme",
   "dependencies": {
     "agent-browser": "^0.13.0",
     "@askjo/camoufox-browser": "^1.0.0"

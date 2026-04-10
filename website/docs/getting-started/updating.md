@@ -65,7 +65,7 @@ Already up to date.（或：Updating abc1234..def5678）
 kclaw version
 ```
 
-与 [GitHub releases 页面](https://github.com/NousResearch/kclaw/releases) 上的最新版本进行比较，或检查可用更新：
+与 [GitHub releases 页面](https://github.com/kkutysllb/kk_KClaw/releases) 上的最新版本进行比较，或检查可用更新：
 
 ```bash
 kclaw update --check

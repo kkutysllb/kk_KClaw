@@ -34,7 +34,7 @@ People use KClaw for software development, research, system administration, data
 
 ```bash
 # Install
-curl -fsSL https://raw.githubusercontent.com/NousResearch/kclaw/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kkutysllb/kk_KClaw/main/scripts/install.sh | bash
 
 # Interactive chat (default)
 kclaw

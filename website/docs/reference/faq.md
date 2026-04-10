@@ -33,7 +33,7 @@ Set your provider with `kclaw model` or by editing `~/.kclaw/.env`. See the [Env
 **Not natively.** KClaw Agent requires a Unix-like environment. On Windows, install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) and run KClaw from inside it. The standard install command works perfectly in WSL2:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NousResearch/kclaw/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kkutysllb/kk_KClaw/main/scripts/install.sh | bash
 ```
 
 ### Is my data sent anywhere?
@@ -162,7 +162,7 @@ source ~/.bashrc
 # If you previously installed with sudo, clean up:
 sudo rm /usr/local/bin/kclaw
 # Then re-run the standard installer
-curl -fsSL https://raw.githubusercontent.com/NousResearch/kclaw/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kkutysllb/kk_KClaw/main/scripts/install.sh | bash
 ```
 
 ---
@@ -639,7 +639,7 @@ Skills with very long descriptions are truncated to 40 characters in the Telegra
 
 1. Install KClaw Agent on the new machine:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/NousResearch/kclaw/main/scripts/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/kkutysllb/kk_KClaw/main/scripts/install.sh | bash
    ```
 
 2. Copy your entire `~/.kclaw/` directory **except** the `kclaw` subdirectory (that's the code repo — the new install has its own):
@@ -712,6 +712,6 @@ If using OpenRouter, make sure your API key has credits. A 400 from OpenRouter o
 
 If your issue isn't covered here:
 
-1. **Search existing issues:** [GitHub Issues](https://github.com/NousResearch/kclaw/issues)
+1. **Search existing issues:** [GitHub Issues](https://github.com/kkutysllb/kk_KClaw/issues)
 2. **Ask the community:** [kkutysllb Discord](https://discord.gg/nousresearch)
 3. **File a bug report:** Include your OS, Python version (`python3 --version`), KClaw version (`kclaw --version`), and the full error message

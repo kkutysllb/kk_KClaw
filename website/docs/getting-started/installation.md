@@ -13,7 +13,7 @@ description: "在 Linux、macOS 或 WSL2 上安装 KClaw Agent"
 ### Linux / macOS / WSL2
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NousResearch/kclaw/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kkutysllb/kk_KClaw/main/scripts/install.sh | bash
 ```
 
 :::warning Windows
@@ -74,7 +74,7 @@ kclaw setup          # 或运行完整设置向导一次配置所有内容
 使用 `--recurse-submodules` 克隆以拉取所需的子模块：
 
 ```bash
-git clone --recurse-submodules https://github.com/NousResearch/kclaw.git
+git clone --recurse-submodules https://github.com/kkutysllb/kk_KClaw.git
 cd kclaw
 ```
 
@@ -230,7 +230,7 @@ kclaw chat -q "你好！您有哪些可用工具？"
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # 克隆并进入
-git clone --recurse-submodules https://github.com/NousResearch/kclaw.git
+git clone --recurse-submodules https://github.com/kkutysllb/kk_KClaw.git
 cd kclaw
 
 # 使用 Python 3.11 创建 venv

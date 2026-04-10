@@ -14,7 +14,7 @@ description: "KClaw Agent 的首次对话——从安装到 2 分钟内聊天"
 
 ```bash
 # Linux / macOS / WSL2
-curl -fsSL https://raw.githubusercontent.com/NousResearch/kclaw/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kkutysllb/kk_KClaw/main/scripts/install.sh | bash
 ```
 
 :::tip Windows 用户

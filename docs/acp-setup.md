@@ -209,5 +209,5 @@ KCLAW_LOG_LEVEL=DEBUG kclaw acp
 ## 进一步阅读
 
 - [ACP 规范](https://github.com/anysphere/acp)
-- [KClaw Agent 文档](https://github.com/NousResearch/kclaw)
+- [KClaw Agent 文档](https://github.com/kkutysllb/kk_KClaw)
 - 运行 `kclaw --help` 获取所有 CLI 选项

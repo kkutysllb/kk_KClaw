@@ -6,7 +6,7 @@
 # Uses uv for fast Python provisioning and package management.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/NousResearch/kclaw/main/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/kkutysllb/kk_KClaw/main/scripts/install.sh | bash
 #
 # Or with options:
 #   curl -fsSL ... | bash -s -- --no-venv --skip-setup
@@ -26,8 +26,8 @@ NC='\033[0m' # No Color
 BOLD='\033[1m'
 
 # Configuration
-REPO_URL_SSH="git@github.com:NousResearch/kclaw.git"
-REPO_URL_HTTPS="https://github.com/NousResearch/kclaw.git"
+REPO_URL_SSH="git@github.com:kkutysllb/kk_KClaw.git"
+REPO_URL_HTTPS="https://github.com/kkutysllb/kk_KClaw.git"
 KCLAW_HOME="$HOME/.kclaw"
 INSTALL_DIR="${KCLAW_INSTALL_DIR:-$KCLAW_HOME/kclaw}"
 PYTHON_VERSION="3.11"
@@ -140,7 +140,7 @@ detect_os() {
             OS="windows"
             DISTRO="windows"
             log_error "Windows detected. Please use the PowerShell installer:"
-            log_info "  irm https://raw.githubusercontent.com/NousResearch/kclaw/main/scripts/install.ps1 | iex"
+            log_info "  irm https://raw.githubusercontent.com/kkutysllb/kk_KClaw/main/scripts/install.ps1 | iex"
             exit 1
             ;;
         *)

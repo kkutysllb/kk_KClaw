@@ -40,7 +40,7 @@ We value contributions in this order:
 ### Clone and Install
 
 ```bash
-git clone --recurse-submodules https://github.com/NousResearch/kclaw.git
+git clone --recurse-submodules https://github.com/kkutysllb/kk_KClaw.git
 cd kclaw
 
 # Create venv with Python 3.11
@@ -90,7 +90,7 @@ pytest tests/ -v
 - **Comments**: Only when explaining non-obvious intent, trade-offs, or API quirks
 - **Error handling**: Catch specific exceptions. Use `logger.warning()`/`logger.error()` with `exc_info=True` for unexpected errors
 - **Cross-platform**: Never assume Unix (see below)
-- **Profile-safe paths**: Never hardcode `~/.kclaw` — use `get_kclaw_home()` from `kclaw_constants` for code paths and `display_kclaw_home()` for user-facing messages. See [AGENTS.md](https://github.com/NousResearch/kclaw/blob/main/AGENTS.md#profiles-multi-instance-support) for full rules.
+- **Profile-safe paths**: Never hardcode `~/.kclaw` — use `get_kclaw_home()` from `kclaw_constants` for code paths and `display_kclaw_home()` for user-facing messages. See [AGENTS.md](https://github.com/kkutysllb/kk_KClaw/blob/main/AGENTS.md#profiles-multi-instance-support) for full rules.
 
 ## Cross-Platform Compatibility
 
@@ -216,7 +216,7 @@ fix(security): prevent shell injection in sudo password piping
 
 ## Reporting Issues
 
-- Use [GitHub Issues](https://github.com/NousResearch/kclaw/issues)
+- Use [GitHub Issues](https://github.com/kkutysllb/kk_KClaw/issues)
 - Include: OS, Python version, KClaw version (`kclaw version`), full error traceback
 - Include steps to reproduce
 - Check existing issues before creating duplicates
@@ -230,4 +230,4 @@ fix(security): prevent shell injection in sudo password piping
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [MIT License](https://github.com/NousResearch/kclaw/blob/main/LICENSE).
+By contributing, you agree that your contributions will be licensed under the [MIT License](https://github.com/kkutysllb/kk_KClaw/blob/main/LICENSE).

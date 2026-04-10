@@ -5,7 +5,7 @@
 # Uses uv for fast Python provisioning and package management.
 #
 # Usage:
-#   irm https://raw.githubusercontent.com/NousResearch/kclaw/main/scripts/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/kkutysllb/kk_KClaw/main/scripts/install.ps1 | iex
 #
 # Or download and run with options:
 #   .\install.ps1 -NoVenv -SkipSetup
@@ -26,8 +26,8 @@ $ErrorActionPreference = "Stop"
 # Configuration
 # ============================================================================
 
-$RepoUrlSsh = "git@github.com:NousResearch/kclaw.git"
-$RepoUrlHttps = "https://github.com/NousResearch/kclaw.git"
+$RepoUrlSsh = "git@github.com:kkutysllb/kk_KClaw.git"
+$RepoUrlHttps = "https://github.com/kkutysllb/kk_KClaw.git"
 $PythonVersion = "3.11"
 $NodeVersion = "22"
 
@@ -461,7 +461,7 @@ function Install-Repository {
             if (Test-Path $InstallDir) { Remove-Item -Recurse -Force $InstallDir -ErrorAction SilentlyContinue }
             Write-Warn "Git clone failed — downloading ZIP archive instead..."
             try {
-                $zipUrl = "https://github.com/NousResearch/kclaw/archive/refs/heads/$Branch.zip"
+                $zipUrl = "https://github.com/kkutysllb/kk_KClaw/archive/refs/heads/$Branch.zip"
                 $zipPath = "$env:TEMP\kclaw-$Branch.zip"
                 $extractPath = "$env:TEMP\kclaw-extract"
                 
@@ -913,7 +913,7 @@ try {
     Write-Err "Installation failed: $_"
     Write-Host ""
     Write-Info "If the error is unclear, try downloading and running the script directly:"
-    Write-Host "  Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/NousResearch/kclaw/main/scripts/install.ps1' -OutFile install.ps1" -ForegroundColor Yellow
+    Write-Host "  Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/kkutysllb/kk_KClaw/main/scripts/install.ps1' -OutFile install.ps1" -ForegroundColor Yellow
     Write-Host "  .\install.ps1" -ForegroundColor Yellow
     Write-Host ""
 }

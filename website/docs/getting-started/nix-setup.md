@@ -50,7 +50,7 @@ kclaw chat
 <summary><strong>从本地克隆构建</strong></summary>
 
 ```bash
-git clone https://github.com/NousResearch/kclaw.git
+git clone https://github.com/kkutysllb/kk_KClaw.git
 cd kclaw
 nix build
 ./result/bin/kclaw setup

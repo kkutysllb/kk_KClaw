@@ -4,12 +4,6 @@
 
 # KClaw Agent ☤
 
-<p align="center">
-  <a href="https://hermes-agent.nousresearch.com/docs/"><img src="https://img.shields.io/badge/文档-hermes--agent.nousresearch.com-FFD700?style=for-the-badge" alt="文档"></a>
-  <a href="https://discord.gg/NousResearch"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://github.com/NousResearch/hermes-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/许可证-MIT-green?style=for-the-badge" alt="许可证: MIT"></a>
-  <a href="https://nousresearch.com"><img src="https://img.shields.io/badge/由-kkutysllb-构建-blueviolet?style=for-the-badge" alt="由 kkutysllb 构建"></a>
-</p>
 
 **由 [kktysllb](https://nousresearch.com) 构建的自改进型 AI 智能体。** 它是唯一内置学习闭环的智能体——从经验中创建技能，使用中自我改进，主动持久化知识，搜索自己的历史对话，并在跨会话中不断深化对你的理解。可以在 VPS 上运行，也可以在 GPU 集群或空闲时几乎零成本的无服务器基础设施上运行。它不局限于你的笔记本——你可以在 Telegram 上与它对话，而它在云虚拟机上工作。
 
@@ -30,7 +24,7 @@
 ## 快速安装
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NousResearch/kclaw/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kkutysllb/kk_KClaw/main/scripts/install.sh | bash
 ```
 
 支持 Linux、macOS 和 WSL2。安装器处理一切——Python、Node.js、依赖和 `kclaw` 命令。唯一前提是 git。
@@ -142,7 +136,7 @@ kclaw claw migrate --overwrite  # 覆盖已有冲突
 贡献者快速开始：
 
 ```bash
-git clone https://github.com/NousResearch/kclaw.git
+git clone https://github.com/kkutysllb/kk_KClaw.git
 cd kclaw
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv venv venv --python 3.11
@@ -163,8 +157,8 @@ python -m pytest tests/ -q
 
 - 💬 [Discord](https://discord.gg/NousResearch)
 - 📚 [技能中心](https://agentskills.io)
-- 🐛 [问题追踪](https://github.com/NousResearch/kclaw/issues)
-- 💡 [讨论区](https://github.com/NousResearch/kclaw/discussions)
+- 🐛 [问题追踪](https://github.com/kkutysllb/kk_KClaw/issues)
+- 💡 [讨论区](https://github.com/kkutysllb/kk_KClaw/discussions)
 
 ---
 

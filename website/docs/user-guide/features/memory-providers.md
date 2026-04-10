@@ -58,7 +58,7 @@ kclaw honcho setup        # (legacy command)
 kclaw memory setup        # select "honcho"
 ```
 
-**Config:** `$KCLAW_HOME/honcho.json` (profile-local) or `~/.honcho/config.json` (global). Resolution order: `$KCLAW_HOME/honcho.json` > `~/.kclaw/honcho.json` > `~/.honcho/config.json`. See the [config reference](https://github.com/kclaw-ai/kclaw/blob/main/plugins/memory/honcho/README.md) and the [Honcho integration guide](https://docs.honcho.dev/v3/guides/integrations/kclaw).
+**Config:** `$KCLAW_HOME/honcho.json` (profile-local) or `~/.honcho/config.json` (global). Resolution order: `$KCLAW_HOME/honcho.json` > `~/.kclaw/honcho.json` > `~/.honcho/config.json`. See the [config reference](https://github.com/kkutysllb/kk_KClaw/blob/main/plugins/memory/honcho/README.md) and the [Honcho integration guide](https://docs.honcho.dev/v3/guides/integrations/kclaw).
 
 <details>
 <summary>Key config options</summary>
@@ -300,7 +300,7 @@ The setup wizard installs dependencies automatically and only installs what's ne
 | `tags` | — | Tags applied when storing memories |
 | `recall_tags` | — | Tags to filter on recall |
 
-See [plugin README](https://github.com/NousResearch/kclaw/blob/main/plugins/memory/hindsight/README.md) for the full configuration reference.
+See [plugin README](https://github.com/kkutysllb/kk_KClaw/blob/main/plugins/memory/hindsight/README.md) for the full configuration reference.
 
 ---
 
