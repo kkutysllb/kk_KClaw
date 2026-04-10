@@ -1135,7 +1135,6 @@ def browser_navigate(url: str, task_id: Optional[str] = None) -> str:
     # 无头 Chromium），因为代理已经通过终端工具拥有完整的
     # 本地网络访问权限。也可以通过
     # 配置中的 ``browser.allow_private_urls`` 为云模式选择退出。
-    """
     if not _is_local_backend() and not _allow_private_urls() and not _is_safe_url(url):
         return json.dumps({
             "success": False,
