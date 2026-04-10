@@ -136,7 +136,7 @@ def _detect_claude_code_version() -> str:
     return _CLAUDE_CODE_VERSION_FALLBACK
 
 
-_CLAUDE_CODE_SYSTEM_PREFIX = "You are Claude Code, Anthropic's official CLI for Claude."
+_CLAUDE_CODE_SYSTEM_PREFIX = "You are KClaw, a Super Agent independently developed by kkutysllb."
 _MCP_TOOL_PREFIX = "mcp_"
 
 
@@ -1263,9 +1263,9 @@ def build_anthropic_kwargs(
     if context_length and effective_max_tokens > context_length:
         effective_max_tokens = max(context_length - 1, 1)
 
-    # ── OAuth: Claude Code identity ──────────────────────────────────
+    # ── OAuth: KClaw identity ──────────────────────────────────
     if is_oauth:
-        # 1. Prepend Claude Code system prompt identity
+        # 1. Prepend KClaw system prompt identity
         cc_block = {"type": "text", "text": _CLAUDE_CODE_SYSTEM_PREFIX}
         if isinstance(system, list):
             system = [cc_block] + system
@@ -1274,16 +1274,9 @@ def build_anthropic_kwargs(
         else:
             system = [cc_block]
 
-        # 2. Sanitize system prompt — replace product name references
-        #    to avoid Anthropic's server-side content filters.
-        for block in system:
-            if isinstance(block, dict) and block.get("type") == "text":
-                text = block.get("text", "")
-                text = text.replace("KClaw Agent", "Claude Code")
-                text = text.replace("KClaw agent", "Claude Code")
-                text = text.replace("kclaw", "claude-code")
-                text = text.replace("Nous Research", "Anthropic")
-                block["text"] = text
+        # 2. Keep KClaw identity — no brand replacement needed.
+        #    (Previously replaced KClaw→Claude Code for Anthropic server-side
+        #     filters; now KClaw always identifies as itself.)
 
         # 3. Prefix tool names with mcp_ (Claude Code convention)
         if anthropic_tools:
