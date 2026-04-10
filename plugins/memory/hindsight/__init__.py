@@ -1,12 +1,11 @@
-"""Hindsight memory plugin — MemoryProvider interface.
+"""Hindsight 记忆插件 — MemoryProvider 接口。
 
-Long-term memory with knowledge graph, entity resolution, and multi-strategy
-retrieval. Supports cloud (API key) and local modes.
+长期记忆系统，支持知识图谱、实体解析和多策略检索。支持云端（API key）和本地模式。
 
 Original PR #1811 by benfrank241, adapted to MemoryProvider ABC.
 
 Config via environment variables:
-  HINDSIGHT_API_KEY   — API key for Hindsight Cloud
+  HINDSIGHT_API_KEY   — Hindsight Cloud API key
   HINDSIGHT_BANK_ID   — memory bank identifier (default: kclaw)
   HINDSIGHT_BUDGET    — recall budget: low/mid/high (default: mid)
   HINDSIGHT_API_URL   — API endpoint
@@ -51,8 +50,8 @@ _PROVIDER_DEFAULT_MODELS = {
 
 
 # ---------------------------------------------------------------------------
-# Dedicated event loop for Hindsight async calls (one per process, reused).
-# Avoids creating ephemeral loops that leak aiohttp sessions.
+# 专用事件循环，用于 Hindsight 异步调用（每个进程一个，复用）。
+# 避免创建临时的循环导致 aiohttp session 泄漏。
 # ---------------------------------------------------------------------------
 
 _loop: asyncio.AbstractEventLoop | None = None
@@ -61,7 +60,7 @@ _loop_lock = threading.Lock()
 
 
 def _get_loop() -> asyncio.AbstractEventLoop:
-    """Return a long-lived event loop running on a background thread."""
+    """返回在后台线程上运行的长生命周期事件循环。"""
     global _loop, _loop_thread
     with _loop_lock:
         if _loop is not None and _loop.is_running():
@@ -78,14 +77,14 @@ def _get_loop() -> asyncio.AbstractEventLoop:
 
 
 def _run_sync(coro, timeout: float = 120.0):
-    """Schedule *coro* on the shared loop and block until done."""
+    """在共享循环上调度 *coro* 并阻塞直到完成。"""
     loop = _get_loop()
     future = asyncio.run_coroutine_threadsafe(coro, loop)
     return future.result(timeout=timeout)
 
 
 # ---------------------------------------------------------------------------
-# Tool schemas
+# 工具 schema 定义
 # ---------------------------------------------------------------------------
 
 RETAIN_SCHEMA = {
@@ -140,9 +139,9 @@ REFLECT_SCHEMA = {
 # ---------------------------------------------------------------------------
 
 def _load_config() -> dict:
-    """Load config from profile-scoped path, legacy path, or env vars.
+    """从 profile-scoped 路径、遗留路径或环境变量加载配置。
 
-    Resolution order:
+    解析顺序:
       1. $KCLAW_HOME/hindsight/config.json  (profile-scoped)
       2. ~/.hindsight/config.json             (legacy, shared)
       3. Environment variables
@@ -179,11 +178,11 @@ def _load_config() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# MemoryProvider implementation
+# MemoryProvider 实现
 # ---------------------------------------------------------------------------
 
 class HindsightMemoryProvider(MemoryProvider):
-    """Hindsight long-term memory with knowledge graph and multi-strategy retrieval."""
+    """Hindsight 长期记忆系统，支持知识图谱和多策略检索。"""
 
     def __init__(self):
         self._config = None
@@ -243,7 +242,7 @@ class HindsightMemoryProvider(MemoryProvider):
             return False
 
     def save_config(self, values, kclaw_home):
-        """Write config to $KCLAW_HOME/hindsight/config.json."""
+        """将配置写入 $KCLAW_HOME/hindsight/config.json。"""
         import json
         from pathlib import Path
         config_dir = Path(kclaw_home) / "hindsight"
@@ -259,7 +258,7 @@ class HindsightMemoryProvider(MemoryProvider):
         config_path.write_text(json.dumps(existing, indent=2))
 
     def post_setup(self, kclaw_home: str, config: dict) -> None:
-        """Custom setup wizard — installs only the deps needed for the selected mode."""
+        """自定义设置向导 — 仅安装所选模式需要的依赖。"""
         import getpass
         import subprocess
         import shutil
@@ -437,7 +436,7 @@ class HindsightMemoryProvider(MemoryProvider):
         ]
 
     def _get_client(self):
-        """Return the cached Hindsight client (created once, reused)."""
+        """返回缓存的 Hindsight 客户端（创建一次，复用）。"""
         if self._client is None:
             if self._mode == "local_embedded":
                 from hindsight import HindsightEmbedded
@@ -879,5 +878,5 @@ class HindsightMemoryProvider(MemoryProvider):
 
 
 def register(ctx) -> None:
-    """Register Hindsight as a memory provider plugin."""
+    """将 Hindsight 注册为记忆提供程序插件。"""
     ctx.register_memory_provider(HindsightMemoryProvider())

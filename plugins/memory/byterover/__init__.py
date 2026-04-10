@@ -1,18 +1,18 @@
-"""ByteRover memory plugin — MemoryProvider interface.
+"""ByteRover 记忆插件 — MemoryProvider 接口。
 
-Persistent memory via the ByteRover CLI (``brv``). Organizes knowledge into
-a hierarchical context tree with tiered retrieval (fuzzy text → LLM-driven
-search). Local-first with optional cloud sync.
+通过 ByteRover CLI (``brv``) 实现持久化记忆。将知识组织成
+层级上下文树，支持分级检索（模糊文本 → LLM 驱动的
+搜索）。本地优先，可选云同步。
 
-Original PR #3499 by hieuntg81, adapted to MemoryProvider ABC.
+原始 PR #3499 由 hieuntg81 提交，已适配 MemoryProvider ABC。
 
-Requires: ``brv`` CLI installed (npm install -g byterover-cli or
-curl -fsSL https://byterover.dev/install.sh | sh).
+依赖：``brv`` CLI 已安装（npm install -g byterover-cli 或
+curl -fsSL https://byterover.dev/install.sh | sh）。
 
-Config via environment variables (profile-scoped via each profile's .env):
-  BRV_API_KEY   — ByteRover API key (for cloud features, optional for local)
+通过环境变量配置（通过各 profile 的 .env 进行 profile 级作用域）：
+  BRV_API_KEY   — ByteRover API 密钥（云功能需要，本地可选）
 
-Working directory: $KCLAW_HOME/byterover/ (profile-scoped context tree)
+工作目录：$KCLAW_HOME/byterover/（profile 级上下文树）
 """
 
 from __future__ import annotations
@@ -31,17 +31,17 @@ from tools.registry import tool_error
 
 logger = logging.getLogger(__name__)
 
-# Timeouts
-_QUERY_TIMEOUT = 10   # brv query — should be fast
-_CURATE_TIMEOUT = 120  # brv curate — may involve LLM processing
+# 超时设置
+_QUERY_TIMEOUT = 10   # brv query — 应该很快
+_CURATE_TIMEOUT = 120  # brv curate — 可能涉及 LLM 处理
 
-# Minimum lengths to filter noise
+# 最小长度以过滤噪音
 _MIN_QUERY_LEN = 10
 _MIN_OUTPUT_LEN = 20
 
 
 # ---------------------------------------------------------------------------
-# brv binary resolution (cached, thread-safe)
+# brv 二进制文件路径解析（缓存，线程安全）
 # ---------------------------------------------------------------------------
 
 _brv_path_lock = threading.Lock()
@@ -49,7 +49,7 @@ _cached_brv_path: Optional[str] = None
 
 
 def _resolve_brv_path() -> Optional[str]:
-    """Find the brv binary on PATH or well-known install locations."""
+    """在 PATH 或常见安装位置查找 brv 二进制文件。"""
     global _cached_brv_path
     with _brv_path_lock:
         if _cached_brv_path is not None:
@@ -77,7 +77,7 @@ def _resolve_brv_path() -> Optional[str]:
 
 def _run_brv(args: List[str], timeout: int = _QUERY_TIMEOUT,
              cwd: str = None) -> dict:
-    """Run a brv CLI command. Returns {success, output, error}."""
+    """运行 brv CLI 命令。返回 {success, output, error}。"""
     brv_path = _resolve_brv_path()
     if not brv_path:
         return {"success": False, "error": "brv CLI not found. Install: npm install -g byterover-cli"}
@@ -114,13 +114,13 @@ def _run_brv(args: List[str], timeout: int = _QUERY_TIMEOUT,
 
 
 def _get_brv_cwd() -> Path:
-    """Profile-scoped working directory for the brv context tree."""
+    """brv 上下文树的 profile 级工作目录。"""
     from kclaw_constants import get_kclaw_home
     return get_kclaw_home() / "byterover"
 
 
 # ---------------------------------------------------------------------------
-# Tool schemas
+# 工具模式
 # ---------------------------------------------------------------------------
 
 QUERY_SCHEMA = {
@@ -165,11 +165,11 @@ STATUS_SCHEMA = {
 
 
 # ---------------------------------------------------------------------------
-# MemoryProvider implementation
+# MemoryProvider 实现
 # ---------------------------------------------------------------------------
 
 class ByteRoverMemoryProvider(MemoryProvider):
-    """ByteRover persistent memory via the brv CLI."""
+    """通过 brv CLI 实现 ByteRover 持久化记忆。"""
 
     def __init__(self):
         self._cwd = ""
@@ -182,7 +182,7 @@ class ByteRoverMemoryProvider(MemoryProvider):
         return "byterover"
 
     def is_available(self) -> bool:
-        """Check if brv CLI is installed. No network calls."""
+        """检查 brv CLI 是否已安装。不进行网络调用。"""
         return _resolve_brv_path() is not None
 
     def get_config_schema(self):
@@ -213,10 +213,10 @@ class ByteRoverMemoryProvider(MemoryProvider):
         )
 
     def prefetch(self, query: str, *, session_id: str = "") -> str:
-        """Run brv query synchronously before the agent's first LLM call.
+        """在代理首次 LLM 调用之前同步运行 brv 查询。
 
-        Blocks until the query completes (up to _QUERY_TIMEOUT seconds), ensuring
-        the result is available as context before the model is called.
+        阻塞直到查询完成（最多 _QUERY_TIMEOUT 秒），确保
+        结果在模型调用之前可以作为上下文使用。
         """
         if not query or len(query.strip()) < _MIN_QUERY_LEN:
             return ""
@@ -231,14 +231,14 @@ class ByteRoverMemoryProvider(MemoryProvider):
         return ""
 
     def queue_prefetch(self, query: str, *, session_id: str = "") -> None:
-        """No-op: prefetch() now runs synchronously at turn start."""
+        """无操作：prefetch() 现在在轮次开始时同步运行。"""
         pass
 
     def sync_turn(self, user_content: str, assistant_content: str, *, session_id: str = "") -> None:
-        """Curate the conversation turn in background (non-blocking)."""
+        """在后台整理对话轮次（非阻塞）。"""
         self._turn_count += 1
 
-        # Only curate substantive turns
+        # 只整理实质性的轮次
         if len(user_content.strip()) < _MIN_QUERY_LEN:
             return
 
@@ -252,7 +252,7 @@ class ByteRoverMemoryProvider(MemoryProvider):
             except Exception as e:
                 logger.debug("ByteRover sync failed: %s", e)
 
-        # Wait for previous sync
+        # 等待之前的同步完成
         if self._sync_thread and self._sync_thread.is_alive():
             self._sync_thread.join(timeout=5.0)
 
@@ -262,7 +262,7 @@ class ByteRoverMemoryProvider(MemoryProvider):
         self._sync_thread.start()
 
     def on_memory_write(self, action: str, target: str, content: str) -> None:
-        """Mirror built-in memory writes to ByteRover."""
+        """将内置记忆写入同步到 ByteRover。"""
         if action not in ("add", "replace") or not content:
             return
 
@@ -280,11 +280,11 @@ class ByteRoverMemoryProvider(MemoryProvider):
         t.start()
 
     def on_pre_compress(self, messages: List[Dict[str, Any]]) -> str:
-        """Extract insights before context compression discards turns."""
+        """在上下文压缩丢弃轮次之前提取洞察。"""
         if not messages:
             return ""
 
-        # Build a summary of messages about to be compressed
+        # 构建即将被压缩的消息摘要
         parts = []
         for msg in messages[-10:]:  # last 10 messages
             role = msg.get("role", "")
@@ -346,7 +346,7 @@ class ByteRoverMemoryProvider(MemoryProvider):
         if not output or len(output) < _MIN_OUTPUT_LEN:
             return json.dumps({"result": "No relevant memories found."})
 
-        # Truncate very long results
+        # 截断非常长的结果
         if len(output) > 8000:
             output = output[:8000] + "\n\n[... truncated]"
 
@@ -375,9 +375,9 @@ class ByteRoverMemoryProvider(MemoryProvider):
 
 
 # ---------------------------------------------------------------------------
-# Plugin entry point
+# 插件入口点
 # ---------------------------------------------------------------------------
 
 def register(ctx) -> None:
-    """Register ByteRover as a memory provider plugin."""
+    """将 ByteRover 注册为记忆提供者插件。"""
     ctx.register_memory_provider(ByteRoverMemoryProvider())

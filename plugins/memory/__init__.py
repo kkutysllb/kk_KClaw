@@ -1,4 +1,4 @@
-"""Memory provider plugin discovery.
+"""Memory provider 插件发现。
 
 Scans ``plugins/memory/<name>/`` directories for memory provider plugins.
 Each subdirectory must contain ``__init__.py`` with a class implementing
@@ -30,11 +30,11 @@ _MEMORY_PLUGINS_DIR = Path(__file__).parent
 
 
 def discover_memory_providers() -> List[Tuple[str, str, bool]]:
-    """Scan plugins/memory/ for available providers.
+    """扫描 plugins/memory/ 查找可用的 providers。
 
-    Returns list of (name, description, is_available) tuples.
-    Does NOT import the providers — just reads plugin.yaml for metadata
-    and does a lightweight availability check.
+    返回 (name, description, is_available) 元组列表。
+    不会导入 providers — 仅读取 plugin.yaml 获取元数据
+    并进行轻量级的可用性检查。
     """
     results = []
     if not _MEMORY_PLUGINS_DIR.is_dir():
@@ -76,9 +76,9 @@ def discover_memory_providers() -> List[Tuple[str, str, bool]]:
 
 
 def load_memory_provider(name: str) -> Optional["MemoryProvider"]:
-    """Load and return a MemoryProvider instance by name.
+    """按名称加载并返回 MemoryProvider 实例。
 
-    Returns None if the provider is not found or fails to load.
+    如果 provider 未找到或加载失败则返回 None。
     """
     provider_dir = _MEMORY_PLUGINS_DIR / name
     if not provider_dir.is_dir():
@@ -97,11 +97,11 @@ def load_memory_provider(name: str) -> Optional["MemoryProvider"]:
 
 
 def _load_provider_from_dir(provider_dir: Path) -> Optional["MemoryProvider"]:
-    """Import a provider module and extract the MemoryProvider instance.
+    """导入 provider 模块并提取 MemoryProvider 实例。
 
-    The module must have either:
-    - A register(ctx) function (plugin-style) — we simulate a ctx
-    - A top-level class that extends MemoryProvider — we instantiate it
+    模块必须满足以下条件之一：
+    - 一个 register(ctx) 函数（plugin-style）— 我们模拟一个 ctx
+    - 一个扩展 MemoryProvider 的顶层类 — 我们实例化它
     """
     name = provider_dir.name
     module_name = f"plugins.memory.{name}"
@@ -197,7 +197,7 @@ def _load_provider_from_dir(provider_dir: Path) -> Optional["MemoryProvider"]:
 
 
 class _ProviderCollector:
-    """Fake plugin context that captures register_memory_provider calls."""
+    """伪造的插件上下文，用于捕获 register_memory_provider 调用。"""
 
     def __init__(self):
         self.provider = None
@@ -213,15 +213,14 @@ class _ProviderCollector:
         pass
 
     def register_cli_command(self, *args, **kwargs):
-        pass  # CLI registration happens via discover_plugin_cli_commands()
+        pass  # CLI 注册通过 discover_plugin_cli_commands() 实现
 
 
 def _get_active_memory_provider() -> Optional[str]:
-    """Read the active memory provider name from config.yaml.
+    """从 config.yaml 读取活动的 memory provider 名称。
 
-    Returns the provider name (e.g. ``"honcho"``) or None if no
-    external provider is configured.  Lightweight — only reads config,
-    no plugin loading.
+    返回 provider 名称（例如 ``"honcho"``），如果没有配置外部 provider 则返回 None。
+    轻量级 — 仅读取配置，不加载插件。
     """
     try:
         from kclaw_cli.config import load_config
@@ -232,21 +231,17 @@ def _get_active_memory_provider() -> Optional[str]:
 
 
 def discover_plugin_cli_commands() -> List[dict]:
-    """Return CLI commands for the **active** memory plugin only.
+    """仅为**活动的** memory 插件返回 CLI 命令。
 
-    Only one memory provider can be active at a time (set via
-    ``memory.provider`` in config.yaml).  This function reads that
-    value and only loads CLI registration for the matching plugin.
-    If no provider is active, no commands are registered.
+    一次只能有一个 memory provider 处于活动状态（通过
+    config.yaml 中的 ``memory.provider`` 设置）。此函数读取该值，
+    仅加载匹配插件的 CLI 注册。如果没有 provider 处于活动状态，则不注册任何命令。
 
-    Looks for a ``register_cli(subparser)`` function in the active
-    plugin's ``cli.py``.  Returns a list of at most one dict with
-    keys: ``name``, ``help``, ``description``, ``setup_fn``,
-    ``handler_fn``.
+    在活动插件的 ``cli.py`` 中查找 ``register_cli(subparser)`` 函数。
+    返回最多一个 dict 的列表，键为：``name``、``help``、``description``、``setup_fn``、``handler_fn``。
 
-    This is a lightweight scan — it only imports ``cli.py``, not the
-    full plugin module.  Safe to call during argparse setup before
-    any provider is loaded.
+    这是一个轻量级扫描 — 它仅导入 ``cli.py``，而非完整插件模块。
+    可在 argparse 设置期间安全调用，在任何 provider 加载之前。
     """
     results: List[dict] = []
     if not _MEMORY_PLUGINS_DIR.is_dir():

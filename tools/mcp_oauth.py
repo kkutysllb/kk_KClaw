@@ -1,35 +1,32 @@
 #!/usr/bin/env python3
 """
-MCP OAuth 2.1 Client Support
+MCP OAuth 2.1 客户端支持
 
-Implements the browser-based OAuth 2.1 authorization code flow with PKCE
-for MCP servers that require OAuth authentication instead of static bearer
-tokens.
+为需要 OAuth 认证（而非静态 bearer token）的 MCP 服务器实现
+基于浏览器的 OAuth 2.1 授权码流程和 PKCE。
 
-Uses the MCP Python SDK's ``OAuthClientProvider`` (an ``httpx.Auth`` subclass)
-which handles discovery, dynamic client registration, PKCE, token exchange,
-refresh, and step-up authorization automatically.
+使用 MCP Python SDK 的 ``OAuthClientProvider``（``httpx.Auth`` 子类），
+自动处理发现、动态客户端注册、PKCE、token 交换、刷新和升级授权。
 
-This module provides the glue:
-    - ``KClawTokenStorage``: persists tokens/client-info to disk so they
-      survive across process restarts.
-    - Callback server: ephemeral localhost HTTP server to capture the OAuth
-      redirect with the authorization code.
-    - ``build_oauth_auth()``: entry point called by ``mcp_tool.py`` that wires
-      everything together and returns the ``httpx.Auth`` object.
+本模块提供粘合层：
+    - ``KClawTokenStorage``：将 tokens/client-info 持久化到磁盘，
+      使其在进程重启后仍然保留。
+    - 回调服务器：临时的 localhost HTTP 服务器，用于捕获带有授权码的 OAuth 重定向。
+    - ``build_oauth_auth()``：由 ``mcp_tool.py`` 调用的入口点，
+      将所有内容连接起来并返回 ``httpx.Auth`` 对象。
 
-Configuration in config.yaml::
+config.yaml 中的配置::
 
     mcp_servers:
       my_server:
         url: "https://mcp.example.com/mcp"
         auth: oauth
-        oauth:                                  # all fields optional
-          client_id: "pre-registered-id"        # skip dynamic registration
-          client_secret: "secret"               # confidential clients only
-          scope: "read write"                   # default: server-provided
-          redirect_port: 0                      # 0 = auto-pick free port
-          client_name: "My Custom Client"       # default: "KClaw Agent"
+        oauth:                                  # 所有字段可选
+          client_id: "pre-registered-id"        # 跳过动态注册
+          client_secret: "secret"               # 仅限机密客户端
+          scope: "read write"                   # 默认：由服务器提供
+          redirect_port: 0                      # 0 = 自动选择空闲端口
+          client_name: "My Custom Client"       # 默认："KClaw Agent"
 """
 
 import asyncio
@@ -73,7 +70,7 @@ except ImportError:
 
 
 class OAuthNonInteractiveError(RuntimeError):
-    """Raised when OAuth requires browser interaction in a non-interactive env."""
+    """当 OAuth 在非交互环境中需要浏览器交互时引发。"""
 
 
 # ---------------------------------------------------------------------------
@@ -91,10 +88,10 @@ _oauth_port: int | None = None
 
 
 def _get_token_dir() -> Path:
-    """Return the directory for MCP OAuth token files.
+    """返回 MCP OAuth token 文件的目录。
 
-    Uses KCLAW_HOME so each profile gets its own OAuth tokens.
-    Layout: ``KCLAW_HOME/mcp-tokens/``
+    使用 KCLAW_HOME 以便每个配置获得自己的 OAuth tokens。
+    布局：``KCLAW_HOME/mcp-tokens/``
     """
     try:
         from kclaw_constants import get_kclaw_home
@@ -105,19 +102,19 @@ def _get_token_dir() -> Path:
 
 
 def _safe_filename(name: str) -> str:
-    """Sanitize a server name for use as a filename (no path separators)."""
+    """清理服务器名称以用作文件名（不含路径分隔符）。"""
     return re.sub(r"[^\w\-]", "_", name).strip("_")[:128] or "default"
 
 
 def _find_free_port() -> int:
-    """Find an available TCP port on localhost."""
+    """在 localhost 上查找可用的 TCP 端口。"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
 
 
 def _is_interactive() -> bool:
-    """Return True if we can reasonably expect to interact with a user."""
+    """如果我们可以合理地期望与用户交互，则返回 True。"""
     try:
         return sys.stdin.isatty()
     except (AttributeError, ValueError):
@@ -125,8 +122,8 @@ def _is_interactive() -> bool:
 
 
 def _can_open_browser() -> bool:
-    """Return True if opening a browser is likely to work."""
-    # Explicit SSH session → no local display
+    """如果打开浏览器可能有效，则返回 True。"""
+    # 明确的 SSH 会话 → 无本地显示
     if os.environ.get("SSH_CLIENT") or os.environ.get("SSH_TTY"):
         return False
     # macOS and Windows usually have a display
@@ -144,7 +141,7 @@ def _can_open_browser() -> bool:
 
 
 def _read_json(path: Path) -> dict | None:
-    """Read a JSON file, returning None if it doesn't exist or is invalid."""
+    """读取 JSON 文件，如果不存在或无效则返回 None。"""
     if not path.exists():
         return None
     try:
@@ -155,7 +152,7 @@ def _read_json(path: Path) -> dict | None:
 
 
 def _write_json(path: Path, data: dict) -> None:
-    """Write a dict as JSON with restricted permissions (0o600)."""
+    """将字典写入 JSON 文件，权限受限（0o600）。"""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
     try:
@@ -173,12 +170,12 @@ def _write_json(path: Path, data: dict) -> None:
 
 
 class KClawTokenStorage:
-    """Persist OAuth tokens and client registration to JSON files.
+    """将 OAuth tokens 和客户端注册持久化到 JSON 文件。
 
-    File layout::
+    文件布局::
 
         KCLAW_HOME/mcp-tokens/<server_name>.json         -- tokens
-        KCLAW_HOME/mcp-tokens/<server_name>.client.json   -- client info
+        KCLAW_HOME/mcp-tokens/<server_name>.client.json   -- 客户端信息
     """
 
     def __init__(self, server_name: str):
@@ -225,12 +222,12 @@ class KClawTokenStorage:
     # -- cleanup -----------------------------------------------------------
 
     def remove(self) -> None:
-        """Delete all stored OAuth state for this server."""
+        """删除此服务器的所有已存储 OAuth 状态。"""
         for p in (self._tokens_path(), self._client_info_path()):
             p.unlink(missing_ok=True)
 
     def has_cached_tokens(self) -> bool:
-        """Return True if we have tokens on disk (may be expired)."""
+        """如果磁盘上有 tokens（可能已过期），则返回 True。"""
         return self._tokens_path().exists()
 
 
@@ -240,12 +237,11 @@ class KClawTokenStorage:
 
 
 def _make_callback_handler() -> tuple[type, dict]:
-    """Create a per-flow callback HTTP handler class with its own result dict.
+    """创建每个流程独立的回调 HTTP 处理器类及其自己的结果字典。
 
-    Returns ``(HandlerClass, result_dict)`` where *result_dict* is a mutable
-    dict that the handler writes ``auth_code`` and ``state`` into when the
-    OAuth redirect arrives.  Each call returns a fresh pair so concurrent
-    flows don't stomp on each other.
+    返回 ``(HandlerClass, result_dict)``，其中 *result_dict* 是一个可变字典，
+    当 OAuth 重定向到达时，处理器将 ``auth_code`` 和 ``state`` 写入其中。
+    每次调用返回一对新的组合，这样并发流程不会互相覆盖。
     """
     result: dict[str, Any] = {"auth_code": None, "state": None, "error": None}
 
@@ -284,10 +280,10 @@ def _make_callback_handler() -> tuple[type, dict]:
 
 
 async def _redirect_handler(authorization_url: str) -> None:
-    """Show the authorization URL to the user.
+    """向用户显示授权 URL。
 
-    Opens the browser automatically when possible; always prints the URL
-    as a fallback for headless/SSH/gateway environments.
+    尽可能自动打开浏览器；始终打印 URL 作为
+    无界面/SSH/网关环境的备选方案。
     """
     msg = (
         f"\n  MCP OAuth: authorization required.\n"
@@ -310,15 +306,14 @@ async def _redirect_handler(authorization_url: str) -> None:
 
 
 async def _wait_for_callback() -> tuple[str, str | None]:
-    """Wait for the OAuth callback to arrive on the local callback server.
+    """等待本地回调服务器上的 OAuth 回调到达。
 
-    Uses the module-level ``_oauth_port`` which is set by ``build_oauth_auth``
-    before this is ever called.  Polls for the result without blocking the
-    event loop.
+    使用模块级 ``_oauth_port``，该值由 ``build_oauth_auth``
+    在调用此函数之前设置。轮询结果而不阻塞事件循环。
 
-    Raises:
-        OAuthNonInteractiveError: If the callback times out (no user present
-            to complete the browser auth).
+    引发：
+        OAuthNonInteractiveError：如果回调超时（没有用户在场
+            完成浏览器认证）。
     """
     assert _oauth_port is not None, "OAuth callback port not set"
 
@@ -368,7 +363,7 @@ async def _wait_for_callback() -> tuple[str, str | None]:
 
 
 def remove_oauth_tokens(server_name: str) -> None:
-    """Delete stored OAuth tokens and client info for a server."""
+    """删除服务器已存储的 OAuth tokens 和客户端信息。"""
     storage = KClawTokenStorage(server_name)
     storage.remove()
     logger.info("OAuth tokens removed for '%s'", server_name)
@@ -379,18 +374,17 @@ def build_oauth_auth(
     server_url: str,
     oauth_config: dict | None = None,
 ) -> "OAuthClientProvider | None":
-    """Build an ``httpx.Auth``-compatible OAuth handler for an MCP server.
+    """为 MCP 服务器构建兼容 ``httpx.Auth`` 的 OAuth 处理器。
 
-    Called from ``mcp_tool.py`` when a server has ``auth: oauth`` in config.
+    当服务器在配置中有 ``auth: oauth`` 时由 ``mcp_tool.py`` 调用。
 
-    Args:
-        server_name: Server key in mcp_servers config (used for storage).
-        server_url: MCP server endpoint URL.
-        oauth_config: Optional dict from the ``oauth:`` block in config.yaml.
+    参数：
+        server_name：mcp_servers 配置中的服务器键（用于存储）。
+        server_url：MCP 服务器端点 URL。
+        oauth_config：config.yaml 中 ``oauth:`` 块的可选字典。
 
-    Returns:
-        An ``OAuthClientProvider`` instance, or None if the MCP SDK lacks
-        OAuth support.
+    返回：
+        ``OAuthClientProvider`` 实例，如果 MCP SDK 缺少 OAuth 支持则返回 None。
     """
     if not _OAUTH_AVAILABLE:
         logger.warning(

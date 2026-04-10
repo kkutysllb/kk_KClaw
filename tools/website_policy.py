@@ -1,11 +1,11 @@
-"""Website access policy helpers for URL-capable tools.
+"""网站访问策略辅助函数,用于 URL 功能的工具。
 
-This module loads a user-managed website blocklist from ~/.kclaw/config.yaml
-and optional shared list files. It is intentionally lightweight so web/browser
-tools can enforce URL policy without pulling in the heavier CLI config stack.
+本模块从 ~/.kclaw/config.yaml 和可选的共享列表文件加载用户管理的网站黑名单。
+它故意设计得很轻量,以便 web/浏览器工具可以强制执行 URL 策略,
+而无需引入更重的 CLI 配置堆栈。
 
-Policy is cached in memory with a short TTL so config changes take effect
-quickly without re-reading the file on every URL check.
+策略在内存中以较短的 TTL 缓存,以便配置更改能够快速生效,
+而无需在每次 URL 检查时重新读取文件。
 """
 
 from __future__ import annotations
@@ -28,8 +28,8 @@ _DEFAULT_WEBSITE_BLOCKLIST = {
     "shared_files": [],
 }
 
-# Cache: parsed policy + timestamp.  Avoids re-reading config.yaml on every
-# URL check (a web_crawl with 50 pages would otherwise mean 51 YAML parses).
+# 缓存: 解析后的策略 + 时间戳。避免在每次 URL 检查时重新读取 config.yaml
+# (一个 50 页的 web_crawl 否则意味着 51 次 YAML 解析)。
 _CACHE_TTL_SECONDS = 30.0
 _cache_lock = threading.Lock()
 _cached_policy: Optional[Dict[str, Any]] = None
@@ -42,7 +42,7 @@ def _get_default_config_path() -> Path:
 
 
 class WebsitePolicyError(Exception):
-    """Raised when a website policy file is malformed."""
+    """当网站策略文件格式错误时引发。"""
 
 
 def _normalize_host(host: str) -> str:
@@ -65,10 +65,10 @@ def _normalize_rule(rule: Any) -> Optional[str]:
 
 
 def _iter_blocklist_file_rules(path: Path) -> List[str]:
-    """Load rules from a shared blocklist file.
+    """从共享黑名单文件加载规则。
 
-    Missing or unreadable files log a warning and return an empty list
-    rather than raising — a bad file path should not disable all web tools.
+    缺失或不可读取的文件会记录警告并返回空列表,
+    而不是抛出异常 — 错误的文件路径不应该禁用所有 web 工具。
     """
     try:
         raw = path.read_text(encoding="utf-8")
@@ -129,18 +129,17 @@ def _load_policy_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
 
 
 def load_website_blocklist(config_path: Optional[Path] = None) -> Dict[str, Any]:
-    """Load and return the parsed website blocklist policy.
+    """加载并返回解析后的网站黑名单策略。
 
-    Results are cached for ``_CACHE_TTL_SECONDS`` to avoid re-reading
-    config.yaml on every URL check.  Pass an explicit ``config_path``
-    to bypass the cache (used by tests).
+    结果会缓存 ``_CACHE_TTL_SECONDS`` 秒,以避免在每次 URL 检查时重新读取
+    config.yaml。传递显式的 ``config_path`` 以绕过缓存 (由测试使用)。
     """
     global _cached_policy, _cached_policy_path, _cached_policy_time
 
     resolved_path = str(config_path) if config_path else "__default__"
     now = time.monotonic()
 
-    # Return cached policy if still fresh and same path
+    # 如果缓存仍然有效且路径相同,则返回缓存的策略
     if config_path is None:
         with _cache_lock:
             if (
@@ -189,7 +188,7 @@ def load_website_blocklist(config_path: Optional[Path] = None) -> Dict[str, Any]
 
     result = {"enabled": enabled, "rules": rules}
 
-    # Cache the result (only for the default path — explicit paths are tests)
+    # 缓存结果 (仅针对默认路径 — 显式路径是测试)
     if config_path == _get_default_config_path():
         with _cache_lock:
             _cached_policy = result
@@ -200,7 +199,7 @@ def load_website_blocklist(config_path: Optional[Path] = None) -> Dict[str, Any]
 
 
 def invalidate_cache() -> None:
-    """Force the next ``check_website_access`` call to re-read config."""
+    """强制下一次 ``check_website_access`` 调用重新读取配置。"""
     global _cached_policy
     with _cache_lock:
         _cached_policy = None
@@ -230,17 +229,17 @@ def _extract_host_from_urlish(url: str) -> str:
 
 
 def check_website_access(url: str, config_path: Optional[Path] = None) -> Optional[Dict[str, str]]:
-    """Check whether a URL is allowed by the website blocklist policy.
+    """检查 URL 是否被网站黑名单策略允许。
 
-    Returns ``None`` if access is allowed, or a dict with block metadata
-    (``host``, ``rule``, ``source``, ``message``) if blocked.
+    如果允许访问则返回 ``None``,如果被阻止则返回包含阻止元数据的字典
+    (``host``, ``rule``, ``source``, ``message``)。
 
-    Never raises on policy errors — logs a warning and returns ``None``
-    (fail-open) so a config typo doesn't break all web tools.  Pass
-    ``config_path`` explicitly (tests) to get strict error propagation.
+    策略错误时从不抛出异常 — 记录警告并返回 ``None``
+    (fail-open),以便配置拼写错误不会破坏所有 web 工具。
+    传递显式的 ``config_path`` (测试) 以获得严格的错误传播。
     """
-    # Fast path: if no explicit config_path and the cached policy is disabled
-    # or empty, skip all work (no YAML read, no host extraction).
+    # 快速路径: 如果没有显式 config_path 且缓存的策略被禁用
+    # 或为空,则跳过所有工作 (无需 YAML 读取,无需主机提取)。
     if config_path is None:
         with _cache_lock:
             if _cached_policy is not None and not _cached_policy.get("enabled"):

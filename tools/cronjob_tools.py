@@ -1,8 +1,8 @@
 """
-Cron job management tools for KClaw Agent.
+KClaw Agent 的 Cron 任务管理工具。
 
-Expose a single compressed action-oriented tool to avoid schema/context bloat.
-Compatibility wrappers remain for direct Python callers and legacy tests.
+暴露一个单一的压缩的动作导向工具以避免 schema/上下文膨胀。
+兼容性包装器保留用于直接 Python 调用方和旧测试。
 """
 
 import json
@@ -29,8 +29,8 @@ from cron.jobs import (
 
 
 # ---------------------------------------------------------------------------
-# Cron prompt scanning — critical-severity patterns only, since cron prompts
-# run in fresh sessions with full tool access.
+# Cron 提示词扫描——仅关键严重性模式，因为 cron 提示词
+# 在具有完整工具访问权限的全新会话中运行。
 # ---------------------------------------------------------------------------
 
 _CRON_THREAT_PATTERNS = [
@@ -53,7 +53,7 @@ _CRON_INVISIBLE_CHARS = {
 
 
 def _scan_cron_prompt(prompt: str) -> str:
-    """Scan a cron prompt for critical threats. Returns error string if blocked, else empty."""
+    """扫描 cron 提示词中的关键威胁。如果被阻止则返回错误字符串，否则为空。"""
     for char in _CRON_INVISIBLE_CHARS:
         if char in prompt:
             return f"Blocked: prompt contains invisible unicode U+{ord(char):04X} (possible injection)."
@@ -105,12 +105,12 @@ def _canonical_skills(skill: Optional[str] = None, skills: Optional[Any] = None)
 
 
 def _resolve_model_override(model_obj: Optional[Dict[str, Any]]) -> tuple:
-    """Resolve a model override object into (provider, model) for job storage.
+    """将模型覆盖对象解析为 (provider, model) 用于任务存储。
 
-    If provider is omitted, pins the current main provider from config so the
-    job doesn't drift when the user later changes their default via kclaw model.
+    如果省略 provider，则固定配置中的当前主要提供商，
+    以便当用户稍后通过 kclaw model 更改其默认值时任务不会漂移。
 
-    Returns (provider_str_or_none, model_str_or_none).
+    返回 (provider_str_or_none, model_str_or_none)。
     """
     if not model_obj or not isinstance(model_obj, dict):
         return (None, None)
@@ -139,13 +139,12 @@ def _normalize_optional_job_value(value: Optional[Any], *, strip_trailing_slash:
 
 
 def _validate_cron_script_path(script: Optional[str]) -> Optional[str]:
-    """Validate a cron job script path at the API boundary.
+    """在 API 边界验证 cron 任务脚本路径。
 
-    Scripts must be relative paths that resolve within KCLAW_HOME/scripts/.
-    Absolute paths and ~ expansion are rejected to prevent arbitrary script
-    execution via prompt injection.
+    脚本必须是解析为 KCLAW_HOME/scripts/ 内的相对路径。
+    拒绝绝对路径和 ~ 展开，以防止通过提示词注入执行任意脚本。
 
-    Returns an error string if blocked, else None (valid).
+    如果被阻止则返回错误字符串，否则返回 None（有效）。
     """
     if not script or not script.strip():
         return None  # empty/None = clearing the field, always OK
@@ -489,11 +488,11 @@ Important safety rule: cron-run sessions should not recursively schedule more cr
 
 def check_cronjob_requirements() -> bool:
     """
-    Check if cronjob tools can be used.
+    检查 cronjob 工具是否可用。
 
-    Available in interactive CLI mode and gateway/messaging platforms.
-    The cron system is internal (JSON file-based scheduler ticked by the gateway),
-    so no external crontab executable is required.
+    在交互式 CLI 模式和网关/消息平台上可用。
+    cron 系统是内部的（由网关驱动的基于 JSON 文件的调度器），
+    因此不需要外部 crontab 可执行文件。
     """
     return bool(
         os.getenv("KCLAW_INTERACTIVE")

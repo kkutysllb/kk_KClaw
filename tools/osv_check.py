@@ -1,13 +1,13 @@
-"""OSV malware check for MCP extension packages.
+"""MCP 扩展包的 OSV 恶意软件检查。
 
-Before launching an MCP server via npx/uvx, queries the OSV (Open Source
-Vulnerabilities) API to check if the package has any known malware advisories
-(MAL-* IDs).  Regular CVEs are ignored — only confirmed malware is blocked.
+在通过 npx/uvx 启动 MCP 服务器之前，查询 OSV（开源漏洞）
+API 以检查包是否有已知的恶意软件 advisories（MAL-* ID）。
+常规 CVE 被忽略 — 仅阻止已确认的恶意软件。
 
-The API is free, public, and maintained by Google.  Typical latency is ~300ms.
-Fail-open: network errors allow the package to proceed.
+该 API 是免费的、公开的，由 Google 维护。典型延迟约为 300ms。
+故障开放：网络错误允许包继续。
 
-Inspired by Block/goose's extension malware check.
+灵感来自 Block/goose 的扩展恶意软件检查。
 """
 
 import json
@@ -26,18 +26,18 @@ _TIMEOUT = 10  # seconds
 def check_package_for_malware(
     command: str, args: list
 ) -> Optional[str]:
-    """Check if an MCP server package has known malware advisories.
+    """检查 MCP 服务器包是否有已知的恶意软件 advisories。
 
-    Inspects the *command* (e.g. ``npx``, ``uvx``) and *args* to infer the
-    package name and ecosystem.  Queries the OSV API for MAL-* advisories.
+    检查 *command*（例如 ``npx``、``uvx``）和 *args* 以推断
+    包名称和生态系统。查询 OSV API 以获取 MAL-* advisories。
 
-    Returns:
-        An error message string if malware is found, or None if clean/unknown.
-        Returns None (allow) on network errors or unrecognized commands.
+    返回:
+        如果发现恶意软件则返回错误消息字符串，如果干净/未知则返回 None。
+        在网络错误或无法识别的命令时返回 None（允许）。
     """
     ecosystem = _infer_ecosystem(command)
     if not ecosystem:
-        return None  # not npx/uvx — skip
+        return None  # 不是 npx/uvx — 跳过
 
     package, version = _parse_package_from_args(args, ecosystem)
     if not package:
@@ -46,8 +46,8 @@ def check_package_for_malware(
     try:
         malware = _query_osv(package, ecosystem, version)
     except Exception as exc:
-        # Fail-open: network errors, timeouts, parse failures → allow
-        logger.debug("OSV check failed for %s/%s (allowing): %s", ecosystem, package, exc)
+        # 故障开放：网络错误、超时、解析失败 → 允许
+        logger.debug("OSV 检查失败（允许）%s/%s: %s", ecosystem, package, exc)
         return None
 
     if malware:
@@ -63,7 +63,7 @@ def check_package_for_malware(
 
 
 def _infer_ecosystem(command: str) -> Optional[str]:
-    """Infer package ecosystem from the command name."""
+    """从命令名称推断包生态系统。"""
     base = os.path.basename(command).lower()
     if base in ("npx", "npx.cmd"):
         return "npm"
@@ -75,14 +75,14 @@ def _infer_ecosystem(command: str) -> Optional[str]:
 def _parse_package_from_args(
     args: list, ecosystem: str
 ) -> Tuple[Optional[str], Optional[str]]:
-    """Extract package name and optional version from command args.
+    """从命令参数中提取包名称和可选版本。
 
-    Returns (package_name, version) or (None, None) if not parseable.
+    返回 (package_name, version) 或如果无法解析则返回 (None, None)。
     """
     if not args:
         return None, None
 
-    # Skip flags to find the package token
+    # 跳过标志以找到包标记
     package_token = None
     for arg in args:
         if not isinstance(arg, str):
@@ -103,14 +103,14 @@ def _parse_package_from_args(
 
 
 def _parse_npm_package(token: str) -> Tuple[Optional[str], Optional[str]]:
-    """Parse npm package: @scope/name@version or name@version."""
+    """解析 npm 包：@scope/name@version 或 name@version。"""
     if token.startswith("@"):
-        # Scoped: @scope/name@version
+        # 作用域包：@scope/name@version
         match = re.match(r"^(@[^/]+/[^@]+)(?:@(.+))?$", token)
         if match:
             return match.group(1), match.group(2)
         return token, None
-    # Unscoped: name@version
+    # 无作用域包：name@version
     if "@" in token:
         parts = token.rsplit("@", 1)
         name = parts[0]
@@ -120,8 +120,8 @@ def _parse_npm_package(token: str) -> Tuple[Optional[str], Optional[str]]:
 
 
 def _parse_pypi_package(token: str) -> Tuple[Optional[str], Optional[str]]:
-    """Parse PyPI package: name==version or name[extras]==version."""
-    # Strip extras: name[extra1,extra2]==version
+    """解析 PyPI 包：name==version 或 name[extras]==version。"""
+    # 剥离额外内容：name[extra1,extra2]==version
     match = re.match(r"^([a-zA-Z0-9._-]+)(?:\[[^\]]*\])?(?:==(.+))?$", token)
     if match:
         return match.group(1), match.group(2)
@@ -131,7 +131,7 @@ def _parse_pypi_package(token: str) -> Tuple[Optional[str], Optional[str]]:
 def _query_osv(
     package: str, ecosystem: str, version: Optional[str] = None
 ) -> list:
-    """Query the OSV API for MAL-* advisories. Returns list of malware vulns."""
+    """查询 OSV API 以获取 MAL-* advisories。返回恶意软件漏洞列表。"""
     payload = {"package": {"name": package, "ecosystem": ecosystem}}
     if version:
         payload["version"] = version
@@ -151,5 +151,5 @@ def _query_osv(
         result = json.loads(resp.read())
 
     vulns = result.get("vulns", [])
-    # Only malware advisories — ignore regular CVEs
+    # 仅恶意软件 advisories — 忽略常规 CVE
     return [v for v in vulns if v.get("id", "").startswith("MAL-")]

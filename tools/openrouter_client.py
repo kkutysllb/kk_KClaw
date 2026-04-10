@@ -1,9 +1,8 @@
-"""Shared OpenRouter API client for KClaw tools.
+"""KClaw 工具的共享 OpenRouter API 客户端。
 
-Provides a single lazy-initialized AsyncOpenAI client that all tool modules
-can share.  Routes through the centralized provider router in
-agent/auxiliary_client.py so auth, headers, and API format are handled
-consistently.
+提供单个延迟初始化的 AsyncOpenAI 客户端，所有工具模块可以共享。
+通过 agent/auxiliary_client.py 中的集中式提供商路由器路由，
+因此 auth、headers 和 API 格式的处理是一致的。
 """
 
 import os
@@ -12,11 +11,11 @@ _client = None
 
 
 def get_async_client():
-    """Return a shared async OpenAI-compatible client for OpenRouter.
+    """返回 OpenRouter 的共享异步 OpenAI 兼容客户端。
 
-    The client is created lazily on first call and reused thereafter.
-    Uses the centralized provider router for auth and client construction.
-    Raises ValueError if OPENROUTER_API_KEY is not set.
+    客户端在首次调用时延迟创建，之后重复使用。
+    使用集中式提供商路由器进行身份验证和客户端构建。
+    如果未设置 OPENROUTER_API_KEY 则引发 ValueError。
     """
     global _client
     if _client is None:
@@ -29,5 +28,5 @@ def get_async_client():
 
 
 def check_api_key() -> bool:
-    """Check whether the OpenRouter API key is present."""
+    """检查 OpenRouter API 密钥是否存在。"""
     return bool(os.getenv("OPENROUTER_API_KEY"))

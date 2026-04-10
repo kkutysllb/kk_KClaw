@@ -1,7 +1,7 @@
-"""Supermemory memory plugin using the MemoryProvider interface.
+"""使用 MemoryProvider 接口的 Supermemory 记忆插件。
 
-Provides semantic long-term memory with profile recall, semantic search,
-explicit memory tools, cleaned turn capture, and session-end conversation ingest.
+提供语义长期记忆，支持 profile 召回、语义搜索、
+显式记忆工具、清理后的轮次捕获和会话结束时的对话摄入。
 """
 
 from __future__ import annotations
@@ -43,12 +43,12 @@ _CONTAINERS_STRIP_RE = re.compile(
     r"<supermemory-containers>[\s\S]*?</supermemory-containers>\s*", re.DOTALL
 )
 _DEFAULT_ENTITY_CONTEXT = (
-    "User-assistant conversation. Format: [role: user]...[user:end] and "
-    "[role: assistant]...[assistant:end].\n\n"
+    "User-assistant 对话。格式：[role: user]...[user:end] 和 "
+    "[role: assistant]...[assistant:end]。\n\n"
     "Only extract things useful in future conversations. Most messages are not worth remembering.\n\n"
-    "Remember lasting personal facts, preferences, routines, tools, ongoing projects, working context, "
-    "and explicit requests to remember something.\n\n"
-    "Do not remember temporary intents, one-time tasks, assistant actions, implementation details, or in-progress status.\n\n"
+    "记住持久的个人事实、偏好、习惯、工具、进行中的项目、工作上下文，"
+    "以及明确要求记住的内容。\n\n"
+    "不要记住临时意图、一次性任务、助手操作、实现细节或进行中的状态。\n\n"
     "When in doubt, store less."
 )
 
@@ -106,8 +106,8 @@ def _load_supermemory_config(kclaw_home: str) -> dict:
         except Exception:
             logger.debug("Failed to parse %s", config_path, exc_info=True)
 
-    # Keep raw container_tag — template variables like {identity} are resolved
-    # in initialize(), and _sanitize_tag runs AFTER resolution.
+    # 保持原始 container_tag — 像 {identity} 这样的模板变量在
+    # initialize() 中解析，而 _sanitize_tag 在解析后运行。
     raw_tag = str(config.get("container_tag", _DEFAULT_CONTAINER_TAG)).strip()
     config["container_tag"] = raw_tag if raw_tag else _DEFAULT_CONTAINER_TAG
     config["auto_recall"] = _as_bool(config.get("auto_recall"), True)
@@ -129,7 +129,7 @@ def _load_supermemory_config(kclaw_home: str) -> dict:
     except Exception:
         config["api_timeout"] = _DEFAULT_API_TIMEOUT
 
-    # Multi-container support
+    # 多容器支持
     config["enable_custom_container_tags"] = _as_bool(config.get("enable_custom_container_tags"), False)
     raw_containers = config.get("custom_containers", [])
     if isinstance(raw_containers, list):
@@ -243,8 +243,8 @@ def _format_prefetch_context(static_facts: list, dynamic_facts: list, search_res
         return ""
 
     intro = (
-        "The following is background context from long-term memory. Use it silently when relevant. "
-        "Do not force memories into the conversation."
+        "以下是从长期记忆中的背景上下文。相关时请静默使用。 "
+        "不要强行将记忆带入对话。"
     )
     body = "\n\n".join(sections)
     return f"<supermemory-context>\n{intro}\n\n{body}\n</supermemory-context>"
@@ -462,9 +462,9 @@ class SupermemoryMemoryProvider(MemoryProvider):
             return False
 
     def get_config_schema(self):
-        # Only prompt for the API key during `kclaw memory setup`.
-        # All other options are documented for $KCLAW_HOME/supermemory.json
-        # or the SUPERMEMORY_CONTAINER_TAG env var.
+        # 只在 `kclaw memory setup` 时提示输入 API 密钥。
+        # 所有其他选项记录在 $KCLAW_HOME/supermemory.json
+        # 或 SUPERMEMORY_CONTAINER_TAG 环境变量中。
         return [
             {"key": "api_key", "description": "Supermemory API key", "secret": True, "required": True, "env_var": "SUPERMEMORY_API_KEY", "url": "https://supermemory.ai"},
         ]
@@ -485,8 +485,8 @@ class SupermemoryMemoryProvider(MemoryProvider):
         self._config = _load_supermemory_config(self._kclaw_home)
         self._api_key = os.environ.get("SUPERMEMORY_API_KEY", "")
 
-        # Resolve container tag: env var > config > default.
-        # Supports {identity} template for profile-scoped containers.
+        # 解析容器标签：环境变量 > 配置 > 默认值。
+        # 支持 profile 级容器的 {identity} 模板。
         env_tag = os.environ.get("SUPERMEMORY_CONTAINER_TAG", "").strip()
         raw_tag = env_tag or self._config["container_tag"]
         identity = kwargs.get("agent_identity", "default")
@@ -501,7 +501,7 @@ class SupermemoryMemoryProvider(MemoryProvider):
         self._entity_context = self._config["entity_context"]
         self._api_timeout = self._config["api_timeout"]
 
-        # Multi-container setup
+        # 多容器设置
         self._enable_custom_containers = self._config["enable_custom_container_tags"]
         self._custom_containers = self._config["custom_containers"]
         self._custom_container_instructions = self._config["custom_container_instructions"]
@@ -644,11 +644,11 @@ class SupermemoryMemoryProvider(MemoryProvider):
             setattr(self, attr_name, None)
 
     def _resolve_tool_container_tag(self, args: dict) -> Optional[str]:
-        """Validate and resolve container_tag from tool call args.
+        """从工具调用参数验证并解析 container_tag。
 
-        Returns None (use primary) if multi-container is disabled or no tag provided.
-        Returns the validated tag if it's in the allowed list.
-        Raises ValueError if the tag is not whitelisted.
+        如果多容器被禁用或未提供标签，则返回 None（使用主容器）。
+        如果标签在允许列表中，则返回验证后的标签。
+        如果标签不在白名单中，则抛出 ValueError。
         """
         if not self._enable_custom_containers:
             return None
@@ -667,7 +667,7 @@ class SupermemoryMemoryProvider(MemoryProvider):
         if not self._enable_custom_containers:
             return [STORE_SCHEMA, SEARCH_SCHEMA, FORGET_SCHEMA, PROFILE_SCHEMA]
 
-        # When multi-container is enabled, add optional container_tag to relevant tools
+        # 当启用多容器时，向相关工具添加可选的 container_tag
         container_param = {
             "type": "string",
             "description": f"Optional container tag. Allowed: {', '.join(self._allowed_containers)}. Defaults to primary ({self._container_tag}).",

@@ -1,4 +1,4 @@
-"""SSH remote execution environment with ControlMaster connection persistence."""
+"""具有 ControlMaster 连接持久化的 SSH 远程执行环境。"""
 
 import logging
 import shlex
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def _ensure_ssh_available() -> None:
-    """Fail fast with a clear error when the SSH client is unavailable."""
+    """当 SSH 客户端不可用时，快速失败并给出清晰的错误。"""
     if not shutil.which("ssh"):
         raise RuntimeError(
             "SSH is not installed or not in PATH. Install OpenSSH client: apt install openssh-client"
@@ -21,12 +21,12 @@ def _ensure_ssh_available() -> None:
 
 
 class SSHEnvironment(BaseEnvironment):
-    """Run commands on a remote machine over SSH.
+    """通过 SSH 在远程机器上运行命令。
 
-    Spawn-per-call: every execute() spawns a fresh ``ssh ... bash -c`` process.
-    Session snapshot preserves env vars across calls.
-    CWD persists via in-band stdout markers.
-    Uses SSH ControlMaster for connection reuse.
+    每次调用执行：每次 execute() 都会生成一个新的 ``ssh ... bash -c`` 进程。
+    会话快照在多次调用之间保留环境变量。
+    CWD 通过带内 stdout 标记保持。
+    使用 SSH ControlMaster 进行连接重用。
     """
 
     def __init__(self, host: str, user: str, cwd: str = "~",
@@ -77,7 +77,7 @@ class SSHEnvironment(BaseEnvironment):
             raise RuntimeError(f"SSH connection to {self.user}@{self.host} timed out")
 
     def _detect_remote_home(self) -> str:
-        """Detect the remote user's home directory."""
+        """检测远程用户的主目录。"""
         try:
             cmd = self._build_ssh_command()
             cmd.append("echo $HOME")
@@ -93,7 +93,7 @@ class SSHEnvironment(BaseEnvironment):
         return f"/home/{self.user}"
 
     def _sync_files(self) -> None:
-        """Rsync skills directory and credential files to the remote host."""
+        """将技能目录和凭据文件 rsync 到远程主机。"""
         try:
             container_base = f"{self._remote_home}/.kclaw"
             from tools.credential_files import get_credential_file_mounts, get_skills_directory_mount
@@ -140,7 +140,7 @@ class SSHEnvironment(BaseEnvironment):
     def _run_bash(self, cmd_string: str, *, login: bool = False,
                   timeout: int = 120,
                   stdin_data: str | None = None) -> subprocess.Popen:
-        """Spawn an SSH process that runs bash on the remote host."""
+        """生成一个在远程主机上运行 bash 的 SSH 进程。"""
         cmd = self._build_ssh_command()
         if login:
             cmd.extend(["bash", "-l", "-c", shlex.quote(cmd_string)])

@@ -1,45 +1,45 @@
 #!/usr/bin/env python3
 """
-Skills Tool Module
+技能工具模块
 
-This module provides tools for listing and viewing skill documents.
-Skills are organized as directories containing a SKILL.md file (the main instructions)
-and optional supporting files like references, templates, and examples.
+本模块提供用于列出和查看技能文档的工具。
+技能被组织为包含 SKILL.md 文件（主要说明）的目录，
+以及可选的支持文件，如参考资料、模板和示例。
 
-Inspired by Anthropic's Claude Skills system with progressive disclosure architecture:
-- Metadata (name ≤64 chars, description ≤1024 chars) - shown in skills_list
-- Full Instructions - loaded via skill_view when needed
-- Linked Files (references, templates) - loaded on demand
+灵感来自 Anthropic 的 Claude Skills 系统，采用渐进式披露架构：
+- 元数据（名称 ≤64 字符，描述 ≤1024 字符）——在 skills_list 中显示
+- 完整说明——在需要时通过 skill_view 加载
+- 链接文件（参考资料、模板）——按需加载
 
-Directory Structure:
+目录结构：
     skills/
     ├── my-skill/
-    │   ├── SKILL.md           # Main instructions (required)
-    │   ├── references/        # Supporting documentation
+    │   ├── SKILL.md           # 主要说明（必需）
+    │   ├── references/        # 支持文档
     │   │   ├── api.md
     │   │   └── examples.md
-    │   ├── templates/         # Templates for output
+    │   ├── templates/         # 输出模板
     │   │   └── template.md
-    │   └── assets/            # Supplementary files (agentskills.io standard)
-    └── category/              # Category folder for organization
+    │   └── assets/            # 补充文件（agentskills.io 标准）
+    └── category/              # 用于组织的类别文件夹
         └── another-skill/
             └── SKILL.md
 
-SKILL.md Format (YAML Frontmatter, agentskills.io compatible):
+SKILL.md 格式（YAML Frontmatter，兼容 agentskills.io）：
     ---
-    name: skill-name              # Required, max 64 chars
-    description: Brief description # Required, max 1024 chars
-    version: 1.0.0                # Optional
-    license: MIT                  # Optional (agentskills.io)
-    platforms: [macos]            # Optional — restrict to specific OS platforms
-                                  #   Valid: macos, linux, windows
-                                  #   Omit to load on all platforms (default)
-    prerequisites:                # Optional — legacy runtime requirements
-      env_vars: [API_KEY]         #   Legacy env var names are normalized into
-                                  #   required_environment_variables on load.
-      commands: [curl, jq]        #   Command checks remain advisory only.
-    compatibility: Requires X     # Optional (agentskills.io)
-    metadata:                     # Optional, arbitrary key-value (agentskills.io)
+    name: skill-name              # 必需，最多 64 字符
+    description: Brief description # 必需，最多 1024 字符
+    version: 1.0.0                # 可选
+    license: MIT                  # 可选（agentskills.io）
+    platforms: [macos]            # 可选——限制特定 OS 平台
+                                  #   有效值：macos, linux, windows
+                                  #   省略则在所有平台加载（默认）
+    prerequisites:                # 可选——旧版运行时需求
+      env_vars: [API_KEY]         #   旧版环境变量名在加载时会被规范化到
+                                  #   required_environment_variables。
+      commands: [curl, jq]        #   命令检查仅作为建议保留。
+    compatibility: Requires X     # 可选（agentskills.io）
+    metadata:                     # 可选，任意键值（agentskills.io）
       kclaw:
         tags: [fine-tuning, llm]
         related_skills: [peft, lora]
@@ -47,22 +47,22 @@ SKILL.md Format (YAML Frontmatter, agentskills.io compatible):
 
     # Skill Title
 
-    Full instructions and content here...
+    完整说明和内容在此...
 
-Available tools:
-- skills_list: List skills with metadata (progressive disclosure tier 1)
-- skill_view: Load full skill content (progressive disclosure tier 2-3)
+可用工具：
+- skills_list：列出带元数据的技能（渐进式披露第 1 层）
+- skill_view：加载完整技能内容（渐进式披露第 2-3 层）
 
-Usage:
+用法：
     from tools.skills_tool import skills_list, skill_view, check_skills_requirements
 
-    # List all skills (returns metadata only - token efficient)
+    # 列出所有技能（仅返回元数据——节省 token）
     result = skills_list()
 
-    # View a skill's main content (loads full instructions)
+    # 查看技能的主要内容（加载完整说明）
     content = skill_view("axolotl")
 
-    # View a reference file within a skill (loads linked file)
+    # 查看技能中的参考文件（加载链接文件）
     content = skill_view("axolotl", "references/dataset-formats.md")
 """
 
@@ -81,18 +81,18 @@ from tools.registry import registry, tool_error
 logger = logging.getLogger(__name__)
 
 
-# All skills live in ~/.kclaw/skills/ (seeded from bundled skills/ on install).
-# This is the single source of truth -- agent edits, hub installs, and bundled
-# skills all coexist here without polluting the git repo.
+# 所有技能位于 ~/.kclaw/skills/（安装时从绑定的 skills/ 填充）。
+# 这是唯一的真实来源——代理编辑、hub 安装和绑定的
+# 技能都共存于此，不会污染 git 仓库。
 KCLAW_HOME = get_kclaw_home()
 SKILLS_DIR = KCLAW_HOME / "skills"
 
-# Anthropic-recommended limits for progressive disclosure efficiency
+# Anthropic 推荐的渐进式披露效率限制
 MAX_NAME_LENGTH = 64
 MAX_DESCRIPTION_LENGTH = 1024
 
-# Platform identifiers for the 'platforms' frontmatter field.
-# Maps user-friendly names to sys.platform prefixes.
+# 'platforms' frontmatter 字段的平台标识符。
+# 将用户友好名称映射到 sys.platform 前缀。
 _PLATFORM_MAP = {
     "macos": "darwin",
     "linux": "linux",
@@ -105,7 +105,7 @@ _secret_capture_callback = None
 
 
 def load_env() -> Dict[str, str]:
-    """Load profile-scoped environment variables from KCLAW_HOME/.env."""
+    """从 KCLAW_HOME/.env 加载配置作用域的环境变量。"""
     env_path = get_kclaw_home() / ".env"
     env_vars: Dict[str, str] = {}
     if not env_path.exists():
@@ -132,10 +132,10 @@ def set_secret_capture_callback(callback) -> None:
 
 
 def skill_matches_platform(frontmatter: Dict[str, Any]) -> bool:
-    """Check if a skill is compatible with the current OS platform.
+    """检查技能是否与当前 OS 平台兼容。
 
-    Delegates to ``agent.skill_utils.skill_matches_platform`` — kept here
-    as a public re-export so existing callers don't need updating.
+    委托给 ``agent.skill_utils.skill_matches_platform``——在此保留
+    作为公共重导出，以便现有调用者无需更新。
     """
     from agent.skill_utils import skill_matches_platform as _impl
     return _impl(frontmatter)
@@ -406,15 +406,15 @@ def _build_setup_note(
 
 
 def check_skills_requirements() -> bool:
-    """Skills are always available -- the directory is created on first use if needed."""
+    """技能始终可用——如果需要，目录会在首次使用时创建。"""
     return True
 
 
 def _parse_frontmatter(content: str) -> Tuple[Dict[str, Any], str]:
-    """Parse YAML frontmatter from markdown content.
+    """从 markdown 内容解析 YAML frontmatter。
 
-    Delegates to ``agent.skill_utils.parse_frontmatter`` — kept here
-    as a public re-export so existing callers don't need updating.
+    委托给 ``agent.skill_utils.parse_frontmatter``——在此保留
+    作为公共重导出，以便现有调用者无需更新。
     """
     from agent.skill_utils import parse_frontmatter
     return parse_frontmatter(content)
@@ -422,13 +422,13 @@ def _parse_frontmatter(content: str) -> Tuple[Dict[str, Any], str]:
 
 def _get_category_from_path(skill_path: Path) -> Optional[str]:
     """
-    Extract category from skill path based on directory structure.
+    基于目录结构从技能路径提取类别。
 
-    For paths like: ~/.kclaw/skills/mlops/axolotl/SKILL.md -> "mlops"
-    Also works for external skill dirs configured via skills.external_dirs.
+    对于路径如：~/.kclaw/skills/mlops/axolotl/SKILL.md -> "mlops"
+    也适用于通过 skills.external_dirs 配置的外部技能目录。
     """
-    # Try the module-level SKILLS_DIR first (respects monkeypatching in tests),
-    # then fall back to external dirs from config.
+    # 首先尝试模块级 SKILLS_DIR（尊重测试中的 monkeypatching），
+    # 然后回退到配置中的外部目录。
     dirs_to_check = [SKILLS_DIR]
     try:
         from agent.skill_utils import get_external_skills_dirs
@@ -448,40 +448,40 @@ def _get_category_from_path(skill_path: Path) -> Optional[str]:
 
 def _estimate_tokens(content: str) -> int:
     """
-    Rough token estimate (4 chars per token average).
+    粗略的 token 估算（平均每 token 4 字符）。
 
-    Args:
-        content: Text content
+    参数：
+        content: 文本内容
 
-    Returns:
-        Estimated token count
+    返回：
+        估算的 token 数量
     """
     return len(content) // 4
 
 
 def _parse_tags(tags_value) -> List[str]:
     """
-    Parse tags from frontmatter value.
+    从 frontmatter 值解析标签。
 
-    Handles:
-    - Already-parsed list (from yaml.safe_load): [tag1, tag2]
-    - String with brackets: "[tag1, tag2]"
-    - Comma-separated string: "tag1, tag2"
+    处理：
+    - 已解析的列表（来自 yaml.safe_load）：[tag1, tag2]
+    - 带括号的字符串："[tag1, tag2]"
+    - 逗号分隔的字符串："tag1, tag2"
 
-    Args:
-        tags_value: Raw tags value — may be a list or string
+    参数：
+        tags_value: 原始标签值——可能是列表或字符串
 
-    Returns:
-        List of tag strings
+    返回：
+        标签字符串列表
     """
     if not tags_value:
         return []
 
-    # yaml.safe_load already returns a list for [tag1, tag2]
+    # yaml.safe_load 已经为 [tag1, tag2] 返回一个列表
     if isinstance(tags_value, list):
         return [str(t).strip() for t in tags_value if t]
 
-    # String fallback — handle bracket-wrapped or comma-separated
+    # 字符串回退——处理带括号或逗号分隔的情况
     tags_value = str(tags_value).strip()
     if tags_value.startswith("[") and tags_value.endswith("]"):
         tags_value = tags_value[1:-1]
@@ -491,17 +491,17 @@ def _parse_tags(tags_value) -> List[str]:
 
 
 def _get_disabled_skill_names() -> Set[str]:
-    """Load disabled skill names from config.
+    """从配置加载禁用的技能名称。
 
-    Delegates to ``agent.skill_utils.get_disabled_skill_names`` — kept here
-    as a public re-export so existing callers don't need updating.
+    委托给 ``agent.skill_utils.get_disabled_skill_names``——在此保留
+    作为公共重导出，以便现有调用者无需更新。
     """
     from agent.skill_utils import get_disabled_skill_names
     return get_disabled_skill_names()
 
 
 def _is_skill_disabled(name: str, platform: str = None) -> bool:
-    """Check if a skill is disabled in config."""
+    """检查技能是否在配置中被禁用。"""
     import os
     try:
         from kclaw_cli.config import load_config
@@ -518,25 +518,25 @@ def _is_skill_disabled(name: str, platform: str = None) -> bool:
 
 
 def _find_all_skills(*, skip_disabled: bool = False) -> List[Dict[str, Any]]:
-    """Recursively find all skills in ~/.kclaw/skills/ and external dirs.
+    """递归查找 ~/.kclaw/skills/ 和外部目录中的所有技能。
 
-    Args:
-        skip_disabled: If True, return ALL skills regardless of disabled
-            state (used by ``kclaw skills`` config UI). Default False
-            filters out disabled skills.
+    参数：
+        skip_disabled: 如果为 True，返回所有技能而不管禁用
+            状态（由 ``kclaw skills`` 配置 UI 使用）。默认为 False，
+            会过滤掉禁用的技能。
 
-    Returns:
-        List of skill metadata dicts (name, description, category).
+    返回：
+        技能元数据字典列表（name, description, category）。
     """
     from agent.skill_utils import get_external_skills_dirs
 
     skills = []
     seen_names: set = set()
 
-    # Load disabled set once (not per-skill)
+    # 加载禁用集合一次（不是每个技能一次）
     disabled = set() if skip_disabled else _get_disabled_skill_names()
 
-    # Scan local dir first, then external dirs (local takes precedence)
+    # 首先扫描本地目录，然后是外部目录（本地优先）
     dirs_to_scan = []
     if SKILLS_DIR.exists():
         dirs_to_scan.append(SKILLS_DIR)
@@ -596,13 +596,13 @@ def _find_all_skills(*, skip_disabled: bool = False) -> List[Dict[str, Any]]:
 
 def _load_category_description(category_dir: Path) -> Optional[str]:
     """
-    Load category description from DESCRIPTION.md if it exists.
+    如果存在，从 DESCRIPTION.md 加载类别描述。
 
-    Args:
-        category_dir: Path to the category directory
+    参数：
+        category_dir: 类别目录的路径
 
-    Returns:
-        Description string or None if not found
+    返回：
+        描述字符串，如果未找到则返回 None
     """
     desc_file = category_dir / "DESCRIPTION.md"
     if not desc_file.exists():
@@ -610,10 +610,10 @@ def _load_category_description(category_dir: Path) -> Optional[str]:
 
     try:
         content = desc_file.read_text(encoding="utf-8")
-        # Parse frontmatter if present
+        # 如果存在则解析 frontmatter
         frontmatter, body = _parse_frontmatter(content)
 
-        # Prefer frontmatter description, fall back to first non-header line
+        # 优先使用 frontmatter 描述，回退到第一个非标题行
         description = frontmatter.get("description", "")
         if not description:
             for line in body.strip().split("\n"):
@@ -622,7 +622,7 @@ def _load_category_description(category_dir: Path) -> Optional[str]:
                     description = line
                     break
 
-        # Truncate to reasonable length
+        # 截断到合理长度
         if len(description) > MAX_DESCRIPTION_LENGTH:
             description = description[: MAX_DESCRIPTION_LENGTH - 3] + "..."
 
@@ -639,21 +639,21 @@ def _load_category_description(category_dir: Path) -> Optional[str]:
 
 def skills_categories(verbose: bool = False, task_id: str = None) -> str:
     """
-    List available skill categories with descriptions (progressive disclosure tier 0).
+    列出可用的技能类别及其描述（渐进式披露第 0 层）。
 
-    Returns category names and descriptions for efficient discovery before drilling down.
-    Categories can have a DESCRIPTION.md file with a description frontmatter field
-    or first paragraph to explain what skills are in that category.
+    返回类别名称和描述，以便在深入了解之前进行高效发现。
+    类别可以有一个 DESCRIPTION.md 文件，其中包含描述 frontmatter 字段
+    或第一段来解释该类别中有哪些技能。
 
-    Args:
-        verbose: If True, include skill counts per category (default: False, but currently always included)
-        task_id: Optional task identifier used to probe the active backend
+    参数：
+        verbose: 如果为 True，包含每个类别的技能计数（默认：False，但目前始终包含）
+        task_id: 用于探测活动后端的可选任务标识符
 
-    Returns:
-        JSON string with list of categories and their descriptions
+    返回：
+        包含类别列表及其描述的 JSON 字符串
     """
     try:
-        # Use module-level SKILLS_DIR (respects monkeypatching) + external dirs
+        # 使用模块级 SKILLS_DIR（尊重 monkeypatching）+ 外部目录
         all_dirs = [SKILLS_DIR] if SKILLS_DIR.exists() else []
         try:
             from agent.skill_utils import get_external_skills_dirs
@@ -718,17 +718,17 @@ def skills_categories(verbose: bool = False, task_id: str = None) -> str:
 
 def skills_list(category: str = None, task_id: str = None) -> str:
     """
-    List all available skills (progressive disclosure tier 1 - minimal metadata).
+    列出所有可用技能（渐进式披露第 1 层——最小元数据）。
 
-    Returns only name + description to minimize token usage. Use skill_view() to
-    load full content, tags, related files, etc.
+    仅返回名称 + 描述以最小化 token 使用。使用 skill_view()
+    加载完整内容、标签、相关文件等。
 
-    Args:
-        category: Optional category filter (e.g., "mlops")
-        task_id: Optional task identifier used to probe the active backend
+    参数：
+        category: 可选的类别过滤器（例如 "mlops"）
+        task_id: 用于探测活动后端的可选任务标识符
 
-    Returns:
-        JSON string with minimal skill info: name, description, category
+    返回：
+        包含最小技能信息的 JSON 字符串：name, description, category
     """
     try:
         if not SKILLS_DIR.exists():
@@ -743,7 +743,7 @@ def skills_list(category: str = None, task_id: str = None) -> str:
                 ensure_ascii=False,
             )
 
-        # Find all skills
+        # 查找所有技能
         all_skills = _find_all_skills()
 
         if not all_skills:
@@ -757,14 +757,14 @@ def skills_list(category: str = None, task_id: str = None) -> str:
                 ensure_ascii=False,
             )
 
-        # Filter by category if specified
+        # 如果指定了则按类别过滤
         if category:
             all_skills = [s for s in all_skills if s.get("category") == category]
 
-        # Sort by category then name
+        # 按类别然后名称排序
         all_skills.sort(key=lambda s: (s.get("category") or "", s["name"]))
 
-        # Extract unique categories
+        # 提取唯一样类别
         categories = sorted(
             set(s.get("category") for s in all_skills if s.get("category"))
         )
@@ -786,20 +786,20 @@ def skills_list(category: str = None, task_id: str = None) -> str:
 
 def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
     """
-    View the content of a skill or a specific file within a skill directory.
+    查看技能的内容或技能目录中的特定文件。
 
-    Args:
-        name: Name or path of the skill (e.g., "axolotl" or "03-fine-tuning/axolotl")
-        file_path: Optional path to a specific file within the skill (e.g., "references/api.md")
-        task_id: Optional task identifier used to probe the active backend
+    参数：
+        name: 技能的名称或路径（例如 "axolotl" 或 "03-fine-tuning/axolotl"）
+        file_path: 技能内特定文件的可选路径（例如 "references/api.md"）
+        task_id: 用于探测活动后端的可选任务标识符
 
-    Returns:
-        JSON string with skill content or error message
+    返回：
+        包含技能内容或错误消息的 JSON 字符串
     """
     try:
         from agent.skill_utils import get_external_skills_dirs
 
-        # Build list of all skill directories to search
+        # 构建要搜索的所有技能目录列表
         all_dirs = []
         if SKILLS_DIR.exists():
             all_dirs.append(SKILLS_DIR)
@@ -817,9 +817,9 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
         skill_dir = None
         skill_md = None
 
-        # Search all dirs: local first, then external (first match wins)
+        # 搜索所有目录：本地优先，然后是外部（首次匹配优先）
         for search_dir in all_dirs:
-            # Try direct path first (e.g., "mlops/axolotl")
+            # 首先尝试直接路径（例如 "mlops/axolotl"）
             direct_path = search_dir / name
             if direct_path.is_dir() and (direct_path / "SKILL.md").exists():
                 skill_dir = direct_path
@@ -829,7 +829,7 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
                 skill_md = direct_path.with_suffix(".md")
                 break
 
-        # Search by directory name across all dirs
+        # 通过目录名在所有目录中搜索
         if not skill_md:
             for search_dir in all_dirs:
                 for found_skill_md in search_dir.rglob("SKILL.md"):
@@ -840,7 +840,7 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
                 if skill_md:
                     break
 
-        # Legacy: flat .md files
+        # 遗留：平面 .md 文件
         if not skill_md:
             for search_dir in all_dirs:
                 for found_md in search_dir.rglob(f"{name}.md"):
@@ -862,7 +862,7 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
                 ensure_ascii=False,
             )
 
-        # Read the file once — reused for platform check and main content below
+        # 读取文件一次——在下面的平台检查和主要内容中重用
         try:
             content = skill_md.read_text(encoding="utf-8")
         except Exception as e:
@@ -874,8 +874,8 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
                 ensure_ascii=False,
             )
 
-        # Security: warn if skill is loaded from outside trusted directories
-        # (local skills dir + configured external_dirs are all trusted)
+        # 安全：如果技能从受信任目录外部加载则发出警告
+        #（本地 skills 目录 + 配置的 external_dirs 都是受信任的）
         _outside_skills_dir = True
         _trusted_dirs = [SKILLS_DIR.resolve()]
         try:
@@ -890,7 +890,7 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
             except ValueError:
                 continue
 
-        # Security: detect common prompt injection patterns
+        # 安全：检测常见的提示注入模式
         _INJECTION_PATTERNS = [
             "ignore previous instructions",
             "ignore all previous",
@@ -944,9 +944,9 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
                 ensure_ascii=False,
             )
 
-        # If a specific file path is requested, read that instead
+        # 如果请求了特定文件路径，则读取该文件
         if file_path and skill_dir:
-            # Security: Prevent path traversal attacks
+            # 安全：防止路径遍历攻击
             normalized_path = Path(file_path)
             if ".." in normalized_path.parts:
                 return json.dumps(
@@ -960,7 +960,7 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
 
             target_file = skill_dir / file_path
 
-            # Security: Verify resolved path is still within skill directory
+            # 安全：验证解析后的路径仍在技能目录内
             try:
                 resolved = target_file.resolve()
                 skill_dir_resolved = skill_dir.resolve()
@@ -983,7 +983,7 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
                     ensure_ascii=False,
                 )
             if not target_file.exists():
-                # List available files in the skill directory, organized by type
+                # 列出技能目录中可用的文件，按类型组织
                 available_files = {
                     "references": [],
                     "templates": [],
@@ -1015,7 +1015,7 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
                         ]:
                             available_files["other"].append(rel)
 
-                # Remove empty categories
+                # 移除空类别
                 available_files = {k: v for k, v in available_files.items() if v}
 
                 return json.dumps(
@@ -1028,11 +1028,11 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
                     ensure_ascii=False,
                 )
 
-            # Read the file content
+            # 读取文件内容
             try:
                 content = target_file.read_text(encoding="utf-8")
             except UnicodeDecodeError:
-                # Binary file - return info about it instead
+                # 二进制文件——返回关于它的信息
                 return json.dumps(
                     {
                         "success": True,
@@ -1103,8 +1103,8 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
                         [str(f.relative_to(skill_dir)) for f in scripts_dir.glob(ext)]
                     )
 
-        # Read tags/related_skills with backward compat:
-        # Check metadata.kclaw.* first (agentskills.io convention), fall back to top-level
+        # 读取标签/相关技能时保持向后兼容：
+        # 首先检查 metadata.kclaw.*（agentskills.io 约定），回退到顶层
         kclaw_meta = {}
         metadata = frontmatter.get("metadata")
         if isinstance(metadata, dict):
@@ -1129,7 +1129,7 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
         try:
             rel_path = str(skill_md.relative_to(SKILLS_DIR))
         except ValueError:
-            # External skill — use path relative to the skill's own parent dir
+            # 外部技能——使用相对于技能自身父目录的路径
             rel_path = str(skill_md.relative_to(skill_md.parent.parent)) if skill_md.parent.parent else skill_md.name
         skill_name = frontmatter.get(
             "name", skill_md.stem if not skill_dir else skill_dir.name
@@ -1158,9 +1158,9 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
         )
         setup_needed = bool(remaining_missing_required_envs)
 
-        # Register available skill env vars so they pass through to sandboxed
-        # execution environments (execute_code, terminal).  Only vars that are
-        # actually set get registered — missing ones are reported as setup_needed.
+        # 注册可用的技能环境变量，以便它们传递到沙箱
+        # 执行环境（execute_code、terminal）。只有实际设置的变量才会被注册——
+        # 缺失的会被报告为需要设置。
         available_env_names = [
             e["name"]
             for e in required_env_vars
@@ -1178,9 +1178,9 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
                     exc_info=True,
                 )
 
-        # Register credential files for mounting into remote sandboxes
-        # (Modal, Docker).  Files that exist on the host are registered;
-        # missing ones are added to the setup_needed indicators.
+        # 注册凭据文件以挂载到远程沙箱
+        #（Modal、Docker）。主机上存在的文件会被注册；
+        # 缺失的会被添加到 setup_needed 指示器中。
         required_cred_files_raw = frontmatter.get("required_credential_files", [])
         if not isinstance(required_cred_files_raw, list):
             required_cred_files_raw = []
@@ -1246,7 +1246,7 @@ def skill_view(name: str, file_path: str = None, task_id: str = None) -> str:
             if setup_note:
                 result["setup_note"] = setup_note
 
-        # Surface agentskills.io optional fields when present
+        # 当存在时显示 agentskills.io 可选字段
         if frontmatter.get("compatibility"):
             result["compatibility"] = frontmatter["compatibility"]
         if isinstance(metadata, dict):
@@ -1274,12 +1274,12 @@ Skills may include:
 
 
 if __name__ == "__main__":
-    """Test the skills tool"""
+    """测试技能工具"""
     print("🎯 Skills Tool Test")
     print("=" * 60)
 
-    # Test listing skills
-    print("\n📋 Listing all skills:")
+    # 测试列出技能
+    print("\n📋 列出所有技能：")
     result = json.loads(skills_list())
     if result["success"]:
         print(
@@ -1293,8 +1293,8 @@ if __name__ == "__main__":
     else:
         print(f"Error: {result['error']}")
 
-    # Test viewing a skill
-    print("\n📖 Viewing skill 'axolotl':")
+    # 测试查看技能
+    print("\n📖 查看技能 'axolotl'：")
     result = json.loads(skill_view("axolotl"))
     if result["success"]:
         print(f"Name: {result['name']}")
@@ -1305,8 +1305,8 @@ if __name__ == "__main__":
     else:
         print(f"Error: {result['error']}")
 
-    # Test viewing a reference file
-    print("\n📄 Viewing reference file 'axolotl/references/dataset-formats.md':")
+    # 测试查看参考文件
+    print("\n📄 查看参考文件 'axolotl/references/dataset-formats.md'：")
     result = json.loads(skill_view("axolotl", "references/dataset-formats.md"))
     if result["success"]:
         print(f"File: {result['file']}")
@@ -1317,7 +1317,7 @@ if __name__ == "__main__":
 
 
 # ---------------------------------------------------------------------------
-# Registry
+# 注册表
 # ---------------------------------------------------------------------------
 
 SKILLS_LIST_SCHEMA = {

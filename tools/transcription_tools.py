@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-Transcription Tools Module
+转录工具模块
 
-Provides speech-to-text transcription with three providers:
+提供三种提供商语音转文本转录：
 
-  - **local** (default, free) — faster-whisper running locally, no API key needed.
-    Auto-downloads the model (~150 MB for ``base``) on first use.
-  - **groq** (free tier) — Groq Whisper API, requires ``GROQ_API_KEY``.
-  - **openai** (paid) — OpenAI Whisper API, requires ``VOICE_TOOLS_OPENAI_KEY``.
+  - **local**（默认，免费）— 本地运行的 faster-whisper，无需 API 密钥。
+    首次使用时会自动下载模型（``base`` 约 150 MB）。
+  - **groq**（免费套餐）— Groq Whisper API，需要 ``GROQ_API_KEY``。
+  - **openai**（付费）— OpenAI Whisper API，需要 ``VOICE_TOOLS_OPENAI_KEY``。
 
-Used by the messaging gateway to automatically transcribe voice messages
-sent by users on Telegram, Discord, WhatsApp, Slack, and Signal.
+由消息网关用于自动转录用户在 Telegram、Discord、WhatsApp、Slack 和 Signal 上
+发送的语音消息。
 
-Supported input formats: mp3, mp4, mpeg, mpga, m4a, wav, webm, ogg, aac
+支持的输入格式：mp3、mp4、mpeg、mpga、m4a、wav、webm、ogg、aac
 
-Usage::
+用法::
 
     from tools.transcription_tools import transcribe_audio
 
@@ -94,10 +94,10 @@ _local_model_name: Optional[str] = None
 
 
 def get_stt_model_from_config() -> Optional[str]:
-    """Read the STT model name from ~/.kclaw/config.yaml.
+    """从 ~/.kclaw/config.yaml 读取 STT 模型名称。
 
-    Returns the value of ``stt.model`` if present, otherwise ``None``.
-    Silently returns ``None`` on any error (missing file, bad YAML, etc.).
+    如果存在则返回 ``stt.model`` 的值，否则返回 ``None``。
+    静默返回 ``None`` 于任何错误（文件缺失、YAML 错误等）。
     """
     try:
         from kclaw_cli.config import read_raw_config
@@ -108,7 +108,7 @@ def get_stt_model_from_config() -> Optional[str]:
 
 
 def _load_stt_config() -> dict:
-    """Load the ``stt`` section from user config, falling back to defaults."""
+    """从用户配置加载 ``stt`` 部分，失败时回退到默认值。"""
     try:
         from kclaw_cli.config import load_config
         return load_config().get("stt", {})
@@ -117,7 +117,7 @@ def _load_stt_config() -> dict:
 
 
 def is_stt_enabled(stt_config: Optional[dict] = None) -> bool:
-    """Return whether STT is enabled in config."""
+    """返回配置中是否启用了 STT。"""
     if stt_config is None:
         stt_config = _load_stt_config()
     enabled = stt_config.get("enabled", True)
@@ -125,7 +125,7 @@ def is_stt_enabled(stt_config: Optional[dict] = None) -> bool:
 
 
 def _has_openai_audio_backend() -> bool:
-    """Return True when OpenAI audio can use config credentials, env credentials, or the managed gateway."""
+    """当 OpenAI 音频可以使用配置凭据、环境凭据或托管网关时返回 True。"""
     try:
         _resolve_openai_audio_client_config()
         return True
@@ -134,7 +134,7 @@ def _has_openai_audio_backend() -> bool:
 
 
 def _find_binary(binary_name: str) -> Optional[str]:
-    """Find a local binary, checking common Homebrew/local prefixes as well as PATH."""
+    """查找本地二进制文件，同时检查常见的 Homebrew/本地前缀以及 PATH。"""
     for directory in COMMON_LOCAL_BIN_DIRS:
         candidate = Path(directory) / binary_name
         if candidate.exists() and os.access(candidate, os.X_OK):
@@ -263,7 +263,7 @@ def _get_provider(stt_config: dict) -> str:
 
 
 def _validate_audio_file(file_path: str) -> Optional[Dict[str, Any]]:
-    """Validate the audio file.  Returns an error dict or None if OK."""
+    """验证音频文件。成功则返回 None，失败则返回错误字典。"""
     audio_path = Path(file_path)
 
     if not audio_path.exists():
@@ -295,7 +295,7 @@ def _validate_audio_file(file_path: str) -> Optional[Dict[str, Any]]:
 
 
 def _transcribe_local(file_path: str, model_name: str) -> Dict[str, Any]:
-    """Transcribe using faster-whisper (local, free)."""
+    """使用 faster-whisper 进行转录（本地，免费）。"""
     global _local_model, _local_model_name
 
     if not _HAS_FASTER_WHISPER:
@@ -335,7 +335,7 @@ def _transcribe_local(file_path: str, model_name: str) -> Dict[str, Any]:
 
 
 def _prepare_local_audio(file_path: str, work_dir: str) -> tuple[Optional[str], Optional[str]]:
-    """Normalize audio for local CLI STT when needed."""
+    """如需要，为本地 CLI STT 标准化音频。"""
     audio_path = Path(file_path)
     if audio_path.suffix.lower() in LOCAL_NATIVE_AUDIO_FORMATS:
         return file_path, None
@@ -427,7 +427,7 @@ def _transcribe_local_command(file_path: str, model_name: str) -> Dict[str, Any]
 
 
 def _transcribe_groq(file_path: str, model_name: str) -> Dict[str, Any]:
-    """Transcribe using Groq Whisper API (free tier available)."""
+    """使用 Groq Whisper API 进行转录（有免费套餐）。"""
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         return {"success": False, "transcript": "", "error": "GROQ_API_KEY not set"}
@@ -479,7 +479,7 @@ def _transcribe_groq(file_path: str, model_name: str) -> Dict[str, Any]:
 
 
 def _transcribe_openai(file_path: str, model_name: str) -> Dict[str, Any]:
-    """Transcribe using OpenAI Whisper API (paid)."""
+    """使用 OpenAI Whisper API 进行转录（付费）。"""
     try:
         api_key, base_url = _resolve_openai_audio_client_config()
     except ValueError as exc:
@@ -536,10 +536,10 @@ def _transcribe_openai(file_path: str, model_name: str) -> Dict[str, Any]:
 
 
 def _transcribe_mistral(file_path: str, model_name: str) -> Dict[str, Any]:
-    """Transcribe using Mistral Voxtral Transcribe API.
+    """使用 Mistral Voxtral Transcribe API 进行转录。
 
-    Uses the ``mistralai`` Python SDK to call ``/v1/audio/transcriptions``.
-    Requires ``MISTRAL_API_KEY`` environment variable.
+    使用 ``mistralai`` Python SDK 调用 ``/v1/audio/transcriptions``。
+    需要 ``MISTRAL_API_KEY`` 环境变量。
     """
     api_key = os.getenv("MISTRAL_API_KEY")
     if not api_key:
@@ -576,22 +576,22 @@ def _transcribe_mistral(file_path: str, model_name: str) -> Dict[str, Any]:
 
 def transcribe_audio(file_path: str, model: Optional[str] = None) -> Dict[str, Any]:
     """
-    Transcribe an audio file using the configured STT provider.
+    使用配置的 STT 提供商转录音频文件。
 
-    Provider priority:
-      1. User config (``stt.provider`` in config.yaml)
-      2. Auto-detect: local faster-whisper (free) > Groq (free tier) > OpenAI (paid)
+    提供商优先级：
+      1. 用户配置（config.yaml 中的 ``stt.provider``）
+      2. 自动检测：本地 faster-whisper（免费）> Groq（免费套餐）> OpenAI（付费）
 
-    Args:
-        file_path: Absolute path to the audio file to transcribe.
-        model:     Override the model. If None, uses config or provider default.
+    参数：
+        file_path：要转录的音频文件的绝对路径。
+        model：覆盖模型。如果为 None，则使用配置或提供商默认值。
 
-    Returns:
-        dict with keys:
-          - "success" (bool): Whether transcription succeeded
-          - "transcript" (str): The transcribed text (empty on failure)
-          - "error" (str, optional): Error message if success is False
-          - "provider" (str, optional): Which provider was used
+    返回：
+        包含以下键的字典：
+          - "success" (bool)：转录是否成功
+          - "transcript" (str)：转录的文本（失败时为空）
+          - "error" (str, optional)：如果 success 为 False 时的错误消息
+          - "provider" (str, optional)：使用的提供商
     """
     # Validate input
     error = _validate_audio_file(file_path)
@@ -650,7 +650,7 @@ def transcribe_audio(file_path: str, model: Optional[str] = None) -> Dict[str, A
 
 
 def _resolve_openai_audio_client_config() -> tuple[str, str]:
-    """Return direct OpenAI audio config or a managed gateway fallback."""
+    """返回直接 OpenAI 音频配置或托管网关回退方案。"""
     stt_config = _load_stt_config()
     openai_cfg = stt_config.get("openai", {})
     cfg_api_key = openai_cfg.get("api_key", "")
@@ -675,7 +675,7 @@ def _resolve_openai_audio_client_config() -> tuple[str, str]:
 
 
 def _extract_transcript_text(transcription: Any) -> str:
-    """Normalize text and JSON transcription responses to a plain string."""
+    """将文本和 JSON 转录响应标准化为纯字符串。"""
     if isinstance(transcription, str):
         return transcription.strip()
 

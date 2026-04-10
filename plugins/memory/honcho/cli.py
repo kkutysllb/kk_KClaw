@@ -1,6 +1,6 @@
-"""CLI commands for Honcho integration management.
+"""Honcho 集成管理的 CLI 命令。
 
-Handles: kclaw honcho setup | status | sessions | map | peer
+处理：kclaw honcho setup | status | sessions | map | peer
 """
 
 from __future__ import annotations
@@ -15,13 +15,12 @@ from plugins.memory.honcho.client import resolve_active_host, resolve_config_pat
 
 
 def clone_honcho_for_profile(profile_name: str) -> bool:
-    """Auto-clone Honcho config for a new profile from the default host block.
+    """从默认主机块为新 profile 自动克隆 Honcho 配置。
 
-    Called during profile creation. If Honcho is configured on the default
-    host, creates a new host block for the profile with inherited settings
-    and auto-derived workspace/aiPeer.
+    在 profile 创建期间调用。如果 Honcho 在默认主机上配置，
+    则为 profile 创建具有继承设置和自动派生 workspace/aiPeer 的新主机块。
 
-    Returns True if a host block was created, False if Honcho isn't configured.
+    如果创建了主机块则返回 True，如果 Honcho 未配置则返回 False。
     """
     cfg = _read_config()
     if not cfg:
@@ -71,10 +70,9 @@ def clone_honcho_for_profile(profile_name: str) -> bool:
 
 
 def _ensure_peer_exists(host_key: str | None = None) -> bool:
-    """Create the AI peer in Honcho if it doesn't already exist.
+    """如果 AI peer 尚不存在，则在 Honcho 中创建它。
 
-    Idempotent -- safe to call multiple times. Returns True if the peer
-    was created or already exists, False on failure.
+    幂等 — 可以安全地多次调用。如果 peer 已创建或已存在则返回 True，失败时返回 False。
     """
     try:
         from plugins.memory.honcho.client import HonchoClientConfig, get_honcho_client
@@ -92,7 +90,7 @@ def _ensure_peer_exists(host_key: str | None = None) -> bool:
 
 
 def cmd_enable(args) -> None:
-    """Enable Honcho for the active profile."""
+    """为活动 profile 启用 Honcho。"""
     cfg = _read_config()
     host = _host_key()
     label = f"[{host}] " if host != "kclaw" else ""
@@ -135,7 +133,7 @@ def cmd_enable(args) -> None:
 
 
 def cmd_disable(args) -> None:
-    """Disable Honcho for the active profile."""
+    """为活动 profile 禁用 Honcho。"""
     cfg = _read_config()
     host = _host_key()
     label = f"[{host}] " if host != "kclaw" else ""
@@ -152,10 +150,10 @@ def cmd_disable(args) -> None:
 
 
 def cmd_sync(args) -> None:
-    """Sync Honcho config to all existing profiles.
+    """将 Honcho 配置同步到所有现有 profiles。
 
-    Scans all KClaw profiles and creates host blocks for any that don't
-    have one yet. Inherits settings from the default host block.
+    扫描所有 KClaw profiles，并为尚未配置的 profiles 创建主机块。
+    从默认主机块继承设置。
     """
     try:
         from kclaw_cli.profiles import list_profiles
@@ -198,9 +196,9 @@ def cmd_sync(args) -> None:
 
 
 def sync_honcho_profiles_quiet() -> int:
-    """Sync Honcho host blocks for all profiles. Returns count of newly created blocks.
+    """为所有 profiles 同步 Honcho 主机块。返回新创建块的计数。
 
-    Called from `kclaw update` -- no output, no exceptions.
+    从 `kclaw update` 调用 — 无输出，无异常。
     """
     try:
         from kclaw_cli.profiles import list_profiles
@@ -230,7 +228,7 @@ _profile_override: str | None = None
 
 
 def _host_key() -> str:
-    """Return the active Honcho host key, derived from the current KClaw profile."""
+    """返回活动的 Honcho 主机键，派生自当前 KClaw profile。"""
     if _profile_override:
         if _profile_override in ("default", "custom"):
             return HOST
@@ -239,16 +237,16 @@ def _host_key() -> str:
 
 
 def _config_path() -> Path:
-    """Return the active Honcho config path for reading (instance-local or global)."""
+    """返回用于读取的活动 Honcho 配置路径（实例本地或全局）。"""
     return resolve_config_path()
 
 
 def _local_config_path() -> Path:
-    """Return the instance-local Honcho config path for writing.
+    """返回用于写入的实例本地 Honcho 配置路径。
 
-    Always returns $KCLAW_HOME/honcho.json so each profile/instance gets
-    its own config file.  The global ~/.honcho/config.json is only used as
-    a read fallback (via resolve_config_path) for cross-app interop.
+    始终返回 $KCLAW_HOME/honcho.json，以便每个 profile/实例
+    获得自己的配置文件。全局 ~/.honcho/config.json 仅用作
+    读取后备（通过 resolve_config_path）以实现跨应用互操作。
     """
     return get_kclaw_home() / "honcho.json"
 
@@ -273,7 +271,7 @@ def _write_config(cfg: dict, path: Path | None = None) -> None:
 
 
 def _resolve_api_key(cfg: dict) -> str:
-    """Resolve API key with host -> root -> env fallback."""
+    """解析 API key，优先 host -> root -> env 后备。"""
     host_key = ((cfg.get("hosts") or {}).get(_host_key()) or {}).get("apiKey")
     return host_key or cfg.get("apiKey", "") or os.environ.get("HONCHO_API_KEY", "")
 
@@ -295,7 +293,7 @@ def _prompt(label: str, default: str | None = None, secret: bool = False) -> str
 
 
 def _ensure_sdk_installed() -> bool:
-    """Check honcho-ai is importable; offer to install if not. Returns True if ready."""
+    """检查 honcho-ai 是否可导入；如果不能则提供安装。已就绪则返回 True。"""
     try:
         import honcho  # noqa: F401
         return True
@@ -325,7 +323,7 @@ def _ensure_sdk_installed() -> bool:
 
 
 def cmd_setup(args) -> None:
-    """Interactive Honcho setup wizard."""
+    """交互式 Honcho 设置向导。"""
     cfg = _read_config()
 
     write_path = _local_config_path()
@@ -503,7 +501,7 @@ def cmd_setup(args) -> None:
 
 
 def _active_profile_name() -> str:
-    """Return the active KClaw profile name (respects --target-profile override)."""
+    """返回活动的 KClaw profile 名称（遵循 --target-profile 覆盖）。"""
     if _profile_override:
         return _profile_override
     try:
@@ -514,9 +512,9 @@ def _active_profile_name() -> str:
 
 
 def _all_profile_host_configs() -> list[tuple[str, str, dict]]:
-    """Return (profile_name, host_key, host_block) for every known profile.
+    """为每个已知的 profile 返回（profile_name, host_key, host_block）。
 
-    Reads honcho.json once and maps each profile to its host block.
+    读取 honcho.json 一次并将每个 profile 映射到其主机块。
     """
     try:
         from kclaw_cli.profiles import list_profiles
@@ -542,7 +540,7 @@ def _all_profile_host_configs() -> list[tuple[str, str, dict]]:
 
 
 def cmd_status(args) -> None:
-    """Show current Honcho config and connection status."""
+    """显示当前 Honcho 配置和连接状态。"""
     show_all = getattr(args, "all", False)
 
     if show_all:
@@ -609,11 +607,10 @@ def cmd_status(args) -> None:
 
 
 def _show_peer_cards(hcfg, client) -> None:
-    """Fetch and display peer cards for the active profile.
+    """获取并显示活动 profile 的 peer cards。
 
-    Uses get_or_create to ensure the session exists with peers configured.
-    This is idempotent -- if the session already exists on the server it's
-    just retrieved, not duplicated.
+    使用 get_or_create 确保会话存在且 peers 已配置。
+    这是幂等的 — 如果会话已在服务器上存在，它只是检索，而不是重复。
     """
     try:
         from plugins.memory.honcho.session import HonchoSessionManager
@@ -648,7 +645,7 @@ def _show_peer_cards(hcfg, client) -> None:
 
 
 def _cmd_status_all() -> None:
-    """Show Honcho config overview across all profiles."""
+    """显示所有 profiles 的 Honcho 配置概览。"""
     rows = _all_profile_host_configs()
     cfg = _read_config()
     active = _active_profile_name()
@@ -674,7 +671,7 @@ def _cmd_status_all() -> None:
 
 
 def cmd_peers(args) -> None:
-    """Show peer identities across all profiles."""
+    """显示所有 profiles 的 peer 身份。"""
     rows = _all_profile_host_configs()
     cfg = _read_config()
 
@@ -691,7 +688,7 @@ def cmd_peers(args) -> None:
 
 
 def cmd_sessions(args) -> None:
-    """List known directory → session name mappings."""
+    """列出已知的目录 → 会话名称映射。"""
     cfg = _read_config()
     sessions = cfg.get("sessions", {})
 
@@ -710,7 +707,7 @@ def cmd_sessions(args) -> None:
 
 
 def cmd_map(args) -> None:
-    """Map current directory to a Honcho session name."""
+    """将当前目录映射到 Honcho 会话名称。"""
     if not args.session_name:
         cmd_sessions(args)
         return
@@ -735,7 +732,7 @@ def cmd_map(args) -> None:
 
 
 def cmd_peer(args) -> None:
-    """Show or update peer names and dialectic reasoning level."""
+    """显示或更新 peer 名称和辩证推理级别。"""
     cfg = _read_config()
     changed = False
 
@@ -791,7 +788,7 @@ def cmd_peer(args) -> None:
 
 
 def cmd_mode(args) -> None:
-    """Show or set the recall mode."""
+    """显示或设置 recall 模式。"""
     MODES = {
         "hybrid": "auto-injected context + Honcho tools available (default)",
         "context": "auto-injected context only, Honcho tools hidden",
@@ -825,7 +822,7 @@ def cmd_mode(args) -> None:
 
 
 def cmd_tokens(args) -> None:
-    """Show or set token budget settings."""
+    """显示或设置 token 预算设置。"""
     cfg = _read_config()
     hosts = cfg.get("hosts", {})
     kclaw = hosts.get(_host_key(), {})
@@ -869,7 +866,7 @@ def cmd_tokens(args) -> None:
 
 
 def cmd_identity(args) -> None:
-    """Seed AI peer identity or show both peer representations."""
+    """种入 AI peer 身份或显示两个 peer 表示。"""
     cfg = _read_config()
     if not _resolve_api_key(cfg):
         print("  No API key configured. Run 'kclaw honcho setup' first.\n")
@@ -943,7 +940,7 @@ def cmd_identity(args) -> None:
 
 
 def cmd_migrate(args) -> None:
-    """Step-by-step migration guide: OpenClaw native memory → KClaw + Honcho."""
+    """逐步迁移指南：OpenClaw 原生记忆 → KClaw + Honcho。"""
     from pathlib import Path
 
     # ── Detect OpenClaw native memory files ──────────────────────────────────
@@ -1171,7 +1168,7 @@ def cmd_migrate(args) -> None:
 
 
 def honcho_command(args) -> None:
-    """Route honcho subcommands."""
+    """路由 honcho 子命令。"""
     global _profile_override
     _profile_override = getattr(args, "target_profile", None)
 
@@ -1215,10 +1212,10 @@ def honcho_command(args) -> None:
 
 
 def register_cli(subparser) -> None:
-    """Build the ``kclaw honcho`` argparse subcommand tree.
+    """构建 ``kclaw honcho`` argparse 子命令树。
 
-    Called by the plugin CLI registration system during argparse setup.
-    The *subparser* is the parser for ``kclaw honcho``.
+    在 argparse 设置期间由插件 CLI 注册系统调用。
+    *subparser* 是 ``kclaw honcho`` 的解析器。
     """
 
     subparser.add_argument(

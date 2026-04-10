@@ -1,21 +1,20 @@
-"""File passthrough registry for remote terminal backends.
+"""远程终端后端的文件传递注册表。
 
-Remote backends (Docker, Modal, SSH) create sandboxes with no host files.
-This module ensures that credential files, skill directories, and host-side
-cache directories (documents, images, audio, screenshots) are mounted or
-synced into those sandboxes so the agent can access them.
+远程后端（Docker、Modal、SSH）创建没有主机文件的沙箱。
+本模块确保凭证文件、技能目录和主机端缓存目录（文档、图片、音频、截图）
+被挂载或同步到这些沙箱中，以便 agent 可以访问它们。
 
-**Credentials and skills** — session-scoped registry fed by skill declarations
-(``required_credential_files``) and user config (``terminal.credential_files``).
+**凭证和技能** — 由技能声明（``required_credential_files``）
+和用户配置（``terminal.credential_files``）提供的会话作用域注册表。
 
-**Cache directories** — gateway-cached uploads, browser screenshots, TTS
-audio, and processed images.  Mounted read-only so the remote terminal can
-reference files the host side created (e.g. ``unzip`` an uploaded archive).
+**缓存目录** — 网关缓存的上传、浏览器截图、TTS 音频和处理过的图片。
+以只读方式挂载，以便远程终端可以引用主机端创建的文件
+（例如 ``unzip`` 上传的归档）。
 
-Remote backends call :func:`get_credential_file_mounts`,
-:func:`get_skills_directory_mount` / :func:`iter_skills_files`, and
-:func:`get_cache_directory_mounts` / :func:`iter_cache_files` at sandbox
-creation time and before each command (for resync on Modal).
+远程后端在沙箱创建时和每个命令之前调用
+:func:`get_credential_file_mounts`、
+:func:`get_skills_directory_mount` / :func:`iter_skills_files` 以及
+:func:`get_cache_directory_mounts` / :func:`iter_cache_files`（用于 Modal 上的重新同步）。
 """
 
 from __future__ import annotations
@@ -28,13 +27,13 @@ from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
-# Session-scoped list of credential files to mount.
-# Backed by ContextVar to prevent cross-session data bleed in the gateway pipeline.
+# 要挂载的会话作用域凭证文件列表。
+# 由 ContextVar 支持，以防止网关管道中的跨会话数据渗透。
 _registered_files_var: ContextVar[Dict[str, str]] = ContextVar("_registered_files")
 
 
 def _get_registered() -> Dict[str, str]:
-    """Get or create the registered credential files dict for the current context/session."""
+    """获取或创建当前上下文/会话的已注册凭证文件字典。"""
     try:
         return _registered_files_var.get()
     except LookupError:
@@ -56,15 +55,16 @@ def register_credential_file(
     relative_path: str,
     container_base: str = "/root/.kclaw",
 ) -> bool:
-    """Register a credential file for mounting into remote sandboxes.
+    """注册要挂载到远程沙箱的凭证文件。
 
-    *relative_path* is relative to ``KCLAW_HOME`` (e.g. ``google_token.json``).
-    Returns True if the file exists on the host and was registered.
+    *relative_path* 相对于 ``KCLAW_HOME``（例如 ``google_token.json``）。
+    如果文件在主机上存在并已被注册，则返回 True。
 
-    Security: rejects absolute paths and path traversal sequences (``..``).
-    The resolved host path must remain inside KCLAW_HOME so that a malicious
-    skill cannot declare ``required_credential_files: ['../../.ssh/id_rsa']``
-    and exfiltrate sensitive host files into a container sandbox.
+    安全性：拒绝绝对路径和路径遍历序列（``..``）。
+    解析后的主机路径必须保持在 KCLAW_HOME 内，
+    以便恶意技能无法声明
+    ``required_credential_files: ['../../.ssh/id_rsa']``
+    并将敏感主机文件泄露到容器沙箱中。
     """
     kclaw_home = _resolve_kclaw_home()
 
@@ -108,11 +108,10 @@ def register_credential_files(
     entries: list,
     container_base: str = "/root/.kclaw",
 ) -> List[str]:
-    """Register multiple credential files from skill frontmatter entries.
+    """从技能 frontmatter 条目注册多个凭证文件。
 
-    Each entry is either a string (relative path) or a dict with a ``path``
-    key.  Returns the list of relative paths that were NOT found on the host
-    (i.e. missing files).
+    每个条目可以是字符串（相对路径）或带有 ``path`` 键的字典。
+    返回在主机上未找到的相对路径列表（即缺失的文件）。
     """
     missing = []
     for entry in entries:
@@ -130,7 +129,7 @@ def register_credential_files(
 
 
 def _load_config_files() -> List[Dict[str, str]]:
-    """Load ``terminal.credential_files`` from config.yaml (cached)."""
+    """从 config.yaml 加载 ``terminal.credential_files``（已缓存）。"""
     global _config_files
     if _config_files is not None:
         return _config_files
@@ -175,10 +174,10 @@ def _load_config_files() -> List[Dict[str, str]]:
 
 
 def get_credential_file_mounts() -> List[Dict[str, str]]:
-    """Return all credential files that should be mounted into remote sandboxes.
+    """返回所有应挂载到远程沙箱的凭证文件。
 
-    Each item has ``host_path`` and ``container_path`` keys.
-    Combines skill-registered files and user config.
+    每个条目都有 ``host_path`` 和 ``container_path`` 键。
+    结合了技能注册的文件和用户配置。
     """
     mounts: Dict[str, str] = {}
 
@@ -203,21 +202,19 @@ def get_credential_file_mounts() -> List[Dict[str, str]]:
 def get_skills_directory_mount(
     container_base: str = "/root/.kclaw",
 ) -> list[Dict[str, str]]:
-    """Return mount info for all skill directories (local + external).
+    """返回所有技能目录的挂载信息（本地 + 外部）。
 
-    Skills may include ``scripts/``, ``templates/``, and ``references/``
-    subdirectories that the agent needs to execute inside remote sandboxes.
+    技能可能包含 ``scripts/``、``templates/`` 和 ``references/`` 子目录，
+    agent 需要在远程沙箱内执行这些目录。
 
-    **Security:** Bind mounts follow symlinks, so a malicious symlink inside
-    the skills tree could expose arbitrary host files to the container.  When
-    symlinks are detected, this function creates a sanitized copy (regular
-    files only) in a temp directory and returns that path instead.  When no
-    symlinks are present (the common case), the original directory is returned
-    directly with zero overhead.
+    **安全性：** 绑定挂载跟随符号链接，因此技能树内的恶意符号链接
+    可能将任意主机文件暴露给容器。当检测到符号链接时，
+    此函数会在临时目录中创建一个清理后的副本（仅常规文件）并返回该路径。
+    当没有符号链接时（常见情况），直接返回原始目录，零开销。
 
-    Returns a list of dicts with ``host_path`` and ``container_path`` keys.
-    The local skills dir mounts at ``<container_base>/skills``, external dirs
-    at ``<container_base>/external_skills/<index>``.
+    返回包含 ``host_path`` 和 ``container_path`` 键的字典列表。
+    本地技能目录挂载在 ``<container_base>/skills``，
+    外部目录挂载在 ``<container_base>/external_skills/<index>``。
     """
     mounts = []
     kclaw_home = _resolve_kclaw_home()
@@ -249,7 +246,7 @@ _safe_skills_tempdir: Path | None = None
 
 
 def _safe_skills_path(skills_dir: Path) -> str:
-    """Return *skills_dir* if symlink-free, else a sanitized temp copy."""
+    """如果无符号链接则返回 *skills_dir*，否则返回清理后的临时副本。"""
     global _safe_skills_tempdir
 
     symlinks = [p for p in skills_dir.rglob("*") if p.is_symlink()]
@@ -294,12 +291,11 @@ def _safe_skills_path(skills_dir: Path) -> str:
 def iter_skills_files(
     container_base: str = "/root/.kclaw",
 ) -> List[Dict[str, str]]:
-    """Yield individual (host_path, container_path) entries for skills files.
+    """为技能文件生成单独的 (host_path, container_path) 条目。
 
-    Includes both the local skills dir and any external dirs configured via
-    skills.external_dirs.  Skips symlinks entirely.  Preferred for backends
-    that upload files individually (Daytona, Modal) rather than mounting a
-    directory.
+    包括本地技能目录和通过 skills.external_dirs 配置的任何外部目录。
+    完全跳过符号链接。适用于单独上传文件的后端
+   （Daytona、Modal），而非挂载目录。
     """
     result: List[Dict[str, str]] = []
 
@@ -354,11 +350,11 @@ _CACHE_DIRS: list[tuple[str, str]] = [
 def get_cache_directory_mounts(
     container_base: str = "/root/.kclaw",
 ) -> List[Dict[str, str]]:
-    """Return mount entries for each cache directory that exists on disk.
+    """返回磁盘上存在的每个缓存目录的挂载条目。
 
-    Used by Docker to create bind mounts.  Each entry has ``host_path`` and
-    ``container_path`` keys.  The host path is resolved via
-    ``get_kclaw_dir()`` for backward compatibility with old directory layouts.
+    由 Docker 用于创建绑定挂载。每个条目都有 ``host_path`` 和
+    ``container_path`` 键。主机路径通过 ``get_kclaw_dir()`` 解析，
+    以保持与旧目录布局的向后兼容。
     """
     from kclaw_constants import get_kclaw_dir
 
@@ -378,10 +374,10 @@ def get_cache_directory_mounts(
 def iter_cache_files(
     container_base: str = "/root/.kclaw",
 ) -> List[Dict[str, str]]:
-    """Return individual (host_path, container_path) entries for cache files.
+    """返回缓存文件的单独 (host_path, container_path) 条目。
 
-    Used by Modal to upload files individually and resync before each command.
-    Skips symlinks.  The container paths use the new ``cache/<subdir>`` layout.
+    由 Modal 用于单独上传文件并在每个命令之前重新同步。
+    跳过符号链接。容器路径使用新的 ``cache/<subdir>`` 布局。
     """
     from kclaw_constants import get_kclaw_dir
 
@@ -403,11 +399,11 @@ def iter_cache_files(
 
 
 def clear_credential_files() -> None:
-    """Reset the skill-scoped registry (e.g. on session reset)."""
+    """重置技能作用域的注册表（例如在会话重置时）。"""
     _get_registered().clear()
 
 
 def reset_config_cache() -> None:
-    """Force re-read of config on next access (for testing)."""
+    """强制在下次访问时重新读取配置（用于测试）。"""
     global _config_files
     _config_files = None

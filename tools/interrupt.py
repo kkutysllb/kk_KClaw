@@ -1,10 +1,10 @@
-"""Shared interrupt signaling for all tools.
+"""所有工具的共享中断信号。
 
-Provides a global threading.Event that any tool can check to determine
-if the user has requested an interrupt. The agent's interrupt() method
-sets this event, and tools poll it during long-running operations.
+提供一个全局 threading.Event，任何工具都可以检查它以确定
+用户是否已请求中断。代理的 interrupt() 方法设置此事件，
+工具在长时间运行操作期间轮询它。
 
-Usage in tools:
+在工具中的用法：
     from tools.interrupt import is_interrupted
     if is_interrupted():
         return {"output": "[interrupted]", "returncode": 130}
@@ -16,7 +16,7 @@ _interrupt_event = threading.Event()
 
 
 def set_interrupt(active: bool) -> None:
-    """Called by the agent to signal or clear the interrupt."""
+    """由代理调用以发出中断信号或清除中断。"""
     if active:
         _interrupt_event.set()
     else:
@@ -24,5 +24,5 @@ def set_interrupt(active: bool) -> None:
 
 
 def is_interrupted() -> bool:
-    """Check if an interrupt has been requested. Safe to call from any thread."""
+    """检查是否已请求中断。可从任何线程安全调用。"""
     return _interrupt_event.is_set()

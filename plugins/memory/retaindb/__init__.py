@@ -1,6 +1,6 @@
-"""RetainDB memory plugin — MemoryProvider interface.
+"""RetainDB 记忆插件 — MemoryProvider 接口。
 
-Cross-session memory via RetainDB cloud API.
+通过 RetainDB 云 API 实现跨会话记忆。
 
 Features:
 - Correct API routes for all operations
@@ -43,7 +43,7 @@ _ASYNC_SHUTDOWN = object()
 
 
 # ---------------------------------------------------------------------------
-# Tool schemas
+# 工具 schema 定义
 # ---------------------------------------------------------------------------
 
 PROFILE_SCHEMA = {
@@ -173,7 +173,7 @@ FILE_DELETE_SCHEMA = {
 
 
 # ---------------------------------------------------------------------------
-# HTTP client
+# HTTP 客户端
 # ---------------------------------------------------------------------------
 
 class _Client:
@@ -324,11 +324,11 @@ class _Client:
 
 
 # ---------------------------------------------------------------------------
-# Durable write-behind queue
+# 持久化写后队列
 # ---------------------------------------------------------------------------
 
 class _WriteQueue:
-    """SQLite-backed async write queue. Survives crashes — pending rows replay on startup."""
+    """SQLite 支持的异步写队列。崩溃后恢复 — pending rows 在启动时重放。"""
 
     def __init__(self, client: _Client, db_path: Path):
         self._client = client
@@ -345,7 +345,7 @@ class _WriteQueue:
             self._q.put((row_id, user_id, session_id, json.loads(msgs_json)))
 
     def _get_conn(self) -> sqlite3.Connection:
-        """Return a cached connection for the current thread."""
+        """返回当前线程的缓存连接。"""
         conn = getattr(self._local, "conn", None)
         if conn is None:
             conn = sqlite3.connect(str(self._db_path), timeout=30)
@@ -408,7 +408,7 @@ class _WriteQueue:
 
 
 # ---------------------------------------------------------------------------
-# Overlay formatter
+# Overlay 格式化器
 # ---------------------------------------------------------------------------
 
 def _build_overlay(profile: dict, query_result: dict, local_entries: list[str] | None = None) -> str:
@@ -446,11 +446,11 @@ def _build_overlay(profile: dict, query_result: dict, local_entries: list[str] |
 
 
 # ---------------------------------------------------------------------------
-# Main plugin class
+# 主插件类
 # ---------------------------------------------------------------------------
 
 class RetainDBMemoryProvider(MemoryProvider):
-    """RetainDB cloud memory — durable queue, semantic search, dialectic synthesis, shared files."""
+    """RetainDB 云记忆 — 持久化队列、语义搜索、辩证合成、共享文件。"""
 
     def __init__(self):
         self._client: _Client | None = None
@@ -537,10 +537,10 @@ class RetainDBMemoryProvider(MemoryProvider):
             "retaindb_profile for a user overview, retaindb_context for current-task context."
         )
 
-    # ── Background prefetch (fires at turn-end, consumed next turn-start) ──
+    # ── 后台预取（在 turn 结束时触发，下一个 turn 开始时消费） ──
 
     def queue_prefetch(self, query: str, *, session_id: str = "") -> None:
-        """Fire context + dialectic + agent model prefetches in background."""
+        """在后台触发 context + dialectic + agent model 预取。"""
         if not self._client:
             return
         # Wait for any still-running prefetch threads before spawning new ones.
@@ -595,7 +595,7 @@ class RetainDBMemoryProvider(MemoryProvider):
         return "high"
 
     def prefetch(self, query: str, *, session_id: str = "") -> str:
-        """Consume prefetched results and return them as a context block."""
+        """消费预取结果并将其作为 context block 返回。"""
         with self._lock:
             context = self._context_result
             dialectic = self._dialectic_result
@@ -622,10 +622,10 @@ class RetainDBMemoryProvider(MemoryProvider):
 
         return "\n\n".join(parts)
 
-    # ── Turn sync ──────────────────────────────────────────────────────────
+    # ── Turn 同步 ──────────────────────────────────────────────────────────
 
     def sync_turn(self, user_content: str, assistant_content: str, *, session_id: str = "") -> None:
-        """Queue turn for async ingest. Returns immediately."""
+        """将 turn 加入异步摄入队列。立即返回。"""
         if not self._queue or not user_content:
             return
         now = datetime.now(timezone.utc).isoformat()
@@ -638,7 +638,7 @@ class RetainDBMemoryProvider(MemoryProvider):
             ],
         )
 
-    # ── Tools ──────────────────────────────────────────────────────────────
+    # ── 工具 ──────────────────────────────────────────────────────────────
 
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
         return [
@@ -742,10 +742,10 @@ class RetainDBMemoryProvider(MemoryProvider):
 
         return {"error": f"Unknown tool: {tool_name}"}
 
-    # ── Optional hooks ─────────────────────────────────────────────────────
+    # ── 可选钩子 ─────────────────────────────────────────────────────
 
     def on_memory_write(self, action: str, target: str, content: str) -> None:
-        """Mirror built-in memory writes to RetainDB."""
+        """将内置记忆写入镜像到 RetainDB。"""
         if action != "add" or not content or not self._client:
             return
         try:
@@ -762,5 +762,5 @@ class RetainDBMemoryProvider(MemoryProvider):
 
 
 def register(ctx) -> None:
-    """Register RetainDB as a memory provider plugin."""
+    """将 RetainDB 注册为记忆提供程序插件。"""
     ctx.register_memory_provider(RetainDBMemoryProvider())

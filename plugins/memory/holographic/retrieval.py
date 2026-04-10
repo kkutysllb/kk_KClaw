@@ -1,4 +1,4 @@
-"""Hybrid keyword/BM25 retrieval for the memory store.
+"""内存存储的混合关键词/BM25 检索。
 
 Ported from KIK memory_agent.py — combines FTS5 full-text search with
 Jaccard similarity reranking and trust-weighted scoring.
@@ -20,7 +20,7 @@ except ImportError:
 
 
 class FactRetriever:
-    """Multi-strategy fact retrieval with trust-weighted scoring."""
+    """多策略事实检索，带信任加权评分。"""
 
     def __init__(
         self,
@@ -52,15 +52,15 @@ class FactRetriever:
         min_trust: float = 0.3,
         limit: int = 10,
     ) -> list[dict]:
-        """Hybrid search: FTS5 candidates → Jaccard rerank → trust weighting.
+        """混合搜索：FTS5 候选 → Jaccard 重排 → 信任加权。
 
-        Pipeline:
-        1. FTS5 search: Get limit*3 candidates from SQLite full-text search
-        2. Jaccard boost: Token overlap between query and fact content
-        3. Trust weighting: final_score = relevance * trust_score
-        4. Temporal decay (optional): decay = 0.5^(age_days / half_life)
+        流程：
+        1. FTS5 搜索：从 SQLite 全文搜索获取 limit*3 个候选
+        2. Jaccard 提升：query 和事实内容之间的 token 重叠
+        3. 信任加权：final_score = relevance * trust_score
+        4. 时间衰减（可选）：decay = 0.5^(age_days / half_life)
 
-        Returns list of dicts with fact data + 'score' field, sorted by score desc.
+        返回包含事实数据 + 'score' 字段的字典列表，按 score 降序排列。
         """
         # Stage 1: Get FTS5 candidates (more than limit for reranking headroom)
         candidates = self._fts_candidates(query, category, min_trust, limit * 3)
@@ -117,13 +117,12 @@ class FactRetriever:
         category: str | None = None,
         limit: int = 10,
     ) -> list[dict]:
-        """Compositional entity query using HRR algebra.
+        """使用 HRR 代数的组合实体查询。
 
-        Unbinds entity from memory bank to extract associated content.
-        This is NOT keyword search — it uses algebraic structure to find facts
-        where the entity plays a structural role.
+        从记忆库中解绑实体以提取关联内容。
+        这不是关键词搜索 — 它使用代数结构来查找实体扮演结构角色的相关事实。
 
-        Falls back to FTS5 search if numpy unavailable.
+        如果 numpy 不可用则回退到 FTS5 搜索。
         """
         if not hrr._HAS_NUMPY:
             # Fallback to keyword search on entity name
@@ -195,13 +194,13 @@ class FactRetriever:
         category: str | None = None,
         limit: int = 10,
     ) -> list[dict]:
-        """Discover facts that share structural connections with an entity.
+        """发现与实体共享结构连接的事实。
 
-        Unlike probe (which finds facts *about* an entity), related finds
-        facts that are connected through shared context — e.g., other entities
-        mentioned alongside this one, or content that overlaps structurally.
+        与 probe（查找关于*一个*实体的事实）不同，related 查找
+        通过共享上下文连接的事实 — 例如，与此实体一起提到的其他实体，
+        或在结构上重叠的内容。
 
-        Falls back to FTS5 search if numpy unavailable.
+        如果 numpy 不可用则回退到 FTS5 搜索。
         """
         if not hrr._HAS_NUMPY:
             return self.search(entity, category=category, limit=limit)
@@ -263,16 +262,16 @@ class FactRetriever:
         category: str | None = None,
         limit: int = 10,
     ) -> list[dict]:
-        """Multi-entity compositional query — vector-space JOIN.
+        """多实体组合查询 — 向量空间 JOIN。
 
-        Given multiple entities, algebraically intersects their structural
-        connections to find facts related to ALL of them simultaneously.
-        This is compositional reasoning that no embedding DB can do.
+        给定多个实体，代数地相交它们的结构连接，
+        同时找到与所有实体相关的事实。
+        这是任何嵌入数据库都无法做到的组合推理。
 
-        Example: reason(["peppi", "backend"]) finds facts where peppi AND
-        backend both play structural roles — without keyword matching.
+        示例：reason(["peppi", "backend"]) 查找 peppi AND
+        backend 都扮演结构角色的相关事实 — 无需关键词匹配。
 
-        Falls back to FTS5 search if numpy unavailable.
+        如果 numpy 不可用则回退到 FTS5 搜索。
         """
         if not hrr._HAS_NUMPY or not entities:
             # Fallback: search with all entities as keywords
@@ -341,14 +340,13 @@ class FactRetriever:
         threshold: float = 0.3,
         limit: int = 10,
     ) -> list[dict]:
-        """Find potentially contradictory facts via entity overlap + content divergence.
+        """通过实体重叠 + 内容差异查找潜在矛盾的事实。
 
-        Two facts contradict when they share entities (same subject) but have
-        low content-vector similarity (different claims). This is automated
-        memory hygiene — no other memory system does this.
+        当两个事实共享实体（相同主题）但内容向量相似度低（不同声明）时，
+        它们是矛盾的。这是自动化的记忆卫生 — 没有其他记忆系统这样做。
 
-        Returns pairs of facts with a contradiction score.
-        Falls back to empty list if numpy unavailable.
+        返回带有矛盾评分的事实对。
+        如果 numpy 不可用则回退到空列表。
         """
         if not hrr._HAS_NUMPY:
             return []
@@ -447,7 +445,7 @@ class FactRetriever:
         category: str | None = None,
         limit: int = 10,
     ) -> list[dict]:
-        """Score facts by similarity to a target vector."""
+        """通过与目标向量的相似度对事实进行评分。"""
         conn = self.store._conn
 
         where = "WHERE hrr_vector IS NOT NULL"
@@ -485,10 +483,10 @@ class FactRetriever:
         min_trust: float,
         limit: int,
     ) -> list[dict]:
-        """Get raw FTS5 candidates from the store.
+        """从存储中获取原始 FTS5 候选。
 
-        Uses the store's database connection directly for FTS5 MATCH
-        with rank scoring. Normalizes FTS5 rank to [0, 1] range.
+        直接使用存储的数据库连接进行带排名评分的 FTS5 MATCH。
+        将 FTS5 排名标准化到 [0, 1] 范围。
         """
         conn = self.store._conn
 
@@ -543,9 +541,9 @@ class FactRetriever:
 
     @staticmethod
     def _tokenize(text: str) -> set[str]:
-        """Simple whitespace tokenization with lowercasing.
+        """带小写化的简单空白 token 化。
 
-        Strips common punctuation. No stemming/lemmatization (Phase 1).
+        去除常见标点符号。无词干化/词形还原（第 1 阶段）。
         """
         if not text:
             return set()
@@ -559,7 +557,7 @@ class FactRetriever:
 
     @staticmethod
     def _jaccard_similarity(set_a: set, set_b: set) -> float:
-        """Jaccard similarity coefficient: |A ∩ B| / |A ∪ B|."""
+        """Jaccard 相似系数：|A ∩ B| / |A ∪ B|。"""
         if not set_a or not set_b:
             return 0.0
         intersection = len(set_a & set_b)
@@ -567,9 +565,9 @@ class FactRetriever:
         return intersection / union if union > 0 else 0.0
 
     def _temporal_decay(self, timestamp_str: str | None) -> float:
-        """Exponential decay: 0.5^(age_days / half_life_days).
+        """指数衰减：0.5^(age_days / half_life_days)。
 
-        Returns 1.0 if decay is disabled or timestamp is missing.
+        如果衰减被禁用或时间戳缺失则返回 1.0。
         """
         if not self.half_life or not timestamp_str:
             return 1.0

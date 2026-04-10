@@ -1,34 +1,34 @@
 #!/usr/bin/env python3
 """
-Todo Tool Module - Planning & Task Management
+待办事项工具模块 - 规划与任务管理
 
-Provides an in-memory task list the agent uses to decompose complex tasks,
-track progress, and maintain focus across long conversations. The state
-lives on the AIAgent instance (one per session) and is re-injected into
-the conversation after context compression events.
+提供一个内存任务列表，供代理用于分解复杂任务、
+跟踪进度并在长时间对话中保持专注。状态保存在
+AIAgent 实例上（每个会话一个），并在上下文
+压缩事件后重新注入对话。
 
-Design:
-- Single `todo` tool: provide `todos` param to write, omit to read
-- Every call returns the full current list
-- No system prompt mutation, no tool response modification
-- Behavioral guidance lives entirely in the tool schema description
+设计：
+- 单一 `todo` 工具：提供 `todos` 参数为写入，省略为读取
+- 每次调用返回完整的当前列表
+- 不修改系统提示，不修改工具响应
+- 行为指导完全存在于工具 schema 描述中
 """
 
 import json
 from typing import Dict, Any, List, Optional
 
 
-# Valid status values for todo items
+# 待办事项的有效状态值
 VALID_STATUSES = {"pending", "in_progress", "completed", "cancelled"}
 
 
 class TodoStore:
     """
-    In-memory todo list. One instance per AIAgent (one per session).
+    内存中的待办列表。每个 AIAgent 一个实例（每个会话一个）。
 
-    Items are ordered -- list position is priority. Each item has:
-      - id: unique string identifier (agent-chosen)
-      - content: task description
+    项目是有序的——列表位置即优先级。每个项目包含：
+      - id: 唯一字符串标识符（由代理选择）
+      - content: 任务描述
       - status: pending | in_progress | completed | cancelled
     """
 
@@ -37,26 +37,26 @@ class TodoStore:
 
     def write(self, todos: List[Dict[str, Any]], merge: bool = False) -> List[Dict[str, str]]:
         """
-        Write todos. Returns the full current list after writing.
+        写入待办事项。写入后返回完整的当前列表。
 
-        Args:
-            todos: list of {id, content, status} dicts
-            merge: if False, replace the entire list. If True, update
-                   existing items by id and append new ones.
+        参数：
+            todos: {id, content, status} 字典的列表
+            merge: 如果为 False，替换整个列表。如果为 True，
+                   按 id 更新现有项目并追加新项目。
         """
         if not merge:
-            # Replace mode: new list entirely
+            # 替换模式：完全新列表
             self._items = [self._validate(t) for t in todos]
         else:
-            # Merge mode: update existing items by id, append new ones
+            # 合并模式：按 id 更新现有项目，追加新项目
             existing = {item["id"]: item for item in self._items}
             for t in todos:
                 item_id = str(t.get("id", "")).strip()
                 if not item_id:
-                    continue  # Can't merge without an id
+                    continue  # 无法合并（没有 id）
 
                 if item_id in existing:
-                    # Update only the fields the LLM actually provided
+                    # 只更新 LLM 实际提供的字段
                     if "content" in t and t["content"]:
                         existing[item_id]["content"] = str(t["content"]).strip()
                     if "status" in t and t["status"]:
@@ -64,11 +64,11 @@ class TodoStore:
                         if status in VALID_STATUSES:
                             existing[item_id]["status"] = status
                 else:
-                    # New item -- validate fully and append to end
+                    # 新项目——完全验证并追加到末尾
                     validated = self._validate(t)
                     existing[validated["id"]] = validated
                     self._items.append(validated)
-            # Rebuild _items preserving order for existing items
+            # 重建 _items，为现有项目保持顺序
             seen = set()
             rebuilt = []
             for item in self._items:
@@ -80,24 +80,24 @@ class TodoStore:
         return self.read()
 
     def read(self) -> List[Dict[str, str]]:
-        """Return a copy of the current list."""
+        """返回当前列表的副本。"""
         return [item.copy() for item in self._items]
 
     def has_items(self) -> bool:
-        """Check if there are any items in the list."""
+        """检查列表中是否有项目。"""
         return bool(self._items)
 
     def format_for_injection(self) -> Optional[str]:
         """
-        Render the todo list for post-compression injection.
+        渲染待办列表以供压缩后注入。
 
-        Returns a human-readable string to append to the compressed
-        message history, or None if the list is empty.
+        返回一个人类可读的字符串，追加到压缩后的
+        消息历史中，如果列表为空则返回 None。
         """
         if not self._items:
             return None
 
-        # Status markers for compact display
+        # 用于紧凑显示的状态标记
         markers = {
             "completed": "[x]",
             "in_progress": "[>]",
@@ -105,8 +105,8 @@ class TodoStore:
             "cancelled": "[~]",
         }
 
-        # Only inject pending/in_progress items — completed/cancelled ones
-        # cause the model to re-do finished work after compression.
+        # 只注入 pending/in_progress 项目——completed/cancelled 项目
+        # 会导致模型在压缩后重新执行已完成的工作。
         active_items = [
             item for item in self._items
             if item["status"] in ("pending", "in_progress")
@@ -124,10 +124,10 @@ class TodoStore:
     @staticmethod
     def _validate(item: Dict[str, Any]) -> Dict[str, str]:
         """
-        Validate and normalize a todo item.
+        验证并规范化待办事项项目。
 
-        Ensures required fields exist and status is valid.
-        Returns a clean dict with only {id, content, status}.
+        确保必填字段存在且状态有效。
+        返回只包含 {id, content, status} 的干净字典。
         """
         item_id = str(item.get("id", "")).strip()
         if not item_id:
@@ -150,15 +150,15 @@ def todo_tool(
     store: Optional[TodoStore] = None,
 ) -> str:
     """
-    Single entry point for the todo tool. Reads or writes depending on params.
+    待办事项工具的单一入口点。根据参数读取或写入。
 
-    Args:
-        todos: if provided, write these items. If None, read current list.
-        merge: if True, update by id. If False (default), replace entire list.
-        store: the TodoStore instance from the AIAgent.
+    参数：
+        todos: 如果提供，写入这些项目。如果为 None，读取当前列表。
+        merge: 如果为 True，按 id 更新。如果为 False（默认），替换整个列表。
+        store: 来自 AIAgent 的 TodoStore 实例。
 
-    Returns:
-        JSON string with the full current list and summary metadata.
+    返回：
+        包含完整当前列表和摘要元数据的 JSON 字符串。
     """
     if store is None:
         return tool_error("TodoStore not initialized")
@@ -168,7 +168,7 @@ def todo_tool(
     else:
         items = store.read()
 
-    # Build summary counts
+    # 构建摘要计数
     pending = sum(1 for i in items if i["status"] == "pending")
     in_progress = sum(1 for i in items if i["status"] == "in_progress")
     completed = sum(1 for i in items if i["status"] == "completed")
@@ -187,15 +187,15 @@ def todo_tool(
 
 
 def check_todo_requirements() -> bool:
-    """Todo tool has no external requirements -- always available."""
+    """待办事项工具没有外部依赖——始终可用。"""
     return True
 
 
 # =============================================================================
-# OpenAI Function-Calling Schema
+# OpenAI 函数调用 Schema
 # =============================================================================
-# Behavioral guidance is baked into the description so it's part of the
-# static tool schema (cached, never changes mid-conversation).
+# 行为指导被烘焙到描述中，因此它是静态工具 schema 的一部分
+# （缓存的，会话中从不改变）。
 
 TODO_SCHEMA = {
     "name": "todo",
@@ -254,7 +254,7 @@ TODO_SCHEMA = {
 }
 
 
-# --- Registry ---
+# --- 注册表 ---
 from tools.registry import registry, tool_error
 
 registry.register(

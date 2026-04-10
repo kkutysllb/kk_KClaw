@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 """
-Memory Tool Module - Persistent Curated Memory
+记忆工具模块 - 持久化精选记忆
 
-Provides bounded, file-backed memory that persists across sessions. Two stores:
-  - MEMORY.md: agent's personal notes and observations (environment facts, project
-    conventions, tool quirks, things learned)
-  - USER.md: what the agent knows about the user (preferences, communication style,
-    expectations, workflow habits)
+提供有界限的、文件支持的记忆，跨会话持久化。两个存储：
+  - MEMORY.md：agent 的个人笔记和观察（环境事实、项目约定、
+    工具特性、学到的东西）
+  - USER.md：agent 对用户的了解（偏好、沟通风格、
+    期望、工作流习惯）
 
-Both are injected into the system prompt as a frozen snapshot at session start.
-Mid-session writes update files on disk immediately (durable) but do NOT change
-the system prompt -- this preserves the prefix cache for the entire session.
-The snapshot refreshes on the next session start.
+两者在会话开始时作为冻结快照注入到系统提示词中。
+会话中期写入立即更新磁盘上的文件（持久的）但不改变
+系统提示词——这保持整个会话的前缀缓存稳定。
+快照在下一次会话开始时刷新。
 
-Entry delimiter: § (section sign). Entries can be multiline.
-Character limits (not tokens) because char counts are model-independent.
+条目分隔符：§（章节符号）。条目可以多行。
+字符限制（而非 token 限制），因为字符计数与模型无关。
 
-Design:
-- Single `memory` tool with action parameter: add, replace, remove, read
-- replace/remove use short unique substring matching (not full text or IDs)
-- Behavioral guidance lives in the tool schema description
-- Frozen snapshot pattern: system prompt is stable, tool responses show live state
+设计：
+- 单个 `memory` 工具，带 action 参数：add、replace、remove、read
+- replace/remove 使用短唯一子字符串匹配（非全文或 ID）
+- 行为指导位于工具 schema 描述中
+- 冻结快照模式：系统提示词稳定，工具响应显示实时状态
 """
 
 import fcntl
@@ -36,25 +36,22 @@ from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# Where memory files live — resolved dynamically so profile overrides
-# (KCLAW_HOME env var changes) are always respected.  The old module-level
-# constant was cached at import time and could go stale if a profile switch
-# happened after the first import.
+# 记忆文件的位置——动态解析以便始终尊重配置覆盖
+#（KCLAW_HOME 环境变量更改）。旧的模块级常量在导入时缓存，
+# 如果配置切换发生在首次导入之后可能会过时。
 def get_memory_dir() -> Path:
-    """Return the profile-scoped memories directory."""
+    """返回按配置作用域划分的记忆目录。"""
     return get_kclaw_home() / "memories"
 
-# Backward-compatible alias — gateway/run.py imports this at runtime inside
-# a function body, so it gets the correct snapshot for that process.  New code
-# should prefer get_memory_dir().
+# 向后兼容的别名——gateway/run.py 在运行时函数体内导入它，
+# 因此它获取该进程的正确快照。新代码应优先使用 get_memory_dir()。
 MEMORY_DIR = get_memory_dir()
 
 ENTRY_DELIMITER = "\n§\n"
 
 
 # ---------------------------------------------------------------------------
-# Memory content scanning — lightweight check for injection/exfiltration
-# in content that gets injected into the system prompt.
+# 记忆内容扫描——对注入到系统提示词的内容进行注入/泄露的轻量检查。
 # ---------------------------------------------------------------------------
 
 _MEMORY_THREAT_PATTERNS = [
@@ -83,7 +80,7 @@ _INVISIBLE_CHARS = {
 
 
 def _scan_memory_content(content: str) -> Optional[str]:
-    """Scan memory content for injection/exfil patterns. Returns error string if blocked."""
+    """扫描记忆内容中的注入/泄露模式。如果被阻止则返回错误字符串。"""
     # Check invisible unicode
     for char in _INVISIBLE_CHARS:
         if char in content:
@@ -99,13 +96,13 @@ def _scan_memory_content(content: str) -> Optional[str]:
 
 class MemoryStore:
     """
-    Bounded curated memory with file persistence. One instance per AIAgent.
+    具有文件持久化的有界限精选记忆。每个 AIAgent 一个实例。
 
-    Maintains two parallel states:
-      - _system_prompt_snapshot: frozen at load time, used for system prompt injection.
-        Never mutated mid-session. Keeps prefix cache stable.
-      - memory_entries / user_entries: live state, mutated by tool calls, persisted to disk.
-        Tool responses always reflect this live state.
+    维护两种并行状态：
+      - _system_prompt_snapshot：在加载时冻结，用于系统提示词注入。
+        会话中期不会改变。保持前缀缓存稳定。
+      - memory_entries / user_entries：实时状态，通过工具调用改变，持久化到磁盘。
+        工具响应始终反映此实时状态。
     """
 
     def __init__(self, memory_char_limit: int = 2200, user_char_limit: int = 1375):
@@ -117,7 +114,7 @@ class MemoryStore:
         self._system_prompt_snapshot: Dict[str, str] = {"memory": "", "user": ""}
 
     def load_from_disk(self):
-        """Load entries from MEMORY.md and USER.md, capture system prompt snapshot."""
+        """从 MEMORY.md 和 USER.md 加载条目，捕获系统提示词快照。"""
         mem_dir = get_memory_dir()
         mem_dir.mkdir(parents=True, exist_ok=True)
 
@@ -137,10 +134,9 @@ class MemoryStore:
     @staticmethod
     @contextmanager
     def _file_lock(path: Path):
-        """Acquire an exclusive file lock for read-modify-write safety.
+        """获取独占文件锁以确保读-修改-写安全。
 
-        Uses a separate .lock file so the memory file itself can still be
-        atomically replaced via os.replace().
+        使用单独的 .lock 文件，以便记忆文件本身仍可以通过 os.replace() 原子替换。
         """
         lock_path = path.with_suffix(path.suffix + ".lock")
         lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -160,16 +156,16 @@ class MemoryStore:
         return mem_dir / "MEMORY.md"
 
     def _reload_target(self, target: str):
-        """Re-read entries from disk into in-memory state.
+        """将条目从磁盘重新读入内存状态。
 
-        Called under file lock to get the latest state before mutating.
+        在文件锁下调用以在修改前获取最新状态。
         """
         fresh = self._read_file(self._path_for(target))
         fresh = list(dict.fromkeys(fresh))  # deduplicate
         self._set_entries(target, fresh)
 
     def save_to_disk(self, target: str):
-        """Persist entries to the appropriate file. Called after every mutation."""
+        """将条目持久化到相应的文件。每次修改后调用。"""
         get_memory_dir().mkdir(parents=True, exist_ok=True)
         self._write_file(self._path_for(target), self._entries_for(target))
 
@@ -196,7 +192,7 @@ class MemoryStore:
         return self.memory_char_limit
 
     def add(self, target: str, content: str) -> Dict[str, Any]:
-        """Append a new entry. Returns error if it would exceed the char limit."""
+        """追加新条目。如果超出字符限制则返回错误。"""
         content = content.strip()
         if not content:
             return {"success": False, "error": "Content cannot be empty."}
@@ -241,7 +237,7 @@ class MemoryStore:
         return self._success_response(target, "Entry added.")
 
     def replace(self, target: str, old_text: str, new_content: str) -> Dict[str, Any]:
-        """Find entry containing old_text substring, replace it with new_content."""
+        """查找包含 old_text 子字符串的条目，用 new_content 替换它。"""
         old_text = old_text.strip()
         new_content = new_content.strip()
         if not old_text:
@@ -299,7 +295,7 @@ class MemoryStore:
         return self._success_response(target, "Entry replaced.")
 
     def remove(self, target: str, old_text: str) -> Dict[str, Any]:
-        """Remove the entry containing old_text substring."""
+        """删除包含 old_text 子字符串的条目。"""
         old_text = old_text.strip()
         if not old_text:
             return {"success": False, "error": "old_text cannot be empty."}
@@ -334,13 +330,13 @@ class MemoryStore:
 
     def format_for_system_prompt(self, target: str) -> Optional[str]:
         """
-        Return the frozen snapshot for system prompt injection.
+        返回用于系统提示词注入的冻结快照。
 
-        This returns the state captured at load_from_disk() time, NOT the live
-        state. Mid-session writes do not affect this. This keeps the system
-        prompt stable across all turns, preserving the prefix cache.
+        这返回在 load_from_disk() 时捕获的状态，而非实时状态。
+        会话中期的写入不影响这。这保持系统提示词在所有轮次中稳定，
+        保留前缀缓存。
 
-        Returns None if the snapshot is empty (no entries at load time).
+        如果快照为空（加载时没有条目）则返回 None。
         """
         block = self._system_prompt_snapshot.get(target, "")
         return block if block else None
@@ -365,7 +361,7 @@ class MemoryStore:
         return resp
 
     def _render_block(self, target: str, entries: List[str]) -> str:
-        """Render a system prompt block with header and usage indicator."""
+        """渲染带有标题和用量指示器的系统提示词块。"""
         if not entries:
             return ""
 
@@ -384,10 +380,10 @@ class MemoryStore:
 
     @staticmethod
     def _read_file(path: Path) -> List[str]:
-        """Read a memory file and split into entries.
+        """读取记忆文件并分割成条目。
 
-        No file locking needed: _write_file uses atomic rename, so readers
-        always see either the previous complete file or the new complete file.
+        无需文件锁：_write_file 使用原子重命名，因此读者
+        始终看到之前的完整文件或新的完整文件之一。
         """
         if not path.exists():
             return []
@@ -406,12 +402,11 @@ class MemoryStore:
 
     @staticmethod
     def _write_file(path: Path, entries: List[str]):
-        """Write entries to a memory file using atomic temp-file + rename.
+        """使用原子 temp-file + 重命名将条目写入记忆文件。
 
-        Previous implementation used open("w") + flock, but "w" truncates the
-        file *before* the lock is acquired, creating a race window where
-        concurrent readers see an empty file. Atomic rename avoids this:
-        readers always see either the old complete file or the new one.
+        之前的实现使用 open("w") + flock，但 "w" 在获取锁之前截断文件，
+        造成并发读者看到空文件的竞争窗口。原子重命名避免了这个问题：
+        读者始终看到旧的完整文件或新的完整文件之一。
         """
         content = ENTRY_DELIMITER.join(entries) if entries else ""
         try:
@@ -444,9 +439,9 @@ def memory_tool(
     store: Optional[MemoryStore] = None,
 ) -> str:
     """
-    Single entry point for the memory tool. Dispatches to MemoryStore methods.
+    记忆工具的单一入口点。分派到 MemoryStore 方法。
 
-    Returns JSON string with results.
+    返回包含结果的 JSON 字符串。
     """
     if store is None:
         return tool_error("Memory is not available. It may be disabled in config or this environment.", success=False)
@@ -478,7 +473,7 @@ def memory_tool(
 
 
 def check_memory_requirements() -> bool:
-    """Memory tool has no external requirements -- always available."""
+    """记忆工具没有外部依赖——始终可用。"""
     return True
 
 

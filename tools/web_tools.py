@@ -1,43 +1,42 @@
 #!/usr/bin/env python3
 """
-Standalone Web Tools Module
+独立 Web 工具模块
 
-This module provides generic web tools that work with multiple backend providers.
-Backend is selected during ``kclaw tools`` setup (web.backend in config.yaml).
-When available, KClaw can route Firecrawl calls through a Nous-hosted tool-gateway
-for Nous Subscribers only.
+本模块提供通用的 Web 工具，可与多个后端提供商配合使用。
+后端在 ``kclaw tools`` 设置期间选择（config.yaml 中的 web.backend）。
+如果可用，KClaw 可以通过 Nous 托管的工具网关为 Nous 订阅者路由 Firecrawl 调用。
 
-Available tools:
-- web_search_tool: Search the web for information
-- web_extract_tool: Extract content from specific web pages
-- web_crawl_tool: Crawl websites with specific instructions
+可用工具：
+- web_search_tool: 在网络上搜索信息
+- web_extract_tool: 从特定网页提取内容
+- web_crawl_tool: 使用特定指令抓取网站
 
-Backend compatibility:
-- Exa: https://exa.ai (search, extract)
-- Firecrawl: https://docs.firecrawl.dev/introduction (search, extract, crawl; direct or derived firecrawl-gateway.<domain> for Nous Subscribers)
-- Parallel: https://docs.parallel.ai (search, extract)
-- Tavily: https://tavily.com (search, extract, crawl)
+后端兼容性：
+- Exa: https://exa.ai (搜索, 提取)
+- Firecrawl: https://docs.firecrawl.dev/introduction (搜索, 提取, 抓取；直接或派生的 firecrawl-gateway.<domain>，仅限 Nous 订阅者)
+- Parallel: https://docs.parallel.ai (搜索, 提取)
+- Tavily: https://tavily.com (搜索, 提取, 抓取)
 
-LLM Processing:
-- Uses OpenRouter API with Gemini 3 Flash Preview for intelligent content extraction
-- Extracts key excerpts and creates markdown summaries to reduce token usage
+LLM 处理：
+- 使用 OpenRouter API 和 Gemini 3 Flash Preview 进行智能内容提取
+- 提取关键摘录并创建 markdown 摘要以减少 token 使用
 
-Debug Mode:
-- Set WEB_TOOLS_DEBUG=true to enable detailed logging
-- Creates web_tools_debug_UUID.json in ./logs directory
-- Captures all tool calls, results, and compression metrics
+调试模式：
+- 设置 WEB_TOOLS_DEBUG=true 以启用详细日志记录
+- 在 ./logs 目录中创建 web_tools_debug_UUID.json
+- 捕获所有工具调用、结果和压缩指标
 
-Usage:
+用法：
     from web_tools import web_search_tool, web_extract_tool, web_crawl_tool
-    
-    # Search the web
-    results = web_search_tool("Python machine learning libraries", limit=3)
-    
-    # Extract content from URLs  
+
+    # 在网络上搜索
+    results = web_search_tool("Python 机器学习库", limit=3)
+
+    # 从 URL 提取内容
     content = web_extract_tool(["https://example.com"], format="markdown")
-    
-    # Crawl a website
-    crawl_data = web_crawl_tool("example.com", "Find contact information")
+
+    # 抓取网站
+    crawl_data = web_crawl_tool("example.com", "查找联系信息")
 """
 
 import json
@@ -66,14 +65,14 @@ from tools.website_policy import check_website_access
 logger = logging.getLogger(__name__)
 
 
-# ─── Backend Selection ────────────────────────────────────────────────────────
+# ─── 后端选择 ────────────────────────────────────────────────────────
 
 def _has_env(name: str) -> bool:
     val = os.getenv(name)
     return bool(val and val.strip())
 
 def _load_web_config() -> dict:
-    """Load the ``web:`` section from ~/.kclaw/config.yaml."""
+    """从 ~/.kclaw/config.yaml 加载 ``web:`` 部分。"""
     try:
         from kclaw_cli.config import load_config
         return load_config().get("web", {})
@@ -81,19 +80,17 @@ def _load_web_config() -> dict:
         return {}
 
 def _get_backend() -> str:
-    """Determine which web backend to use.
+    """确定使用哪个 Web 后端。
 
-    Reads ``web.backend`` from config.yaml (set by ``kclaw tools``).
-    Falls back to whichever API key is present for users who configured
-    keys manually without running setup.
+    从 config.yaml 读取 ``web.backend``（由 ``kclaw tools`` 设置）。
+    对于手动配置密钥但未运行设置的用户，回退到存在的任何 API 密钥。
     """
     configured = (_load_web_config().get("backend") or "").lower().strip()
     if configured in ("parallel", "firecrawl", "tavily", "exa"):
         return configured
 
-    # Fallback for manual / legacy config — pick the highest-priority
-    # available backend. Firecrawl also counts as available when the managed
-    # tool gateway is configured for Nous subscribers.
+    # 手动/传统配置的回退方案 — 选择最高优先级的可用后端。
+    # 当为 Nous 订阅者配置了托管工具网关时，Firecrawl 也被视为可用。
     backend_candidates = (
         ("firecrawl", _has_env("FIRECRAWL_API_KEY") or _has_env("FIRECRAWL_API_URL") or _is_tool_gateway_ready()),
         ("parallel", _has_env("PARALLEL_API_KEY")),
@@ -108,7 +105,7 @@ def _get_backend() -> str:
 
 
 def _is_backend_available(backend: str) -> bool:
-    """Return True when the selected backend is currently usable."""
+    """当所选后端当前可用时返回 True。"""
     if backend == "exa":
         return _has_env("EXA_API_KEY")
     if backend == "parallel":
@@ -119,14 +116,14 @@ def _is_backend_available(backend: str) -> bool:
         return _has_env("TAVILY_API_KEY")
     return False
 
-# ─── Firecrawl Client ────────────────────────────────────────────────────────
+# ─── Firecrawl 客户端 ────────────────────────────────────────────────────────
 
 _firecrawl_client = None
 _firecrawl_client_config = None
 
 
 def _get_direct_firecrawl_config() -> Optional[tuple[Dict[str, str], tuple[str, Optional[str], Optional[str]]]]:
-    """Return explicit direct Firecrawl kwargs + cache key, or None when unset."""
+    """返回显式直接 Firecrawl kwargs + 缓存键，或在未设置时返回 None。"""
     api_key = os.getenv("FIRECRAWL_API_KEY", "").strip()
     api_url = os.getenv("FIRECRAWL_API_URL", "").strip().rstrip("/")
 
@@ -143,22 +140,22 @@ def _get_direct_firecrawl_config() -> Optional[tuple[Dict[str, str], tuple[str, 
 
 
 def _get_firecrawl_gateway_url() -> str:
-    """Return configured Firecrawl gateway URL."""
+    """返回已配置的 Firecrawl 网关 URL。"""
     return build_vendor_gateway_url("firecrawl")
 
 
 def _is_tool_gateway_ready() -> bool:
-    """Return True when gateway URL and a Nous Subscriber token are available."""
+    """当网关 URL 和 Nous 订阅者令牌可用时返回 True。"""
     return resolve_managed_tool_gateway("firecrawl", token_reader=_read_nous_access_token) is not None
 
 
 def _has_direct_firecrawl_config() -> bool:
-    """Return True when direct Firecrawl config is explicitly configured."""
+    """当直接配置了 Firecrawl 时返回 True。"""
     return _get_direct_firecrawl_config() is not None
 
 
 def _raise_web_backend_configuration_error() -> None:
-    """Raise a clear error for unsupported web backend configuration."""
+    """为不支持的 Web 后端配置引发清晰的错误。"""
     message = (
         "Web tools are not configured. "
         "Set FIRECRAWL_API_KEY for cloud Firecrawl or set FIRECRAWL_API_URL for a self-hosted Firecrawl instance."
@@ -172,7 +169,7 @@ def _raise_web_backend_configuration_error() -> None:
 
 
 def _firecrawl_backend_help_suffix() -> str:
-    """Return optional managed-gateway guidance for Firecrawl help text."""
+    """返回 Firecrawl 帮助文本的可选托管网关指导。"""
     if not managed_nous_tools_enabled():
         return ""
     return (
@@ -182,7 +179,7 @@ def _firecrawl_backend_help_suffix() -> str:
 
 
 def _web_requires_env() -> list[str]:
-    """Return tool metadata env vars for the currently enabled web backends."""
+    """返回当前启用的 Web 后端的工具元数据环境变量。"""
     requires = [
         "EXA_API_KEY",
         "PARALLEL_API_KEY",
@@ -203,10 +200,10 @@ def _web_requires_env() -> list[str]:
 
 
 def _get_firecrawl_client():
-    """Get or create Firecrawl client.
+    """获取或创建 Firecrawl 客户端。
 
-    Direct Firecrawl takes precedence when explicitly configured. Otherwise
-    KClaw falls back to the Firecrawl tool-gateway for logged-in Nous Subscribers.
+    显式配置时，Direct Firecrawl 优先。否则
+    KClaw 为已登录的 Nous 订阅者回退到 Firecrawl 工具网关。
     """
     global _firecrawl_client, _firecrawl_client_config
 
@@ -239,15 +236,15 @@ def _get_firecrawl_client():
     _firecrawl_client_config = client_config
     return _firecrawl_client
 
-# ─── Parallel Client ─────────────────────────────────────────────────────────
+# ─── Parallel 客户端 ─────────────────────────────────────────────────────────
 
 _parallel_client = None
 _async_parallel_client = None
 
 def _get_parallel_client():
-    """Get or create the Parallel sync client (lazy initialization).
+    """获取或创建 Parallel 同步客户端（延迟初始化）。
 
-    Requires PARALLEL_API_KEY environment variable.
+    需要 PARALLEL_API_KEY 环境变量。
     """
     from parallel import Parallel
     global _parallel_client
@@ -263,9 +260,9 @@ def _get_parallel_client():
 
 
 def _get_async_parallel_client():
-    """Get or create the Parallel async client (lazy initialization).
+    """获取或创建 Parallel 异步客户端（延迟初始化）。
 
-    Requires PARALLEL_API_KEY environment variable.
+    需要 PARALLEL_API_KEY 环境变量。
     """
     from parallel import AsyncParallel
     global _async_parallel_client
@@ -279,16 +276,16 @@ def _get_async_parallel_client():
         _async_parallel_client = AsyncParallel(api_key=api_key)
     return _async_parallel_client
 
-# ─── Tavily Client ───────────────────────────────────────────────────────────
+# ─── Tavily 客户端 ───────────────────────────────────────────────────────────
 
 _TAVILY_BASE_URL = "https://api.tavily.com"
 
 
 def _tavily_request(endpoint: str, payload: dict) -> dict:
-    """Send a POST request to the Tavily API.
+    """向 Tavily API 发送 POST 请求。
 
-    Auth is provided via ``api_key`` in the JSON body (no header-based auth).
-    Raises ``ValueError`` if ``TAVILY_API_KEY`` is not set.
+    身份验证通过 JSON body 中的 ``api_key`` 提供（不是基于 header 的认证）。
+    如果未设置 ``TAVILY_API_KEY`` 则引发 ``ValueError``。
     """
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
@@ -305,10 +302,10 @@ def _tavily_request(endpoint: str, payload: dict) -> dict:
 
 
 def _normalize_tavily_search_results(response: dict) -> dict:
-    """Normalize Tavily /search response to the standard web search format.
+    """将 Tavily /search 响应规范化为标准 Web 搜索格式。
 
-    Tavily returns ``{results: [{title, url, content, score, ...}]}``.
-    We map to ``{success, data: {web: [{title, url, description, position}]}}``.
+    Tavily 返回 ``{results: [{title, url, content, score, ...}]}``。
+    我们映射到 ``{success, data: {web: [{title, url, description, position}]}}``。
     """
     web_results = []
     for i, result in enumerate(response.get("results", [])):
@@ -322,9 +319,9 @@ def _normalize_tavily_search_results(response: dict) -> dict:
 
 
 def _normalize_tavily_documents(response: dict, fallback_url: str = "") -> List[Dict[str, Any]]:
-    """Normalize Tavily /extract or /crawl response to the standard document format.
+    """将 Tavily /extract 或 /crawl 响应规范化为标准文档格式。
 
-    Maps results to ``{url, title, content, raw_content, metadata}`` and
+    将结果映射到 ``{url, title, content, raw_content, metadata}`` 并
     includes any ``failed_results`` / ``failed_urls`` as error entries.
     """
     documents: List[Dict[str, Any]] = []
@@ -338,7 +335,7 @@ def _normalize_tavily_documents(response: dict, fallback_url: str = "") -> List[
             "raw_content": raw,
             "metadata": {"sourceURL": url, "title": result.get("title", "")},
         })
-    # Handle failed results
+    # 处理失败的结果
     for fail in response.get("failed_results", []):
         documents.append({
             "url": fail.get("url", fallback_url),
@@ -362,7 +359,7 @@ def _normalize_tavily_documents(response: dict, fallback_url: str = "") -> List[
 
 
 def _to_plain_object(value: Any) -> Any:
-    """Convert SDK objects to plain python data structures when possible."""
+    """尽可能将 SDK 对象转换为纯 Python 数据结构。"""
     if value is None:
         return None
 
@@ -385,7 +382,7 @@ def _to_plain_object(value: Any) -> Any:
 
 
 def _normalize_result_list(values: Any) -> List[Dict[str, Any]]:
-    """Normalize mixed SDK/list payloads into a list of dicts."""
+    """将混合的 SDK/list 负载规范化为字典列表。"""
     if not isinstance(values, list):
         return []
 
@@ -398,7 +395,7 @@ def _normalize_result_list(values: Any) -> List[Dict[str, Any]]:
 
 
 def _extract_web_search_results(response: Any) -> List[Dict[str, Any]]:
-    """Extract Firecrawl search results across SDK/direct/gateway response shapes."""
+    """跨 SDK/direct/gateway 响应形状提取 Firecrawl 搜索结果。"""
     response_plain = _to_plain_object(response)
 
     if isinstance(response_plain, dict):
@@ -429,7 +426,7 @@ def _extract_web_search_results(response: Any) -> List[Dict[str, Any]]:
 
 
 def _extract_scrape_payload(scrape_result: Any) -> Dict[str, Any]:
-    """Normalize Firecrawl scrape payload shape across SDK and gateway variants."""
+    """跨 SDK 和网关变体规范化 Firecrawl 抓取负载形状。"""
     result_plain = _to_plain_object(scrape_result)
     if not isinstance(result_plain, dict):
         return {}
@@ -444,7 +441,7 @@ def _extract_scrape_payload(scrape_result: Any) -> Dict[str, Any]:
 DEFAULT_MIN_LENGTH_FOR_SUMMARIZATION = 5000
 
 def _is_nous_auxiliary_client(client: Any) -> bool:
-    """Return True when the resolved auxiliary backend is Nous Portal."""
+    """当解析的辅助后端是 Nous Portal 时返回 True。"""
     from urllib.parse import urlparse
 
     base_url = str(getattr(client, "base_url", "") or "")
@@ -453,7 +450,7 @@ def _is_nous_auxiliary_client(client: Any) -> bool:
 
 
 def _resolve_web_extract_auxiliary(model: Optional[str] = None) -> tuple[Optional[Any], Optional[str], Dict[str, Any]]:
-    """Resolve the current web-extract auxiliary client, model, and extra body."""
+    """解析当前的 web-extract 辅助客户端、模型和额外 body。"""
     client, default_model = get_async_text_auxiliary_client("web_extract")
     configured_model = os.getenv("AUXILIARY_WEB_EXTRACT_MODEL", "").strip()
     effective_model = model or configured_model or default_model
@@ -467,7 +464,7 @@ def _resolve_web_extract_auxiliary(model: Optional[str] = None) -> tuple[Optiona
 
 
 def _get_default_summarizer_model() -> Optional[str]:
-    """Return the current default model for web extraction summarization."""
+    """返回当前 Web 提取摘要的默认模型。"""
     _, model, _ = _resolve_web_extract_auxiliary()
     return model
 
@@ -475,53 +472,53 @@ _debug = DebugSession("web_tools", env_var="WEB_TOOLS_DEBUG")
 
 
 async def process_content_with_llm(
-    content: str, 
-    url: str = "", 
+    content: str,
+    url: str = "",
     title: str = "",
     model: Optional[str] = None,
     min_length: int = DEFAULT_MIN_LENGTH_FOR_SUMMARIZATION
 ) -> Optional[str]:
     """
-    Process web content using LLM to create intelligent summaries with key excerpts.
-    
-    This function uses Gemini 3 Flash Preview (or specified model) via OpenRouter API 
-    to intelligently extract key information and create markdown summaries,
-    significantly reducing token usage while preserving all important information.
-    
-    For very large content (>500k chars), uses chunked processing with synthesis.
-    For extremely large content (>2M chars), refuses to process entirely.
-    
-    Args:
-        content (str): The raw content to process
-        url (str): The source URL (for context, optional)
-        title (str): The page title (for context, optional)
-        model (str): The model to use for processing (default: google/gemini-3-flash-preview)
-        min_length (int): Minimum content length to trigger processing (default: 5000)
-        
-    Returns:
-        Optional[str]: Processed markdown content, or None if content too short or processing fails
+    使用 LLM 处理 Web 内容以创建带有关键摘录的智能摘要。
+
+    此函数通过 OpenRouter API 使用 Gemini 3 Flash Preview（或指定模型）
+    来智能提取关键信息并创建 markdown 摘要，
+    在保留所有重要信息的同时显著减少 token 使用。
+
+    对于非常大的内容（>500k 字符），使用分块处理和综合。
+    对于极大的内容（>2M 字符），完全拒绝处理。
+
+    参数:
+        content (str): 要处理的原始内容
+        url (str): 源 URL（用于上下文，可选）
+        title (str): 页面标题（用于上下文，可选）
+        model (str): 用于处理的模型（默认: google/gemini-3-flash-preview）
+        min_length (int): 触发处理的最小内容长度（默认: 5000）
+
+    返回:
+        Optional[str]: 处理的 markdown 内容，如果内容太短或处理失败则返回 None
     """
-    # Size thresholds
-    MAX_CONTENT_SIZE = 2_000_000  # 2M chars - refuse entirely above this
-    CHUNK_THRESHOLD = 500_000     # 500k chars - use chunked processing above this
-    CHUNK_SIZE = 100_000          # 100k chars per chunk
-    MAX_OUTPUT_SIZE = 5000        # Hard cap on final output size
+    # 大小阈值
+    MAX_CONTENT_SIZE = 2_000_000  # 2M 字符 - 完全拒绝超过此限制
+    CHUNK_THRESHOLD = 500_000     # 500k 字符 - 使用分块处理超过此限制
+    CHUNK_SIZE = 100_000          # 每块 100k 字符
+    MAX_OUTPUT_SIZE = 5000        # 最终输出硬上限
     
     try:
         content_len = len(content)
         
-        # Refuse if content is absurdly large
+        # 如果内容过大则拒绝
         if content_len > MAX_CONTENT_SIZE:
             size_mb = content_len / 1_000_000
             logger.warning("Content too large (%.1fMB > 2MB limit). Refusing to process.", size_mb)
             return f"[Content too large to process: {size_mb:.1f}MB. Try using web_crawl with specific extraction instructions, or search for a more focused source.]"
         
-        # Skip processing if content is too short
+        # 如果内容太短则跳过处理
         if content_len < min_length:
             logger.debug("Content too short (%d < %d chars), skipping LLM processing", content_len, min_length)
             return None
         
-        # Create context information
+        # 创建上下文信息
         context_info = []
         if title:
             context_info.append(f"Title: {title}")
@@ -529,24 +526,24 @@ async def process_content_with_llm(
             context_info.append(f"Source: {url}")
         context_str = "\n".join(context_info) + "\n\n" if context_info else ""
         
-        # Check if we need chunked processing
+        # 检查是否需要分块处理
         if content_len > CHUNK_THRESHOLD:
             logger.info("Content large (%d chars). Using chunked processing...", content_len)
             return await _process_large_content_chunked(
                 content, context_str, model, CHUNK_SIZE, MAX_OUTPUT_SIZE
             )
         
-        # Standard single-pass processing for normal content
+        # 标准单遍处理普通内容
         logger.info("Processing content with LLM (%d characters)", content_len)
         
         processed_content = await _call_summarizer_llm(content, context_str, model)
         
         if processed_content:
-            # Enforce output cap
+            # 强制执行输出上限
             if len(processed_content) > MAX_OUTPUT_SIZE:
                 processed_content = processed_content[:MAX_OUTPUT_SIZE] + "\n\n[... summary truncated for context management ...]"
             
-            # Log compression metrics
+            # 记录压缩指标
             processed_length = len(processed_content)
             compression_ratio = processed_length / content_len if content_len > 0 else 1.0
             logger.info("Content processed: %d -> %d chars (%.1f%%)", content_len, processed_length, compression_ratio * 100)
@@ -560,9 +557,8 @@ async def process_content_with_llm(
             "or switch to a faster auxiliary model.",
             str(e)[:120],
         )
-        # Fall back to truncated raw content instead of returning a useless
-        # error message.  The first ~5000 chars are almost always more useful
-        # to the model than "[Failed to process content: ...]".
+        # 回退到截断的原始内容，而不是返回无用的错误消息。
+        # 前 ~5000 个字符几乎总是比 "[Failed to process content: ...]" 对模型更有用。
         truncated = content[:MAX_OUTPUT_SIZE]
         if len(content) > MAX_OUTPUT_SIZE:
             truncated += (
@@ -575,29 +571,29 @@ async def process_content_with_llm(
 
 
 async def _call_summarizer_llm(
-    content: str, 
-    context_str: str, 
-    model: Optional[str], 
+    content: str,
+    context_str: str,
+    model: Optional[str],
     max_tokens: int = 20000,
     is_chunk: bool = False,
     chunk_info: str = ""
 ) -> Optional[str]:
     """
-    Make a single LLM call to summarize content.
-    
-    Args:
-        content: The content to summarize
-        context_str: Context information (title, URL)
-        model: Model to use
-        max_tokens: Maximum output tokens
-        is_chunk: Whether this is a chunk of a larger document
-        chunk_info: Information about chunk position (e.g., "Chunk 2/5")
-        
-    Returns:
-        Summarized content or None on failure
+    进行单次 LLM 调用以摘要内容。
+
+    参数:
+        content: 要摘要的内容
+        context_str: 上下文信息（标题、URL）
+        model: 使用的模型
+        max_tokens: 最大输出 token
+        is_chunk: 这是否是一个较大文档的块
+        chunk_info: 关于块位置的信息（例如 "Chunk 2/5"）
+
+    返回:
+        摘要内容或失败时返回 None
     """
     if is_chunk:
-        # Chunk-specific prompt - aware that this is partial content
+        # 块特定提示 - 知道这是部分内容
         system_prompt = """You are an expert content analyst processing a SECTION of a larger document. Your job is to extract and summarize the key information from THIS SECTION ONLY.
 
 Important guidelines for chunk processing:
@@ -619,7 +615,7 @@ SECTION CONTENT:
 Extract all important information from this section in a structured format. Focus on facts, data, insights, and key details. Do not add introductions or conclusions."""
 
     else:
-        # Standard full-document prompt
+        # 标准完整文档提示
         system_prompt = """You are an expert content analyst. Your job is to process web content and create a comprehensive yet concise summary that preserves all important information while dramatically reducing bulk.
 
 Create a well-structured markdown summary that includes:
@@ -636,8 +632,8 @@ Your goal is to preserve ALL important information while reducing length. Never 
 
 Create a markdown summary that captures all key information in a well-organized, scannable format. Include important quotes and code snippets in their original formatting. Focus on actionable information, specific details, and unique insights."""
 
-    # Call the LLM with retry logic — keep retries low since summarization
-    # is a nice-to-have; the caller falls back to truncated content on failure.
+    # 使用重试逻辑调用 LLM — 由于摘要是可选项，保持重试次数较低；
+    # 调用方在失败时会回退到截断的内容。
     max_retries = 2
     retry_delay = 2
     last_error = None
@@ -657,9 +653,9 @@ Create a markdown summary that captures all key information in a well-organized,
                 ],
                 "temperature": 0.1,
                 "max_tokens": max_tokens,
-                # No explicit timeout — async_call_llm reads auxiliary.web_extract.timeout
-                # from config (default 360s / 6min).  Users with slow local models can
-                # increase it in config.yaml.
+                # 没有明确的超时 — async_call_llm 从 config 读取 auxiliary.web_extract.timeout
+                # （默认 360s / 6min）。使用慢速本地模型的用户可以
+                # 在 config.yaml 中增加它。
             }
             if extra_body:
                 call_kwargs["extra_body"] = extra_body
@@ -667,7 +663,7 @@ Create a markdown summary that captures all key information in a well-organized,
             content = extract_content_or_reasoning(response)
             if content:
                 return content
-            # Reasoning-only / empty response — let the retry loop handle it
+            # 仅推理/空响应 — 让重试循环处理它
             logger.warning("LLM returned empty content (attempt %d/%d), retrying", attempt + 1, max_retries)
             if attempt < max_retries - 1:
                 await asyncio.sleep(retry_delay)
@@ -691,27 +687,26 @@ Create a markdown summary that captures all key information in a well-organized,
 
 
 async def _process_large_content_chunked(
-    content: str, 
-    context_str: str, 
-    model: Optional[str], 
+    content: str,
+    context_str: str,
+    model: Optional[str],
     chunk_size: int,
     max_output_size: int
 ) -> Optional[str]:
     """
-    Process large content by chunking, summarizing each chunk in parallel,
-    then synthesizing the summaries.
-    
-    Args:
-        content: The large content to process
-        context_str: Context information
-        model: Model to use
-        chunk_size: Size of each chunk in characters
-        max_output_size: Maximum final output size
-        
-    Returns:
-        Synthesized summary or None on failure
+    通过分块处理大内容，并行摘要每个块，然后综合摘要。
+
+    参数:
+        content: 要处理的大内容
+        context_str: 上下文信息
+        model: 使用的模型
+        chunk_size: 每个块的字符大小
+        max_output_size: 最大最终输出大小
+
+    返回:
+        综合摘要或失败时返回 None
     """
-    # Split content into chunks
+    # 将内容分割成块
     chunks = []
     for i in range(0, len(content), chunk_size):
         chunk = content[i:i + chunk_size]
@@ -719,9 +714,9 @@ async def _process_large_content_chunked(
     
     logger.info("Split into %d chunks of ~%d chars each", len(chunks), chunk_size)
     
-    # Summarize each chunk in parallel
+    # 并行摘要每个块
     async def summarize_chunk(chunk_idx: int, chunk_content: str) -> tuple[int, Optional[str]]:
-        """Summarize a single chunk."""
+        """摘要单个块。"""
         try:
             chunk_info = f"[Processing chunk {chunk_idx + 1} of {len(chunks)}]"
             summary = await _call_summarizer_llm(
@@ -739,11 +734,11 @@ async def _process_large_content_chunked(
             logger.warning("Chunk %d/%d failed: %s", chunk_idx + 1, len(chunks), str(e)[:50])
             return chunk_idx, None
     
-    # Run all chunk summarizations in parallel
+    # 并行运行所有块摘要
     tasks = [summarize_chunk(i, chunk) for i, chunk in enumerate(chunks)]
     results = await asyncio.gather(*tasks)
     
-    # Collect successful summaries in order
+    # 按顺序收集成功的摘要
     summaries = []
     for chunk_idx, summary in sorted(results, key=lambda x: x[0]):
         if summary:
@@ -755,14 +750,14 @@ async def _process_large_content_chunked(
     
     logger.info("Got %d/%d chunk summaries", len(summaries), len(chunks))
     
-    # If only one chunk succeeded, just return it (with cap)
+    # 如果只有一个块成功，直接返回（带上限）
     if len(summaries) == 1:
         result = summaries[0]
         if len(result) > max_output_size:
             result = result[:max_output_size] + "\n\n[... truncated ...]"
         return result
     
-    # Synthesize the summaries into a final summary
+    # 将摘要综合成最终摘要
     logger.info("Synthesizing %d summaries...", len(summaries))
     
     combined_summaries = "\n\n---\n\n".join(summaries)
@@ -803,13 +798,13 @@ Create a single, unified markdown summary."""
         response = await async_call_llm(**call_kwargs)
         final_summary = extract_content_or_reasoning(response)
 
-        # Retry once on empty content (reasoning-only response)
+        # 在内容为空时重试一次（仅推理响应）
         if not final_summary:
             logger.warning("Synthesis LLM returned empty content, retrying once")
             response = await async_call_llm(**call_kwargs)
             final_summary = extract_content_or_reasoning(response)
 
-        # If still None after retry, fall back to concatenated summaries
+        # 如果重试后仍为 None，回退到连接的摘要
         if not final_summary:
             logger.warning("Synthesis failed after retry — concatenating chunk summaries")
             fallback = "\n\n".join(summaries)
@@ -817,7 +812,7 @@ Create a single, unified markdown summary."""
                 fallback = fallback[:max_output_size] + "\n\n[... truncated ...]"
             return fallback
 
-        # Enforce hard cap
+        # 强制执行硬上限
         if len(final_summary) > max_output_size:
             final_summary = final_summary[:max_output_size] + "\n\n[... summary truncated for context management ...]"
         
@@ -830,7 +825,7 @@ Create a single, unified markdown summary."""
         
     except Exception as e:
         logger.warning("Synthesis failed: %s", str(e)[:100])
-        # Fall back to concatenated summaries with truncation
+        # 回退到带截断的连接摘要
         fallback = "\n\n".join(summaries)
         if len(fallback) > max_output_size:
             fallback = fallback[:max_output_size] + "\n\n[... truncated due to synthesis failure ...]"
@@ -839,9 +834,9 @@ Create a single, unified markdown summary."""
 
 def clean_base64_images(text: str) -> str:
     """
-    Remove base64 encoded images from text to reduce token count and clutter.
-    
-    This function finds and removes base64 encoded images in various formats:
+    从文本中移除 base64 编码的图像以减少 token 数量和杂乱。
+
+    此函数查找并移除各种格式的 base64 编码图像：
     - (data:image/png;base64,...)
     - (data:image/jpeg;base64,...)
     - (data:image/svg+xml;base64,...)
@@ -853,31 +848,31 @@ def clean_base64_images(text: str) -> str:
     Returns:
         Cleaned text with base64 images replaced with placeholders
     """
-    # Pattern to match base64 encoded images wrapped in parentheses
-    # Matches: (data:image/[type];base64,[base64-string])
+    # 匹配包裹在括号中的 base64 编码图像的模式
+    # 匹配：(data:image/[type];base64,[base64-string])
     base64_with_parens_pattern = r'\(data:image/[^;]+;base64,[A-Za-z0-9+/=]+\)'
     
-    # Pattern to match base64 encoded images without parentheses
-    # Matches: data:image/[type];base64,[base64-string]
+    # 匹配不带括号的 base64 编码图像的模式
+    # 匹配：data:image/[type];base64,[base64-string]
     base64_pattern = r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+'
     
-    # Replace parentheses-wrapped images first
+    # 首先替换带括号的图像
     cleaned_text = re.sub(base64_with_parens_pattern, '[BASE64_IMAGE_REMOVED]', text)
     
-    # Then replace any remaining non-parentheses images
+    # 然后替换任何剩余的非括号图像
     cleaned_text = re.sub(base64_pattern, '[BASE64_IMAGE_REMOVED]', cleaned_text)
     
     return cleaned_text
 
 
-# ─── Exa Client ──────────────────────────────────────────────────────────────
+# ─── Exa 客户端 ──────────────────────────────────────────────────────────────
 
 _exa_client = None
 
 def _get_exa_client():
-    """Get or create the Exa client (lazy initialization).
+    """获取或创建 Exa 客户端（延迟初始化）。
 
-    Requires EXA_API_KEY environment variable.
+    需要 EXA_API_KEY 环境变量。
     """
     from exa_py import Exa
     global _exa_client
@@ -893,10 +888,10 @@ def _get_exa_client():
     return _exa_client
 
 
-# ─── Exa Search & Extract Helpers ─────────────────────────────────────────────
+# ─── Exa 搜索和提取辅助函数 ─────────────────────────────────────────────
 
 def _exa_search(query: str, limit: int = 10) -> dict:
-    """Search using the Exa SDK and return results as a dict."""
+    """使用 Exa SDK 搜索并以字典形式返回结果。"""
     from tools.interrupt import is_interrupted
     if is_interrupted():
         return {"error": "Interrupted", "success": False}
@@ -924,10 +919,10 @@ def _exa_search(query: str, limit: int = 10) -> dict:
 
 
 def _exa_extract(urls: List[str]) -> List[Dict[str, Any]]:
-    """Extract content from URLs using the Exa SDK.
+    """使用 Exa SDK 从 URL 提取内容。
 
-    Returns a list of result dicts matching the structure expected by the
-    LLM post-processing pipeline (url, title, content, metadata).
+    返回符合 LLM 后处理管道期望结构的 result 字典列表
+    （url, title, content, metadata）。
     """
     from tools.interrupt import is_interrupted
     if is_interrupted():
@@ -955,10 +950,10 @@ def _exa_extract(urls: List[str]) -> List[Dict[str, Any]]:
     return results
 
 
-# ─── Parallel Search & Extract Helpers ────────────────────────────────────────
+# ─── Parallel 搜索和提取辅助函数 ────────────────────────────────────────
 
 def _parallel_search(query: str, limit: int = 5) -> dict:
-    """Search using the Parallel SDK and return results as a dict."""
+    """使用 Parallel SDK 搜索并以字典形式返回结果。"""
     from tools.interrupt import is_interrupted
     if is_interrupted():
         return {"error": "Interrupted", "success": False}
@@ -989,9 +984,9 @@ def _parallel_search(query: str, limit: int = 5) -> dict:
 
 
 async def _parallel_extract(urls: List[str]) -> List[Dict[str, Any]]:
-    """Extract content from URLs using the Parallel async SDK.
+    """使用 Parallel 异步 SDK 从 URL 提取内容。
 
-    Returns a list of result dicts matching the structure expected by the
+    返回符合 LLM 后处理管道期望结构的 result 字典列表
     LLM post-processing pipeline (url, title, content, metadata).
     """
     from tools.interrupt import is_interrupted
@@ -1081,7 +1076,7 @@ def web_search_tool(query: str, limit: int = 5) -> str:
         if is_interrupted():
             return tool_error("Interrupted", success=False)
 
-        # Dispatch to the configured backend
+        # 分派到已配置的后端
         backend = _get_backend()
         if backend == "parallel":
             response_data = _parallel_search(query, limit)
@@ -1128,7 +1123,7 @@ def web_search_tool(query: str, limit: int = 5) -> str:
         results_count = len(web_results)
         logger.info("Found %d search results", results_count)
         
-        # Build response with just search metadata (URLs, titles, descriptions)
+        # 构建仅包含搜索元数据的响应（URL、标题、描述）
         response_data = {
             "success": True,
             "data": {
@@ -1136,15 +1131,15 @@ def web_search_tool(query: str, limit: int = 5) -> str:
             }
         }
         
-        # Capture debug information
+        # 捕获调试信息
         debug_call_data["results_count"] = results_count
         
-        # Convert to JSON
+        # 转换为 JSON
         result_json = json.dumps(response_data, indent=2, ensure_ascii=False)
         
         debug_call_data["final_response_size"] = len(result_json)
-        
-        # Log debug information
+
+        # 记录调试信息
         _debug.log_call("web_search_tool", debug_call_data)
         _debug.save()
         
@@ -1190,7 +1185,7 @@ async def web_extract_tool(
     Raises:
         Exception: If extraction fails or API key is not set
     """
-    # Block URLs containing embedded secrets (exfiltration prevention)
+    # 阻止包含嵌入 secrets 的 URL（防止泄露）
     from agent.redact import _PREFIX_RE
     for _url in urls:
         if _PREFIX_RE.search(_url):
@@ -1220,7 +1215,7 @@ async def web_extract_tool(
     try:
         logger.info("Extracting content from %d URL(s)", len(urls))
 
-        # ── SSRF protection — filter out private/internal URLs before any backend ──
+        # ── SSRF 保护 — 在任何后端之前过滤掉私有/内部 URL ──
         safe_urls = []
         ssrf_blocked: List[Dict[str, Any]] = []
         for url in urls:
@@ -1232,7 +1227,7 @@ async def web_extract_tool(
             else:
                 safe_urls.append(url)
 
-        # Dispatch only safe URLs to the configured backend
+        # 仅将安全 URL 分派到已配置的后端
         if not safe_urls:
             results = []
         else:
@@ -1250,19 +1245,19 @@ async def web_extract_tool(
                 })
                 results = _normalize_tavily_documents(raw, fallback_url=safe_urls[0] if safe_urls else "")
             else:
-                # ── Firecrawl extraction ──
-                # Determine requested formats for Firecrawl v2
+                # ── Firecrawl 提取 ──
+                # 确定 Firecrawl v2 请求的格式
                 formats: List[str] = []
                 if format == "markdown":
                     formats = ["markdown"]
                 elif format == "html":
                     formats = ["html"]
                 else:
-                    # Default: request markdown for LLM-readiness and include html as backup
+                    # 默认：为 LLM 可读性请求 markdown 并包含 html 作为备份
                     formats = ["markdown", "html"]
 
-                # Always use individual scraping for simplicity and reliability
-                # Batch scraping adds complexity without much benefit for small numbers of URLs
+                # 为简单性和可靠性始终使用单独抓取
+                # 批量抓取会增加复杂性，对于少量 URL 来说没有太大好处
                 results: List[Dict[str, Any]] = []
 
                 from tools.interrupt import is_interrupted as _is_interrupted
@@ -1271,7 +1266,7 @@ async def web_extract_tool(
                         results.append({"url": url, "error": "Interrupted", "title": ""})
                         continue
 
-                    # Website policy check — block before fetching
+                    # 网站策略检查 — 在获取之前阻止
                     blocked = check_website_access(url)
                     if blocked:
                         logger.info("Blocked web_extract for %s by rule %s", blocked["host"], blocked["rule"])
@@ -1284,8 +1279,8 @@ async def web_extract_tool(
 
                     try:
                         logger.info("Scraping: %s", url)
-                        # Run synchronous Firecrawl scrape in a thread with a
-                        # 60s timeout so a hung fetch doesn't block the session.
+                        # 在线程中运行同步 Firecrawl 抓取，
+                        # 60s 超时，这样卡住的获取不会阻止会话。
                         try:
                             scrape_result = await asyncio.wait_for(
                                 asyncio.to_thread(
@@ -1309,7 +1304,7 @@ async def web_extract_tool(
                         content_markdown = scrape_payload.get("markdown")
                         content_html = scrape_payload.get("html")
 
-                        # Ensure metadata is a dict (not an object)
+                        # 确保 metadata 是一个字典（不是对象）
                         if not isinstance(metadata, dict):
                             if hasattr(metadata, 'model_dump'):
                                 metadata = metadata.model_dump()
@@ -1318,10 +1313,10 @@ async def web_extract_tool(
                             else:
                                 metadata = {}
 
-                        # Get title from metadata
+                        # 从 metadata 获取标题
                         title = metadata.get("title", "")
 
-                        # Re-check final URL after redirect
+                        # 重定向后重新检查最终 URL
                         final_url = metadata.get("sourceURL", url)
                         final_blocked = check_website_access(final_url)
                         if final_blocked:
@@ -1333,7 +1328,7 @@ async def web_extract_tool(
                             })
                             continue
 
-                        # Choose content based on requested format
+                        # 根据请求的格式选择内容
                         chosen_content = content_markdown if (format == "markdown" or (format is None and content_markdown)) else content_html or content_markdown or ""
 
                         results.append({
@@ -1354,7 +1349,7 @@ async def web_extract_tool(
                             "error": str(scrape_err)
                         })
 
-        # Merge any SSRF-blocked results back in
+        # 将任何 SSRF 阻止的结果合并回来
         if ssrf_blocked:
             results = ssrf_blocked + results
 
@@ -1367,15 +1362,15 @@ async def web_extract_tool(
         debug_call_data["original_response_size"] = len(json.dumps(response))
         effective_model = model or _get_default_summarizer_model()
         auxiliary_available = check_auxiliary_model()
-        
-        # Process each result with LLM if enabled
+
+        # 如果启用，使用 LLM 处理每个结果
         if use_llm_processing and auxiliary_available:
             logger.info("Processing extracted content with LLM (parallel)...")
             debug_call_data["processing_applied"].append("llm_processing")
-            
-            # Prepare tasks for parallel processing
+
+            # 准备并行处理的任务
             async def process_single_result(result):
-                """Process a single result with LLM and return updated result with metrics."""
+                """使用 LLM 处理单个结果并返回带有指标的结果。"""
                 url = result.get('url', 'Unknown URL')
                 title = result.get('title', '')
                 raw_content = result.get('raw_content', '') or result.get('content', '')
@@ -1384,8 +1379,8 @@ async def web_extract_tool(
                     return result, None, "no_content"
                 
                 original_size = len(raw_content)
-                
-                # Process content with LLM
+
+                # 使用 LLM 处理内容
                 processed = await process_content_with_llm(
                     raw_content, url, title, effective_model, min_length
                 )
@@ -1393,8 +1388,8 @@ async def web_extract_tool(
                 if processed:
                     processed_size = len(processed)
                     compression_ratio = processed_size / original_size if original_size > 0 else 1.0
-                    
-                    # Update result with processed content
+
+                    # 使用处理后的内容更新结果
                     result['content'] = processed
                     result['raw_content'] = raw_content
                     
@@ -1416,13 +1411,13 @@ async def web_extract_tool(
                         "reason": "content_too_short"
                     }
                     return result, metrics, "too_short"
-            
-            # Run all LLM processing in parallel
+
+            # 并行运行所有 LLM 处理
             results_list = response.get('results', [])
             tasks = [process_single_result(result) for result in results_list]
             processed_results = await asyncio.gather(*tasks)
-            
-            # Collect metrics and print results
+
+            # 收集指标并打印结果
             for result, metrics, status in processed_results:
                 url = result.get('url', 'Unknown URL')
                 if status == "processed":
@@ -1438,13 +1433,13 @@ async def web_extract_tool(
             if use_llm_processing and not auxiliary_available:
                 logger.warning("LLM processing requested but no auxiliary model available, returning raw content")
                 debug_call_data["processing_applied"].append("llm_processing_unavailable")
-            # Print summary of extracted pages for debugging (original behavior)
+            # 打印提取页面的摘要以进行调试（原始行为）
             for result in response.get('results', []):
                 url = result.get('url', 'Unknown URL')
                 content_length = len(result.get('raw_content', ''))
                 logger.info("%s (%d characters)", url, content_length)
-        
-        # Trim output to minimal fields per entry: title, content, error
+
+        # 将输出修剪为每个条目的最小字段：title、content、error
         trimmed_results = [
             {
                 "url": r.get("url", ""),
@@ -1470,7 +1465,7 @@ async def web_extract_tool(
         debug_call_data["final_response_size"] = len(cleaned_result)
         debug_call_data["processing_applied"].append("base64_image_removal")
         
-        # Log debug information
+        # 记录调试信息
         _debug.log_call("web_extract_tool", debug_call_data)
         _debug.save()
         
@@ -1540,18 +1535,18 @@ async def web_crawl_tool(
         auxiliary_available = check_auxiliary_model()
         backend = _get_backend()
 
-        # Tavily supports crawl via its /crawl endpoint
+        # Tavily 通过其 /crawl 端点支持抓取
         if backend == "tavily":
-            # Ensure URL has protocol
+            # 确保 URL 有协议
             if not url.startswith(('http://', 'https://')):
                 url = f'https://{url}'
 
-            # SSRF protection — block private/internal addresses
+            # SSRF 保护 — 阻止私有/内部地址
             if not is_safe_url(url):
                 return json.dumps({"results": [{"url": url, "title": "", "content": "",
                     "error": "Blocked: URL targets a private or internal network address"}]}, ensure_ascii=False)
 
-            # Website policy check
+            # 网站策略检查
             blocked = check_website_access(url)
             if blocked:
                 logger.info("Blocked web_crawl for %s by rule %s", blocked["host"], blocked["rule"])
@@ -1574,14 +1569,14 @@ async def web_crawl_tool(
             results = _normalize_tavily_documents(raw, fallback_url=url)
 
             response = {"results": results}
-            # Fall through to the shared LLM processing and trimming below
-            # (skip the Firecrawl-specific crawl logic)
+            # 继续执行下面共享的 LLM 处理和修剪
+            # （跳过 Firecrawl 特定的抓取逻辑）
             pages_crawled = len(response.get('results', []))
             logger.info("Crawled %d pages", pages_crawled)
             debug_call_data["pages_crawled"] = pages_crawled
             debug_call_data["original_response_size"] = len(json.dumps(response))
 
-            # Process each result with LLM if enabled
+            # 如果启用，使用 LLM 处理每个结果
             if use_llm_processing and auxiliary_available:
                 logger.info("Processing crawled content with LLM (parallel)...")
                 debug_call_data["processing_applied"].append("llm_processing")
@@ -1624,7 +1619,7 @@ async def web_crawl_tool(
             _debug.save()
             return cleaned_result
 
-        # web_crawl requires Firecrawl or the Firecrawl tool-gateway — Parallel has no crawl API
+        # web_crawl 需要 Firecrawl 或 Firecrawl 工具网关 — Parallel 没有 crawl API
         if not check_firecrawl_api_key():
             return json.dumps({
                 "error": "web_crawl requires Firecrawl. Set FIRECRAWL_API_KEY, FIRECRAWL_API_URL"
@@ -1632,7 +1627,7 @@ async def web_crawl_tool(
                 "success": False,
             }, ensure_ascii=False)
 
-        # Ensure URL has protocol
+        # 确保 URL 有协议
         if not url.startswith(('http://', 'https://')):
             url = f'https://{url}'
             logger.info("Added https:// prefix to URL: %s", url)
@@ -1640,32 +1635,32 @@ async def web_crawl_tool(
         instructions_text = f" with instructions: '{instructions}'" if instructions else ""
         logger.info("Crawling %s%s", url, instructions_text)
         
-        # SSRF protection — block private/internal addresses
+        # SSRF 保护 — 阻止私有/内部地址
         if not is_safe_url(url):
             return json.dumps({"results": [{"url": url, "title": "", "content": "",
                 "error": "Blocked: URL targets a private or internal network address"}]}, ensure_ascii=False)
 
-        # Website policy check — block before crawling
+        # 网站策略检查 — 在抓取之前阻止
         blocked = check_website_access(url)
         if blocked:
             logger.info("Blocked web_crawl for %s by rule %s", blocked["host"], blocked["rule"])
             return json.dumps({"results": [{"url": url, "title": "", "content": "", "error": blocked["message"],
                 "blocked_by_policy": {"host": blocked["host"], "rule": blocked["rule"], "source": blocked["source"]}}]}, ensure_ascii=False)
 
-        # Use Firecrawl's v2 crawl functionality
-        # Docs: https://docs.firecrawl.dev/features/crawl
-        # The crawl() method automatically waits for completion and returns all data
-        
-        # Build crawl parameters - keep it simple
+        # 使用 Firecrawl 的 v2 crawl 功能
+        # 文档：https://docs.firecrawl.dev/features/crawl
+        # crawl() 方法自动等待完成并返回所有数据
+
+        # 构建 crawl 参数 — 保持简单
         crawl_params = {
-            "limit": 20,  # Limit number of pages to crawl
+            "limit": 20,  # 限制要抓取的页面数量
             "scrape_options": {
                 "formats": ["markdown"]  # Just markdown for simplicity
             }
         }
         
-        # Note: The 'prompt' parameter is not documented for crawl
-        # Instructions are typically used with the Extract endpoint, not Crawl
+        # 注意：'prompt' 参数在 crawl 中未记录
+        # 指令通常与 Extract 端点一起使用，而不是 Crawl
         if instructions:
             logger.info("Instructions parameter ignored (not supported in crawl API)")
         
@@ -1684,16 +1679,16 @@ async def web_crawl_tool(
 
         pages: List[Dict[str, Any]] = []
         
-        # Process crawl results - the crawl method returns a CrawlJob object with data attribute
+        # 处理 crawl 结果 — crawl 方法返回带有 data 属性的 CrawlJob 对象
         data_list = []
         
-        # The crawl_result is a CrawlJob object with a 'data' attribute containing list of Document objects
+        # crawl_result 是一个 CrawlJob 对象，带有包含 Document 对象列表的 'data' 属性
         if hasattr(crawl_result, 'data'):
             data_list = crawl_result.data if crawl_result.data else []
             logger.info("Status: %s", getattr(crawl_result, 'status', 'unknown'))
             logger.info("Retrieved %d pages", len(data_list))
             
-            # Debug: Check other attributes if no data
+            # 调试：如果没有数据则检查其他属性
             if not data_list:
                 logger.debug("CrawlJob attributes: %s", [attr for attr in dir(crawl_result) if not attr.startswith('_')])
                 logger.debug("Status: %s", getattr(crawl_result, 'status', 'N/A'))
@@ -1709,26 +1704,26 @@ async def web_crawl_tool(
                 logger.debug("Result attributes: %s", list(crawl_result.__dict__.keys()))
         
         for item in data_list:
-            # Process each crawled page - properly handle object serialization
+            # 处理每个抓取的页面 — 正确处理对象序列化
             page_url = "Unknown URL"
             title = ""
             content_markdown = None
             content_html = None
             metadata = {}
             
-            # Extract data from the item
+            # 从 item 中提取数据
             if hasattr(item, 'model_dump'):
-                # Pydantic model - use model_dump to get dict
+                # Pydantic 模型 — 使用 model_dump 获取字典
                 item_dict = item.model_dump()
                 content_markdown = item_dict.get('markdown')
                 content_html = item_dict.get('html')
                 metadata = item_dict.get('metadata', {})
             elif hasattr(item, '__dict__'):
-                # Regular object with attributes
+                # 具有属性的常规对象
                 content_markdown = getattr(item, 'markdown', None)
                 content_html = getattr(item, 'html', None)
                 
-                # Handle metadata - convert to dict if it's an object
+                # 处理 metadata — 如果是对象则转换为字典
                 metadata_obj = getattr(item, 'metadata', {})
                 if hasattr(metadata_obj, 'model_dump'):
                     metadata = metadata_obj.model_dump()
@@ -1739,12 +1734,12 @@ async def web_crawl_tool(
                 else:
                     metadata = {}
             elif isinstance(item, dict):
-                # Already a dictionary
+                # 已经是字典
                 content_markdown = item.get('markdown')
                 content_html = item.get('html')
                 metadata = item.get('metadata', {})
             
-            # Ensure metadata is a dict (not an object)
+            # 确保 metadata 是字典（不是对象）
             if not isinstance(metadata, dict):
                 if hasattr(metadata, 'model_dump'):
                     metadata = metadata.model_dump()
@@ -1753,7 +1748,7 @@ async def web_crawl_tool(
                 else:
                     metadata = {}
             
-            # Extract URL and title from metadata
+            # 从 metadata 中提取 URL 和标题
             page_url = metadata.get("sourceURL", metadata.get("url", "Unknown URL"))
             title = metadata.get("title", "")
             
@@ -1835,13 +1830,13 @@ async def web_crawl_tool(
                         "reason": "content_too_short"
                     }
                     return result, metrics, "too_short"
-            
-            # Run all LLM processing in parallel
+
+            # 并行运行所有 LLM 处理
             results_list = response.get('results', [])
             tasks = [process_single_crawl_result(result) for result in results_list]
             processed_results = await asyncio.gather(*tasks)
-            
-            # Collect metrics and print results
+
+            # 收集指标并打印结果
             for result, metrics, status in processed_results:
                 page_url = result.get('url', 'Unknown URL')
                 if status == "processed":

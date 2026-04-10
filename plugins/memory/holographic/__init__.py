@@ -1,7 +1,7 @@
-"""kclaw-memory-store — holographic memory plugin using MemoryProvider interface.
+"""kclaw-memory-store — 使用 MemoryProvider 接口的全息记忆插件。
 
-Registers as a MemoryProvider plugin, giving the agent structured fact storage
-with entity resolution, trust scoring, and HRR-based compositional retrieval.
+注册为 MemoryProvider 插件，为 agent 提供结构化事实存储，
+支持实体解析、信任评分和基于 HRR 的组合检索。
 
 Original plugin by dusterbloom (PR #2351), adapted to the MemoryProvider ABC.
 
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Tool schemas (unchanged from original PR)
+# 工具 schema 定义（与原始 PR 相同）
 # ---------------------------------------------------------------------------
 
 FACT_STORE_SCHEMA = {
@@ -90,7 +90,7 @@ FACT_FEEDBACK_SCHEMA = {
 
 
 # ---------------------------------------------------------------------------
-# Config
+# 配置
 # ---------------------------------------------------------------------------
 
 def _load_plugin_config() -> dict:
@@ -108,11 +108,11 @@ def _load_plugin_config() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# MemoryProvider implementation
+# MemoryProvider 实现
 # ---------------------------------------------------------------------------
 
 class HolographicMemoryProvider(MemoryProvider):
-    """Holographic memory with structured facts, entity resolution, and HRR retrieval."""
+    """全息记忆，支持结构化事实、实体解析和 HRR 检索。"""
 
     def __init__(self, config: dict | None = None):
         self._config = config or _load_plugin_config()
@@ -128,7 +128,7 @@ class HolographicMemoryProvider(MemoryProvider):
         return True  # SQLite is always available, numpy is optional
 
     def save_config(self, values, kclaw_home):
-        """Write config to config.yaml under plugins.kclaw-memory-store."""
+        """将配置写入 config.yaml 的 plugins.kclaw-memory-store 下。"""
         from pathlib import Path
         config_path = Path(kclaw_home) / "config.yaml"
         try:
@@ -241,7 +241,7 @@ class HolographicMemoryProvider(MemoryProvider):
         self._auto_extract_facts(messages)
 
     def on_memory_write(self, action: str, target: str, content: str) -> None:
-        """Mirror built-in memory writes as facts."""
+        """将内置记忆写入镜像为事实。"""
         if action == "add" and self._store and content:
             try:
                 category = "user_pref" if target == "user" else "general"
@@ -253,7 +253,7 @@ class HolographicMemoryProvider(MemoryProvider):
         self._store = None
         self._retriever = None
 
-    # -- Tool handlers -------------------------------------------------------
+    # -- 工具处理器 -------------------------------------------------------
 
     def _handle_fact_store(self, args: dict) -> str:
         try:
@@ -353,7 +353,7 @@ class HolographicMemoryProvider(MemoryProvider):
         except Exception as exc:
             return tool_error(str(exc))
 
-    # -- Auto-extraction (on_session_end) ------------------------------------
+    # -- 自动提取（on_session_end） ------------------------------------
 
     def _auto_extract_facts(self, messages: list) -> None:
         _PREF_PATTERNS = [
@@ -397,11 +397,11 @@ class HolographicMemoryProvider(MemoryProvider):
 
 
 # ---------------------------------------------------------------------------
-# Plugin entry point
+# 插件入口点
 # ---------------------------------------------------------------------------
 
 def register(ctx) -> None:
-    """Register the holographic memory provider with the plugin system."""
+    """将全息记忆提供程序注册到插件系统。"""
     config = _load_plugin_config()
     provider = HolographicMemoryProvider(config=config)
     ctx.register_memory_provider(provider)

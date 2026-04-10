@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""File Tools Module - LLM agent file manipulation tools."""
+"""文件工具模块 - LLM agent 文件操作工具。"""
 
 import errno
 import json
@@ -17,24 +17,23 @@ logger = logging.getLogger(__name__)
 _EXPECTED_WRITE_ERRNOS = {errno.EACCES, errno.EPERM, errno.EROFS}
 
 # ---------------------------------------------------------------------------
-# Read-size guard: cap the character count returned to the model.
-# We're model-agnostic so we can't count tokens; characters are a safe proxy.
-# 100K chars ≈ 25–35K tokens across typical tokenisers.  Files larger than
-# this in a single read are a context-window hazard — the model should use
-# offset+limit to read the relevant section.
+# 读取大小守卫：限制返回给模型的字符数。
+# 我们与模型无关，因此无法计算 token；字符是一个安全的代理。
+# 100K 字符 ≈ 25–35K token（跨典型 tokeniser）。单次读取中大于
+# 此值的文件是上下文窗口危险——模型应使用 offset+limit 读取相关部分。
 #
-# Configurable via config.yaml:  file_read_max_chars: 200000
+# 可通过 config.yaml 配置：file_read_max_chars: 200000
 # ---------------------------------------------------------------------------
 _DEFAULT_MAX_READ_CHARS = 100_000
 _max_read_chars_cached: int | None = None
 
 
 def _get_max_read_chars() -> int:
-    """Return the configured max characters per file read.
+    """返回每次文件读取配置的最大字符数。
 
-    Reads ``file_read_max_chars`` from config.yaml on first call, caches
-    the result for the lifetime of the process.  Falls back to the
-    built-in default if the config is missing or invalid.
+    首次调用时从 config.yaml 读取 ``file_read_max_chars``，
+    在进程生命周期内缓存结果。如果配置缺失或无效，
+    则回退到内置默认值。
     """
     global _max_read_chars_cached
     if _max_read_chars_cached is not None:
@@ -56,8 +55,8 @@ def _get_max_read_chars() -> int:
 _LARGE_FILE_HINT_BYTES = 512_000  # 512 KB
 
 # ---------------------------------------------------------------------------
-# Device path blocklist — reading these hangs the process (infinite output
-# or blocking on input).  Checked by path only (no I/O).
+# 设备路径黑名单——读取这些会挂起进程（无限输出
+# 或阻塞等待输入）。仅通过路径检查（无 I/O）。
 # ---------------------------------------------------------------------------
 _BLOCKED_DEVICE_PATHS = frozenset({
     # Infinite output — never reach EOF
@@ -72,12 +71,12 @@ _BLOCKED_DEVICE_PATHS = frozenset({
 
 
 def _is_blocked_device(filepath: str) -> bool:
-    """Return True if the path would hang the process (infinite output or blocking input).
+    """如果路径会挂起进程（无限输出或阻塞输入），则返回 True。
 
-    Uses the *literal* path — no symlink resolution — because the model
-    specifies paths directly and realpath follows symlinks all the way
-    through (e.g. /dev/stdin → /proc/self/fd/0 → /dev/pts/0), defeating
-    the check.
+    使用*字面*路径——不解析符号链接——因为模型直接指定路径，
+    而 realpath 完全跟随符号链接
+    （例如 /dev/stdin → /proc/self/fd/0 → /dev/pts/0），
+    这会击败检查。
     """
     normalized = os.path.expanduser(filepath)
     if normalized in _BLOCKED_DEVICE_PATHS:
@@ -97,7 +96,7 @@ _SENSITIVE_EXACT_PATHS = {"/var/run/docker.sock", "/run/docker.sock"}
 
 
 def _check_sensitive_path(filepath: str) -> str | None:
-    """Return an error message if the path targets a sensitive system location."""
+    """如果路径指向敏感系统位置则返回错误消息。"""
     try:
         resolved = os.path.realpath(os.path.expanduser(filepath))
     except (OSError, ValueError):
@@ -117,7 +116,7 @@ def _check_sensitive_path(filepath: str) -> str | None:
 
 
 def _is_expected_write_exception(exc: Exception) -> bool:
-    """Return True for expected write denials that should not hit error logs."""
+    """对于不应触发错误日志的预期写入拒绝返回 True。"""
     if isinstance(exc, PermissionError):
         return True
     if isinstance(exc, OSError) and exc.errno in _EXPECTED_WRITE_ERRNOS:
@@ -128,34 +127,31 @@ def _is_expected_write_exception(exc: Exception) -> bool:
 _file_ops_lock = threading.Lock()
 _file_ops_cache: dict = {}
 
-# Track files read per task to detect re-read loops and deduplicate reads.
-# Per task_id we store:
-#   "last_key":     the key of the most recent read/search call (or None)
-#   "consecutive":  how many times that exact call has been repeated in a row
-#   "read_history": set of (path, offset, limit) tuples for get_read_files_summary
-#   "dedup":        dict mapping (resolved_path, offset, limit) → mtime float
-#                   Used to skip re-reads of unchanged files.  Reset on
-#                   context compression (the original content is summarised
-#                   away so the model needs the full content again).
-#   "read_timestamps": dict mapping resolved_path → modification-time float
-#                      recorded when the file was last read (or written) by
-#                      this task.  Used by write_file and patch to detect
-#                      external changes between the agent's read and write.
-#                      Updated after successful writes so consecutive edits
-#                      by the same task don't trigger false warnings.
+# 跟踪每个任务读取的文件以检测重新读取循环并去重读取。
+# 每个 task_id 我们存储：
+#   "last_key":     最近一次读取/搜索调用的键（或 None）
+#   "consecutive":  同一调用连续重复的次数
+#   "read_history": 用于 get_read_files_summary 的 (path, offset, limit) 元组集合
+#   "dedup":        将 (resolved_path, offset, limit) 映射到 mtime float 的字典
+#                   用于跳过未更改文件的重新读取。在上下文压缩时重置
+#                   （原始内容被总结掉，因此模型需要完整内容）。
+#   "read_timestamps": 将 resolved_path 映射到 modification-time float 的字典
+#                      记录文件上次被此任务读取（或写入）的时间。
+#                      由 write_file 和 patch 使用以检测 agent 读取和写入之间的外部更改。
+#                      在成功写入后更新，以便同一任务的连续编辑不会触发虚假警告。
 _read_tracker_lock = threading.Lock()
 _read_tracker: dict = {}
 
 
 def _get_file_ops(task_id: str = "default") -> ShellFileOperations:
-    """Get or create ShellFileOperations for a terminal environment.
+    """获取或创建终端环境的 ShellFileOperations。
 
-    Respects the TERMINAL_ENV setting -- if the task_id doesn't have an
-    environment yet, creates one using the configured backend (local, docker,
-    modal, etc.) rather than always defaulting to local.
+    尊重 TERMINAL_ENV 设置——如果 task_id 还没有环境，
+    则使用配置的 backend（local、docker、modal 等）创建一个，
+    而不是始终默认为 local。
 
-    Thread-safe: uses the same per-task creation locks as terminal_tool to
-    prevent duplicate sandbox creation from concurrent tool calls.
+    线程安全：使用与 terminal_tool 相同的每任务创建锁，
+    以防止并发工具调用创建重复沙箱。
     """
     from tools.terminal_tool import (
         _active_environments, _env_lock, _create_environment,
@@ -269,7 +265,7 @@ def _get_file_ops(task_id: str = "default") -> ShellFileOperations:
 
 
 def clear_file_ops_cache(task_id: str = None):
-    """Clear the file operations cache."""
+    """清除文件操作缓存。"""
     with _file_ops_lock:
         if task_id:
             _file_ops_cache.pop(task_id, None)
@@ -278,7 +274,7 @@ def clear_file_ops_cache(task_id: str = None):
 
 
 def read_file_tool(path: str, offset: int = 1, limit: int = 500, task_id: str = "default") -> str:
-    """Read a file with pagination and line numbers."""
+    """读取带有分页和行号的文件。"""
     try:
         # ── Device path guard ─────────────────────────────────────────
         # Block paths that would hang the process (infinite output,
@@ -448,10 +444,9 @@ def read_file_tool(path: str, offset: int = 1, limit: int = 500, task_id: str = 
 
 
 def get_read_files_summary(task_id: str = "default") -> list:
-    """Return a list of files read in this session for the given task.
+    """返回此会话中为给定任务读取的文件列表。
 
-    Used by context compression to preserve file-read history across
-    compression boundaries.
+    由上下文压缩使用，以在压缩边界之间保留文件读取历史。
     """
     with _read_tracker_lock:
         task_data = _read_tracker.get(task_id, {})
@@ -468,11 +463,10 @@ def get_read_files_summary(task_id: str = "default") -> list:
 
 
 def clear_read_tracker(task_id: str = None):
-    """Clear the read tracker.
+    """清除读取跟踪器。
 
-    Call with a task_id to clear just that task, or without to clear all.
-    Should be called when a session is destroyed to prevent memory leaks
-    in long-running gateway processes.
+    使用 task_id 调用以仅清除该任务，或不带参数清除所有任务。
+    应在会话销毁时调用，以防止长期运行网关进程中的内存泄漏。
     """
     with _read_tracker_lock:
         if task_id:
@@ -482,15 +476,14 @@ def clear_read_tracker(task_id: str = None):
 
 
 def reset_file_dedup(task_id: str = None):
-    """Clear the deduplication cache for file reads.
+    """清除文件读取的去重缓存。
 
-    Called after context compression — the original read content has been
-    summarised away, so the model needs the full content if it reads the
-    same file again.  Without this, reads after compression would return
-    a "file unchanged" stub pointing at content that no longer exists in
-    context.
+    在上下文压缩后调用——原始读取内容已被总结掉，
+    因此如果模型再次读取相同文件则需要完整内容。
+    如果没有这个，压缩后的读取将返回指向上下文中不再存在的内容的
+    "文件未更改" 存根。
 
-    Call with a task_id to clear just that task, or without to clear all.
+    使用 task_id 调用以仅清除该任务，或不带参数清除所有任务。
     """
     with _read_tracker_lock:
         if task_id:
@@ -504,13 +497,12 @@ def reset_file_dedup(task_id: str = None):
 
 
 def notify_other_tool_call(task_id: str = "default"):
-    """Reset consecutive read/search counter for a task.
+    """重置任务的连续读取/搜索计数器。
 
-    Called by the tool dispatcher (model_tools.py) whenever a tool OTHER
-    than read_file / search_files is executed.  This ensures we only warn
-    or block on *truly consecutive* repeated reads — if the agent does
-    anything else in between (write, patch, terminal, etc.) the counter
-    resets and the next read is treated as fresh.
+    由工具调度器（model_tools.py）在执行除 read_file / search_files 以外的
+    任何工具时调用。这确保我们仅在*真正连续*重复读取时发出警告或阻止——
+    如果 agent 在中间执行任何其他操作（write、patch、terminal 等），
+    计数器会重置，下一次读取被视为新的。
     """
     with _read_tracker_lock:
         task_data = _read_tracker.get(task_id)
@@ -520,11 +512,11 @@ def notify_other_tool_call(task_id: str = "default"):
 
 
 def _update_read_timestamp(filepath: str, task_id: str) -> None:
-    """Record the file's current modification time after a successful write.
+    """在成功写入后记录文件的当前修改时间。
 
-    Called after write_file and patch so that consecutive edits by the
-    same task don't trigger false staleness warnings — each write
-    refreshes the stored timestamp to match the file's new state.
+    在 write_file 和 patch 之后调用，以便同一任务的连续编辑
+    不会触发虚假的过时警告——每次写入都会刷新存储的时间戳，
+    以匹配文件的新状态。
     """
     try:
         resolved = str(Path(filepath).expanduser().resolve())
@@ -538,11 +530,11 @@ def _update_read_timestamp(filepath: str, task_id: str) -> None:
 
 
 def _check_file_staleness(filepath: str, task_id: str) -> str | None:
-    """Check whether a file was modified since the agent last read it.
+    """检查文件自 agent 上次读取以来是否已被修改。
 
-    Returns a warning string if the file is stale (mtime changed since
-    the last read_file call for this task), or None if the file is fresh
-    or was never read.  Does not block — the write still proceeds.
+    如果文件已过时（自此任务上次 read_file 调用以来 mtime 已更改），
+    则返回警告字符串；如果文件是新的或从未被读取，则返回 None。
+    不会阻止——写入仍会进行。
     """
     try:
         resolved = str(Path(filepath).expanduser().resolve())
@@ -569,7 +561,7 @@ def _check_file_staleness(filepath: str, task_id: str) -> str | None:
 
 
 def write_file_tool(path: str, content: str, task_id: str = "default") -> str:
-    """Write content to a file."""
+    """将内容写入文件。"""
     sensitive_err = _check_sensitive_path(path)
     if sensitive_err:
         return tool_error(sensitive_err)
@@ -595,7 +587,7 @@ def write_file_tool(path: str, content: str, task_id: str = "default") -> str:
 def patch_tool(mode: str = "replace", path: str = None, old_string: str = None,
                new_string: str = None, replace_all: bool = False, patch: str = None,
                task_id: str = "default") -> str:
-    """Patch a file using replace mode or V4A patch format."""
+    """使用替换模式或 V4A 补丁格式修补文件。"""
     # Check sensitive paths for both replace (explicit path) and V4A patch (extract paths)
     _paths_to_check = []
     if path:
@@ -653,7 +645,7 @@ def search_tool(pattern: str, target: str = "content", path: str = ".",
                 file_glob: str = None, limit: int = 50, offset: int = 0,
                 output_mode: str = "content", context: int = 0,
                 task_id: str = "default") -> str:
-    """Search for content or files."""
+    """搜索内容或文件。"""
     try:
         # Track searches to detect *consecutive* repeated search loops.
         # Include pagination args so users can page through truncated
@@ -732,7 +724,7 @@ from tools.registry import registry, tool_error
 
 
 def _check_file_reqs():
-    """Lazy wrapper to avoid circular import with tools/__init__.py."""
+    """延迟包装器以避免与 tools/__init__.py 的循环导入。"""
     from tools import check_file_requirements
     return check_file_requirements()
 

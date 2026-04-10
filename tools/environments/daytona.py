@@ -1,8 +1,8 @@
-"""Daytona cloud execution environment.
+"""Daytona 云执行环境。
 
-Uses the Daytona Python SDK to run commands in cloud sandboxes.
-Supports persistent sandboxes: when enabled, sandboxes are stopped on cleanup
-and resumed on next creation, preserving the filesystem across sessions.
+使用 Daytona Python SDK 在云沙箱中运行命令。
+支持持久化沙箱：启用时，沙箱在清理时停止，
+并在下次创建时恢复，保留会话之间的文件系统。
 """
 
 import logging
@@ -23,11 +23,11 @@ logger = logging.getLogger(__name__)
 
 
 class DaytonaEnvironment(BaseEnvironment):
-    """Daytona cloud sandbox execution backend.
+    """Daytona 云沙箱执行后端。
 
-    Spawn-per-call via _ThreadedProcessHandle wrapping blocking SDK calls.
-    cancel_fn wired to sandbox.stop() for interrupt support.
-    Shell timeout wrapper preserved (SDK timeout unreliable).
+    通过 _ThreadedProcessHandle 包装阻塞 SDK 调用实现每次调用生成。
+    cancel_fn 连接到 sandbox.stop() 以支持中断。
+    保留 Shell 超时包装器（SDK 超时不可靠）。
     """
 
     _stdin_mode = "heredoc"
@@ -161,14 +161,14 @@ class DaytonaEnvironment(BaseEnvironment):
             logger.debug("Daytona: could not sync skills/credentials: %s", e)
 
     def _ensure_sandbox_ready(self):
-        """Restart sandbox if it was stopped (e.g., by a previous interrupt)."""
+        """如果沙箱已停止（例如，被之前的中断停止），则重新启动。"""
         self._sandbox.refresh_data()
         if self._sandbox.state in (self._SandboxState.STOPPED, self._SandboxState.ARCHIVED):
             self._sandbox.start()
             logger.info("Daytona: restarted sandbox %s", self._sandbox.id)
 
     def _before_execute(self):
-        """Ensure sandbox is ready, then rate-limited file sync via base class."""
+        """确保沙箱就绪，然后通过基类进行速率限制的文件同步。"""
         with self._lock:
             self._ensure_sandbox_ready()
         super()._before_execute()
@@ -176,7 +176,7 @@ class DaytonaEnvironment(BaseEnvironment):
     def _run_bash(self, cmd_string: str, *, login: bool = False,
                   timeout: int = 120,
                   stdin_data: str | None = None):
-        """Return a _ThreadedProcessHandle wrapping a blocking Daytona SDK call."""
+        """返回包装阻塞 Daytona SDK 调用的 _ThreadedProcessHandle。"""
         sandbox = self._sandbox
         lock = self._lock
 

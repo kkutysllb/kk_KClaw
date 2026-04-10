@@ -911,7 +911,7 @@ class BatchRunner:
             ) as progress:
                 task = progress.add_task("Processing", total=len(tasks))
                 
-                # Temporarily suppress DEBUG logging to avoid bar interference
+                # 临时抑制 DEBUG 日志以避免干扰进度条
                 root_logger = logging.getLogger()
                 original_level = root_logger.level
                 root_logger.setLevel(logging.WARNING)
@@ -921,7 +921,7 @@ class BatchRunner:
                         results.append(result)
                         progress.update(task, advance=1)
 
-                        # Incremental checkpoint update (so resume works after crash)
+                        # 增量断点更新（以便在崩溃后恢复）
                         try:
                             batch_num = result.get('batch_num')
                             completed = result.get('completed_prompts', []) or []
@@ -937,7 +937,7 @@ class BatchRunner:
                             checkpoint_data['completed_prompts'] = sorted(completed_prompts_set)
                             self._save_checkpoint(checkpoint_data, lock=checkpoint_lock)
                         except Exception as ckpt_err:
-                            # Don't fail the run if checkpoint write fails
+                            # 如果断点写入失败，不要中止运行
                             print(f"⚠️  Warning: Failed to save incremental checkpoint: {ckpt_err}")
                 except Exception as e:
                     logger.error("Batch worker failed: %s", e, exc_info=True)
@@ -945,15 +945,15 @@ class BatchRunner:
                 finally:
                     root_logger.setLevel(original_level)
         
-        # Aggregate all batch statistics and update checkpoint
+        # 聚合所有批次统计并更新断点
         all_completed_prompts = list(completed_prompts_set)
         total_reasoning_stats = {"total_assistant_turns": 0, "turns_with_reasoning": 0, "turns_without_reasoning": 0}
-        
+
         for batch_result in results:
-            # Add newly completed prompts
+            # 添加新完成的 prompts
             all_completed_prompts.extend(batch_result.get("completed_prompts", []))
-            
-            # Aggregate tool stats
+
+            # 聚合工具统计
             for tool_name, stats in batch_result.get("tool_stats", {}).items():
                 if tool_name not in total_tool_stats:
                     total_tool_stats[tool_name] = {
@@ -966,18 +966,18 @@ class BatchRunner:
                 total_tool_stats[tool_name]["success"] += stats["success"]
                 total_tool_stats[tool_name]["failure"] += stats["failure"]
             
-            # Aggregate reasoning stats
+            # 聚合推理统计
             for key in total_reasoning_stats:
                 total_reasoning_stats[key] += batch_result.get("reasoning_stats", {}).get(key, 0)
         
-        # Save final checkpoint (best-effort; incremental writes already happened)
+        # 保存最终断点（尽力而为；增量写入已经发生）
         try:
             checkpoint_data["completed_prompts"] = all_completed_prompts
             self._save_checkpoint(checkpoint_data, lock=checkpoint_lock)
         except Exception as ckpt_err:
             print(f"âš ï¸  Warning: Failed to save final checkpoint: {ckpt_err}")
         
-        # Calculate success rates
+        # 计算成功率
         for tool_name in total_tool_stats:
             stats = total_tool_stats[tool_name]
             total_calls = stats["success"] + stats["failure"]
@@ -988,13 +988,13 @@ class BatchRunner:
                 stats["success_rate"] = 0.0
                 stats["failure_rate"] = 0.0
         
-        # Combine ALL batch files in directory into a single trajectories.jsonl file
-        # This includes both old batches (from previous runs) and new batches (from resume)
-        # Also filter out corrupted entries (where model generated invalid tool names)
+        # 将输出目录中的所有批次文件合并为单个 trajectories.jsonl 文件
+        # 包括旧批次（来自之前的运行）和新批次（来自恢复）
+        # 还会过滤掉损坏的条目（模型生成无效工具名的情况）
         combined_file = self.output_dir / "trajectories.jsonl"
         print(f"\n📦 Combining ALL batch files into {combined_file.name}...")
         
-        # Valid tools auto-derived from model_tools.py — no manual updates needed
+        # 有效工具从 model_tools.py 自动派生 - 无需手动更新
         VALID_TOOLS = ALL_POSSIBLE_TOOLS
         
         total_entries = 0

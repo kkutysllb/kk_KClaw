@@ -1,8 +1,8 @@
-"""Docker execution environment for sandboxed command execution.
+"""用于沙箱化命令执行的 Docker 执行环境。
 
-Security hardened (cap-drop ALL, no-new-privileges, PID limits),
-configurable resource limits (CPU, memory, disk), and optional filesystem
-persistence via bind mounts.
+安全加固（cap-drop ALL、no-new-privileges、PID 限制）、
+可配置的资源限制（CPU、内存、磁盘）以及可选的
+通过绑定挂载实现文件系统持久化。
 """
 
 import logging
@@ -20,9 +20,9 @@ from tools.environments.local import _KCLAW_PROVIDER_ENV_BLOCKLIST
 logger = logging.getLogger(__name__)
 
 
-# Common Docker Desktop install paths checked when 'docker' is not in PATH.
+# 当 'docker' 不在 PATH 中时检查的常见 Docker Desktop 安装路径。
 # macOS Intel: /usr/local/bin, macOS Apple Silicon (Homebrew): /opt/homebrew/bin,
-# Docker Desktop app bundle: /Applications/Docker.app/Contents/Resources/bin
+# Docker Desktop 应用包: /Applications/Docker.app/Contents/Resources/bin
 _DOCKER_SEARCH_PATHS = [
     "/usr/local/bin/docker",
     "/opt/homebrew/bin/docker",
@@ -34,7 +34,7 @@ _ENV_VAR_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _normalize_forward_env_names(forward_env: list[str] | None) -> list[str]:
-    """Return a deduplicated list of valid environment variable names."""
+    """返回去重的有效环境变量名列表。"""
     normalized: list[str] = []
     seen: set[str] = set()
 
@@ -59,9 +59,9 @@ def _normalize_forward_env_names(forward_env: list[str] | None) -> list[str]:
 
 
 def _normalize_env_dict(env: dict | None) -> dict[str, str]:
-    """Validate and normalize a docker_env dict to {str: str}.
+    """将 docker_env 字典验证并规范化为 {str: str}。
 
-    Filters out entries with invalid variable names or non-string values.
+    过滤掉具有无效变量名或非字符串值的条目。
     """
     if not env:
         return {}
@@ -89,7 +89,7 @@ def _normalize_env_dict(env: dict | None) -> dict[str, str]:
 
 
 def _load_kclaw_env_vars() -> dict[str, str]:
-    """Load ~/.kclaw/.env values without failing Docker command execution."""
+    """加载 ~/.kclaw/.env 值而不导致 Docker 命令执行失败。"""
     try:
         from kclaw_cli.config import load_env
 
@@ -99,13 +99,13 @@ def _load_kclaw_env_vars() -> dict[str, str]:
 
 
 def find_docker() -> Optional[str]:
-    """Locate the docker CLI binary.
+    """定位 docker CLI 二进制文件。
 
-    Checks ``shutil.which`` first (respects PATH), then probes well-known
-    install locations on macOS where Docker Desktop may not be in PATH
-    (e.g. when running as a gateway service via launchd).
+    首先检查 ``shutil.which``（尊重 PATH），然后探测 macOS 上已知的
+    安装位置，Docker Desktop 可能不在 PATH 中（例如，通过 launchd 作为
+    网关服务运行时）。
 
-    Returns the absolute path, or ``None`` if docker cannot be found.
+    返回绝对路径，如果找不到 docker 则返回 ``None``。
     """
     global _docker_executable
     if _docker_executable is not None:
@@ -125,13 +125,13 @@ def find_docker() -> Optional[str]:
     return None
 
 
-# Security flags applied to every container.
-# The container itself is the security boundary (isolated from host).
-# We drop all capabilities then add back the minimum needed:
-#   DAC_OVERRIDE - root can write to bind-mounted dirs owned by host user
-#   CHOWN/FOWNER - package managers (pip, npm, apt) need to set file ownership
-# Block privilege escalation and limit PIDs.
-# /tmp is size-limited and nosuid but allows exec (needed by pip/npm builds).
+# 应用于每个容器的安全标志。
+# 容器本身就是安全边界（与主机隔离）。
+# 我们丢弃所有权限，然后添加回最少需要的权限：
+#   DAC_OVERRIDE - root 可以写入绑定挂载的由主机用户拥有的目录
+#   CHOWN/FOWNER - 包管理器（pip、npm、apt）需要设置文件所有权
+# 阻止权限提升并限制 PID。
+# /tmp 大小有限制且 nosuid 但允许 exec（pip/npm 构建需要）。
 _SECURITY_ARGS = [
     "--cap-drop", "ALL",
     "--cap-add", "DAC_OVERRIDE",
@@ -149,10 +149,10 @@ _storage_opt_ok: Optional[bool] = None  # cached result across instances
 
 
 def _ensure_docker_available() -> None:
-    """Best-effort check that the docker CLI is available before use.
+    """使用前尽最大努力检查 docker CLI 是否可用。
 
-    Reuses ``find_docker()`` so this preflight stays consistent with the rest of
-    the Docker backend, including known non-PATH Docker Desktop locations.
+    重用 ``find_docker()``，因此此预检与 Docker 后端的其余部分保持一致，
+    包括已知的非 PATH Docker Desktop 位置。
     """
     docker_exe = find_docker()
     if not docker_exe:
@@ -215,15 +215,14 @@ def _ensure_docker_available() -> None:
 
 
 class DockerEnvironment(BaseEnvironment):
-    """Hardened Docker container execution with resource limits and persistence.
+    """具有资源限制和持久化的安全加固 Docker 容器执行。
 
-    Security: all capabilities dropped, no privilege escalation, PID limits,
-    size-limited tmpfs for scratch dirs. The container itself is the security
-    boundary — the filesystem inside is writable so agents can install packages
-    (pip, npm, apt) as needed. Writable workspace via tmpfs or bind mounts.
+    安全性：降低所有权限、无权限提升、PID 限制、
+    用于临时目录的大小有限制的 tmpfs。容器本身就是安全边界
+    — 内部文件系统可写，以便代理可以按需安装包
+    （pip、npm、apt）。通过 tmpfs 或绑定挂载实现可写工作区。
 
-    Persistence: when enabled, bind mounts preserve /workspace and /root
-    across container restarts.
+    持久化：启用时，绑定挂载在容器重启之间保留 /workspace 和 /root。
     """
 
     def __init__(
@@ -436,10 +435,10 @@ class DockerEnvironment(BaseEnvironment):
         self.init_session()
 
     def _build_init_env_args(self) -> list[str]:
-        """Build -e KEY=VALUE args for injecting host env vars into init_session.
+        """构建 -e KEY=VALUE 参数，用于将主机环境变量注入 init_session。
 
-        These are used once during init_session() so that export -p captures
-        them into the snapshot.  Subsequent execute() calls don't need -e flags.
+        这些在 init_session() 期间使用一次，以便 export -p 将它们捕获到快照中。
+        后续的 execute() 调用不需要 -e 标志。
         """
         exec_env: dict[str, str] = dict(self._env)
 
@@ -470,7 +469,7 @@ class DockerEnvironment(BaseEnvironment):
     def _run_bash(self, cmd_string: str, *, login: bool = False,
                   timeout: int = 120,
                   stdin_data: str | None = None) -> subprocess.Popen:
-        """Spawn a bash process inside the Docker container."""
+        """在 Docker 容器内生成一个 bash 进程。"""
         assert self._container_id, "Container not started"
         cmd = [self._docker_exe, "exec"]
         if stdin_data is not None:
@@ -492,10 +491,10 @@ class DockerEnvironment(BaseEnvironment):
 
     @staticmethod
     def _storage_opt_supported() -> bool:
-        """Check if Docker's storage driver supports --storage-opt size=.
-        
-        Only overlay2 on XFS with pquota supports per-container disk quotas.
-        Ubuntu (and most distros) default to ext4, where this flag errors out.
+        """检查 Docker 的存储驱动程序是否支持 --storage-opt size=。
+
+        只有带 pquota 的 XFS 上的 overlay2 支持按容器磁盘配额。
+        Ubuntu（和大多数发行版）默认使用 ext4，此标志会出错。
         """
         global _storage_opt_ok
         if _storage_opt_ok is not None:
@@ -531,7 +530,7 @@ class DockerEnvironment(BaseEnvironment):
         return _storage_opt_ok
 
     def cleanup(self):
-        """Stop and remove the container. Bind-mount dirs persist if persistent=True."""
+        """停止并移除容器。如果 persistent=True，绑定挂载目录会保留。"""
         if self._container_id:
             try:
                 # Stop in background so cleanup doesn't block

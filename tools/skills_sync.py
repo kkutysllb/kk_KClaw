@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 """
-Skills Sync -- Manifest-based seeding and updating of bundled skills.
+技能同步 -- 基于清单的捆绑技能播种和更新。
 
-Copies bundled skills from the repo's skills/ directory into ~/.kclaw/skills/
-and uses a manifest to track which skills have been synced and their origin hash.
+将捆绑技能从仓库的 skills/ 目录复制到 ~/.kclaw/skills/，
+并使用清单来跟踪哪些技能已被同步及其原始哈希。
 
-Manifest format (v2): each line is "skill_name:origin_hash" where origin_hash
-is the MD5 of the bundled skill at the time it was last synced to the user dir.
-Old v1 manifests (plain names without hashes) are auto-migrated.
+清单格式 (v2)：每行是 "skill_name:origin_hash"，其中 origin_hash
+是捆绑技能上次同步到用户目录时的 MD5。
+旧的 v1 清单（无哈希的纯名称）会自动迁移。
 
-Update logic:
-  - NEW skills (not in manifest): copied to user dir, origin hash recorded.
-  - EXISTING skills (in manifest, present in user dir):
-      * If user copy matches origin hash: user hasn't modified it → safe to
-        update from bundled if bundled changed. New origin hash recorded.
-      * If user copy differs from origin hash: user customized it → SKIP.
-  - DELETED by user (in manifest, absent from user dir): respected, not re-added.
-  - REMOVED from bundled (in manifest, gone from repo): cleaned from manifest.
+更新逻辑：
+  - 新技能（不在清单中）：复制到用户目录，记录原始哈希。
+  - 现有技能（在清单中，存在于用户目录中）：
+      * 如果用户副本匹配原始哈希：用户未修改 → 如果捆绑包已更改，
+        则可安全更新。记录新的原始哈希。
+      * 如果用户副本与原始哈希不同：用户已自定义 → 跳过。
+  - 用户删除的（在清单中，不存在于用户目录中）：尊重，不重新添加。
+  - 从捆绑包中移除的（在清单中，已从仓库中消失）：从清单中清理。
 
-The manifest lives at ~/.kclaw/skills/.bundled_manifest.
+清单位于 ~/.kclaw/skills/.bundled_manifest。
 """
 
 import hashlib
@@ -38,10 +38,10 @@ MANIFEST_FILE = SKILLS_DIR / ".bundled_manifest"
 
 
 def _get_bundled_dir() -> Path:
-    """Locate the bundled skills/ directory.
+    """定位捆绑的 skills/ 目录。
 
-    Checks KCLAW_BUNDLED_SKILLS env var first (set by Nix wrapper),
-    then falls back to the relative path from this source file.
+    首先检查 KCLAW_BUNDLED_SKILLS 环境变量（由 Nix wrapper 设置），
+    然后回退到从此源文件的相对路径。
     """
     env_override = os.getenv("KCLAW_BUNDLED_SKILLS")
     if env_override:
@@ -51,10 +51,10 @@ def _get_bundled_dir() -> Path:
 
 def _read_manifest() -> Dict[str, str]:
     """
-    Read the manifest as a dict of {skill_name: origin_hash}.
+    将清单读取为 {skill_name: origin_hash} 的字典。
 
-    Handles both v1 (plain names) and v2 (name:hash) formats.
-    v1 entries get an empty hash string which triggers migration on next sync.
+    处理 v1（纯名称）和 v2（name:hash）格式。
+    v1 条目获得空哈希字符串，这会在下次同步时触发迁移。
     """
     if not MANIFEST_FILE.exists():
         return {}
@@ -77,10 +77,9 @@ def _read_manifest() -> Dict[str, str]:
 
 
 def _write_manifest(entries: Dict[str, str]):
-    """Write the manifest file atomically in v2 format (name:hash).
+    """以 v2 格式（name:hash）原子性地写入清单文件。
 
-    Uses a temp file + os.replace() to avoid corruption if the process
-    crashes or is interrupted mid-write.
+    使用临时文件 + os.replace() 以避免进程崩溃或中途中断时损坏。
     """
     import tempfile
 
@@ -111,8 +110,8 @@ def _write_manifest(entries: Dict[str, str]):
 
 def _discover_bundled_skills(bundled_dir: Path) -> List[Tuple[str, Path]]:
     """
-    Find all SKILL.md files in the bundled directory.
-    Returns list of (skill_name, skill_directory_path) tuples.
+    在捆绑目录中找到所有 SKILL.md 文件。
+    返回 (skill_name, skill_directory_path) 元组列表。
     """
     skills = []
     if not bundled_dir.exists():
@@ -131,15 +130,15 @@ def _discover_bundled_skills(bundled_dir: Path) -> List[Tuple[str, Path]]:
 
 def _compute_relative_dest(skill_dir: Path, bundled_dir: Path) -> Path:
     """
-    Compute the destination path in SKILLS_DIR preserving the category structure.
-    e.g., bundled/skills/mlops/axolotl -> ~/.kclaw/skills/mlops/axolotl
+    计算 SKILLS_DIR 中的目标路径，保留类别结构。
+    例如，bundled/skills/mlops/axolotl -> ~/.kclaw/skills/mlops/axolotl
     """
     rel = skill_dir.relative_to(bundled_dir)
     return SKILLS_DIR / rel
 
 
 def _dir_hash(directory: Path) -> str:
-    """Compute a hash of all file contents in a directory for change detection."""
+    """计算目录中所有文件内容的哈希以进行变更检测。"""
     hasher = hashlib.md5()
     try:
         for fpath in sorted(directory.rglob("*")):
@@ -154,11 +153,11 @@ def _dir_hash(directory: Path) -> str:
 
 def sync_skills(quiet: bool = False) -> dict:
     """
-    Sync bundled skills into ~/.kclaw/skills/ using the manifest.
+    使用清单将捆绑技能同步到 ~/.kclaw/skills/。
 
-    Returns:
-        dict with keys: copied (list), updated (list), skipped (int),
-                        user_modified (list), cleaned (list), total_bundled (int)
+    返回：
+        包含以下键的字典：copied (list)、updated (list)、skipped (int)、
+                        user_modified (list)、cleaned (list)、total_bundled (int)
     """
     bundled_dir = _get_bundled_dir()
     if not bundled_dir.exists():

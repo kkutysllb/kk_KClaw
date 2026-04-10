@@ -1,7 +1,7 @@
-"""Binary file extensions to skip for text-based operations.
+"""用于跳过文本操作的文件扩展名。
 
-These files can't be meaningfully compared as text and are often large.
-Ported from free-code src/constants/files.ts.
+这些文件无法作为文本进行有意义的比较，而且通常很大。
+从 free-code src/constants/files.ts 移植而来。
 """
 
 BINARY_EXTENSIONS = frozenset({
@@ -35,7 +35,7 @@ BINARY_EXTENSIONS = frozenset({
 
 
 def has_binary_extension(path: str) -> bool:
-    """Check if a file path has a binary extension. Pure string check, no I/O."""
+    """检查文件路径是否具有二进制扩展名。纯字符串检查，无 I/O。"""
     dot = path.rfind(".")
     if dot == -1:
         return False

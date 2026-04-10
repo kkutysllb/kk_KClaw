@@ -1,23 +1,22 @@
-"""Tool result persistence -- preserves large outputs instead of truncating.
+"""工具结果持久化 -- 保留大输出而不是截断。
 
-Defense against context-window overflow operates at three levels:
+防止上下文窗口溢出的防御分为三个层次:
 
-1. **Per-tool output cap** (inside each tool): Tools like search_files
-   pre-truncate their own output before returning. This is the first line
-   of defense and the only one the tool author controls.
+1. **每个工具的输出上限**（在每个工具内部）: 像 search_files 这样的工具
+   在返回之前会预先截断自己的输出。这是第一道防线,
+   也是工具作者唯一能控制的。
 
-2. **Per-result persistence** (maybe_persist_tool_result): After a tool
-   returns, if its output exceeds the tool's registered threshold
-   (registry.get_max_result_size), the full output is written INTO THE
-   SANDBOX at /tmp/kclaw-results/{tool_use_id}.txt via env.execute().
-   The in-context content is replaced with a preview + file path reference.
-   The model can read_file to access the full output on any backend.
+2. **每个结果的持久化** (maybe_persist_tool_result): 工具返回后,
+   如果输出超过工具注册的阈值 (registry.get_max_result_size),
+   完整输出会通过 env.execute() 写入沙箱的
+   /tmp/kclaw-results/{tool_use_id}.txt。
+   上下文中的内容被替换为预览 + 文件路径引用。
+   模型可以通过 read_file 工具在任何后端访问完整输出。
 
-3. **Per-turn aggregate budget** (enforce_turn_budget): After all tool
-   results in a single assistant turn are collected, if the total exceeds
-   MAX_TURN_BUDGET_CHARS (200K), the largest non-persisted results are
-   spilled to disk until the aggregate is under budget. This catches cases
-   where many medium-sized results combine to overflow context.
+3. **每轮聚合预算** (enforce_turn_budget): 收集完单个助手轮次中的所有工具结果后,
+   如果总大小超过 MAX_TURN_BUDGET_CHARS (200K),
+   最大的未持久化结果会被写入磁盘,直到聚合大小在预算内。
+   这可以处理多个中等大小的结果组合导致上下文溢出的情况。
 """
 
 import logging
@@ -38,7 +37,7 @@ _BUDGET_TOOL_NAME = "__budget_enforcement__"
 
 
 def generate_preview(content: str, max_chars: int = DEFAULT_PREVIEW_SIZE_CHARS) -> tuple[str, bool]:
-    """Truncate at last newline within max_chars. Returns (preview, has_more)."""
+    """在 max_chars 内的最后一个换行符处截断。返回 (preview, has_more)。"""
     if len(content) <= max_chars:
         return content, False
     truncated = content[:max_chars]
@@ -49,14 +48,14 @@ def generate_preview(content: str, max_chars: int = DEFAULT_PREVIEW_SIZE_CHARS) 
 
 
 def _heredoc_marker(content: str) -> str:
-    """Return a heredoc delimiter that doesn't collide with content."""
+    """返回一个不会与内容冲突的 heredoc 分隔符。"""
     if HEREDOC_MARKER not in content:
         return HEREDOC_MARKER
     return f"KCLAW_PERSIST_{uuid.uuid4().hex[:8]}"
 
 
 def _write_to_sandbox(content: str, remote_path: str, env) -> bool:
-    """Write content into the sandbox via env.execute(). Returns True on success."""
+    """通过 env.execute() 将内容写入沙箱。成功时返回 True。"""
     marker = _heredoc_marker(content)
     cmd = (
         f"mkdir -p {STORAGE_DIR} && cat > {remote_path} << '{marker}'\n"
@@ -73,7 +72,7 @@ def _build_persisted_message(
     original_size: int,
     file_path: str,
 ) -> str:
-    """Build the <persisted-output> replacement block."""
+    """构建 <persisted-output> 替换块。"""
     size_kb = original_size / 1024
     if size_kb >= 1024:
         size_str = f"{size_kb / 1024:.1f} MB"
@@ -100,22 +99,22 @@ def maybe_persist_tool_result(
     config: BudgetConfig = DEFAULT_BUDGET,
     threshold: int | float | None = None,
 ) -> str:
-    """Layer 2: persist oversized result into the sandbox, return preview + path.
+    """第二层: 将超大的结果持久化到沙箱,返回预览 + 路径。
 
-    Writes via env.execute() so the file is accessible from any backend
-    (local, Docker, SSH, Modal, Daytona). Falls back to inline truncation
-    if write fails or no env is available.
+    通过 env.execute() 写入,使得文件可以从任何后端访问
+    (本地、Docker、SSH、Modal、Daytona)。如果写入失败或没有可用的 env,
+    则回退到内联截断。
 
-    Args:
-        content: Raw tool result string.
-        tool_name: Name of the tool (used for threshold lookup).
-        tool_use_id: Unique ID for this tool call (used as filename).
-        env: The active BaseEnvironment instance, or None.
-        config: BudgetConfig controlling thresholds and preview size.
-        threshold: Explicit override; takes precedence over config resolution.
+    参数:
+        content: 原始工具结果字符串。
+        tool_name: 工具名称 (用于阈值查找)。
+        tool_use_id: 此工具调用的唯一 ID (用作文件名)。
+        env: 活动的 BaseEnvironment 实例,或 None。
+        config: 控制阈值和预览大小的 BudgetConfig。
+        threshold: 显式覆盖; 优先于配置解析。
 
-    Returns:
-        Original content if small, or <persisted-output> replacement.
+    返回:
+        如果内容小则返回原始内容,否则返回 <persisted-output> 替换。
     """
     effective_threshold = threshold if threshold is not None else config.resolve_threshold(tool_name)
 
@@ -155,13 +154,12 @@ def enforce_turn_budget(
     env=None,
     config: BudgetConfig = DEFAULT_BUDGET,
 ) -> list[dict]:
-    """Layer 3: enforce aggregate budget across all tool results in a turn.
+    """第三层: 强制执行一轮中所有工具结果的聚合预算。
 
-    If total chars exceed budget, persist the largest non-persisted results
-    first (via sandbox write) until under budget. Already-persisted results
-    are skipped.
+    如果总字符数超过预算,首先持久化最大的未持久化结果
+    (通过沙箱写入),直到总大小在预算内。已持久化的结果会被跳过。
 
-    Mutates the list in-place and returns it.
+    原地修改列表并返回。
     """
     candidates = []
     total_size = 0

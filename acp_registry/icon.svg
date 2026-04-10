@@ -1,25 +1,66 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
-    <linearGradient id="gold" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#F5C542;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#D4961C;stop-opacity:1" />
+    <!-- 主亮蓝色渐变 -->
+    <linearGradient id="blueMain" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00D4FF;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#0099FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0066FF;stop-opacity:1" />
     </linearGradient>
+    <!-- 深蓝色渐变 -->
+    <linearGradient id="blueDark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0099CC;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#004499;stop-opacity:1" />
+    </linearGradient>
+    <!-- 发光效果 -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- 阴影效果 -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="1" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
   </defs>
-  <!-- Staff -->
-  <rect x="30" y="10" width="4" height="46" rx="2" fill="url(#gold)" />
-  <!-- Wings (left) -->
-  <path d="M30 18 C24 14, 14 14, 10 18 C14 16, 22 16, 28 20" fill="#F5C542" opacity="0.9" />
-  <path d="M30 22 C26 19, 18 19, 14 22 C18 20, 24 20, 28 24" fill="#D4961C" opacity="0.8" />
-  <!-- Wings (right) -->
-  <path d="M34 18 C40 14, 50 14, 54 18 C50 16, 42 16, 36 20" fill="#F5C542" opacity="0.9" />
-  <path d="M34 22 C38 19, 46 19, 50 22 C46 20, 40 20, 36 24" fill="#D4961C" opacity="0.8" />
-  <!-- Left serpent -->
-  <path d="M32 48 C22 44, 20 38, 26 34 C20 36, 18 42, 24 46 C18 40, 22 30, 30 28 C24 32, 22 38, 28 42"
-        fill="none" stroke="#F5C542" stroke-width="2.5" stroke-linecap="round" />
-  <!-- Right serpent -->
-  <path d="M32 48 C42 44, 44 38, 38 34 C44 36, 46 42, 40 46 C46 40, 42 30, 34 28 C40 32, 42 38, 36 42"
-        fill="none" stroke="#D4961C" stroke-width="2.5" stroke-linecap="round" />
-  <!-- Orb at top -->
-  <circle cx="32" cy="10" r="4" fill="#F5C542" />
-  <circle cx="32" cy="10" r="2" fill="#FFF8E1" opacity="0.7" />
+
+  <!-- 背景光晕 -->
+  <circle cx="32" cy="32" r="28" fill="url(#blueMain)" opacity="0.1" filter="url(#glow)"/>
+
+  <!-- 权杖主体 -->
+  <rect x="30" y="8" width="4" height="48" rx="2" fill="url(#blueMain)" filter="url(#shadow)"/>
+
+  <!-- 左侧翅膀 - 多层设计 -->
+  <path d="M30 16 C22 12, 12 12, 8 16 C12 14, 20 14, 28 18" fill="url(#blueMain)" opacity="0.95" filter="url(#shadow)"/>
+  <path d="M30 20 C24 17, 16 17, 12 20 C16 18, 22 18, 28 22" fill="url(#blueDark)" opacity="0.9"/>
+  <path d="M30 24 C26 22, 20 22, 16 24 C20 23, 24 23, 28 26" fill="url(#blueMain)" opacity="0.85"/>
+
+  <!-- 右侧翅膀 - 多层设计 -->
+  <path d="M34 16 C42 12, 52 12, 56 16 C52 14, 44 14, 36 18" fill="url(#blueMain)" opacity="0.95" filter="url(#shadow)"/>
+  <path d="M34 20 C40 17, 48 17, 52 20 C48 18, 42 18, 36 22" fill="url(#blueDark)" opacity="0.9"/>
+  <path d="M34 24 C38 22, 44 22, 48 24 C44 23, 40 23, 36 26" fill="url(#blueMain)" opacity="0.85"/>
+
+  <!-- 左侧蛇 - 更精细的曲线 -->
+  <path d="M32 46 C24 42, 22 36, 26 32 C22 34, 20 40, 26 44 C20 38, 24 28, 30 26 C26 30, 24 36, 30 40"
+        fill="none" stroke="url(#blueMain)" stroke-width="3" stroke-linecap="round" filter="url(#shadow)"/>
+  <path d="M32 46 C24 42, 22 36, 26 32 C22 34, 20 40, 26 44 C20 38, 24 28, 30 26 C26 30, 24 36, 30 40"
+        fill="none" stroke="#E0F7FF" stroke-width="1" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- 右侧蛇 - 更精细的曲线 -->
+  <path d="M32 46 C40 42, 42 36, 38 32 C42 34, 44 40, 38 44 C44 38, 40 28, 34 26 C38 30, 40 36, 34 40"
+        fill="none" stroke="url(#blueDark)" stroke-width="3" stroke-linecap="round" filter="url(#shadow)"/>
+  <path d="M32 46 C40 42, 42 36, 38 32 C42 34, 44 40, 38 44 C44 38, 40 28, 34 26 C38 30, 40 36, 34 40"
+        fill="none" stroke="#E0F7FF" stroke-width="1" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- 顶部宝珠 - 发光效果 -->
+  <circle cx="32" cy="8" r="5" fill="url(#blueMain)" filter="url(#glow)"/>
+  <circle cx="32" cy="8" r="4" fill="url(#blueDark)"/>
+  <circle cx="30" cy="6" r="2" fill="#E0F7FF" opacity="0.8"/>
+
+  <!-- 底部装饰 -->
+  <ellipse cx="32" cy="56" rx="4" ry="2" fill="url(#blueDark)" opacity="0.8"/>
+
+  <!-- 中心高光点 -->
+  <circle cx="32" cy="32" r="1.5" fill="#FFF" opacity="0.9" filter="url(#glow)"/>
 </svg>

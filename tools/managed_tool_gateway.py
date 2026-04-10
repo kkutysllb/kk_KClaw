@@ -1,4 +1,4 @@
-"""Generic managed-tool gateway helpers for Nous-hosted vendor passthroughs."""
+"""用于 Nous 托管供应商传递的通用托管工具网关辅助函数。"""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ class ManagedToolGatewayConfig:
 
 
 def auth_json_path():
-    """Return the KClaw auth store path, respecting KCLAW_HOME overrides."""
+    """返回 KClaw 认证存储路径，尊重 KCLAW_HOME 覆盖。"""
     return get_kclaw_home() / "auth.json"
 
 
@@ -73,7 +73,7 @@ def _access_token_is_expiring(expires_at: object, skew_seconds: int) -> bool:
 
 
 def read_nous_access_token() -> Optional[str]:
-    """Read a Nous Subscriber OAuth access token from auth store or env override."""
+    """从认证存储或环境变量覆盖中读取 Nous Subscriber OAuth 访问令牌。"""
     explicit = os.getenv("TOOL_GATEWAY_USER_TOKEN")
     if isinstance(explicit, str) and explicit.strip():
         return explicit.strip()
@@ -103,7 +103,7 @@ def read_nous_access_token() -> Optional[str]:
 
 
 def get_tool_gateway_scheme() -> str:
-    """Return configured shared gateway URL scheme."""
+    """返回配置的共享网关 URL 方案。"""
     scheme = os.getenv("TOOL_GATEWAY_SCHEME", "").strip().lower()
     if not scheme:
         return _DEFAULT_TOOL_GATEWAY_SCHEME
@@ -115,7 +115,7 @@ def get_tool_gateway_scheme() -> str:
 
 
 def build_vendor_gateway_url(vendor: str) -> str:
-    """Return the gateway origin for a specific vendor."""
+    """返回特定供应商的网关来源。"""
     vendor_key = f"{vendor.upper().replace('-', '_')}_GATEWAY_URL"
     explicit_vendor_url = os.getenv(vendor_key, "").strip().rstrip("/")
     if explicit_vendor_url:
@@ -134,7 +134,7 @@ def resolve_managed_tool_gateway(
     gateway_builder: Optional[Callable[[str], str]] = None,
     token_reader: Optional[Callable[[], Optional[str]]] = None,
 ) -> Optional[ManagedToolGatewayConfig]:
-    """Resolve shared managed-tool gateway config for a vendor."""
+    """为供应商解析共享的托管工具网关配置。"""
     if not managed_nous_tools_enabled():
         return None
 
@@ -159,7 +159,7 @@ def is_managed_tool_gateway_ready(
     gateway_builder: Optional[Callable[[str], str]] = None,
     token_reader: Optional[Callable[[], Optional[str]]] = None,
 ) -> bool:
-    """Return True when gateway URL and Nous access token are available."""
+    """当网关 URL 和 Nous 访问令牌可用时返回 True。"""
     return resolve_managed_tool_gateway(
         vendor,
         gateway_builder=gateway_builder,

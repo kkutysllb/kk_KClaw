@@ -1,4 +1,4 @@
-"""Honcho-based session management for conversation history."""
+"""基于 Honcho 的会话管理，用于对话历史。"""
 
 from __future__ import annotations
 
@@ -24,10 +24,10 @@ _ASYNC_SHUTDOWN = object()
 @dataclass
 class HonchoSession:
     """
-    A conversation session backed by Honcho.
+    由 Honcho 支持的对话会话。
 
-    Provides a local message cache that syncs to Honcho's
-    AI-native memory system for user modeling.
+    提供本地消息缓存，同步到 Honcho 的
+    AI 原生记忆系统用于用户建模。
     """
 
     key: str  # channel:chat_id
@@ -40,7 +40,7 @@ class HonchoSession:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def add_message(self, role: str, content: str, **kwargs: Any) -> None:
-        """Add a message to the local cache."""
+        """将消息添加到本地缓存。"""
         msg = {
             "role": role,
             "content": content,
@@ -51,7 +51,7 @@ class HonchoSession:
         self.updated_at = datetime.now()
 
     def get_history(self, max_messages: int = 50) -> list[dict[str, Any]]:
-        """Get message history for LLM context."""
+        """获取用于 LLM 上下文的消息历史。"""
         recent = (
             self.messages[-max_messages:]
             if len(self.messages) > max_messages
@@ -60,17 +60,17 @@ class HonchoSession:
         return [{"role": m["role"], "content": m["content"]} for m in recent]
 
     def clear(self) -> None:
-        """Clear all messages in the session."""
+        """清除会话中的所有消息。"""
         self.messages = []
         self.updated_at = datetime.now()
 
 
 class HonchoSessionManager:
     """
-    Manages conversation sessions using Honcho.
+    使用 Honcho 管理对话会话。
 
-    Runs alongside kclaw' existing SQLite state and file-based memory,
-    adding persistent cross-session user modeling via Honcho's AI-native memory.
+    与 kclaw 现有的 SQLite 状态和基于文件的记忆并行运行，
+    通过 Honcho 的 AI 原生记忆添加持久化跨会话用户建模。
     """
 
     def __init__(
@@ -80,13 +80,13 @@ class HonchoSessionManager:
         config: Any | None = None,
     ):
         """
-        Initialize the session manager.
+        初始化会话管理器。
 
         Args:
-            honcho: Optional Honcho client. If not provided, uses the singleton.
-            context_tokens: Max tokens for context() calls (None = Honcho default).
-            config: HonchoClientConfig from global config (provides peer_name, ai_peer,
-                    write_frequency, observation, etc.).
+            honcho: 可选的 Honcho 客户端。如果未提供，则使用单例。
+            context_tokens: context() 调用的最大 token 数（None = Honcho 默认值）。
+            config: 来自全局配置的 HonchoClientConfig（提供 peer_name、ai_peer、
+                    write_frequency、observation 等）。
         """
         self._honcho = honcho
         self._context_tokens = context_tokens
@@ -142,17 +142,17 @@ class HonchoSessionManager:
 
     @property
     def honcho(self) -> Honcho:
-        """Get the Honcho client, initializing if needed."""
+        """获取 Honcho 客户端，必要时初始化。"""
         if self._honcho is None:
             self._honcho = get_honcho_client()
         return self._honcho
 
     def _get_or_create_peer(self, peer_id: str) -> Any:
         """
-        Get or create a Honcho peer.
+        获取或创建 Honcho peer。
 
-        Peers are lazy -- no API call until first use.
-        Observation settings are controlled per-session via SessionPeerConfig.
+        Peers 是惰性的 — 在首次使用之前不会进行 API 调用。
+        观察设置通过 SessionPeerConfig 每会话控制。
         """
         if peer_id in self._peers_cache:
             return self._peers_cache[peer_id]
@@ -165,10 +165,10 @@ class HonchoSessionManager:
         self, session_id: str, user_peer: Any, assistant_peer: Any
     ) -> tuple[Any, list]:
         """
-        Get or create a Honcho session with peers configured.
+        获取或创建配置了 peers 的 Honcho 会话。
 
         Returns:
-            Tuple of (honcho_session, existing_messages).
+            (honcho_session, existing_messages) 元组。
         """
         if session_id in self._sessions_cache:
             logger.debug("Honcho session '%s' retrieved from cache", session_id)
@@ -255,18 +255,18 @@ class HonchoSessionManager:
         return session, existing_messages
 
     def _sanitize_id(self, id_str: str) -> str:
-        """Sanitize an ID to match Honcho's pattern: ^[a-zA-Z0-9_-]+"""
+        """清理 ID 以匹配 Honcho 的模式：^[a-zA-Z0-9_-]+"""
         return re.sub(r'[^a-zA-Z0-9_-]', '-', id_str)
 
     def get_or_create(self, key: str) -> HonchoSession:
         """
-        Get an existing session or create a new one.
+        获取现有会话或创建新会话。
 
         Args:
-            key: Session key (usually channel:chat_id).
+            key: Session key（通常为 channel:chat_id）。
 
         Returns:
-            The session.
+            会话。
         """
         if key in self._cache:
             logger.debug("Local session cache hit: %s", key)
@@ -322,7 +322,7 @@ class HonchoSessionManager:
         return session
 
     def _flush_session(self, session: HonchoSession) -> bool:
-        """Internal: write unsynced messages to Honcho synchronously."""
+        """内部：同步将未同步的消息写入 Honcho。"""
         if not session.messages:
             return True
 
@@ -359,7 +359,7 @@ class HonchoSessionManager:
             return False
 
     def _async_writer_loop(self) -> None:
-        """Background daemon thread: drains the async write queue."""
+        """后台守护线程：消耗异步写入队列。"""
         while True:
             try:
                 item = self._async_queue.get(timeout=5)
@@ -398,13 +398,13 @@ class HonchoSessionManager:
                 logger.error("Honcho async writer error: %s", e)
 
     def save(self, session: HonchoSession) -> None:
-        """Save messages to Honcho, respecting write_frequency.
+        """保存消息到 Honcho，遵循 write_frequency。
 
-        write_frequency modes:
-          "async"   — enqueue for background thread (zero blocking, zero token cost)
-          "turn"    — flush synchronously every turn
-          "session" — defer until flush_session() is called explicitly
-          N (int)   — flush every N turns
+        write_frequency 模式：
+          "async"   — 入队到后台线程（零阻塞，零 token 成本）
+          "turn"    — 每个 turn 同步刷新
+          "session" — 延迟直到显式调用 flush_session()
+          N (int)   — 每 N 个 turn 刷新一次
         """
         self._turn_counter += 1
         wf = self._write_frequency
@@ -422,10 +422,10 @@ class HonchoSessionManager:
                 self._flush_session(session)
 
     def flush_all(self) -> None:
-        """Flush all pending unsynced messages for all cached sessions.
+        """刷新所有缓存会话的所有待处理未同步消息。
 
-        Called at session end for "session" write_frequency, or to force
-        a sync before process exit regardless of mode.
+        在"session" write_frequency 的会话结束时调用，或在
+        进程退出前强制同步（无论模式如何）。
         """
         for session in list(self._cache.values()):
             try:
@@ -444,14 +444,14 @@ class HonchoSessionManager:
                     break
 
     def shutdown(self) -> None:
-        """Gracefully shut down the async writer thread."""
+        """优雅地关闭异步写入器线程。"""
         if self._async_queue is not None and self._async_thread is not None:
             self.flush_all()
             self._async_queue.put(_ASYNC_SHUTDOWN)
             self._async_thread.join(timeout=10)
 
     def delete(self, key: str) -> bool:
-        """Delete a session from local cache."""
+        """从本地缓存中删除会话。"""
         if key in self._cache:
             del self._cache[key]
             return True
@@ -459,10 +459,10 @@ class HonchoSessionManager:
 
     def new_session(self, key: str) -> HonchoSession:
         """
-        Create a new session, preserving the old one for user modeling.
+        创建新会话，保留旧会话用于用户建模。
 
-        Creates a fresh session with a new ID while keeping the old
-        session's data in Honcho for continued user modeling.
+        创建带有新 ID 的全新会话，同时将旧会话的数据保留在 Honcho 中
+        以继续进行用户建模。
         """
         import time
 
@@ -488,18 +488,18 @@ class HonchoSessionManager:
 
     def _dynamic_reasoning_level(self, query: str) -> str:
         """
-        Pick a reasoning level for a dialectic query.
+        为 dialectic 查询选择推理级别。
 
-        When dialecticDynamic is true (default), auto-bumps based on query
-        length so Honcho applies more inference where it matters:
+        当 dialecticDynamic 为 true（默认）时，根据查询
+        长度自动提升，以便 Honcho 在重要的地方应用更多推理：
 
-          < 120 chars  -> configured default (typically "low")
-          120-400 chars -> +1 level above default (cap at "high")
-          > 400 chars  -> +2 levels above default (cap at "high")
+          < 120 chars  -> 配置的默认值（通常为 "low"）
+          120-400 chars -> 比默认值高一级（上限为 "high"）
+          > 400 chars  -> 比默认值高两级（上限为 "high"）
 
-        "max" is never selected automatically -- reserve it for explicit config.
+        "max" 永远不会自动选择 — 为显式配置保留。
 
-        When dialecticDynamic is false, always returns the configured level.
+        当 dialecticDynamic 为 false 时，始终返回配置的级别。
         """
         if not self._dialectic_dynamic:
             return self._dialectic_reasoning_level
@@ -523,21 +523,21 @@ class HonchoSessionManager:
         peer: str = "user",
     ) -> str:
         """
-        Query Honcho's dialectic endpoint about a peer.
+        查询 Honcho 关于某个 peer 的 dialectic 端点。
 
-        Runs an LLM on Honcho's backend against the target peer's full
-        representation. Higher latency than context() — call async via
-        prefetch_dialectic() to avoid blocking the response.
+        在 Honcho 后端针对目标 peer 的完整表示运行 LLM。
+        延迟高于 context() — 通过 prefetch_dialectic() 异步调用
+        以避免阻塞响应。
 
         Args:
-            session_key: The session key to query against.
-            query: Natural language question.
-            reasoning_level: Override the config default. If None, uses
-                             _dynamic_reasoning_level(query).
-            peer: Which peer to query — "user" (default) or "ai".
+            session_key: 要查询的会话键。
+            query: 自然语言问题。
+            reasoning_level: 覆盖配置默认值。如果为 None，则使用
+                             _dynamic_reasoning_level(query)。
+            peer: 查询哪个 peer — "user"（默认）或 "ai"。
 
         Returns:
-            Honcho's synthesized answer, or empty string on failure.
+            Honcho 的合成答案，失败时返回空字符串。
         """
         session = self._cache.get(session_key)
         if not session:
@@ -578,15 +578,14 @@ class HonchoSessionManager:
 
     def prefetch_dialectic(self, session_key: str, query: str) -> None:
         """
-        Fire a dialectic_query in a background thread, caching the result.
+        在后台线程中触发 dialectic_query，缓存结果。
 
-        Non-blocking. The result is available via pop_dialectic_result()
-        on the next call (typically the following turn). Reasoning level
-        is selected dynamically based on query complexity.
+        非阻塞。结果可通过下次调用时的 pop_dialectic_result() 获取
+        （通常是下一个 turn）。推理级别根据查询复杂性动态选择。
 
         Args:
-            session_key: The session key to query against.
-            query: The user's current message, used as the query.
+            session_key: 要查询的会话键。
+            query: 用户当前消息，用作查询。
         """
         def _run():
             result = self.dialectic_query(session_key, query)
@@ -597,7 +596,7 @@ class HonchoSessionManager:
         t.start()
 
     def set_dialectic_result(self, session_key: str, result: str) -> None:
-        """Store a prefetched dialectic result in a thread-safe way."""
+        """以线程安全的方式存储预取的 dialectic 结果。"""
         if not result:
             return
         with self._prefetch_cache_lock:
@@ -605,19 +604,19 @@ class HonchoSessionManager:
 
     def pop_dialectic_result(self, session_key: str) -> str:
         """
-        Return and clear the cached dialectic result for this session.
+        返回并清除此会话的缓存 dialectic 结果。
 
-        Returns empty string if no result is ready yet.
+        如果还没有结果准备就绪，则返回空字符串。
         """
         with self._prefetch_cache_lock:
             return self._dialectic_cache.pop(session_key, "")
 
     def prefetch_context(self, session_key: str, user_message: str | None = None) -> None:
         """
-        Fire get_prefetch_context in a background thread, caching the result.
+        在后台线程中触发 get_prefetch_context，缓存结果。
 
-        Non-blocking. Consumed next turn via pop_context_result(). This avoids
-        a synchronous HTTP round-trip blocking every response.
+        非阻塞。通过 pop_context_result() 在下一个 turn 消费。
+        这样可以避免同步 HTTP 往返阻塞每个响应。
         """
         def _run():
             result = self.get_prefetch_context(session_key, user_message)
@@ -628,7 +627,7 @@ class HonchoSessionManager:
         t.start()
 
     def set_context_result(self, session_key: str, result: dict[str, str]) -> None:
-        """Store a prefetched context result in a thread-safe way."""
+        """以线程安全的方式存储预取的上下文结果。"""
         if not result:
             return
         with self._prefetch_cache_lock:
@@ -636,29 +635,27 @@ class HonchoSessionManager:
 
     def pop_context_result(self, session_key: str) -> dict[str, str]:
         """
-        Return and clear the cached context result for this session.
+        返回并清除此会话的缓存上下文结果。
 
-        Returns empty dict if no result is ready yet (first turn).
+        如果还没有结果准备就绪（第一个 turn），则返回空字典。
         """
         with self._prefetch_cache_lock:
             return self._context_cache.pop(session_key, {})
 
     def get_prefetch_context(self, session_key: str, user_message: str | None = None) -> dict[str, str]:
         """
-        Pre-fetch user and AI peer context from Honcho.
+        从 Honcho 预取用户和 AI peer 上下文。
 
-        Fetches peer_representation and peer_card for both peers. search_query
-        is intentionally omitted — it would only affect additional excerpts
-        that this code does not consume, and passing the raw message exposes
-        conversation content in server access logs.
+        获取两个 peer 的 peer_representation 和 peer_card。
+        search_query 被故意省略 — 它只会影响此代码不使用的额外摘录，
+        而传递原始消息会在服务器访问日志中暴露对话内容。
 
         Args:
-            session_key: The session key to get context for.
-            user_message: Unused; kept for call-site compatibility.
+            session_key: 要获取上下文的会话键。
+            user_message: 未使用；为调用点兼容性保留。
 
         Returns:
-            Dictionary with 'representation', 'card', 'ai_representation',
-            and 'ai_card' keys.
+            带有 'representation'、'card'、'ai_representation' 和 'ai_card' 键的字典。
         """
         session = self._cache.get(session_key)
         if not session:
@@ -684,16 +681,16 @@ class HonchoSessionManager:
 
     def migrate_local_history(self, session_key: str, messages: list[dict[str, Any]]) -> bool:
         """
-        Upload local session history to Honcho as a file.
+        将本地会话历史作为文件上传到 Honcho。
 
-        Used when Honcho activates mid-conversation to preserve prior context.
+        当 Honcho 在对话中途激活以保留先前上下文时使用。
 
         Args:
-            session_key: The session key (e.g., "telegram:123456").
-            messages: Local messages (dicts with role, content, timestamp).
+            session_key: 会话键（例如 "telegram:123456"）。
+            messages: 本地消息（带有 role、content、timestamp 的字典）。
 
         Returns:
-            True if upload succeeded, False otherwise.
+            如果上传成功则为 True，否则为 False。
         """
         session = self._cache.get(session_key)
         if not session:
@@ -725,7 +722,7 @@ class HonchoSessionManager:
 
     @staticmethod
     def _format_migration_transcript(session_key: str, messages: list[dict[str, Any]]) -> bytes:
-        """Format local messages as an XML transcript for Honcho file upload."""
+        """将本地消息格式化为 XML 记录，用于 Honcho 文件上传。"""
         timestamps = [m.get("timestamp", "") for m in messages]
         time_range = f"{timestamps[0]} to {timestamps[-1]}" if timestamps else "unknown"
 
@@ -756,17 +753,17 @@ class HonchoSessionManager:
 
     def migrate_memory_files(self, session_key: str, memory_dir: str) -> bool:
         """
-        Upload MEMORY.md and USER.md to Honcho as files.
+        将 MEMORY.md 和 USER.md 作为文件上传到 Honcho。
 
-        Used when Honcho activates on an instance that already has locally
-        consolidated memory. Backwards compatible -- skips if files don't exist.
+        当 Honcho 在已有本地整合记忆的实例上激活时使用。
+        向后兼容 — 如果文件不存在则跳过。
 
         Args:
-            session_key: The session key to associate files with.
-            memory_dir: Path to the memories directory (~/.kclaw/memories/).
+            session_key: 要关联文件的会话键。
+            memory_dir: memories 目录的路径（~/.kclaw/memories/）。
 
         Returns:
-            True if at least one file was uploaded, False otherwise.
+            如果至少上传了一个文件则为 True，否则为 False。
         """
         from pathlib import Path
         memory_path = Path(memory_dir)
@@ -855,7 +852,7 @@ class HonchoSessionManager:
 
     @staticmethod
     def _normalize_card(card: Any) -> list[str]:
-        """Normalize Honcho card payloads into a plain list of strings."""
+        """将 Honcho card 负载规范化为普通字符串列表。"""
         if not card:
             return []
         if isinstance(card, list):
@@ -863,11 +860,10 @@ class HonchoSessionManager:
         return [str(card)]
 
     def _fetch_peer_card(self, peer_id: str) -> list[str]:
-        """Fetch a peer card directly from the peer object.
+        """直接从 peer 对象获取 peer card。
 
-        This avoids relying on session.context(), which can return an empty
-        peer_card for per-session messaging sessions even when the peer itself
-        has a populated card.
+        这样可以避免依赖 session.context()，后者可能返回空的
+        peer_card，即使 peer 本身有已填充的 card。
         """
         peer = self._get_or_create_peer(peer_id)
         getter = getattr(peer, "get_card", None)
@@ -881,7 +877,7 @@ class HonchoSessionManager:
         return []
 
     def _fetch_peer_context(self, peer_id: str, search_query: str | None = None) -> dict[str, Any]:
-        """Fetch representation + peer card directly from a peer object."""
+        """直接从 peer 对象获取表示 + peer card。"""
         peer = self._get_or_create_peer(peer_id)
         representation = ""
         card: list[str] = []
@@ -913,11 +909,11 @@ class HonchoSessionManager:
 
     def get_peer_card(self, session_key: str) -> list[str]:
         """
-        Fetch the user peer's card — a curated list of key facts.
+        获取用户 peer 的 card — 关键事实的精选列表。
 
-        Fast, no LLM reasoning. Returns raw structured facts Honcho has
-        inferred about the user (name, role, preferences, patterns).
-        Empty list if unavailable.
+        快速，无需 LLM 推理。返回 Honcho 推断的
+        关于用户的原始结构化事实（姓名、角色、偏好、模式）。
+        如果不可用则返回空列表。
         """
         session = self._cache.get(session_key)
         if not session:
@@ -931,19 +927,19 @@ class HonchoSessionManager:
 
     def search_context(self, session_key: str, query: str, max_tokens: int = 800) -> str:
         """
-        Semantic search over Honcho session context.
+        对 Honcho 会话上下文进行语义搜索。
 
-        Returns raw excerpts ranked by relevance to the query. No LLM
-        reasoning — cheaper and faster than dialectic_query. Good for
-        factual lookups where the model will do its own synthesis.
+        返回按与查询相关性排序的原始摘录。无 LLM
+        推理 — 比 dialectic_query 更便宜更快。适用于
+        模型将进行自己综合的事实查找。
 
         Args:
-            session_key: Session to search against.
-            query: Search query for semantic matching.
-            max_tokens: Token budget for returned content.
+            session_key: 要搜索的会话。
+            query: 用于语义匹配的搜索查询。
+            max_tokens: 返回内容的 token 预算。
 
         Returns:
-            Relevant context excerpts as a string, or empty string if none.
+            作为字符串的相关上下文摘录，如果没有则返回空字符串。
         """
         session = self._cache.get(session_key)
         if not session:
@@ -963,18 +959,18 @@ class HonchoSessionManager:
             return ""
 
     def create_conclusion(self, session_key: str, content: str) -> bool:
-        """Write a conclusion about the user back to Honcho.
+        """将关于用户的结论写回 Honcho。
 
-        Conclusions are facts the AI peer observes about the user —
-        preferences, corrections, clarifications, project context.
-        They feed into the user's peer card and representation.
+        结论是 AI peer 观察到的关于用户的事实 —
+        偏好、纠正、澄清、项目上下文。
+        它们被输入到用户的 peer card 和表示中。
 
         Args:
-            session_key: Session to associate the conclusion with.
-            content: The conclusion text (e.g. "User prefers dark mode").
+            session_key: 要关联结论的会话。
+            content: 结论文本（例如 "User prefers dark mode"）。
 
         Returns:
-            True on success, False on failure.
+            成功时为 True，失败时为 False。
         """
         if not content or not content.strip():
             return False
@@ -1006,19 +1002,19 @@ class HonchoSessionManager:
 
     def seed_ai_identity(self, session_key: str, content: str, source: str = "manual") -> bool:
         """
-        Seed the AI peer's Honcho representation from text content.
+        从文本内容种入 AI peer 的 Honcho 表示。
 
-        Useful for priming AI identity from SOUL.md, exported chats, or
-        any structured description. The content is sent as an assistant
-        peer message so Honcho's reasoning model can incorporate it.
+        用于从 SOUL.md、导出的聊天或任何结构化描述中
+        启动 AI 身份。内容作为 assistant peer 消息发送，
+        以便 Honcho 的推理模型可以将其纳入。
 
         Args:
-            session_key: The session key to associate with.
-            content: The identity/persona content to seed.
-            source: Metadata tag for the source (e.g. "soul_md", "export").
+            session_key: 要关联的会话键。
+            content: 要种入的身份/角色内容。
+            source: 来源的元数据标签（例如 "soul_md"、"export"）。
 
         Returns:
-            True on success, False on failure.
+            成功时为 True，失败时为 False。
         """
         if not content or not content.strip():
             return False
@@ -1051,10 +1047,10 @@ class HonchoSessionManager:
 
     def get_ai_representation(self, session_key: str) -> dict[str, str]:
         """
-        Fetch the AI peer's current Honcho representation.
+        获取 AI peer 当前的 Honcho 表示。
 
         Returns:
-            Dict with 'representation' and 'card' keys, empty strings if unavailable.
+            带有 'representation' 和 'card' 键的字典，如果不可用则为空字符串。
         """
         session = self._cache.get(session_key)
         if not session:
@@ -1071,7 +1067,7 @@ class HonchoSessionManager:
             return {"representation": "", "card": ""}
 
     def list_sessions(self) -> list[dict[str, Any]]:
-        """List all cached sessions."""
+        """列出所有缓存的会话。"""
         return [
             {
                 "key": s.key,

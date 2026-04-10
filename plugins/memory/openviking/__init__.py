@@ -1,8 +1,8 @@
-"""OpenViking memory plugin — full bidirectional MemoryProvider interface.
+"""OpenViking 记忆插件 — 完整双向 MemoryProvider 接口。
 
-Context database by Volcengine (ByteDance) that organizes agent knowledge
-into a filesystem hierarchy (viking:// URIs) with tiered context loading,
-automatic memory extraction, and session management.
+Volcengine (ByteDance) 的上下文数据库，将 agent 知识组织成
+文件系统层次结构（viking:// URIs），支持分层上下文加载、
+自动记忆提取和会话管理。
 
 Original PR #3369 by Mibayy, rewritten to use the full OpenViking session
 lifecycle instead of read-only search endpoints.
@@ -40,15 +40,15 @@ _TIMEOUT = 30.0
 
 
 # ---------------------------------------------------------------------------
-# Process-level atexit safety net — ensures pending sessions are committed
-# even if shutdown_memory_provider is never called (e.g. gateway crash,
-# SIGKILL, or exception in _async_flush_memories preventing shutdown).
+# 进程级 atexit 安全网 — 确保待处理的会话被提交
+# 即使 shutdown_memory_provider 从未被调用（例如 gateway 崩溃、
+# SIGKILL，或 _async_flush_memories 中的异常阻止关闭）。
 # ---------------------------------------------------------------------------
 _last_active_provider: Optional["OpenVikingMemoryProvider"] = None
 
 
 def _atexit_commit_sessions():
-    """Fire on_session_end for the last active provider on process exit."""
+    """在进程退出时为最后一个活动 provider 触发 on_session_end。"""
     global _last_active_provider
     provider = _last_active_provider
     if provider is None:
@@ -64,11 +64,11 @@ atexit.register(_atexit_commit_sessions)
 
 
 # ---------------------------------------------------------------------------
-# HTTP helper — uses httpx to avoid requiring the openviking SDK
+# HTTP 辅助函数 — 使用 httpx 避免依赖 openviking SDK
 # ---------------------------------------------------------------------------
 
 def _get_httpx():
-    """Lazy import httpx."""
+    """延迟导入 httpx。"""
     try:
         import httpx
         return httpx
@@ -77,7 +77,7 @@ def _get_httpx():
 
 
 class _VikingClient:
-    """Thin HTTP client for the OpenViking REST API."""
+    """OpenViking REST API 的轻量级 HTTP 客户端。"""
 
     def __init__(self, endpoint: str, api_key: str = "",
                  account: str = "", user: str = ""):
@@ -128,7 +128,7 @@ class _VikingClient:
 
 
 # ---------------------------------------------------------------------------
-# Tool schemas
+# 工具 schema 定义
 # ---------------------------------------------------------------------------
 
 SEARCH_SCHEMA = {
@@ -246,11 +246,11 @@ ADD_RESOURCE_SCHEMA = {
 
 
 # ---------------------------------------------------------------------------
-# MemoryProvider implementation
+# MemoryProvider 实现
 # ---------------------------------------------------------------------------
 
 class OpenVikingMemoryProvider(MemoryProvider):
-    """Full bidirectional memory via OpenViking context database."""
+    """通过 OpenViking 上下文数据库实现完整双向记忆。"""
 
     def __init__(self):
         self._client: Optional[_VikingClient] = None
@@ -268,7 +268,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
         return "openviking"
 
     def is_available(self) -> bool:
-        """Check if OpenViking endpoint is configured. No network calls."""
+        """检查 OpenViking endpoint 是否已配置。无网络调用。"""
         return bool(os.environ.get("OPENVIKING_ENDPOINT"))
 
     def get_config_schema(self):
@@ -334,7 +334,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
             )
 
     def prefetch(self, query: str, *, session_id: str = "") -> str:
-        """Return prefetched results from the background thread."""
+        """从后台线程返回预取结果。"""
         if self._prefetch_thread and self._prefetch_thread.is_alive():
             self._prefetch_thread.join(timeout=3.0)
         with self._prefetch_lock:
@@ -345,7 +345,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
         return f"## OpenViking Context\n{result}"
 
     def queue_prefetch(self, query: str, *, session_id: str = "") -> None:
-        """Fire a background search to pre-load relevant context."""
+        """触发后台搜索以预加载相关上下文。"""
         if not self._client or not query:
             return
 
@@ -378,7 +378,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
         self._prefetch_thread.start()
 
     def sync_turn(self, user_content: str, assistant_content: str, *, session_id: str = "") -> None:
-        """Record the conversation turn in OpenViking's session (non-blocking)."""
+        """在 OpenViking 会话中记录对话 turn（非阻塞）。"""
         if not self._client:
             return
 
@@ -412,10 +412,10 @@ class OpenVikingMemoryProvider(MemoryProvider):
         self._sync_thread.start()
 
     def on_session_end(self, messages: List[Dict[str, Any]]) -> None:
-        """Commit the session to trigger memory extraction.
+        """提交会话以触发记忆提取。
 
-        OpenViking automatically extracts 6 categories of memories:
-        profile, preferences, entities, events, cases, and patterns.
+        OpenViking 自动提取 6 类记忆：
+        profile、preferences、entities、events、cases 和 patterns。
         """
         if not self._client:
             return
@@ -436,7 +436,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
             logger.warning("OpenViking session commit failed: %s", e)
 
     def on_memory_write(self, action: str, target: str, content: str) -> None:
-        """Mirror built-in memory writes to OpenViking as explicit memories."""
+        """将内置记忆写入镜像到 OpenViking 作为显式记忆。"""
         if not self._client or action != "add" or not content:
             return
 
@@ -624,9 +624,9 @@ class OpenVikingMemoryProvider(MemoryProvider):
 
 
 # ---------------------------------------------------------------------------
-# Plugin entry point
+# 插件入口点
 # ---------------------------------------------------------------------------
 
 def register(ctx) -> None:
-    """Register OpenViking as a memory provider plugin."""
+    """将 OpenViking 注册为记忆提供程序插件。"""
     ctx.register_memory_provider(OpenVikingMemoryProvider())

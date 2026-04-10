@@ -1,4 +1,4 @@
-"""Shared helpers for tool backend selection."""
+"""工具后端选择的共享辅助函数。"""
 
 from __future__ import annotations
 
@@ -14,18 +14,18 @@ _VALID_MODAL_MODES = {"auto", "direct", "managed"}
 
 
 def managed_nous_tools_enabled() -> bool:
-    """Return True when the hidden Nous-managed tools feature flag is enabled."""
+    """当隐藏的 Nous 托管工具特性标志启用时返回 True。"""
     return env_var_enabled("KCLAW_ENABLE_NOUS_MANAGED_TOOLS")
 
 
 def normalize_browser_cloud_provider(value: object | None) -> str:
-    """Return a normalized browser provider key."""
+    """返回标准化的浏览器提供者密钥。"""
     provider = str(value or _DEFAULT_BROWSER_PROVIDER).strip().lower()
     return provider or _DEFAULT_BROWSER_PROVIDER
 
 
 def coerce_modal_mode(value: object | None) -> str:
-    """Return the requested modal mode when valid, else the default."""
+    """返回请求的模态模式（如果有效），否则返回默认值。"""
     mode = str(value or _DEFAULT_MODAL_MODE).strip().lower()
     if mode in _VALID_MODAL_MODES:
         return mode
@@ -33,12 +33,12 @@ def coerce_modal_mode(value: object | None) -> str:
 
 
 def normalize_modal_mode(value: object | None) -> str:
-    """Return a normalized modal execution mode."""
+    """返回标准化的模态执行模式。"""
     return coerce_modal_mode(value)
 
 
 def has_direct_modal_credentials() -> bool:
-    """Return True when direct Modal credentials/config are available."""
+    """当直接 Modal 凭证/配置可用时返回 True。"""
     return bool(
         (os.getenv("MODAL_TOKEN_ID") and os.getenv("MODAL_TOKEN_SECRET"))
         or (Path.home() / ".modal.toml").exists()
@@ -51,12 +51,12 @@ def resolve_modal_backend_state(
     has_direct: bool,
     managed_ready: bool,
 ) -> Dict[str, Any]:
-    """Resolve direct vs managed Modal backend selection.
+    """解析直接与托管 Modal 后端的选择。
 
-    Semantics:
-    - ``direct`` means direct-only
-    - ``managed`` means managed-only
-    - ``auto`` prefers managed when available, then falls back to direct
+    语义：
+    - ``direct`` 表示仅直接模式
+    - ``managed`` 表示仅托管模式
+    - ``auto`` 优先使用托管模式（如果可用），否则回退到直接模式
     """
     requested_mode = coerce_modal_mode(modal_mode)
     normalized_mode = normalize_modal_mode(modal_mode)
@@ -82,7 +82,7 @@ def resolve_modal_backend_state(
 
 
 def resolve_openai_audio_api_key() -> str:
-    """Prefer the voice-tools key, but fall back to the normal OpenAI key."""
+    """优先使用 voice-tools 密钥，但回退到普通的 OpenAI 密钥。"""
     return (
         os.getenv("VOICE_TOOLS_OPENAI_KEY", "")
         or os.getenv("OPENAI_API_KEY", "")

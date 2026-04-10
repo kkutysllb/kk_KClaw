@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 """
-Session Search Tool - Long-Term Conversation Recall
+会话搜索工具 - 长期对话记忆
 
-Searches past session transcripts in SQLite via FTS5, then summarizes the top
-matching sessions using a cheap/fast model (same pattern as web_extract).
-Returns focused summaries of past conversations rather than raw transcripts,
-keeping the main model's context window clean.
+通过 FTS5 在 SQLite 中搜索过去的会话记录，然后使用廉价/快速模型总结最匹配的会话
+（与 web_extract 相同的模式）。返回聚焦的对话摘要而非原始记录，
+保持主模型上下文窗口的清洁。
 
-Flow:
-  1. FTS5 search finds matching messages ranked by relevance
-  2. Groups by session, takes the top N unique sessions (default 3)
-  3. Loads each session's conversation, truncates to ~100k chars centered on matches
-  4. Sends to Gemini Flash with a focused summarization prompt
-  5. Returns per-session summaries with metadata
+流程：
+  1. FTS5 搜索查找按相关性排序的匹配消息
+  2. 按会话分组，取前 N 个唯一会话（默认 3 个）
+  3. 加载每个会话的对话，截断至以匹配位置为中心的约 100k 字符
+  4. 使用聚焦的摘要提示发送给 Gemini Flash
+  5. 返回每个会话的摘要及元数据
 """
 
 import asyncio
@@ -27,9 +26,9 @@ MAX_SUMMARY_TOKENS = 10000
 
 
 def _format_timestamp(ts: Union[int, float, str, None]) -> str:
-    """Convert a Unix timestamp (float/int) or ISO string to a human-readable date.
+    """将 Unix 时间戳（float/int）或 ISO 字符串转换为易读的日期格式。
 
-    Returns "unknown" for None, str(ts) if conversion fails.
+    如果为 None 则返回 "unknown"，如果转换失败则返回 str(ts)。
     """
     if ts is None:
         return "unknown"
@@ -53,7 +52,7 @@ def _format_timestamp(ts: Union[int, float, str, None]) -> str:
 
 
 def _format_conversation(messages: List[Dict[str, Any]]) -> str:
-    """Format session messages into a readable transcript for summarization."""
+    """将会话消息格式化为可读的记录文本用于摘要。"""
     parts = []
     for msg in messages:
         role = msg.get("role", "unknown").upper()
@@ -90,8 +89,8 @@ def _truncate_around_matches(
     full_text: str, query: str, max_chars: int = MAX_SESSION_CHARS
 ) -> str:
     """
-    Truncate a conversation transcript to max_chars, centered around
-    where the query terms appear. Keeps content near matches, trims the edges.
+    将对话记录截断至 max_chars 字符，以查询词出现的位置为中心。
+    保留匹配附近的内容，修剪边缘部分。
     """
     if len(full_text) <= max_chars:
         return full_text
@@ -125,7 +124,7 @@ def _truncate_around_matches(
 async def _summarize_session(
     conversation_text: str, query: str, session_meta: Dict[str, Any]
 ) -> Optional[str]:
-    """Summarize a single session conversation focused on the search query."""
+    """总结单个会话对话，重点关注搜索查询。"""
     system_prompt = (
         "You are reviewing a past conversation transcript to help recall what happened. "
         "Summarize the conversation with a focus on the search topic. Include:\n"
@@ -193,7 +192,7 @@ _HIDDEN_SESSION_SOURCES = ("tool",)
 
 
 def _list_recent_sessions(db, limit: int, current_session_id: str = None) -> str:
-    """Return metadata for the most recent sessions (no LLM calls)."""
+    """返回最近会话的元数据（无需 LLM 调用）。"""
     try:
         sessions = db.list_sessions_rich(limit=limit + 5, exclude_sources=list(_HIDDEN_SESSION_SOURCES))  # fetch extra to skip current
 
@@ -252,10 +251,10 @@ def session_search(
     current_session_id: str = None,
 ) -> str:
     """
-    Search past sessions and return focused summaries of matching conversations.
+    搜索过去的会话并返回匹配对话的聚焦摘要。
 
-    Uses FTS5 to find matches, then summarizes the top sessions with Gemini Flash.
-    The current session is excluded from results since the agent already has that context.
+    使用 FTS5 查找匹配项，然后使用 Gemini Flash 总结最匹配的会话。
+    当前会话不包含在结果中，因为 agent 已有该上下文。
     """
     if db is None:
         return tool_error("Session database not available.", success=False)
@@ -431,7 +430,7 @@ def session_search(
 
 
 def check_session_search_requirements() -> bool:
-    """Requires SQLite state database and an auxiliary text model."""
+    """需要 SQLite 状态数据库和辅助文本模型。"""
     try:
         from kclaw_state import DEFAULT_DB_PATH
         return DEFAULT_DB_PATH.parent.exists()

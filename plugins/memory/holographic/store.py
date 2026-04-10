@@ -1,6 +1,6 @@
 """
-SQLite-backed fact store with entity resolution and trust scoring.
-Single-user KClaw memory store plugin.
+基于 SQLite 的事实存储，支持实体解析和信任评分。
+单用户 KClaw 记忆存储插件。
 """
 
 import re
@@ -96,7 +96,7 @@ def _clamp_trust(value: float) -> float:
 
 
 class MemoryStore:
-    """SQLite-backed fact store with entity resolution and trust scoring."""
+    """基于 SQLite 的事实存储，支持实体解析和信任评分。"""
 
     def __init__(
         self,
@@ -126,7 +126,7 @@ class MemoryStore:
     # ------------------------------------------------------------------
 
     def _init_db(self) -> None:
-        """Create tables, indexes, and triggers if they do not exist. Enable WAL mode."""
+        """创建表、索引和触发器（如果不存在）。启用 WAL 模式。"""
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
         # Migrate: add hrr_vector column if missing (safe for existing databases)
@@ -145,11 +145,11 @@ class MemoryStore:
         category: str = "general",
         tags: str = "",
     ) -> int:
-        """Insert a fact and return its fact_id.
+        """插入一条事实并返回其 fact_id。
 
-        Deduplicates by content (UNIQUE constraint). On duplicate, returns
-        the existing fact_id without modifying the row. Extracts entities from
-        the content and links them to the fact.
+        按内容去重（UNIQUE 约束）。遇到重复时，返回
+        现有 fact_id 而不修改该行。从内容中提取实体
+        并将它们链接到该事实。
         """
         with self._lock:
             content = content.strip()
@@ -191,10 +191,10 @@ class MemoryStore:
         min_trust: float = 0.3,
         limit: int = 10,
     ) -> list[dict]:
-        """Full-text search over facts using FTS5.
+        """使用 FTS5 进行事实的全文搜索。
 
-        Returns a list of fact dicts ordered by FTS5 rank, then trust_score
-        descending. Also increments retrieval_count for matched facts.
+        返回按 FTS5 排名排序的事实字典列表，然后按 trust_score
+        降序排列。还会增加匹配事实的 retrieval_count。
         """
         with self._lock:
             query = query.strip()
@@ -243,9 +243,9 @@ class MemoryStore:
         tags: str | None = None,
         category: str | None = None,
     ) -> bool:
-        """Partially update a fact. Trust is clamped to [0, 1].
+        """部分更新事实。信任值被限制在 [0, 1] 范围内。
 
-        Returns True if the row existed, False otherwise.
+        如果行存在则返回 True，否则返回 False。
         """
         with self._lock:
             row = self._conn.execute(
@@ -300,7 +300,7 @@ class MemoryStore:
             return True
 
     def remove_fact(self, fact_id: int) -> bool:
-        """Delete a fact and its entity links. Returns True if the row existed."""
+        """删除一条事实及其实体链接。如果行存在则返回 True。"""
         with self._lock:
             row = self._conn.execute(
                 "SELECT fact_id, category FROM facts WHERE fact_id = ?", (fact_id,)
@@ -322,9 +322,9 @@ class MemoryStore:
         min_trust: float = 0.0,
         limit: int = 50,
     ) -> list[dict]:
-        """Browse facts ordered by trust_score descending.
+        """浏览按 trust_score 降序排列的事实。
 
-        Optionally filter by category and minimum trust score.
+        可选择按类别和最低信任评分过滤。
         """
         with self._lock:
             params: list = [min_trust]
@@ -347,13 +347,13 @@ class MemoryStore:
             return [self._row_to_dict(r) for r in rows]
 
     def record_feedback(self, fact_id: int, helpful: bool) -> dict:
-        """Record user feedback and adjust trust asymmetrically.
+        """记录用户反馈并不对称地调整信任。
 
         helpful=True  -> trust += 0.05, helpful_count += 1
         helpful=False -> trust -= 0.10
 
-        Returns a dict with fact_id, old_trust, new_trust, helpful_count.
-        Raises KeyError if fact_id does not exist.
+        返回包含 fact_id、old_trust、new_trust、helpful_count 的字典。
+        如果 fact_id 不存在则抛出 KeyError。
         """
         with self._lock:
             row = self._conn.execute(
@@ -392,15 +392,15 @@ class MemoryStore:
     # ------------------------------------------------------------------
 
     def _extract_entities(self, text: str) -> list[str]:
-        """Extract entity candidates from text using simple regex rules.
+        """使用简单正则规则从文本中提取实体候选。
 
-        Rules applied (in order):
-        1. Capitalized multi-word phrases  e.g. "John Doe"
-        2. Double-quoted terms             e.g. "Python"
-        3. Single-quoted terms             e.g. 'pytest'
-        4. AKA patterns                    e.g. "Guido aka BDFL" -> two entities
+        按顺序应用的规则：
+        1. 首字母大写的多词短语  例如 "John Doe"
+        2. 双引号术语           例如 "Python"
+        3. 单引号术语           例如 'pytest'
+        4. AKA 模式             例如 "Guido aka BDFL" -> 两个实体
 
-        Returns a deduplicated list preserving first-seen order.
+        返回去重列表，保持首次出现的顺序。
         """
         seen: set[str] = set()
         candidates: list[str] = []
@@ -427,9 +427,9 @@ class MemoryStore:
         return candidates
 
     def _resolve_entity(self, name: str) -> int:
-        """Find an existing entity by name or alias (case-insensitive) or create one.
+        """按名称或别名（不区分大小写）查找现有实体，或创建一个。
 
-        Returns the entity_id.
+        返回 entity_id。
         """
         # Exact name match
         row = self._conn.execute(
@@ -457,7 +457,7 @@ class MemoryStore:
         return int(cur.lastrowid)  # type: ignore[return-value]
 
     def _link_fact_entity(self, fact_id: int, entity_id: int) -> None:
-        """Insert into fact_entities, silently ignore if the link already exists."""
+        """插入到 fact_entities，如果链接已存在则静默忽略。"""
         self._conn.execute(
             """
             INSERT OR IGNORE INTO fact_entities (fact_id, entity_id)
@@ -468,7 +468,7 @@ class MemoryStore:
         self._conn.commit()
 
     def _compute_hrr_vector(self, fact_id: int, content: str) -> None:
-        """Compute and store HRR vector for a fact. No-op if numpy unavailable."""
+        """为事实计算并存储 HRR 向量。如果 numpy 不可用则无操作。"""
         with self._lock:
             if not self._hrr_available:
                 return
@@ -492,7 +492,7 @@ class MemoryStore:
             self._conn.commit()
 
     def _rebuild_bank(self, category: str) -> None:
-        """Full rebuild of a category's memory bank from all its fact vectors."""
+        """从所有事实向量完整重建某个类别的记忆库。"""
         with self._lock:
             if not self._hrr_available:
                 return
@@ -530,9 +530,9 @@ class MemoryStore:
             self._conn.commit()
 
     def rebuild_all_vectors(self, dim: int | None = None) -> int:
-        """Recompute all HRR vectors + banks from text. For recovery/migration.
+        """从文本重新计算所有 HRR 向量 + 记忆库。用于恢复/迁移。
 
-        Returns the number of facts processed.
+        返回已处理的事实数量。
         """
         with self._lock:
             if not self._hrr_available:
@@ -560,11 +560,11 @@ class MemoryStore:
     # ------------------------------------------------------------------
 
     def _row_to_dict(self, row: sqlite3.Row) -> dict:
-        """Convert a sqlite3.Row to a plain dict."""
+        """将 sqlite3.Row 转换为普通字典。"""
         return dict(row)
 
     def close(self) -> None:
-        """Close the database connection."""
+        """关闭数据库连接。"""
         self._conn.close()
 
     def __enter__(self) -> "MemoryStore":

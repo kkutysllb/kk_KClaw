@@ -1,14 +1,13 @@
-"""Shared KClaw-side execution flow for Modal transports.
+"""Modal 传输的共享 KClaw 端执行流程。
 
-This module deliberately stops at the KClaw boundary:
-- command preparation
-- cwd/timeout normalization
-- stdin/sudo shell wrapping
-- common result shape
-- interrupt/cancel polling
+此模块有意在 KClaw 边界处停止：
+- 命令准备
+- cwd/timeout 规范化
+- stdin/sudo shell 包装
+- 通用结果格式
+- 中断/取消轮询
 
-Direct Modal and managed Modal keep separate transport logic, persistence, and
-trust-boundary decisions in their own modules.
+Direct Modal 和 managed Modal 在各自的模块中保留独立的传输逻辑、持久化和信任边界决策。
 """
 
 from __future__ import annotations
@@ -26,7 +25,7 @@ from tools.interrupt import is_interrupted
 
 @dataclass(frozen=True)
 class PreparedModalExec:
-    """Normalized command data passed to a transport-specific exec runner."""
+    """传递给特定传输 exec 运行器的规范化命令数据。"""
 
     command: str
     cwd: str
@@ -36,14 +35,14 @@ class PreparedModalExec:
 
 @dataclass(frozen=True)
 class ModalExecStart:
-    """Transport response after starting an exec."""
+    """启动 exec 后传输响应。"""
 
     handle: Any | None = None
     immediate_result: dict | None = None
 
 
 def wrap_modal_stdin_heredoc(command: str, stdin_data: str) -> str:
-    """Append stdin as a shell heredoc for transports without stdin piping."""
+    """将 stdin 作为 shell heredoc 附加，用于没有 stdin 管道的传输。"""
     marker = f"KCLAW_EOF_{uuid.uuid4().hex[:8]}"
     while marker in stdin_data:
         marker = f"KCLAW_EOF_{uuid.uuid4().hex[:8]}"
@@ -51,19 +50,17 @@ def wrap_modal_stdin_heredoc(command: str, stdin_data: str) -> str:
 
 
 def wrap_modal_sudo_pipe(command: str, sudo_stdin: str) -> str:
-    """Feed sudo via a shell pipe for transports without direct stdin piping."""
+    """通过 shell 管道为 sudo 提供输入，用于没有直接 stdin 管道的传输。"""
     return f"printf '%s\\n' {shlex.quote(sudo_stdin.rstrip())} | {command}"
 
 
 class BaseModalExecutionEnvironment(BaseEnvironment):
-    """Execution flow for the *managed* Modal transport (gateway-owned sandbox).
+    """*托管* Modal 传输的执行流程（gateway 拥有的沙箱）。
 
-    This deliberately overrides :meth:`BaseEnvironment.execute` because the
-    tool-gateway handles command preparation, CWD tracking, and env-snapshot
-    management on the server side.  The base class's ``_wrap_command`` /
-    ``_wait_for_process`` / snapshot machinery does not apply here — the
-    gateway owns that responsibility.  See ``ManagedModalEnvironment`` for the
-    concrete subclass.
+    这有意覆盖了 :meth:`BaseEnvironment.execute`，因为 tool-gateway 在
+    服务器端处理命令准备、CWD 跟踪和环境快照管理。基类的
+    ``_wrap_command`` / ``_wait_for_process`` / 快照机制不适用于此处
+    —— gateway 拥有该责任。参见 ``ManagedModalEnvironment`` 了解具体子类。
     """
 
     _stdin_mode = "payload"
@@ -131,7 +128,7 @@ class BaseModalExecutionEnvironment(BaseEnvironment):
             time.sleep(self._poll_interval_seconds)
 
     def _before_execute(self) -> None:
-        """Hook for backends that need pre-exec sync or validation."""
+        """需要 exec 前同步或验证的后端的钩子。"""
         pass
 
     def _prepare_modal_exec(
@@ -175,12 +172,12 @@ class BaseModalExecutionEnvironment(BaseEnvironment):
 
     @abstractmethod
     def _start_modal_exec(self, prepared: PreparedModalExec) -> ModalExecStart:
-        """Begin a transport-specific exec."""
+        """开始特定传输的 exec。"""
 
     @abstractmethod
     def _poll_modal_exec(self, handle: Any) -> dict | None:
-        """Return a final result dict when complete, else ``None``."""
+        """完成时返回最终结果字典，否则返回 ``None``。"""
 
     @abstractmethod
     def _cancel_modal_exec(self, handle: Any) -> None:
-        """Cancel or terminate the active transport exec."""
+        """取消或终止活动传输 exec。"""

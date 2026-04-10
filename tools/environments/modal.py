@@ -1,7 +1,7 @@
-"""Modal cloud execution environment using the native Modal SDK directly.
+"""直接使用原生 Modal SDK 的 Modal 云执行环境。
 
-Uses ``Sandbox.create()`` + ``Sandbox.exec()`` instead of the older runtime
-wrapper, while preserving KClaw' persistent snapshot behavior across sessions.
+使用 ``Sandbox.create()`` + ``Sandbox.exec()`` 而不是旧的运行时包装器，
+同时保留 KClaw 在会话之间的持久快照行为。
 """
 
 import asyncio
@@ -72,9 +72,9 @@ def _delete_direct_snapshot(task_id: str, snapshot_id: str | None = None) -> Non
 
 
 def _resolve_modal_image(image_spec: Any) -> Any:
-    """Convert registry references or snapshot ids into Modal image objects.
+    """将注册表引用或快照 ID 转换为 Modal 镜像对象。
 
-    Includes add_python support for ubuntu/debian images (absorbed from PR 4511).
+    包括对 ubuntu/debian 镜像的 add_python 支持（来自 PR 4511）。
     """
     import modal as _modal
 
@@ -104,7 +104,7 @@ def _resolve_modal_image(image_spec: Any) -> Any:
 
 
 class _AsyncWorker:
-    """Background thread with its own event loop for async-safe Modal calls."""
+    """具有自己事件循环的后台线程，用于异步安全的 Modal 调用。"""
 
     def __init__(self):
         self._loop: Optional[asyncio.AbstractEventLoop] = None
@@ -136,10 +136,10 @@ class _AsyncWorker:
 
 
 class ModalEnvironment(BaseEnvironment):
-    """Modal cloud execution via native Modal sandboxes.
+    """通过原生 Modal 沙箱进行 Modal 云执行。
 
-    Spawn-per-call via _ThreadedProcessHandle wrapping async SDK calls.
-    cancel_fn wired to sandbox.terminate for interrupt support.
+    通过 _ThreadedProcessHandle 包装异步 SDK 调用实现每次调用生成。
+    cancel_fn 连接到 sandbox.terminate 以支持中断。
     """
 
     _stdin_mode = "heredoc"
@@ -259,7 +259,7 @@ class ModalEnvironment(BaseEnvironment):
         self.init_session()
 
     def _push_file_to_sandbox(self, host_path: str, container_path: str) -> bool:
-        """Push a single file into the sandbox if changed."""
+        """如果有变化，将单个文件推送到沙箱。"""
         file_key = _file_mtime_key(host_path)
         if file_key is None:
             return False
@@ -287,7 +287,7 @@ class ModalEnvironment(BaseEnvironment):
         return True
 
     def _sync_files(self) -> None:
-        """Push credential, skill, and cache files into the running sandbox."""
+        """将凭据、技能和缓存文件推送到正在运行的沙箱。"""
         try:
             from tools.credential_files import (
                 get_credential_file_mounts,
@@ -306,7 +306,7 @@ class ModalEnvironment(BaseEnvironment):
     def _run_bash(self, cmd_string: str, *, login: bool = False,
                   timeout: int = 120,
                   stdin_data: str | None = None):
-        """Return a _ThreadedProcessHandle wrapping an async Modal sandbox exec."""
+        """返回包装异步 Modal 沙箱 exec 的 _ThreadedProcessHandle。"""
         sandbox = self._sandbox
         worker = self._worker
 
@@ -338,7 +338,7 @@ class ModalEnvironment(BaseEnvironment):
         return _ThreadedProcessHandle(exec_fn, cancel_fn=cancel)
 
     def cleanup(self):
-        """Snapshot the filesystem (if persistent) then stop the sandbox."""
+        """如果持久化则对文件系统进行快照，然后停止沙箱。"""
         if self._sandbox is None:
             return
 

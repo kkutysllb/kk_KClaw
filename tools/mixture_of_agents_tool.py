@@ -1,45 +1,44 @@
 #!/usr/bin/env python3
 """
-Mixture-of-Agents Tool Module
+混合代理工具模块
 
-This module implements the Mixture-of-Agents (MoA) methodology that leverages
-the collective strengths of multiple LLMs through a layered architecture to
-achieve state-of-the-art performance on complex reasoning tasks.
+本模块实现了混合代理（MoA）方法论，通过分层架构利用多个 LLM 的
+集体优势，在复杂推理任务上实现最先进的性能。
 
-Based on the research paper: "Mixture-of-Agents Enhances Large Language Model Capabilities"
-by Junlin Wang et al. (arXiv:2406.04692v1)
+基于研究论文："Mixture-of-Agents Enhances Large Language Model Capabilities"
+作者：Junlin Wang 等（arXiv:2406.04692v1）
 
-Key Features:
-- Multi-layer LLM collaboration for enhanced reasoning
-- Parallel processing of reference models for efficiency
-- Intelligent aggregation and synthesis of diverse responses
-- Specialized for extremely difficult problems requiring intense reasoning
-- Optimized for coding, mathematics, and complex analytical tasks
+关键特性：
+- 多层 LLM 协作以增强推理能力
+- 参考模型并行处理以提高效率
+- 智能聚合和综合多样化响应
+- 专为需要深度推理的极困难问题而设计
+- 针对编码、数学和复杂分析任务优化
 
-Available Tool:
-- mixture_of_agents_tool: Process complex queries using multiple frontier models
+可用工具：
+- mixture_of_agents_tool：使用多个前沿模型处理复杂查询
 
-Architecture:
-1. Reference models generate diverse initial responses in parallel
-2. Aggregator model synthesizes responses into a high-quality output
-3. Multiple layers can be used for iterative refinement (future enhancement)
+架构：
+1. 参考模型并行生成多样化的初始响应
+2. 聚合器模型将响应综合为高质量输出
+3. 可以使用多层进行迭代细化（未来增强）
 
-Models Used (via OpenRouter):
-- Reference Models: claude-opus-4.6, gemini-3-pro-preview, gpt-5.4-pro, deepseek-v3.2
-- Aggregator Model: claude-opus-4.6 (highest capability for synthesis)
+使用的模型（通过 OpenRouter）：
+- 参考模型：claude-opus-4.6、gemini-3-pro-preview、gpt-5.4-pro、deepseek-v3.2
+- 聚合器模型：claude-opus-4.6（用于综合的最高能力）
 
-Configuration:
-    To customize the MoA setup, modify the configuration constants at the top of this file:
-    - REFERENCE_MODELS: List of models for generating diverse initial responses
-    - AGGREGATOR_MODEL: Model used to synthesize the final response
-    - REFERENCE_TEMPERATURE/AGGREGATOR_TEMPERATURE: Sampling temperatures
-    - MIN_SUCCESSFUL_REFERENCES: Minimum successful models needed to proceed
+配置：
+    要自定义 MoA 设置，请修改本文件顶部的配置常量：
+    - REFERENCE_MODELS：用于生成分多样化初始响应的模型列表
+    - AGGREGATOR_MODEL：用于综合最终响应的模型
+    - REFERENCE_TEMPERATURE/AGGREGATOR_TEMPERATURE：采样温度
+    - MIN_SUCCESSFUL_REFERENCES：继续所需的最小成功模型数
 
-Usage:
+用法：
     from mixture_of_agents_tool import mixture_of_agents_tool
     import asyncio
-    
-    # Process a complex query
+
+    # 处理复杂查询
     result = await mixture_of_agents_tool(
         user_prompt="Solve this complex mathematical proof..."
     )
@@ -57,9 +56,9 @@ from tools.debug_helpers import DebugSession
 
 logger = logging.getLogger(__name__)
 
-# Configuration for MoA processing
-# Reference models - these generate diverse initial responses in parallel.
-# Keep this list aligned with current top-tier OpenRouter frontier options.
+# MoA 处理配置
+# 参考模型——这些并行生成多样化的初始响应。
+# 保持此列表与当前顶级 OpenRouter 前沿选项一致。
 REFERENCE_MODELS = [
     "anthropic/claude-opus-4.6",
     "google/gemini-3-pro-preview",
@@ -67,16 +66,16 @@ REFERENCE_MODELS = [
     "deepseek/deepseek-v3.2",
 ]
 
-# Aggregator model - synthesizes reference responses into final output.
-# Prefer the strongest synthesis model in the current OpenRouter lineup.
+# 聚合器模型——将参考响应综合为最终输出。
+# 优先选择当前 OpenRouter 阵容中最强的综合模型。
 AGGREGATOR_MODEL = "anthropic/claude-opus-4.6"
 
-# Temperature settings optimized for MoA performance
-REFERENCE_TEMPERATURE = 0.6  # Balanced creativity for diverse perspectives
-AGGREGATOR_TEMPERATURE = 0.4  # Focused synthesis for consistency
+# 针对 MoA 性能优化的温度设置
+REFERENCE_TEMPERATURE = 0.6  # 为多样化视角平衡创造力
+AGGREGATOR_TEMPERATURE = 0.4  # 为一致性专注综合
 
-# Failure handling configuration
-MIN_SUCCESSFUL_REFERENCES = 1  # Minimum successful reference models needed to proceed
+# 故障处理配置
+MIN_SUCCESSFUL_REFERENCES = 1  # 继续所需的最小成功参考模型数
 
 # System prompt for the aggregator model (from the research paper)
 AGGREGATOR_SYSTEM_PROMPT = """You have been provided with a set of responses from various open-source models to the latest user query. Your task is to synthesize these responses into a single, high-quality response. It is crucial to critically evaluate the information provided in these responses, recognizing that some of it may be biased or incorrect. Your response should not simply replicate the given answers but should offer a refined, accurate, and comprehensive reply to the instruction. Ensure your response is well-structured, coherent, and adheres to the highest standards of accuracy and reliability.
@@ -88,14 +87,14 @@ _debug = DebugSession("moa_tools", env_var="MOA_TOOLS_DEBUG")
 
 def _construct_aggregator_prompt(system_prompt: str, responses: List[str]) -> str:
     """
-    Construct the final system prompt for the aggregator including all model responses.
-    
-    Args:
-        system_prompt (str): Base system prompt for aggregation
-        responses (List[str]): List of responses from reference models
-        
-    Returns:
-        str: Complete system prompt with enumerated responses
+    构造包含所有模型响应的聚合器最终系统提示词。
+
+    参数：
+        system_prompt (str)：聚合的基础系统提示词
+        responses (List[str])：参考模型响应列表
+
+    返回：
+        str：带有编号响应的完整系统提示词
     """
     response_text = "\n".join([f"{i+1}. {response}" for i, response in enumerate(responses)])
     return f"{system_prompt}\n\n{response_text}"
@@ -109,17 +108,17 @@ async def _run_reference_model_safe(
     max_retries: int = 6
 ) -> tuple[str, str, bool]:
     """
-    Run a single reference model with retry logic and graceful failure handling.
-    
-    Args:
-        model (str): Model identifier to use
-        user_prompt (str): The user's query
-        temperature (float): Sampling temperature for response generation
-        max_tokens (int): Maximum tokens in response
-        max_retries (int): Maximum number of retry attempts
-        
-    Returns:
-        tuple[str, str, bool]: (model_name, response_content_or_error, success_flag)
+    使用重试逻辑和优雅故障处理运行单个参考模型。
+
+    参数：
+        model (str)：要使用的模型标识符
+        user_prompt (str)：用户的查询
+        temperature (float)：响应生成的采样温度
+        max_tokens (int)：响应中的最大 token 数
+        max_retries (int)：最大重试次数
+
+    返回：
+        tuple[str, str, bool]：(model_name, response_content_or_error, success_flag)
     """
     for attempt in range(max_retries):
         try:
@@ -183,16 +182,16 @@ async def _run_aggregator_model(
     max_tokens: int = None
 ) -> str:
     """
-    Run the aggregator model to synthesize the final response.
-    
-    Args:
-        system_prompt (str): System prompt with all reference responses
-        user_prompt (str): Original user query
-        temperature (float): Focused temperature for consistent aggregation
-        max_tokens (int): Maximum tokens in final response
-        
-    Returns:
-        str: Synthesized final response
+    运行聚合器模型以综合最终响应。
+
+    参数：
+        system_prompt (str)：包含所有参考响应的系统提示词
+        user_prompt (str)：原始用户查询
+        temperature (float)：专注的温度以获得一致的聚合
+        max_tokens (int)：最终响应中的最大 token 数
+
+    返回：
+        str：综合的最终响应
     """
     logger.info("Running aggregator model: %s", AGGREGATOR_MODEL)
 
@@ -236,28 +235,26 @@ async def mixture_of_agents_tool(
     aggregator_model: Optional[str] = None
 ) -> str:
     """
-    Process a complex query using the Mixture-of-Agents methodology.
-    
-    This tool leverages multiple frontier language models to collaboratively solve
-    extremely difficult problems requiring intense reasoning. It's particularly
-    effective for:
-    - Complex mathematical proofs and calculations
-    - Advanced coding problems and algorithm design
-    - Multi-step analytical reasoning tasks
-    - Problems requiring diverse domain expertise
-    - Tasks where single models show limitations
-    
-    The MoA approach uses a fixed 2-layer architecture:
-    1. Layer 1: Multiple reference models generate diverse responses in parallel (temp=0.6)
-    2. Layer 2: Aggregator model synthesizes the best elements into final response (temp=0.4)
-    
-    Args:
-        user_prompt (str): The complex query or problem to solve
-        reference_models (Optional[List[str]]): Custom reference models to use
-        aggregator_model (Optional[str]): Custom aggregator model to use
-    
-    Returns:
-        str: JSON string containing the MoA results with the following structure:
+    使用混合代理方法处理复杂查询。
+
+    此工具利用多个前沿语言模型协作解决需要深度推理的极困难问题。它特别适用于：
+    - 复杂的数学证明和计算
+    - 高级编程问题和算法设计
+    - 多步分析推理任务
+    - 需要多样化领域专业知识的问题
+    - 单个模型表现出局限性的任务
+
+    MoA 方法使用固定的 2 层架构：
+    1. 第一层：多个参考模型并行生成多样化响应（temp=0.6）
+    2. 第二层：聚合器模型将最佳元素综合到最终响应中（temp=0.4）
+
+    参数：
+        user_prompt (str)：要解决的复杂查询或问题
+        reference_models (Optional[List[str]])：要使用的自定义参考模型
+        aggregator_model (Optional[str])：要使用的自定义聚合器模型
+
+    返回：
+        str：包含 MoA 结果的 JSON 字符串，结构如下：
              {
                  "success": bool,
                  "response": str,
@@ -267,9 +264,9 @@ async def mixture_of_agents_tool(
                  },
                  "processing_time": float
              }
-    
-    Raises:
-        Exception: If MoA processing fails or API key is not set
+
+    引发：
+        Exception：如果 MoA 处理失败或 API 密钥未设置
     """
     start_time = datetime.datetime.now()
     
@@ -408,30 +405,30 @@ async def mixture_of_agents_tool(
 
 def check_moa_requirements() -> bool:
     """
-    Check if all requirements for MoA tools are met.
-    
-    Returns:
-        bool: True if requirements are met, False otherwise
+    检查 MoA 工具的所有要求是否满足。
+
+    返回：
+        bool：如果满足要求则为 True，否则为 False
     """
     return check_openrouter_api_key()
 
 
 def get_debug_session_info() -> Dict[str, Any]:
     """
-    Get information about the current debug session.
-    
-    Returns:
-        Dict[str, Any]: Dictionary containing debug session information
+    获取有关当前调试会话的信息。
+
+    返回：
+        Dict[str, Any]：包含调试会话信息的字典
     """
     return _debug.get_session_info()
 
 
 def get_available_models() -> Dict[str, List[str]]:
     """
-    Get information about available models for MoA processing.
-    
-    Returns:
-        Dict[str, List[str]]: Dictionary with reference and aggregator models
+    获取有关 MoA 处理可用模型的信息。
+
+    返回：
+        Dict[str, List[str]]：包含参考模型和聚合器模型的字典
     """
     return {
         "reference_models": REFERENCE_MODELS,
@@ -442,10 +439,10 @@ def get_available_models() -> Dict[str, List[str]]:
 
 def get_moa_configuration() -> Dict[str, Any]:
     """
-    Get the current MoA configuration settings.
-    
-    Returns:
-        Dict[str, Any]: Dictionary containing all configuration parameters
+    获取当前的 MoA 配置设置。
+
+    返回：
+        Dict[str, Any]：包含所有配置参数的字典
     """
     return {
         "reference_models": REFERENCE_MODELS,

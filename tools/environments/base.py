@@ -1,9 +1,8 @@
-"""Base class for all KClaw execution environment backends.
+"""所有 KClaw 执行环境后端的基类。
 
-Unified spawn-per-call model: every command spawns a fresh ``bash -c`` process.
-A session snapshot (env vars, functions, aliases) is captured once at init and
-re-sourced before each command. CWD persists via in-band stdout markers (remote)
-or a temp file (local).
+统一的每次调用生成模型：每个命令都会生成一个新的 ``bash -c`` 进程。
+会话快照（环境变量、函数、别名）在初始化时捕获一次，并在每次命令前重新获取。
+CWD 通过带内 stdout 标记（远程）或临时文件（本地）保持。
 """
 
 import json
@@ -25,10 +24,10 @@ logger = logging.getLogger(__name__)
 
 
 def get_sandbox_dir() -> Path:
-    """Return the host-side root for all sandbox storage (Docker workspaces,
-    Singularity overlays/SIF cache, etc.).
+    """返回所有沙箱存储的主机端根目录（Docker 工作区、
+    Singularity overlay/SIF 缓存等）。
 
-    Configurable via TERMINAL_SANDBOX_DIR. Defaults to {KCLAW_HOME}/sandboxes/.
+    可通过 TERMINAL_SANDBOX_DIR 配置。默认为 {KCLAW_HOME}/sandboxes/。
     """
     custom = os.getenv("TERMINAL_SANDBOX_DIR")
     if custom:
@@ -40,14 +39,14 @@ def get_sandbox_dir() -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Shared constants and utilities
+# 共享常量和工具
 # ---------------------------------------------------------------------------
 
 _SYNC_INTERVAL_SECONDS = 5.0
 
 
 def _pipe_stdin(proc: subprocess.Popen, data: str) -> None:
-    """Write *data* to proc.stdin on a daemon thread to avoid pipe-buffer deadlocks."""
+    """在守护线程上将 *data* 写入 proc.stdin 以避免管道缓冲区死锁。"""
 
     def _write():
         try:
@@ -62,11 +61,11 @@ def _pipe_stdin(proc: subprocess.Popen, data: str) -> None:
 def _popen_bash(
     cmd: list[str], stdin_data: str | None = None, **kwargs
 ) -> subprocess.Popen:
-    """Spawn a subprocess with standard stdout/stderr/stdin setup.
+    """使用标准 stdout/stderr/stdin 设置生成子进程。
 
-    If *stdin_data* is provided, writes it asynchronously via :func:`_pipe_stdin`.
-    Backends with special Popen needs (e.g. local's ``preexec_fn``) can bypass
-    this and call :func:`_pipe_stdin` directly.
+    如果提供了 *stdin_data*，通过 :func:`_pipe_stdin` 异步写入。
+    有特殊 Popen 需求的后端（例如 local 的 ``preexec_fn``）可以绕过
+    此函数直接调用 :func:`_pipe_stdin`。
     """
     proc = subprocess.Popen(
         cmd,
@@ -82,7 +81,7 @@ def _popen_bash(
 
 
 def _load_json_store(path: Path) -> dict:
-    """Load a JSON file as a dict, returning ``{}`` on any error."""
+    """将 JSON 文件加载为字典，遇到任何错误时返回 ``{}``。"""
     if path.exists():
         try:
             return json.loads(path.read_text())
@@ -92,13 +91,13 @@ def _load_json_store(path: Path) -> dict:
 
 
 def _save_json_store(path: Path, data: dict) -> None:
-    """Write *data* as pretty-printed JSON to *path*."""
+    """将 *data* 作为格式化的 JSON 写入 *path*。"""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2))
 
 
 def _file_mtime_key(host_path: str) -> tuple[float, int] | None:
-    """Return ``(mtime, size)`` for cache comparison, or ``None`` if unreadable."""
+    """返回用于缓存比较的 ``(mtime, size)``，如果不可读则返回 ``None``。"""
     try:
         st = Path(host_path).stat()
         return (st.st_mtime, st.st_size)
@@ -107,15 +106,15 @@ def _file_mtime_key(host_path: str) -> tuple[float, int] | None:
 
 
 # ---------------------------------------------------------------------------
-# ProcessHandle protocol
+# ProcessHandle 协议
 # ---------------------------------------------------------------------------
 
 
 class ProcessHandle(Protocol):
-    """Duck type that every backend's _run_bash() must return.
+    """每个后端的 _run_bash() 必须返回的鸭式类型。
 
-    subprocess.Popen satisfies this natively.  SDK backends (Modal, Daytona)
-    return _ThreadedProcessHandle which adapts their blocking calls.
+    subprocess.Popen 原生满足此协议。SDK 后端（Modal、Daytona）
+    返回 _ThreadedProcessHandle 来适配它们的阻塞调用。
     """
 
     def poll(self) -> int | None: ...
@@ -130,12 +129,11 @@ class ProcessHandle(Protocol):
 
 
 class _ThreadedProcessHandle:
-    """Adapter for SDK backends (Modal, Daytona) that have no real subprocess.
+    """没有真实子进程的 SDK 后端（Modal、Daytona）的适配器。
 
-    Wraps a blocking ``exec_fn() -> (output_str, exit_code)`` in a background
-    thread and exposes a ProcessHandle-compatible interface.  An optional
-    ``cancel_fn`` is invoked on ``kill()`` for backend-specific cancellation
-    (e.g. Modal sandbox.terminate, Daytona sandbox.stop).
+    在后台线程中包装阻塞的 ``exec_fn() -> (output_str, exit_code)`` 并暴露
+    ProcessHandle 兼容的接口。可选的 ``cancel_fn`` 在 ``kill()`` 时调用，
+    用于特定后端的取消（例如 Modal sandbox.terminate、Daytona sandbox.stop）。
     """
 
     def __init__(
@@ -199,7 +197,7 @@ class _ThreadedProcessHandle:
 
 
 # ---------------------------------------------------------------------------
-# CWD marker for remote backends
+# 远程后端的 CWD 标记
 # ---------------------------------------------------------------------------
 
 
@@ -213,17 +211,16 @@ def _cwd_marker(session_id: str) -> str:
 
 
 class BaseEnvironment(ABC):
-    """Common interface and unified execution flow for all KClaw backends.
+    """所有 KClaw 后端的通用接口和统一执行流程。
 
-    Subclasses implement ``_run_bash()`` and ``cleanup()``.  The base class
-    provides ``execute()`` with session snapshot sourcing, CWD tracking,
-    interrupt handling, and timeout enforcement.
+    子类实现 ``_run_bash()`` 和 ``cleanup()``。基类提供带有会话快照获取、
+    CWD 跟踪、中断处理和超时执行的 ``execute()``。
     """
 
-    # Subclasses that embed stdin as a heredoc (Modal, Daytona) set this.
-    _stdin_mode: str = "pipe"  # "pipe" or "heredoc"
+    # 子类将 stdin 作为 heredoc 嵌入（Modal、Daytona）时设置此属性。
+    _stdin_mode: str = "pipe"  # "pipe" 或 "heredoc"
 
-    # Snapshot creation timeout (override for slow cold-starts).
+    # 快照创建超时（覆盖慢冷启动）。
     _snapshot_timeout: int = 30
 
     def __init__(self, cwd: str, timeout: int, env: dict = None):
@@ -241,7 +238,7 @@ class BaseEnvironment(ABC):
         )
 
     # ------------------------------------------------------------------
-    # Abstract methods
+    # 抽象方法
     # ------------------------------------------------------------------
 
     def _run_bash(
@@ -252,30 +249,30 @@ class BaseEnvironment(ABC):
         timeout: int = 120,
         stdin_data: str | None = None,
     ) -> ProcessHandle:
-        """Spawn a bash process to run *cmd_string*.
+        """生成一个 bash 进程来运行 *cmd_string*。
 
-        Returns a ProcessHandle (subprocess.Popen or _ThreadedProcessHandle).
-        Must be overridden by every backend.
+        返回 ProcessHandle（subprocess.Popen 或 _ThreadedProcessHandle）。
+        必须由每个后端覆盖。
         """
         raise NotImplementedError(f"{type(self).__name__} must implement _run_bash()")
 
     @abstractmethod
     def cleanup(self):
-        """Release backend resources (container, instance, connection)."""
+        """释放后端资源（容器、实例、连接）。"""
         ...
 
     # ------------------------------------------------------------------
-    # Session snapshot (init_session)
+    # 会话快照 (init_session)
     # ------------------------------------------------------------------
 
     def init_session(self):
-        """Capture login shell environment into a snapshot file.
+        """将登录 shell 环境捕获到快照文件中。
 
-        Called once after backend construction.  On success, sets
-        ``_snapshot_ready = True`` so subsequent commands source the snapshot
-        instead of running with ``bash -l``.
+        在后端构建后调用一次。成功后，设置
+        ``_snapshot_ready = True``，以便后续命令获取快照，
+        而不是用 ``bash -l`` 运行。
         """
-        # Full capture: env vars, functions (filtered), aliases, shell options.
+        # 完整捕获：环境变量、函数（过滤后）、别名、shell 选项。
         bootstrap = (
             f"export -p > {self._snapshot_path}\n"
             f"declare -f | grep -vE '^_[^_]' >> {self._snapshot_path}\n"
@@ -306,12 +303,12 @@ class BaseEnvironment(ABC):
             self._snapshot_ready = False
 
     # ------------------------------------------------------------------
-    # Command wrapping
+    # 命令包装
     # ------------------------------------------------------------------
 
     def _wrap_command(self, command: str, cwd: str) -> str:
-        """Build the full bash script that sources snapshot, cd's, runs command,
-        re-dumps env vars, and emits CWD markers."""
+        """构建完整的 bash 脚本，用于获取快照、cd 到目录、运行命令、
+        重新转储环境变量并发出 CWD 标记。"""
         escaped = command.replace("'", "'\\''")
 
         parts = []
@@ -348,23 +345,23 @@ class BaseEnvironment(ABC):
         return "\n".join(parts)
 
     # ------------------------------------------------------------------
-    # Stdin heredoc embedding (for SDK backends)
+    # Stdin heredoc 嵌入（用于 SDK 后端）
     # ------------------------------------------------------------------
 
     @staticmethod
     def _embed_stdin_heredoc(command: str, stdin_data: str) -> str:
-        """Append stdin_data as a shell heredoc to the command string."""
+        """将 stdin_data 作为 shell heredoc 附加到命令字符串。"""
         delimiter = f"KCLAW_STDIN_{uuid.uuid4().hex[:12]}"
         return f"{command} << '{delimiter}'\n{stdin_data}\n{delimiter}"
 
     # ------------------------------------------------------------------
-    # Process lifecycle
+    # 进程生命周期
     # ------------------------------------------------------------------
 
     def _wait_for_process(self, proc: ProcessHandle, timeout: int = 120) -> dict:
-        """Poll-based wait with interrupt checking and stdout draining.
+        """基于轮询的等待，包含中断检查和 stdout  draining。
 
-        Shared across all backends — not overridden.
+        所有后端共享 — 不被覆盖。
         """
         output_chunks: list[str] = []
 
@@ -415,25 +412,25 @@ class BaseEnvironment(ABC):
         return {"output": "".join(output_chunks), "returncode": proc.returncode}
 
     def _kill_process(self, proc: ProcessHandle):
-        """Terminate a process. Subclasses may override for process-group kill."""
+        """终止一个进程。子类可以覆盖以进行进程组终止。"""
         try:
             proc.kill()
         except (ProcessLookupError, PermissionError, OSError):
             pass
 
     # ------------------------------------------------------------------
-    # CWD extraction
+    # CWD 提取
     # ------------------------------------------------------------------
 
     def _update_cwd(self, result: dict):
-        """Extract CWD from command output. Override for local file-based read."""
+        """从命令输出中提取 CWD。针对本地文件读取进行覆盖。"""
         self._extract_cwd_from_output(result)
 
     def _extract_cwd_from_output(self, result: dict):
-        """Parse the __KCLAW_CWD_{session}__ marker from stdout output.
+        """从 stdout 输出中解析 __KCLAW_CWD_{session}__ 标记。
 
-        Updates self.cwd and strips the marker from result["output"].
-        Used by remote backends (Docker, SSH, Modal, Daytona, Singularity).
+        更新 self.cwd 并从 result["output"] 中剥离标记。
+        由远程后端使用（Docker、SSH、Modal、Daytona、Singularity）。
         """
         output = result.get("output", "")
         marker = self._cwd_marker
@@ -464,16 +461,15 @@ class BaseEnvironment(ABC):
         result["output"] = output[:line_start] + output[line_end:]
 
     # ------------------------------------------------------------------
-    # Hooks
+    # 钩子
     # ------------------------------------------------------------------
 
     def _before_execute(self):
-        """Rate-limited file sync before each command.
+        """每次命令前的速率限制文件同步。
 
-        Backends that need pre-command sync set ``self._last_sync_time = 0``
-        in ``__init__`` and override :meth:`_sync_files`.  Backends needing
-        extra pre-exec logic (e.g. Daytona sandbox restart check) override
-        this method and call ``super()._before_execute()``.
+        需要命令前同步的后端在 ``__init__`` 中设置 ``self._last_sync_time = 0``
+        并覆盖 :meth:`_sync_files`。需要额外 exec 前逻辑的后端（例如 Daytona
+        沙箱重启检查）覆盖此方法并调用 ``super()._before_execute()``。
         """
         if self._last_sync_time is not None:
             now = time.monotonic()
@@ -482,11 +478,11 @@ class BaseEnvironment(ABC):
                 self._last_sync_time = now
 
     def _sync_files(self):
-        """Push files to remote environment. Called rate-limited by _before_execute."""
+        """将文件推送到远程环境。由 _before_execute 进行速率限制调用。"""
         pass
 
     # ------------------------------------------------------------------
-    # Unified execute()
+    # 统一 execute()
     # ------------------------------------------------------------------
 
     def execute(
@@ -497,7 +493,7 @@ class BaseEnvironment(ABC):
         timeout: int | None = None,
         stdin_data: str | None = None,
     ) -> dict:
-        """Execute a command, return {"output": str, "returncode": int}."""
+        """执行一个命令，返回 {"output": str, "returncode": int}。"""
         self._before_execute()
 
         exec_command, sudo_stdin = self._prepare_command(command)
@@ -531,11 +527,11 @@ class BaseEnvironment(ABC):
         return result
 
     # ------------------------------------------------------------------
-    # Shared helpers
+    # 共享辅助函数
     # ------------------------------------------------------------------
 
     def stop(self):
-        """Alias for cleanup (compat with older callers)."""
+        """cleanup 的别名（与旧调用者兼容）。"""
         self.cleanup()
 
     def __del__(self):
@@ -545,13 +541,13 @@ class BaseEnvironment(ABC):
             pass
 
     def _prepare_command(self, command: str) -> tuple[str, str | None]:
-        """Transform sudo commands if SUDO_PASSWORD is available."""
+        """如果 SUDO_PASSWORD 可用，则转换 sudo 命令。"""
         from tools.terminal_tool import _transform_sudo_command
 
         return _transform_sudo_command(command)
 
     def _timeout_result(self, timeout: int | None) -> dict:
-        """Standard return dict when a command times out."""
+        """命令超时时返回的标准字典。"""
         return {
             "output": f"Command timed out after {timeout or self.timeout}s",
             "returncode": 124,

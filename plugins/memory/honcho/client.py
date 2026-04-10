@@ -1,11 +1,11 @@
-"""Honcho client initialization and configuration.
+"""Honcho 客户端初始化和配置。
 
-Resolution order for config file:
+配置文件解析顺序：
   1. $KCLAW_HOME/honcho.json  (instance-local, enables isolated KClaw instances)
   2. ~/.honcho/config.json     (global, shared across all Honcho-enabled apps)
   3. Environment variables     (HONCHO_API_KEY, HONCHO_ENVIRONMENT)
 
-Resolution order for host-specific settings:
+主机特定设置解析顺序：
   1. Explicit host block fields (always win)
   2. Flat/global fields from config root
   3. Defaults (host name as workspace/peer)
@@ -32,11 +32,11 @@ HOST = "kclaw"
 
 
 def resolve_active_host() -> str:
-    """Derive the Honcho host key from the active KClaw profile.
+    """从活动的 KClaw profile 派生 Honcho 主机键。
 
-    Resolution order:
-      1. KCLAW_HONCHO_HOST env var (explicit override)
-      2. Active profile name via profiles system -> ``kclaw.<profile>``
+    解析顺序：
+      1. KCLAW_HONCHO_HOST 环境变量（显式覆盖）
+      2. 通过 profiles 系统激活的 profile 名称 -> ``kclaw.<profile>``
       3. Fallback: ``"kclaw"`` (default profile)
     """
     explicit = os.environ.get("KCLAW_HONCHO_HOST", "").strip()
@@ -54,14 +54,14 @@ def resolve_active_host() -> str:
 
 
 def resolve_config_path() -> Path:
-    """Return the active Honcho config path.
+    """返回活动的 Honcho 配置路径。
 
-    Resolution order:
+    解析顺序：
       1. $KCLAW_HOME/honcho.json      (profile-local, if it exists)
       2. ~/.kclaw/honcho.json          (default profile — shared host blocks live here)
       3. ~/.honcho/config.json          (global, cross-app interop)
 
-    Returns the global path if none exist (for first-time setup writes).
+    如果都不存在则返回全局路径（用于首次设置写入）。
     """
     local_path = get_kclaw_home() / "honcho.json"
     if local_path.exists():
@@ -80,13 +80,13 @@ _VALID_RECALL_MODES = {"hybrid", "context", "tools"}
 
 
 def _normalize_recall_mode(val: str) -> str:
-    """Normalize legacy recall mode values (e.g. 'auto' → 'hybrid')."""
+    """规范化遗留的 recall mode 值（例如 'auto' → 'hybrid'）。"""
     val = _RECALL_MODE_ALIASES.get(val, val)
     return val if val in _VALID_RECALL_MODES else "hybrid"
 
 
 def _resolve_bool(host_val, root_val, *, default: bool) -> bool:
-    """Resolve a bool config field: host wins, then root, then default."""
+    """解析布尔配置字段：host 优先，然后是 root，最后是默认值。"""
     if host_val is not None:
         return bool(host_val)
     if root_val is not None:
@@ -99,7 +99,7 @@ _OBSERVATION_MODE_ALIASES = {"shared": "unified", "separate": "directional", "cr
 
 
 def _normalize_observation_mode(val: str) -> str:
-    """Normalize observation mode values."""
+    """规范化 observation mode 值。"""
     val = _OBSERVATION_MODE_ALIASES.get(val, val)
     return val if val in _VALID_OBSERVATION_MODES else "directional"
 
@@ -122,14 +122,14 @@ def _resolve_observation(
     mode: str,
     observation_obj: dict | None,
 ) -> dict:
-    """Resolve per-peer observation booleans.
+    """解析每对等方的观察布尔值。
 
-    Config forms:
-      String shorthand:  ``"observationMode": "directional"``
-      Granular object:   ``"observation": {"user": {"observeMe": true, "observeOthers": true},
+    配置形式：
+      字符串简写：  ``"observationMode": "directional"``
+      精细对象：   ``"observation": {"user": {"observeMe": true, "observeOthers": true},
                                            "ai": {"observeMe": true, "observeOthers": false}}``
 
-    Granular fields override preset defaults.
+    精细字段覆盖预设默认值。
     """
     preset = _OBSERVATION_PRESETS.get(mode, _OBSERVATION_PRESETS["directional"])
     if not observation_obj or not isinstance(observation_obj, dict):
@@ -151,7 +151,7 @@ def _resolve_observation(
 
 @dataclass
 class HonchoClientConfig:
-    """Configuration for Honcho client, resolved for a specific host."""
+    """为特定主机解析的 Honcho 客户端配置。"""
 
     host: str = HOST
     workspace_id: str = "kclaw"
@@ -215,7 +215,7 @@ class HonchoClientConfig:
         workspace_id: str = "kclaw",
         host: str | None = None,
     ) -> HonchoClientConfig:
-        """Create config from environment variables (fallback)."""
+        """从环境变量创建配置（后备）。"""
         resolved_host = host or resolve_active_host()
         api_key = os.environ.get("HONCHO_API_KEY")
         base_url = os.environ.get("HONCHO_BASE_URL", "").strip() or None
@@ -235,10 +235,10 @@ class HonchoClientConfig:
         host: str | None = None,
         config_path: Path | None = None,
     ) -> HonchoClientConfig:
-        """Create config from the resolved Honcho config path.
+        """从解析的 Honcho 配置路径创建配置。
 
-        Resolution: $KCLAW_HOME/honcho.json -> ~/.honcho/config.json -> env vars.
-        When host is None, derives it from the active KClaw profile.
+        解析：$KCLAW_HOME/honcho.json -> ~/.honcho/config.json -> env vars。
+        当 host 为 None 时，从活动的 KClaw profile 派生。
         """
         resolved_host = host or resolve_active_host()
         path = config_path or resolve_config_path()
@@ -393,7 +393,7 @@ class HonchoClientConfig:
 
     @staticmethod
     def _git_repo_name(cwd: str) -> str | None:
-        """Return the git repo root directory name, or None if not in a repo."""
+        """返回 git 仓库根目录名称，如果不在仓库中则返回 None。"""
         import subprocess
 
         try:
@@ -413,15 +413,15 @@ class HonchoClientConfig:
         session_title: str | None = None,
         session_id: str | None = None,
     ) -> str | None:
-        """Resolve Honcho session name.
+        """解析 Honcho 会话名称。
 
-        Resolution order:
-          1. Manual directory override from sessions map
-          2. KClaw session title (from /title command)
-          3. per-session strategy — KClaw session_id ({timestamp}_{hex})
-          4. per-repo strategy — git repo root directory name
-          5. per-directory strategy — directory basename
-          6. global strategy — workspace name
+        解析顺序：
+          1. 来自 sessions map 的手动目录覆盖
+          2. KClaw 会话标题（来自 /title 命令）
+          3. per-session 策略 — KClaw session_id ({timestamp}_{hex})
+          4. per-repo 策略 — git 仓库根目录名称
+          5. per-directory 策略 — 目录基名
+          6. global 策略 — workspace 名称
         """
         import re
 
@@ -469,10 +469,10 @@ _honcho_client: Honcho | None = None
 
 
 def get_honcho_client(config: HonchoClientConfig | None = None) -> Honcho:
-    """Get or create the Honcho client singleton.
+    """获取或创建 Honcho 客户端单例。
 
-    When no config is provided, attempts to load ~/.honcho/config.json
-    first, falling back to environment variables.
+    当未提供配置时，尝试首先加载 ~/.honcho/config.json，
+    然后回退到环境变量。
     """
     global _honcho_client
 
@@ -550,6 +550,6 @@ def get_honcho_client(config: HonchoClientConfig | None = None) -> Honcho:
 
 
 def reset_honcho_client() -> None:
-    """Reset the Honcho client singleton (useful for testing)."""
+    """重置 Honcho 客户端单例（用于测试）。"""
     global _honcho_client
     _honcho_client = None

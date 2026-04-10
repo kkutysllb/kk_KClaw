@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 """
-Image Generation Tools Module
+图像生成工具模块
 
-This module provides image generation tools using FAL.ai's FLUX 2 Pro model with 
-automatic upscaling via FAL.ai's Clarity Upscaler for enhanced image quality.
+本模块提供使用 FAL.ai 的 FLUX 2 Pro 模型进行图像生成的工具,
+并通过 FAL.ai 的 Clarity Upscaler 进行自动放大以增强图像质量。
 
-Available tools:
-- image_generate_tool: Generate images from text prompts with automatic upscaling
+可用工具:
+- image_generate_tool: 从文本提示生成图像并自动放大
 
-Features:
-- High-quality image generation using FLUX 2 Pro model
-- Automatic 2x upscaling using Clarity Upscaler for enhanced quality
-- Comprehensive parameter control (size, steps, guidance, etc.)
-- Proper error handling and validation with fallback to original images
-- Debug logging support
-- Sync mode for immediate results
+功能:
+- 使用 FLUX 2 Pro 模型生成高质量图像
+- 使用 Clarity Upscaler 自动 2x 放大以增强质量
+- 全面的参数控制 (大小、步数、引导等)
+- 适当的错误处理和验证,失败时回退到原始图像
+- 调试日志支持
+- 同步模式以立即获取结果
 
-Usage:
+用法:
     from image_generation_tool import image_generate_tool
     import asyncio
-    
-    # Generate and automatically upscale an image
+
+    # 生成并自动放大图像
     result = await image_generate_tool(
         prompt="A serene mountain landscape with cherry blossoms",
         image_size="landscape_4_3",
@@ -43,7 +43,7 @@ from tools.tool_backend_helpers import managed_nous_tools_enabled
 
 logger = logging.getLogger(__name__)
 
-# Configuration for image generation
+# 图像生成的配置
 DEFAULT_MODEL = "fal-ai/flux-2-pro"
 DEFAULT_ASPECT_RATIO = "landscape"
 DEFAULT_NUM_INFERENCE_STEPS = 50
@@ -51,11 +51,11 @@ DEFAULT_GUIDANCE_SCALE = 4.5
 DEFAULT_NUM_IMAGES = 1
 DEFAULT_OUTPUT_FORMAT = "png"
 
-# Safety settings
+# 安全设置
 ENABLE_SAFETY_CHECKER = False
 SAFETY_TOLERANCE = "5"  # Maximum tolerance (1-5, where 5 is most permissive)
 
-# Aspect ratio mapping - simplified choices for model to select
+# 宽高比映射 - 模型选择的简化选项
 ASPECT_RATIO_MAP = {
     "landscape": "landscape_16_9",
     "square": "square_hd",
@@ -63,7 +63,7 @@ ASPECT_RATIO_MAP = {
 }
 VALID_ASPECT_RATIOS = list(ASPECT_RATIO_MAP.keys())
 
-# Configuration for automatic upscaling
+# 自动放大的配置
 UPSCALER_MODEL = "fal-ai/clarity-upscaler"
 UPSCALER_FACTOR = 2
 UPSCALER_SAFETY_CHECKER = False
@@ -74,7 +74,7 @@ UPSCALER_RESEMBLANCE = 0.6
 UPSCALER_GUIDANCE_SCALE = 4
 UPSCALER_NUM_INFERENCE_STEPS = 18
 
-# Valid parameter values for validation based on FLUX 2 Pro documentation
+# 基于 FLUX 2 Pro 文档的有效参数值用于验证
 VALID_IMAGE_SIZES = [
     "square_hd", "square", "portrait_4_3", "portrait_16_9", "landscape_4_3", "landscape_16_9"
 ]
@@ -88,7 +88,7 @@ _managed_fal_client_lock = threading.Lock()
 
 
 def _resolve_managed_fal_gateway():
-    """Return managed fal-queue gateway config when direct FAL credentials are absent."""
+    """当直接 FAL 凭证缺失时,返回托管的 fal-queue 网关配置。"""
     if os.getenv("FAL_KEY"):
         return None
     return resolve_managed_tool_gateway("fal-queue")
@@ -102,7 +102,7 @@ def _normalize_fal_queue_url_format(queue_run_origin: str) -> str:
 
 
 class _ManagedFalSyncClient:
-    """Small per-instance wrapper around fal_client.SyncClient for managed queue hosts."""
+    """为托管队列主机封装的 fal_client.SyncClient 的小型每实例包装器。"""
 
     def __init__(self, *, key: str, queue_run_origin: str):
         sync_client_class = getattr(fal_client, "SyncClient", None)
@@ -181,7 +181,7 @@ class _ManagedFalSyncClient:
 
 
 def _get_managed_fal_client(managed_gateway):
-    """Reuse the managed FAL client so its internal httpx.Client is not leaked per call."""
+    """重用托管的 FAL 客户端,使其内部的 httpx.Client 不会在每次调用时泄漏。"""
     global _managed_fal_client, _managed_fal_client_config
 
     client_config = (
@@ -201,7 +201,7 @@ def _get_managed_fal_client(managed_gateway):
 
 
 def _submit_fal_request(model: str, arguments: Dict[str, Any]):
-    """Submit a FAL request using direct credentials or the managed queue gateway."""
+    """使用直接凭证或托管队列网关提交 FAL 请求。"""
     request_headers = {"x-idempotency-key": str(uuid.uuid4())}
     managed_gateway = _resolve_managed_fal_gateway()
     if managed_gateway is None:
@@ -216,7 +216,7 @@ def _submit_fal_request(model: str, arguments: Dict[str, Any]):
 
 
 def _validate_parameters(
-    image_size: Union[str, Dict[str, int]], 
+    image_size: Union[str, Dict[str, int]],
     num_inference_steps: int,
     guidance_scale: float,
     num_images: int,
@@ -224,25 +224,25 @@ def _validate_parameters(
     acceleration: str = "none"
 ) -> Dict[str, Any]:
     """
-    Validate and normalize image generation parameters for FLUX 2 Pro model.
-    
-    Args:
-        image_size: Either a preset string or custom size dict
-        num_inference_steps: Number of inference steps
-        guidance_scale: Guidance scale value
-        num_images: Number of images to generate
-        output_format: Output format for images
-        acceleration: Acceleration mode for generation speed
-    
-    Returns:
-        Dict[str, Any]: Validated and normalized parameters
-    
-    Raises:
-        ValueError: If any parameter is invalid
+    为 FLUX 2 Pro 模型验证和规范化图像生成参数。
+
+    参数:
+        image_size: 预设字符串或自定义大小字典
+        num_inference_steps: 推理步数
+        guidance_scale: 引导比例值
+        num_images: 要生成的图像数
+        output_format: 图像的输出格式
+        acceleration: 生成速度的加速模式
+
+    返回:
+        Dict[str, Any]: 验证和规范化后的参数
+
+    抛出:
+        ValueError: 如果任何参数无效
     """
     validated = {}
     
-    # Validate image_size
+    # 验证 image_size
     if isinstance(image_size, str):
         if image_size not in VALID_IMAGE_SIZES:
             raise ValueError(f"Invalid image_size '{image_size}'. Must be one of: {VALID_IMAGE_SIZES}")
@@ -260,27 +260,27 @@ def _validate_parameters(
     else:
         raise ValueError("image_size must be either a preset string or a dict with width/height")
     
-    # Validate num_inference_steps
+    # 验证 num_inference_steps
     if not isinstance(num_inference_steps, int) or num_inference_steps < 1 or num_inference_steps > 100:
         raise ValueError("num_inference_steps must be an integer between 1 and 100")
     validated["num_inference_steps"] = num_inference_steps
     
-    # Validate guidance_scale (FLUX 2 Pro default is 4.5)
+    # 验证 guidance_scale (FLUX 2 Pro 默认是 4.5)
     if not isinstance(guidance_scale, (int, float)) or guidance_scale < 0.1 or guidance_scale > 20.0:
         raise ValueError("guidance_scale must be a number between 0.1 and 20.0")
     validated["guidance_scale"] = float(guidance_scale)
     
-    # Validate num_images
+    # 验证 num_images
     if not isinstance(num_images, int) or num_images < 1 or num_images > 4:
         raise ValueError("num_images must be an integer between 1 and 4")
     validated["num_images"] = num_images
     
-    # Validate output_format
+    # 验证 output_format
     if output_format not in VALID_OUTPUT_FORMATS:
         raise ValueError(f"Invalid output_format '{output_format}'. Must be one of: {VALID_OUTPUT_FORMATS}")
     validated["output_format"] = output_format
     
-    # Validate acceleration
+    # 验证 acceleration
     if acceleration not in VALID_ACCELERATION_MODES:
         raise ValueError(f"Invalid acceleration '{acceleration}'. Must be one of: {VALID_ACCELERATION_MODES}")
     validated["acceleration"] = acceleration
@@ -290,22 +290,22 @@ def _validate_parameters(
 
 def _upscale_image(image_url: str, original_prompt: str) -> Dict[str, Any]:
     """
-    Upscale an image using FAL.ai's Clarity Upscaler.
-    
-    Uses the synchronous fal_client API to avoid event loop lifecycle issues
-    when called from threaded contexts (e.g. gateway thread pool).
-    
-    Args:
-        image_url (str): URL of the image to upscale
-        original_prompt (str): Original prompt used to generate the image
-    
-    Returns:
-        Dict[str, Any]: Upscaled image data or None if upscaling fails
+    使用 FAL.ai 的 Clarity Upscaler 放大图像。
+
+    使用同步 fal_client API 以避免从线程上下文调用时的事件循环生命周期问题
+    (例如网关线程池)。
+
+    参数:
+        image_url (str): 要放大的图像的 URL
+        original_prompt (str): 用于生成图像的原始提示
+
+    返回:
+        Dict[str, Any]: 放大后的图像数据,如果放大失败则返回 None
     """
     try:
         logger.info("Upscaling image with Clarity Upscaler...")
         
-        # Prepare arguments for upscaler
+        # 准备放大器的参数
         upscaler_arguments = {
             "image_url": image_url,
             "prompt": f"{UPSCALER_DEFAULT_PROMPT}, {original_prompt}",
@@ -318,16 +318,15 @@ def _upscale_image(image_url: str, original_prompt: str) -> Dict[str, Any]:
             "enable_safety_checker": UPSCALER_SAFETY_CHECKER
         }
         
-        # Use sync API — fal_client.submit() uses httpx.Client (no event loop).
-        # The async API (submit_async) caches a global httpx.AsyncClient via
-        # @cached_property, which breaks when asyncio.run() destroys the loop
-        # between calls (gateway thread-pool pattern).
+        # 使用同步 API — fal_client.submit() 使用 httpx.Client (无事件循环)。
+        # 异步 API (submit_async) 通过 @cached_property 缓存全局 httpx.AsyncClient,
+        # 这在 asyncio.run() 在调用之间销毁循环时会破坏 (网关线程池模式)。
         handler = _submit_fal_request(
             UPSCALER_MODEL,
             arguments=upscaler_arguments,
         )
         
-        # Get the upscaled result (sync — blocks until done)
+        # 获取放大结果 (同步 — 阻塞直到完成)
         result = handler.get()
         
         if result and "image" in result:
@@ -359,30 +358,30 @@ def image_generate_tool(
     seed: Optional[int] = None
 ) -> str:
     """
-    Generate images from text prompts using FAL.ai's FLUX 2 Pro model with automatic upscaling.
-    
-    Uses the synchronous fal_client API to avoid event loop lifecycle issues.
-    The async API's global httpx.AsyncClient (cached via @cached_property) breaks
-    when asyncio.run() destroys and recreates event loops between calls, which
-    happens in the gateway's thread-pool pattern.
-    
-    Args:
-        prompt (str): The text prompt describing the desired image
-        aspect_ratio (str): Image aspect ratio - "landscape", "square", or "portrait" (default: "landscape")
-        num_inference_steps (int): Number of denoising steps (1-50, default: 50)
-        guidance_scale (float): How closely to follow prompt (0.1-20.0, default: 4.5)
-        num_images (int): Number of images to generate (1-4, default: 1)
-        output_format (str): Image format "jpeg" or "png" (default: "png")
-        seed (Optional[int]): Random seed for reproducible results (optional)
-    
-    Returns:
-        str: JSON string containing minimal generation results:
+    使用 FAL.ai 的 FLUX 2 Pro 模型和自动放大从文本提示生成图像。
+
+    使用同步 fal_client API 以避免事件循环生命周期问题。
+    异步 API 的全局 httpx.AsyncClient (通过 @cached_property 缓存) 在
+    asyncio.run() 在调用之间销毁和重新创建事件循环时会破坏,
+    这发生在网关的线程池模式中。
+
+    参数:
+        prompt (str): 描述所需图像的文本提示
+        aspect_ratio (str): 图像宽高比 - "landscape"、"square" 或 "portrait" (默认: "landscape")
+        num_inference_steps (int): 去噪步数 (1-50, 默认: 50)
+        guidance_scale (float): 遵循提示的程度 (0.1-20.0, 默认: 4.5)
+        num_images (int): 要生成的图像数 (1-4, 默认: 1)
+        output_format (str): 图像格式 "jpeg" 或 "png" (默认: "png")
+        seed (Optional[int]): 用于可重现结果的随机种子 (可选)
+
+    返回:
+        str: 包含最小生成结果的 JSON 字符串:
              {
                  "success": bool,
-                 "image": str or None  # URL of the upscaled image, or None if failed
+                 "image": str or None  # 放大图像的 URL,或如果失败则返回 None
              }
     """
-    # Validate and map aspect_ratio to actual image_size
+    # 验证 aspect_ratio 并映射到实际的 image_size
     aspect_ratio_lower = aspect_ratio.lower().strip() if aspect_ratio else DEFAULT_ASPECT_RATIO
     if aspect_ratio_lower not in ASPECT_RATIO_MAP:
         logger.warning("Invalid aspect_ratio '%s', defaulting to '%s'", aspect_ratio, DEFAULT_ASPECT_RATIO)
@@ -411,23 +410,23 @@ def image_generate_tool(
     try:
         logger.info("Generating %s image(s) with FLUX 2 Pro: %s", num_images, prompt[:80])
         
-        # Validate prompt
+        # 验证 prompt
         if not prompt or not isinstance(prompt, str) or len(prompt.strip()) == 0:
             raise ValueError("Prompt is required and must be a non-empty string")
         
-        # Check API key availability
+        # 检查 API 密钥可用性
         if not (os.getenv("FAL_KEY") or _resolve_managed_fal_gateway()):
             message = "FAL_KEY environment variable not set"
             if managed_nous_tools_enabled():
                 message += " and managed FAL gateway is unavailable"
             raise ValueError(message)
         
-        # Validate other parameters
+        # 验证其他参数
         validated_params = _validate_parameters(
             image_size, num_inference_steps, guidance_scale, num_images, output_format, "none"
         )
         
-        # Prepare arguments for FAL.ai FLUX 2 Pro API
+        # 准备 FAL.ai FLUX 2 Pro API 的参数
         arguments = {
             "prompt": prompt.strip(),
             "image_size": validated_params["image_size"],
@@ -440,7 +439,7 @@ def image_generate_tool(
             "sync_mode": True  # Use sync mode for immediate results
         }
         
-        # Add seed if provided
+        # 如果提供了种子则添加
         if seed is not None and isinstance(seed, int):
             arguments["seed"] = seed
         
@@ -450,13 +449,13 @@ def image_generate_tool(
         logger.info("  Steps: %s", validated_params['num_inference_steps'])
         logger.info("  Guidance: %s", validated_params['guidance_scale'])
         
-        # Submit request to FAL.ai using sync API (avoids cached event loop issues)
+        # 使用同步 API 向 FAL.ai 提交请求 (避免缓存事件循环问题)
         handler = _submit_fal_request(
             DEFAULT_MODEL,
             arguments=arguments,
         )
         
-        # Get the result (sync — blocks until done)
+        # 获取结果 (同步 — 阻塞直到完成)
         result = handler.get()
         
         generation_time = (datetime.datetime.now() - start_time).total_seconds()
@@ -469,7 +468,7 @@ def image_generate_tool(
         if not images:
             raise ValueError("No images were generated")
         
-        # Format image data and upscale images
+        # 格式化图像数据并放大图像
         formatted_images = []
         for img in images:
             if isinstance(img, dict) and "url" in img:
@@ -479,14 +478,14 @@ def image_generate_tool(
                     "height": img.get("height", 0)
                 }
                 
-                # Attempt to upscale the image
+                # 尝试放大图像
                 upscaled_image = _upscale_image(img["url"], prompt.strip())
                 
                 if upscaled_image:
-                    # Use upscaled image if successful
+                    # 如果成功则使用放大的图像
                     formatted_images.append(upscaled_image)
                 else:
-                    # Fall back to original image if upscaling fails
+                    # 如果放大失败则回退到原始图像
                     logger.warning("Using original image as fallback")
                     original_image["upscaled"] = False
                     formatted_images.append(original_image)
@@ -497,7 +496,7 @@ def image_generate_tool(
         upscaled_count = sum(1 for img in formatted_images if img.get("upscaled", False))
         logger.info("Generated %s image(s) in %.1fs (%s upscaled)", len(formatted_images), generation_time, upscaled_count)
         
-        # Prepare successful response - minimal format
+        # 准备成功响应 - 最小格式
         response_data = {
             "success": True,
             "image": formatted_images[0]["url"] if formatted_images else None
@@ -507,7 +506,7 @@ def image_generate_tool(
         debug_call_data["images_generated"] = len(formatted_images)
         debug_call_data["generation_time"] = generation_time
         
-        # Log debug information
+        # 记录调试信息
         _debug.log_call("image_generate_tool", debug_call_data)
         _debug.save()
         
@@ -518,7 +517,7 @@ def image_generate_tool(
         error_msg = f"Error generating image: {str(e)}"
         logger.error("%s", error_msg, exc_info=True)
         
-        # Include error details so callers can diagnose failures
+        # 包含错误细节以便调用者诊断失败
         response_data = {
             "success": False,
             "image": None,
@@ -536,27 +535,27 @@ def image_generate_tool(
 
 def check_fal_api_key() -> bool:
     """
-    Check if the FAL.ai API key is available in environment variables.
-    
-    Returns:
-        bool: True if API key is set, False otherwise
+    检查 FAL.ai API 密钥是否在环境变量中可用。
+
+    返回:
+        bool: 如果设置了 API 密钥则返回 True,否则返回 False
     """
     return bool(os.getenv("FAL_KEY") or _resolve_managed_fal_gateway())
 
 
 def check_image_generation_requirements() -> bool:
     """
-    Check if all requirements for image generation tools are met.
-    
-    Returns:
-        bool: True if requirements are met, False otherwise
+    检查图像生成工具的所有需求是否满足。
+
+    返回:
+        bool: 如果满足需求则返回 True,否则返回 False
     """
     try:
-        # Check API key
+        # 检查 API 密钥
         if not check_fal_api_key():
             return False
         
-        # Check if fal_client is available
+        # 检查 fal_client 是否可用
         import fal_client  # noqa: F401 — SDK presence check
         return True
         
@@ -566,22 +565,22 @@ def check_image_generation_requirements() -> bool:
 
 def get_debug_session_info() -> Dict[str, Any]:
     """
-    Get information about the current debug session.
-    
-    Returns:
-        Dict[str, Any]: Dictionary containing debug session information
+    获取当前调试会话的信息。
+
+    返回:
+        Dict[str, Any]: 包含调试会话信息的字典
     """
     return _debug.get_session_info()
 
 
 if __name__ == "__main__":
     """
-    Simple test/demo when run directly
+    直接运行时的简单测试/演示
     """
     print("🎨 Image Generation Tools Module - FLUX 2 Pro + Auto Upscaling")
     print("=" * 60)
     
-    # Check if API key is available
+    # 检查 API 密钥是否可用
     api_available = check_fal_api_key()
     
     if not api_available:
@@ -592,7 +591,7 @@ if __name__ == "__main__":
     else:
         print("✅ FAL.ai API key found")
     
-    # Check if fal_client is available
+    # 检查 fal_client 是否可用
     try:
         import fal_client
         print("✅ fal_client library available")
@@ -605,7 +604,7 @@ if __name__ == "__main__":
     print(f"🤖 Using model: {DEFAULT_MODEL}")
     print(f"🔍 Auto-upscaling with: {UPSCALER_MODEL} ({UPSCALER_FACTOR}x)")
     
-    # Show debug mode status
+    # 显示调试模式状态
     if _debug.active:
         print(f"🐛 Debug mode ENABLED - Session ID: {_debug.session_id}")
         print(f"   Debug logs will be saved to: ./logs/image_tools_debug_{_debug.session_id}.json")
@@ -650,7 +649,7 @@ if __name__ == "__main__":
 
 
 # ---------------------------------------------------------------------------
-# Registry
+# 注册
 # ---------------------------------------------------------------------------
 from tools.registry import registry, tool_error
 

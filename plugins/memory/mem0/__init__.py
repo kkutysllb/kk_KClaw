@@ -1,16 +1,16 @@
-"""Mem0 memory plugin — MemoryProvider interface.
+"""Mem0 记忆插件 — MemoryProvider 接口。
 
-Server-side LLM fact extraction, semantic search with reranking, and
-automatic deduplication via the Mem0 Platform API.
+服务端 LLM 事实提取、语义搜索（带重排）以及
+通过 Mem0 Platform API 自动去重。
 
-Original PR #2933 by kartik-mem0, adapted to MemoryProvider ABC.
+原始 PR #2933 由 kartik-mem0 提交，已适配 MemoryProvider ABC。
 
-Config via environment variables:
-  MEM0_API_KEY       — Mem0 Platform API key (required)
-  MEM0_USER_ID       — User identifier (default: kclaw-user)
-  MEM0_AGENT_ID      — Agent identifier (default: kclaw)
+通过环境变量配置：
+  MEM0_API_KEY       — Mem0 Platform API 密钥（必填）
+  MEM0_USER_ID       — 用户标识符（默认：kclaw-user）
+  MEM0_AGENT_ID      — 代理标识符（默认：kclaw）
 
-Or via $KCLAW_HOME/mem0.json.
+或通过 $KCLAW_HOME/mem0.json 配置。
 """
 
 from __future__ import annotations
@@ -27,22 +27,22 @@ from tools.registry import tool_error
 
 logger = logging.getLogger(__name__)
 
-# Circuit breaker: after this many consecutive failures, pause API calls
-# for _BREAKER_COOLDOWN_SECS to avoid hammering a down server.
+# 熔断器：连续失败多次后，暂停 API 调用
+# _BREAKER_COOLDOWN_SECS 秒，以避免对故障服务器造成请求风暴。
 _BREAKER_THRESHOLD = 5
 _BREAKER_COOLDOWN_SECS = 120
 
 
 # ---------------------------------------------------------------------------
-# Config
+# 配置
 # ---------------------------------------------------------------------------
 
 def _load_config() -> dict:
-    """Load config from env vars, with $KCLAW_HOME/mem0.json overrides.
+    """从环境变量加载配置，$KCLAW_HOME/mem0.json 可覆盖。
 
-    Environment variables provide defaults; mem0.json (if present) overrides
-    individual keys.  This avoids a silent failure when the JSON file exists
-    but is missing fields like ``api_key`` that the user set in ``.env``.
+    环境变量提供默认值；mem0.json（如果存在）可覆盖
+    各别键值。当 JSON 文件存在但缺少用户已在 ``.env``
+    中设置的字段（如 ``api_key``）时，这可以避免静默失败。
     """
     from kclaw_constants import get_kclaw_home
 
@@ -67,7 +67,7 @@ def _load_config() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Tool schemas
+# 工具模式
 # ---------------------------------------------------------------------------
 
 PROFILE_SCHEMA = {
@@ -113,11 +113,11 @@ CONCLUDE_SCHEMA = {
 
 
 # ---------------------------------------------------------------------------
-# MemoryProvider implementation
+# MemoryProvider 实现
 # ---------------------------------------------------------------------------
 
 class Mem0MemoryProvider(MemoryProvider):
-    """Mem0 Platform memory with server-side extraction and semantic search."""
+    """Mem0 Platform 记忆，服务端提取和语义搜索。"""
 
     def __init__(self):
         self._config = None
@@ -131,7 +131,7 @@ class Mem0MemoryProvider(MemoryProvider):
         self._prefetch_lock = threading.Lock()
         self._prefetch_thread = None
         self._sync_thread = None
-        # Circuit breaker state
+        # 熔断器状态
         self._consecutive_failures = 0
         self._breaker_open_until = 0.0
 
@@ -144,7 +144,7 @@ class Mem0MemoryProvider(MemoryProvider):
         return bool(cfg.get("api_key"))
 
     def save_config(self, values, kclaw_home):
-        """Write config to $KCLAW_HOME/mem0.json."""
+        """将配置写入 $KCLAW_HOME/mem0.json。"""
         import json
         from pathlib import Path
         config_path = Path(kclaw_home) / "mem0.json"
@@ -166,7 +166,7 @@ class Mem0MemoryProvider(MemoryProvider):
         ]
 
     def _get_client(self):
-        """Thread-safe client accessor with lazy initialization."""
+        """线程安全的客户端访问器，支持延迟初始化。"""
         with self._client_lock:
             if self._client is not None:
                 return self._client
@@ -178,11 +178,11 @@ class Mem0MemoryProvider(MemoryProvider):
                 raise RuntimeError("mem0 package not installed. Run: pip install mem0ai")
 
     def _is_breaker_open(self) -> bool:
-        """Return True if the circuit breaker is tripped (too many failures)."""
+        """如果熔断器触发（连续失败过多）则返回 True。"""
         if self._consecutive_failures < _BREAKER_THRESHOLD:
             return False
         if time.monotonic() >= self._breaker_open_until:
-            # Cooldown expired — reset and allow a retry
+            # 冷却期已过 — 重置并允许重试
             self._consecutive_failures = 0
             return False
         return True
@@ -203,23 +203,23 @@ class Mem0MemoryProvider(MemoryProvider):
     def initialize(self, session_id: str, **kwargs) -> None:
         self._config = _load_config()
         self._api_key = self._config.get("api_key", "")
-        # Prefer gateway-provided user_id for per-user memory scoping;
-        # fall back to config/env default for CLI (single-user) sessions.
+        # 优先使用网关提供的 user_id 进行单用户记忆隔离；
+        # 对于 CLI（单用户）会话则回退到配置/环境默认值。
         self._user_id = kwargs.get("user_id") or self._config.get("user_id", "kclaw-user")
         self._agent_id = self._config.get("agent_id", "kclaw")
         self._rerank = self._config.get("rerank", True)
 
     def _read_filters(self) -> Dict[str, Any]:
-        """Filters for search/get_all — scoped to user only for cross-session recall."""
+        """搜索/获取所有的过滤器 — 仅限用户，用于跨会话记忆召回。"""
         return {"user_id": self._user_id}
 
     def _write_filters(self) -> Dict[str, Any]:
-        """Filters for add — scoped to user + agent for attribution."""
+        """添加的过滤器 — 按用户 + 代理隔离以便溯源。"""
         return {"user_id": self._user_id, "agent_id": self._agent_id}
 
     @staticmethod
     def _unwrap_results(response: Any) -> list:
-        """Normalize Mem0 API response — v2 wraps results in {"results": [...]}."""
+        """规范化 Mem0 API 响应 — v2 版本将结果包装在 {"results": [...]} 中。"""
         if isinstance(response, dict):
             return response.get("results", [])
         if isinstance(response, list):
@@ -270,7 +270,7 @@ class Mem0MemoryProvider(MemoryProvider):
         self._prefetch_thread.start()
 
     def sync_turn(self, user_content: str, assistant_content: str, *, session_id: str = "") -> None:
-        """Send the turn to Mem0 for server-side fact extraction (non-blocking)."""
+        """将对话轮次发送到 Mem0 进行服务端事实提取（非阻塞）。"""
         if self._is_breaker_open():
             return
 
@@ -287,7 +287,7 @@ class Mem0MemoryProvider(MemoryProvider):
                 self._record_failure()
                 logger.warning("Mem0 sync failed: %s", e)
 
-        # Wait for any previous sync before starting a new one
+        # 等待之前的同步完成后再开始新的同步
         if self._sync_thread and self._sync_thread.is_alive():
             self._sync_thread.join(timeout=5.0)
 
@@ -369,5 +369,5 @@ class Mem0MemoryProvider(MemoryProvider):
 
 
 def register(ctx) -> None:
-    """Register Mem0 as a memory provider plugin."""
+    """将 Mem0 注册为记忆提供者插件。"""
     ctx.register_memory_provider(Mem0MemoryProvider())

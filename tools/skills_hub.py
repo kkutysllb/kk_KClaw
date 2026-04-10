@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-Skills Hub — Source adapters and hub state management for the KClaw Skills Hub.
+技能中心 — KClaw 技能中心的源适配器和中心状态管理。
 
-This is a library module (not an agent tool). It provides:
-  - GitHubAuth: Shared GitHub API authentication (PAT, gh CLI, GitHub App)
-  - SkillSource ABC: Interface for all skill registry adapters
-  - OptionalSkillSource: Official optional skills shipped with the repo (not activated by default)
-  - GitHubSource: Fetch skills from any GitHub repo via the Contents API
-  - HubLockFile: Track provenance of installed hub skills
-  - Hub state directory management (quarantine, audit log, taps, index cache)
+这是一个库模块（不是代理工具）。它提供：
+  - GitHubAuth: 共享 GitHub API 认证（PAT、gh CLI、GitHub App）
+  - SkillSource ABC: 所有技能注册表适配器的接口
+  - OptionalSkillSource: 与 repo 一起发货的官方可选技能（默认不激活）
+  - GitHubSource: 通过 Contents API 从任何 GitHub repo 获取技能
+  - HubLockFile: 跟踪已安装中心技能的来源
+  - 中心状态目录管理（隔离、审计日志、taps、索引缓存）
 
-Used by kclaw_cli/skills_hub.py for CLI commands and the /skills slash command.
+由 kclaw_cli/skills_hub.py 用于 CLI 命令和 /skills 斜杠命令。
 """
 
 import hashlib
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Paths
+# 路径
 # ---------------------------------------------------------------------------
 
 KCLAW_HOME = get_kclaw_home()
@@ -52,17 +52,17 @@ AUDIT_LOG = HUB_DIR / "audit.log"
 TAPS_FILE = HUB_DIR / "taps.json"
 INDEX_CACHE_DIR = HUB_DIR / "index-cache"
 
-# Cache duration for remote index fetches
+# 远程索引获取的缓存持续时间
 INDEX_CACHE_TTL = 3600  # 1 hour
 
 
 # ---------------------------------------------------------------------------
-# Data models
+# 数据模型
 # ---------------------------------------------------------------------------
 
 @dataclass
 class SkillMeta:
-    """Minimal metadata returned by search results."""
+    """搜索结果返回的最小元数据。"""
     name: str
     description: str
     source: str           # "official", "github", "clawhub", "claude-marketplace", "lobehub"
@@ -76,7 +76,7 @@ class SkillMeta:
 
 @dataclass
 class SkillBundle:
-    """A downloaded skill ready for quarantine/scanning/installation."""
+    """准备好进行隔离/扫描/安装的下载技能。"""
     name: str
     files: Dict[str, Union[str, bytes]]   # relative_path -> file content
     source: str
@@ -86,7 +86,7 @@ class SkillBundle:
 
 
 def _normalize_bundle_path(path_value: str, *, field_name: str, allow_nested: bool) -> str:
-    """Normalize and validate bundle-controlled paths before touching disk."""
+    """在接触磁盘之前规范化并验证束控制的路径。"""
     if not isinstance(path_value, str):
         raise ValueError(f"Unsafe {field_name}: expected a string")
 
@@ -123,16 +123,16 @@ def _validate_bundle_rel_path(rel_path: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# GitHub Authentication
+# GitHub 认证
 # ---------------------------------------------------------------------------
 
 class GitHubAuth:
     """
-    GitHub API authentication. Tries methods in priority order:
-      1. GITHUB_TOKEN / GH_TOKEN env var (PAT — the default)
-      2. `gh auth token` subprocess (if gh CLI is installed)
-      3. GitHub App JWT + installation token (if app credentials configured)
-      4. Unauthenticated (60 req/hr, public repos only)
+    GitHub API 认证。按优先级顺序尝试方法：
+      1. GITHUB_TOKEN / GH_TOKEN 环境变量（PAT — 默认）
+      2. `gh auth token` 子进程（如果 gh CLI 已安装）
+      3. GitHub App JWT + 安装令牌（如果配置了应用凭证）
+      4. 未认证（60 请求/小时，仅公共仓库）
     """
 
     def __init__(self):
@@ -141,7 +141,7 @@ class GitHubAuth:
         self._app_token_expiry: float = 0
 
     def get_headers(self) -> Dict[str, str]:
-        """Return authorization headers for GitHub API requests."""
+        """返回 GitHub API 请求的授权请求头。"""
         token = self._resolve_token()
         headers = {"Accept": "application/vnd.github.v3+json"}
         if token:
@@ -152,17 +152,17 @@ class GitHubAuth:
         return self._resolve_token() is not None
 
     def auth_method(self) -> str:
-        """Return which auth method is active: 'pat', 'gh-cli', 'github-app', or 'anonymous'."""
+        """返回活动的认证方法：'pat'、'gh-cli'、'github-app' 或 'anonymous'。"""
         self._resolve_token()
         return self._cached_method or "anonymous"
 
     def _resolve_token(self) -> Optional[str]:
-        # Return cached token if still valid
+        # 如果缓存的令牌仍然有效则返回
         if self._cached_token:
             if self._cached_method != "github-app" or time.time() < self._app_token_expiry:
                 return self._cached_token
 
-        # 1. Environment variable
+        # 1. 环境变量
         token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
         if token:
             self._cached_token = token
@@ -188,7 +188,7 @@ class GitHubAuth:
         return None
 
     def _try_gh_cli(self) -> Optional[str]:
-        """Try to get a token from the gh CLI."""
+        """尝试从 gh CLI 获取令牌。"""
         try:
             result = subprocess.run(
                 ["gh", "auth", "token"],
@@ -201,7 +201,7 @@ class GitHubAuth:
         return None
 
     def _try_github_app(self) -> Optional[str]:
-        """Try GitHub App JWT authentication if credentials are configured."""
+        """如果配置了凭证，则尝试 GitHub App JWT 认证。"""
         app_id = os.environ.get("GITHUB_APP_ID")
         key_path = os.environ.get("GITHUB_APP_PRIVATE_KEY_PATH")
         installation_id = os.environ.get("GITHUB_APP_INSTALLATION_ID")
@@ -246,43 +246,43 @@ class GitHubAuth:
 
 
 # ---------------------------------------------------------------------------
-# Source adapter interface
+# 源适配器接口
 # ---------------------------------------------------------------------------
 
 class SkillSource(ABC):
-    """Abstract base for all skill registry adapters."""
+    """所有技能注册表适配器的抽象基类。"""
 
     @abstractmethod
     def search(self, query: str, limit: int = 10) -> List[SkillMeta]:
-        """Search for skills matching a query string."""
+        """搜索与查询字符串匹配的工具."""
         ...
 
     @abstractmethod
     def fetch(self, identifier: str) -> Optional[SkillBundle]:
-        """Download a skill bundle by identifier."""
+        """通过标识符下载工具包。"""
         ...
 
     @abstractmethod
     def inspect(self, identifier: str) -> Optional[SkillMeta]:
-        """Fetch metadata for a skill without downloading all files."""
+        """获取工具的元数据而不下载所有文件。"""
         ...
 
     @abstractmethod
     def source_id(self) -> str:
-        """Unique identifier for this source (e.g. 'github', 'clawhub')."""
+        """返回此源的唯一标识符（例如 'github'、'clawhub'）。"""
         ...
 
     def trust_level_for(self, identifier: str) -> str:
-        """Determine trust level for a skill from this source."""
+        """确定来自此源的信任等级。"""
         return "community"
 
 
 # ---------------------------------------------------------------------------
-# GitHub source adapter
+# GitHub 源适配器
 # ---------------------------------------------------------------------------
 
 class GitHubSource(SkillSource):
-    """Fetch skills from GitHub repos via the Contents API."""
+    """通过 Contents API 从 GitHub 仓库获取工具。"""
 
     DEFAULT_TAPS = [
         {"repo": "openai/skills", "path": "skills/"},
@@ -310,7 +310,7 @@ class GitHubSource(SkillSource):
         return "community"
 
     def search(self, query: str, limit: int = 10) -> List[SkillMeta]:
-        """Search all taps for skills matching the query."""
+        """在所有配置源中搜索与查询匹配的工具。"""
         results: List[SkillMeta] = []
         query_lower = query.lower()
 
@@ -325,7 +325,7 @@ class GitHubSource(SkillSource):
                 logger.debug(f"Failed to search {tap['repo']}: {e}")
                 continue
 
-        # Deduplicate by name, preferring higher trust levels
+        # 按名称去重，优先选择更高信任等级
         _trust_rank = {"builtin": 2, "trusted": 1, "community": 0}
         seen = {}
         for r in results:
@@ -339,8 +339,8 @@ class GitHubSource(SkillSource):
 
     def fetch(self, identifier: str) -> Optional[SkillBundle]:
         """
-        Download a skill from GitHub.
-        identifier format: "owner/repo/path/to/skill-dir"
+        从 GitHub 下载工具。
+        标识符格式："owner/repo/path/to/skill-dir"
         """
         parts = identifier.split("/", 2)
         if len(parts) < 3:
@@ -365,7 +365,7 @@ class GitHubSource(SkillSource):
         )
 
     def inspect(self, identifier: str) -> Optional[SkillMeta]:
-        """Fetch just the SKILL.md metadata for preview."""
+        """仅获取 SKILL.md 元数据以供预览。"""
         parts = identifier.split("/", 2)
         if len(parts) < 3:
             return None
@@ -403,10 +403,10 @@ class GitHubSource(SkillSource):
             tags=[str(t) for t in tags],
         )
 
-    # -- Internal helpers --
+    # -- 内部辅助方法 --
 
     def _list_skills_in_repo(self, repo: str, path: str) -> List[SkillMeta]:
-        """List skill directories in a GitHub repo path, using cached index."""
+        """列出 GitHub 仓库路径中的工具目录，使用缓存索引。"""
         cache_key = f"{repo}_{path}".replace("/", "_").replace(" ", "_")
         cached = self._read_cache(cache_key)
         if cached is not None:
@@ -439,17 +439,15 @@ class GitHubSource(SkillSource):
             if meta:
                 skills.append(meta)
 
-        # Cache the results
+        # 缓存结果
         self._write_cache(cache_key, [self._meta_to_dict(s) for s in skills])
         return skills
 
     def _download_directory(self, repo: str, path: str) -> Dict[str, str]:
-        """Recursively download all text files from a GitHub directory.
+        """递归下载 GitHub 目录中的所有文本文件。
 
-        Uses the Git Trees API first (single call for the entire tree) to
-        avoid per-directory rate limiting that causes silent subdirectory
-        loss.  Falls back to the recursive Contents API when the tree
-        endpoint is unavailable or the response is truncated.
+        首先使用 Git Trees API（单个调用获取整个树）以避免每个目录的速率限制导致子目录静默丢失。
+        当树端点不可用或响应被截断时，回退到递归 Contents API。
         """
         files = self._download_directory_via_tree(repo, path)
         if files is not None:
@@ -458,11 +456,11 @@ class GitHubSource(SkillSource):
         return self._download_directory_recursive(repo, path)
 
     def _download_directory_via_tree(self, repo: str, path: str) -> Optional[Dict[str, str]]:
-        """Download an entire directory using the Git Trees API (single request)."""
+        """使用 Git Trees API 下载整个目录（单个请求）。"""
         path = path.rstrip("/")
         headers = self.auth.get_headers()
 
-        # Resolve the default branch via the repo endpoint
+        # 通过仓库端点解析默认分支
         try:
             repo_url = f"https://api.github.com/repos/{repo}"
             resp = httpx.get(repo_url, headers=headers, timeout=15, follow_redirects=True)
@@ -472,7 +470,7 @@ class GitHubSource(SkillSource):
         except (httpx.HTTPError, ValueError):
             return None
 
-        # Fetch the full recursive tree (branch name works as tree-ish)
+        # 获取完整的递归树（分支名可以作为 tree-ish）
         try:
             tree_url = f"https://api.github.com/repos/{repo}/git/trees/{default_branch}"
             resp = httpx.get(
@@ -488,7 +486,7 @@ class GitHubSource(SkillSource):
         except (httpx.HTTPError, ValueError):
             return None
 
-        # Filter to blobs under our target path and fetch content
+        # 过滤目标路径下的 blobs 并获取内容
         prefix = f"{path}/"
         files: Dict[str, str] = {}
         for item in tree_data.get("tree", []):
@@ -507,7 +505,7 @@ class GitHubSource(SkillSource):
         return files if files else None
 
     def _download_directory_recursive(self, repo: str, path: str) -> Dict[str, str]:
-        """Recursively download via Contents API (fallback)."""
+        """通过 Contents API 递归下载（回退方案）。"""
         url = f"https://api.github.com/repos/{repo}/contents/{path.rstrip('/')}"
         try:
             resp = httpx.get(url, headers=self.auth.get_headers(), timeout=15, follow_redirects=True)
@@ -541,14 +539,14 @@ class GitHubSource(SkillSource):
         return files
 
     def _find_skill_in_repo_tree(self, repo: str, skill_name: str) -> Optional[str]:
-        """Use the GitHub Trees API to find a skill directory anywhere in the repo.
+        """使用 GitHub Trees API 在仓库中任何位置查找工具目录。
 
-        Returns the full identifier (``repo/path/to/skill``) or ``None``.
-        This is a single API call regardless of repo depth, so it efficiently
-        handles deeply nested directory structures like
-        ``cli-tool/components/skills/development/<skill>/SKILL.md``.
+        返回完整标识符（``repo/path/to/skill``）或 ``None``。
+        无论仓库深度如何，这都是单个 API 调用，因此可以高效处理
+        深层嵌套的目录结构，如
+        ``cli-tool/components/skills/development/<skill>/SKILL.md``。
         """
-        # Get default branch
+        # 获取默认分支
         try:
             resp = httpx.get(
                 f"https://api.github.com/repos/{repo}",
@@ -562,7 +560,7 @@ class GitHubSource(SkillSource):
         except (httpx.HTTPError, json.JSONDecodeError):
             return None
 
-        # Get recursive tree (single API call for the entire repo)
+        # 获取递归树（整个仓库的单个 API 调用）
         try:
             resp = httpx.get(
                 f"https://api.github.com/repos/{repo}/git/trees/{default_branch}",
@@ -577,21 +575,21 @@ class GitHubSource(SkillSource):
         except (httpx.HTTPError, json.JSONDecodeError):
             return None
 
-        # Look for SKILL.md files inside directories named <skill_name>
+        # 查找名为 <skill_name> 的目录内的 SKILL.md 文件
         skill_md_suffix = f"/{skill_name}/SKILL.md"
         for entry in tree_data.get("tree", []):
             if entry.get("type") != "blob":
                 continue
             path = entry.get("path", "")
             if path.endswith(skill_md_suffix) or path == f"{skill_name}/SKILL.md":
-                # Strip /SKILL.md to get the skill directory path
+                # 去掉 /SKILL.md 以获取工具目录路径
                 skill_dir = path[: -len("/SKILL.md")]
                 return f"{repo}/{skill_dir}"
 
         return None
 
     def _fetch_file_content(self, repo: str, path: str) -> Optional[str]:
-        """Fetch a single file's content from GitHub."""
+        """从 GitHub 获取单个文件的内容。"""
         url = f"https://api.github.com/repos/{repo}/contents/{path}"
         try:
             resp = httpx.get(
@@ -606,7 +604,7 @@ class GitHubSource(SkillSource):
         return None
 
     def _read_cache(self, key: str) -> Optional[list]:
-        """Read cached index if not expired."""
+        """如果缓存未过期则读取缓存索引。"""
         cache_file = INDEX_CACHE_DIR / f"{key}.json"
         if not cache_file.exists():
             return None
@@ -619,7 +617,7 @@ class GitHubSource(SkillSource):
             return None
 
     def _write_cache(self, key: str, data: list) -> None:
-        """Write index data to cache."""
+        """将索引数据写入缓存。"""
         INDEX_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         cache_file = INDEX_CACHE_DIR / f"{key}.json"
         try:
@@ -642,7 +640,7 @@ class GitHubSource(SkillSource):
 
     @staticmethod
     def _parse_frontmatter_quick(content: str) -> dict:
-        """Parse YAML frontmatter from SKILL.md content."""
+        """从 SKILL.md 内容中解析 YAML frontmatter。"""
         if not content.startswith("---"):
             return {}
         match = re.search(r'\n---\s*\n', content[3:])
@@ -657,11 +655,11 @@ class GitHubSource(SkillSource):
 
 
 # ---------------------------------------------------------------------------
-# Well-known Agent Skills endpoint source adapter
+# 已知 Agent Skills 端点源适配器
 # ---------------------------------------------------------------------------
 
 class WellKnownSkillSource(SkillSource):
-    """Read skills from a domain exposing /.well-known/skills/index.json."""
+    """从公开 /.well-known/skills/index.json 的域读取工具。"""
 
     BASE_PATH = "/.well-known/skills"
 
@@ -887,11 +885,11 @@ class WellKnownSkillSource(SkillSource):
 
 
 # ---------------------------------------------------------------------------
-# skills.sh source adapter
+# skills.sh 源适配器
 # ---------------------------------------------------------------------------
 
 class SkillsShSource(SkillSource):
-    """Discover skills via skills.sh and fetch content from the underlying GitHub repo."""
+    """通过 skills.sh 发现工具并从底层 GitHub 仓库获取内容。"""
 
     BASE_URL = "https://skills.sh"
     SEARCH_URL = f"{BASE_URL}/api/search"
@@ -1132,7 +1130,7 @@ class SkillsShSource(SkillSource):
                 detail.get("body_title", ""),
             ])
 
-        # Standard skill paths
+        # 标准工具路径
         base_paths = ["skills/", ".agents/skills/", ".claude/skills/"]
 
         for base_path in base_paths:
@@ -1144,14 +1142,13 @@ class SkillsShSource(SkillSource):
                 if self._matches_skill_tokens(meta, tokens):
                     return meta.identifier
 
-        # Prefer a single recursive tree lookup before brute-forcing every
-        # top-level directory. This avoids large request bursts on categorized
-        # repos like borghei/claude-skills.
+        # 在暴力枚举每个顶级目录之前，优先进行单个递归树查找。
+        # 这可以避免在分类仓库（如 borghei/claude-skills）上产生大量请求突发。
         tree_result = self.github._find_skill_in_repo_tree(repo, skill_token)
         if tree_result:
             return tree_result
 
-        # Fallback: scan repo root for directories that might contain skills
+        # 回退方案：扫描仓库根目录中可能包含工具的目录
         try:
             root_url = f"https://api.github.com/repos/{repo}/contents/"
             resp = httpx.get(root_url, headers=self.github.auth.get_headers(),
@@ -1167,12 +1164,12 @@ class SkillsShSource(SkillSource):
                             continue
                         if dir_name in ("skills", ".agents", ".claude"):
                             continue  # already tried
-                        # Try direct: repo/dir/skill_token
+                        # 尝试直接：repo/dir/skill_token
                         direct_id = f"{repo}/{dir_name}/{skill_token}"
                         meta = self.github.inspect(direct_id)
                         if meta:
                             return meta.identifier
-                        # Try listing skills in this directory
+                        # 尝试在此目录中列出工具
                         try:
                             skills = self.github._list_skills_in_repo(repo, dir_name + "/")
                         except Exception:
@@ -1359,14 +1356,14 @@ class SkillsShSource(SkillSource):
 
 
 # ---------------------------------------------------------------------------
-# ClawHub source adapter
+# ClawHub 源适配器
 # ---------------------------------------------------------------------------
 
 class ClawHubSource(SkillSource):
     """
-    Fetch skills from ClawHub (clawhub.ai) via their HTTP API.
-    All skills are treated as community trust — ClawHavoc incident showed
-    their vetting is insufficient (341 malicious skills found Feb 2026).
+    通过 HTTP API 从 ClawHub (clawhub.ai) 获取工具。
+    所有工具都被视为 community 信任级别 — ClawHavoc 事件表明
+    他们的审核不足（2026 年 2 月发现 341 个恶意工具）。
     """
 
     BASE_URL = "https://clawhub.ai/api/v1"
@@ -1538,7 +1535,7 @@ class ClawHubSource(SkillSource):
             if results:
                 return results
 
-        # Empty query or catalog fallback failure: use the lightweight listing API.
+        # 空查询或目录回退失败：使用轻量级列表 API。
         cache_key = f"clawhub_search_listing_v1_{hashlib.md5(query.encode()).hexdigest()}_{limit}"
         cached = _read_index_cache(cache_key)
         if cached is not None:
@@ -1597,14 +1594,14 @@ class ClawHubSource(SkillSource):
             logger.warning("ClawHub fetch failed for %s: could not resolve latest version", slug)
             return None
 
-        # Primary method: download the skill as a ZIP bundle from /download
+        # 主要方法：从 /download 下载工具作为 ZIP 包
         files = self._download_zip(slug, latest_version)
 
-        # Fallback: try the version metadata endpoint for inline/raw content
+        # 回退方案：尝试版本元数据端点以获取内联/原始内容
         if "SKILL.md" not in files:
             version_data = self._get_json(f"{self.BASE_URL}/skills/{slug}/versions/{latest_version}")
             if isinstance(version_data, dict):
-                # Files may be nested under version_data["version"]["files"]
+                # 文件可能嵌套在 version_data["version"]["files"] 下
                 files = self._extract_files(version_data) or files
                 if "SKILL.md" not in files:
                     nested = version_data.get("version", {})
@@ -1773,7 +1770,7 @@ class ClawHubSource(SkillSource):
         return files
 
     def _download_zip(self, slug: str, version: str) -> Dict[str, str]:
-        """Download skill as a ZIP bundle from the /download endpoint and extract text files."""
+        """从 /download 端点下载工具作为 ZIP 包并提取文本文件。"""
         import io
         import zipfile
 
@@ -1789,7 +1786,7 @@ class ClawHubSource(SkillSource):
                 )
                 if resp.status_code == 429:
                     retry_after = int(resp.headers.get("retry-after", "5"))
-                    retry_after = min(retry_after, 15)  # Cap wait time
+                    retry_after = min(retry_after, 15)  # 限制等待时间
                     logger.debug(
                         "ClawHub download rate-limited for %s, retrying in %ds (attempt %d/%d)",
                         slug, retry_after, attempt + 1, max_retries,
@@ -1809,7 +1806,7 @@ class ClawHubSource(SkillSource):
                         except ValueError:
                             logger.debug("Skipping unsafe ZIP member path: %s", info.filename)
                             continue
-                        # Only extract text-sized files (skip large binaries)
+                        # 仅提取文本大小的文件（跳过大型二进制文件）
                         if info.file_size > 500_000:
                             logger.debug("Skipping large file in ZIP: %s (%d bytes)", name, info.file_size)
                             continue
@@ -1843,13 +1840,13 @@ class ClawHubSource(SkillSource):
 
 
 # ---------------------------------------------------------------------------
-# Claude Code marketplace source adapter
+# Claude Code 市场源适配器
 # ---------------------------------------------------------------------------
 
 class ClaudeMarketplaceSource(SkillSource):
     """
-    Discover skills from Claude Code marketplace repos.
-    Marketplace repos contain .claude-plugin/marketplace.json with plugin listings.
+    从 Claude Code 市场仓库发现工具。
+    市场仓库包含 .claude-plugin/marketplace.json，其中包含插件列表。
     """
 
     KNOWN_MARKETPLACES = [
@@ -1900,7 +1897,7 @@ class ClaudeMarketplaceSource(SkillSource):
         return results[:limit]
 
     def fetch(self, identifier: str) -> Optional[SkillBundle]:
-        # Delegate to GitHub Contents API since marketplace skills live in GitHub repos
+        # 委托给 GitHub Contents API，因为市场工具位于 GitHub 仓库中
         gh = GitHubSource(auth=self.auth)
         bundle = gh.fetch(identifier)
         if bundle:
@@ -1916,7 +1913,7 @@ class ClaudeMarketplaceSource(SkillSource):
         return meta
 
     def _fetch_marketplace_index(self, repo: str) -> List[dict]:
-        """Fetch and parse .claude-plugin/marketplace.json from a repo."""
+        """从仓库获取并解析 .claude-plugin/marketplace.json。"""
         cache_key = f"claude_marketplace_{repo.replace('/', '_')}"
         cached = _read_index_cache(cache_key)
         if cached is not None:
@@ -1941,14 +1938,14 @@ class ClaudeMarketplaceSource(SkillSource):
 
 
 # ---------------------------------------------------------------------------
-# LobeHub source adapter
+# LobeHub 源适配器
 # ---------------------------------------------------------------------------
 
 class LobeHubSource(SkillSource):
     """
-    Fetch skills from LobeHub's agent marketplace (14,500+ agents).
-    LobeHub agents are system prompt templates — we convert them to SKILL.md on fetch.
-    Data lives in GitHub: lobehub/lobe-chat-agents.
+    从 LobeHub 的 agent 市场获取工具（14,500+ agents）。
+    LobeHub agents 是系统提示模板 —— 我们在获取时将它们转换为 SKILL.md。
+    数据存储在 GitHub: lobehub/lobe-chat-agents。
     """
 
     INDEX_URL = "https://chat-agents.lobehub.com/index.json"
@@ -1996,7 +1993,7 @@ class LobeHubSource(SkillSource):
         return results
 
     def fetch(self, identifier: str) -> Optional[SkillBundle]:
-        # Strip "lobehub/" prefix if present
+        # 如果存在，去掉 "lobehub/" 前缀
         agent_id = identifier.split("/", 1)[-1] if identifier.startswith("lobehub/") else identifier
 
         agent_data = self._fetch_agent(agent_id)
@@ -2036,7 +2033,7 @@ class LobeHubSource(SkillSource):
         return None
 
     def _fetch_index(self) -> Optional[Any]:
-        """Fetch the LobeHub agent index (cached for 1 hour)."""
+        """获取 LobeHub agent 索引（缓存 1 小时）。"""
         cache_key = "lobehub_index"
         cached = _read_index_cache(cache_key)
         if cached is not None:
@@ -2054,7 +2051,7 @@ class LobeHubSource(SkillSource):
         return data
 
     def _fetch_agent(self, agent_id: str) -> Optional[dict]:
-        """Fetch a single agent's JSON file."""
+        """获取单个 agent 的 JSON 文件。"""
         url = f"https://chat-agents.lobehub.com/{agent_id}.json"
         try:
             resp = httpx.get(url, timeout=15)
@@ -2066,7 +2063,7 @@ class LobeHubSource(SkillSource):
 
     @staticmethod
     def _convert_to_skill_md(agent_data: dict) -> str:
-        """Convert a LobeHub agent JSON into SKILL.md format."""
+        """将 LobeHub agent JSON 转换为 SKILL.md 格式。"""
         meta = agent_data.get("meta", agent_data)
         identifier = agent_data.get("identifier", "lobehub-agent")
         title = meta.get("title", identifier)
@@ -2101,15 +2098,15 @@ class LobeHubSource(SkillSource):
 
 
 # ---------------------------------------------------------------------------
-# Official optional skills source adapter
+# 官方可选工具源适配器
 # ---------------------------------------------------------------------------
 
 class OptionalSkillSource(SkillSource):
     """
-    Fetch skills from the optional-skills/ directory shipped with the repo.
+    从仓库附带的 optional-skills/ 目录获取工具。
 
-    These skills are official (maintained by Nous Research) but not activated
-    by default — they don't appear in the system prompt and aren't copied to
+    这些工具是官方的（由 Nous Research 维护）但默认未激活
+    —— 它们不会出现在系统提示中，也不会被复制到
     ~/.kclaw/skills/ during setup.  They are discoverable via the Skills Hub
     (search / install / inspect) and labelled "official" with "builtin" trust.
     """
@@ -2127,7 +2124,7 @@ class OptionalSkillSource(SkillSource):
     def trust_level_for(self, identifier: str) -> str:
         return "builtin"
 
-    # -- search -----------------------------------------------------------
+    # -- 搜索 -----------------------------------------------------------
 
     def search(self, query: str, limit: int = 10) -> List[SkillMeta]:
         results: List[SkillMeta] = []
@@ -2142,14 +2139,14 @@ class OptionalSkillSource(SkillSource):
 
         return results
 
-    # -- fetch ------------------------------------------------------------
+    # -- 获取 ------------------------------------------------------------
 
     def fetch(self, identifier: str) -> Optional[SkillBundle]:
-        # identifier format: "official/category/skill" or "official/skill"
+        # 标识符格式："official/category/skill" 或 "official/skill"
         rel = identifier.split("/", 1)[-1] if identifier.startswith("official/") else identifier
         skill_dir = self._optional_dir / rel
 
-        # Guard against path traversal (e.g. "official/../../etc")
+        # 防止路径遍历（例如 "official/../../etc"）
         try:
             resolved = skill_dir.resolve()
             if not str(resolved).startswith(str(self._optional_dir.resolve())):
@@ -2158,7 +2155,7 @@ class OptionalSkillSource(SkillSource):
             return None
 
         if not resolved.is_dir():
-            # Try searching by skill name only (last segment)
+            # 仅尝试按工具名称搜索（最后一段）
             skill_name = rel.rsplit("/", 1)[-1]
             skill_dir = self._find_skill_dir(skill_name)
             if not skill_dir:
@@ -2183,7 +2180,7 @@ class OptionalSkillSource(SkillSource):
         if not files:
             return None
 
-        # Determine category from directory structure
+        # 从目录结构确定类别
         name = skill_dir.name
 
         return SkillBundle(
@@ -2194,7 +2191,7 @@ class OptionalSkillSource(SkillSource):
             trust_level="builtin",
         )
 
-    # -- inspect ----------------------------------------------------------
+    # -- 检查 ----------------------------------------------------------
 
     def inspect(self, identifier: str) -> Optional[SkillMeta]:
         rel = identifier.split("/", 1)[-1] if identifier.startswith("official/") else identifier
@@ -2205,10 +2202,10 @@ class OptionalSkillSource(SkillSource):
                 return meta
         return None
 
-    # -- internal helpers -------------------------------------------------
+    # -- 内部辅助方法 -------------------------------------------------
 
     def _find_skill_dir(self, name: str) -> Optional[Path]:
-        """Find a skill directory by name anywhere in optional-skills/."""
+        """在 optional-skills/ 中按名称查找工具目录。"""
         if not self._optional_dir.is_dir():
             return None
         for skill_md in self._optional_dir.rglob("SKILL.md"):
@@ -2217,7 +2214,7 @@ class OptionalSkillSource(SkillSource):
         return None
 
     def _scan_all(self) -> List[SkillMeta]:
-        """Enumerate all optional skills with metadata."""
+        """枚举所有可选工具及其元数据。"""
         if not self._optional_dir.is_dir():
             return []
 
@@ -2259,7 +2256,7 @@ class OptionalSkillSource(SkillSource):
 
     @staticmethod
     def _parse_frontmatter(content: str) -> dict:
-        """Parse YAML frontmatter from SKILL.md content."""
+        """从 SKILL.md 内容中解析 YAML frontmatter。"""
         if not content.startswith("---"):
             return {}
         match = re.search(r'\n---\s*\n', content[3:])
@@ -2274,11 +2271,11 @@ class OptionalSkillSource(SkillSource):
 
 
 # ---------------------------------------------------------------------------
-# Shared cache helpers (used by multiple adapters)
+# 共享缓存辅助函数（供多个适配器使用）
 # ---------------------------------------------------------------------------
 
 def _read_index_cache(key: str) -> Optional[Any]:
-    """Read cached data if not expired."""
+    """如果缓存未过期则读取缓存数据。"""
     cache_file = INDEX_CACHE_DIR / f"{key}.json"
     if not cache_file.exists():
         return None
@@ -2292,11 +2289,10 @@ def _read_index_cache(key: str) -> Optional[Any]:
 
 
 def _write_index_cache(key: str, data: Any) -> None:
-    """Write data to cache."""
+    """将数据写入缓存。"""
     INDEX_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    # Ensure .ignore exists so ripgrep (and tools respecting .ignore) skip
-    # this directory.  Cache files contain unvetted community content that
-    # could include adversarial text (prompt injection via catalog entries).
+    # 确保 .ignore 存在，以便 ripgrep（和尊重 .ignore 的工具）跳过
+    # 此目录。缓存文件包含未审核的社区内容，可能包含对抗性文本（通过目录条目的提示注入）。
     ignore_file = HUB_DIR / ".ignore"
     if not ignore_file.exists():
         try:
@@ -2311,7 +2307,7 @@ def _write_index_cache(key: str, data: Any) -> None:
 
 
 def _skill_meta_to_dict(meta: SkillMeta) -> dict:
-    """Convert a SkillMeta to a dict for caching."""
+    """将 SkillMeta 转换为字典以供缓存。"""
     return {
         "name": meta.name,
         "description": meta.description,
@@ -2326,11 +2322,11 @@ def _skill_meta_to_dict(meta: SkillMeta) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Lock file management
+# 锁文件管理
 # ---------------------------------------------------------------------------
 
 class HubLockFile:
-    """Manages skills/.hub/lock.json — tracks provenance of installed hub skills."""
+    """管理 skills/.hub/lock.json — 跟踪已安装 hub 工具的来源。"""
 
     def __init__(self, path: Path = LOCK_FILE):
         self.path = path
@@ -2396,11 +2392,11 @@ class HubLockFile:
 
 
 # ---------------------------------------------------------------------------
-# Taps management
+# Taps 管理
 # ---------------------------------------------------------------------------
 
 class TapsManager:
-    """Manages the taps.json file — custom GitHub repo sources."""
+    """管理 taps.json 文件 — 自定义 GitHub 仓库源。"""
 
     def __init__(self, path: Path = TAPS_FILE):
         self.path = path
@@ -2419,7 +2415,7 @@ class TapsManager:
         self.path.write_text(json.dumps({"taps": taps}, indent=2) + "\n")
 
     def add(self, repo: str, path: str = "skills/") -> bool:
-        """Add a tap. Returns False if already exists."""
+        """添加一个 tap。如果已存在则返回 False。"""
         taps = self.load()
         if any(t["repo"] == repo for t in taps):
             return False
@@ -2428,7 +2424,7 @@ class TapsManager:
         return True
 
     def remove(self, repo: str) -> bool:
-        """Remove a tap by repo name. Returns False if not found."""
+        """按仓库名称移除 tap。如果未找到则返回 False。"""
         taps = self.load()
         new_taps = [t for t in taps if t["repo"] != repo]
         if len(new_taps) == len(taps):
@@ -2441,12 +2437,12 @@ class TapsManager:
 
 
 # ---------------------------------------------------------------------------
-# Audit log
+# 审计日志
 # ---------------------------------------------------------------------------
 
 def append_audit_log(action: str, skill_name: str, source: str,
                      trust_level: str, verdict: str, extra: str = "") -> None:
-    """Append a line to the audit log."""
+    """向审计日志追加一行。"""
     AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     parts = [timestamp, action, skill_name, f"{source}:{trust_level}", verdict]
@@ -2461,11 +2457,11 @@ def append_audit_log(action: str, skill_name: str, source: str,
 
 
 # ---------------------------------------------------------------------------
-# Hub operations (high-level)
+# Hub 操作（高级）
 # ---------------------------------------------------------------------------
 
 def ensure_hub_dirs() -> None:
-    """Create the .hub directory structure if it doesn't exist."""
+    """如果不存在，则创建 .hub 目录结构。"""
     HUB_DIR.mkdir(parents=True, exist_ok=True)
     QUARANTINE_DIR.mkdir(exist_ok=True)
     INDEX_CACHE_DIR.mkdir(exist_ok=True)
@@ -2478,7 +2474,7 @@ def ensure_hub_dirs() -> None:
 
 
 def quarantine_bundle(bundle: SkillBundle) -> Path:
-    """Write a skill bundle to the quarantine directory for scanning."""
+    """将工具包写入隔离目录以进行扫描。"""
     ensure_hub_dirs()
     skill_name = _validate_skill_name(bundle.name)
     validated_files: List[Tuple[str, Union[str, bytes]]] = []
@@ -2509,7 +2505,7 @@ def install_from_quarantine(
     bundle: SkillBundle,
     scan_result: ScanResult,
 ) -> Path:
-    """Move a scanned skill from quarantine into the skills directory."""
+    """将扫描后的工具从隔离区移动到工具目录。"""
     safe_skill_name = _validate_skill_name(skill_name)
     safe_category = _validate_category_name(category) if category else ""
     quarantine_resolved = quarantine_path.resolve()
@@ -2525,7 +2521,7 @@ def install_from_quarantine(
     if install_dir.exists():
         shutil.rmtree(install_dir)
 
-    # Warn (but don't block) if SKILL.md is very large
+    # 警告（但不阻止）如果 SKILL.md 非常大
     skill_md = quarantine_path / "SKILL.md"
     if skill_md.exists():
         try:
@@ -2544,7 +2540,7 @@ def install_from_quarantine(
     install_dir.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(quarantine_path), str(install_dir))
 
-    # Record in lock file
+    # 在锁文件中记录
     lock = HubLockFile()
     lock.record_install(
         name=safe_skill_name,
@@ -2568,7 +2564,7 @@ def install_from_quarantine(
 
 
 def uninstall_skill(skill_name: str) -> Tuple[bool, str]:
-    """Remove a hub-installed skill. Refuses to remove builtins."""
+    """移除 hub 安装的工具。拒绝移除内置工具。"""
     lock = HubLockFile()
     entry = lock.get_installed(skill_name)
     if not entry:
@@ -2585,7 +2581,7 @@ def uninstall_skill(skill_name: str) -> Tuple[bool, str]:
 
 
 def bundle_content_hash(bundle: SkillBundle) -> str:
-    """Compute a deterministic hash for an in-memory skill bundle."""
+    """计算内存中工具包的确定性哈希。"""
     h = hashlib.sha256()
     for rel_path in sorted(bundle.files):
         h.update(bundle.files[rel_path].encode("utf-8"))
@@ -2607,7 +2603,7 @@ def check_for_skill_updates(
     sources: Optional[List[SkillSource]] = None,
     auth: Optional[GitHubAuth] = None,
 ) -> List[dict]:
-    """Check installed hub skills for upstream changes."""
+    """检查已安装的 hub 工具是否有上游更改。"""
     lock = lock or HubLockFile()
     installed = lock.list_installed()
     if name:
@@ -2658,8 +2654,8 @@ def check_for_skill_updates(
 
 def create_source_router(auth: Optional[GitHubAuth] = None) -> List[SkillSource]:
     """
-    Create all configured source adapters.
-    Returns a list of active sources for search/fetch operations.
+    创建所有配置好的源适配器。
+    返回用于搜索/获取操作的活动源列表。
     """
     if auth is None:
         auth = GitHubAuth()
@@ -2668,7 +2664,7 @@ def create_source_router(auth: Optional[GitHubAuth] = None) -> List[SkillSource]
     extra_taps = taps_mgr.list_taps()
 
     sources: List[SkillSource] = [
-        OptionalSkillSource(),        # Official optional skills (highest priority)
+        OptionalSkillSource(),        # 官方可选工具（最高优先级）
         SkillsShSource(auth=auth),
         WellKnownSkillSource(),
         GitHubSource(auth=auth, extra_taps=extra_taps),
@@ -2682,7 +2678,7 @@ def create_source_router(auth: Optional[GitHubAuth] = None) -> List[SkillSource]
 
 def unified_search(query: str, sources: List[SkillSource],
                    source_filter: str = "all", limit: int = 10) -> List[SkillMeta]:
-    """Search all sources and merge results."""
+    """搜索所有源并合并结果。"""
     all_results: List[SkillMeta] = []
 
     for src in sources:
@@ -2694,7 +2690,7 @@ def unified_search(query: str, sources: List[SkillSource],
         except Exception as e:
             logger.debug(f"Search failed for {src.source_id()}: {e}")
 
-    # Deduplicate by name, preferring higher trust levels
+    # 按名称去重，优先选择更高信任等级
     _TRUST_RANK = {"builtin": 2, "trusted": 1, "community": 0}
     seen: Dict[str, SkillMeta] = {}
     for r in all_results:

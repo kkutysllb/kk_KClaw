@@ -1,10 +1,9 @@
-"""KClaw-managed Camofox state helpers.
+"""KClaw 托管的 Camofox 状态辅助函数。
 
-Provides profile-scoped identity and state directory paths for Camofox
-persistent browser profiles.  When managed persistence is enabled, KClaw
-sends a deterministic userId derived from the active profile so that
-Camofox can map it to the same persistent browser profile directory
-across restarts.
+为 Camofox 持久浏览器配置文件提供配置文件作用域的身份和状态目录路径。
+当托管持久性启用时，KClaw 发送从活动配置文件派生的确定性 userId，
+以便 Camofox 可以将其映射到相同的持久浏览器配置文件目录
+（跨重启）。
 """
 
 from __future__ import annotations
@@ -20,16 +19,16 @@ CAMOFOX_STATE_SUBDIR = "camofox"
 
 
 def get_camofox_state_dir() -> Path:
-    """Return the profile-scoped root directory for Camofox persistence."""
+    """返回 Camofox 持久化的配置文件作用域根目录。"""
     return get_kclaw_home() / CAMOFOX_STATE_DIR_NAME / CAMOFOX_STATE_SUBDIR
 
 
 def get_camofox_identity(task_id: Optional[str] = None) -> Dict[str, str]:
-    """Return the stable KClaw-managed Camofox identity for this profile.
+    """返回此配置文件的稳定 KClaw 托管 Camofox 身份。
 
-    The user identity is profile-scoped (same KClaw profile = same userId).
-    The session key is scoped to the logical browser task so newly created
-    tabs within the same profile reuse the same identity contract.
+    用户身份是配置文件作用域的（相同的 KClaw 配置 = 相同的 userId）。
+    会话密钥作用域为逻辑浏览器任务，以便在同一配置文件中
+    新创建的标签页重用相同的身份契约。
     """
     scope_root = str(get_camofox_state_dir())
     logical_scope = task_id or "default"

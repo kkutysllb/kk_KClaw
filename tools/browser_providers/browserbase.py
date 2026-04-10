@@ -1,4 +1,4 @@
-"""Browserbase cloud browser provider (direct credentials only)."""
+"""Browserbase 云浏览器提供商（仅支持直接凭证）。"""
 
 import logging
 import os
@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 class BrowserbaseProvider(CloudBrowserProvider):
-    """Browserbase (https://browserbase.com) cloud browser backend.
+    """Browserbase (https://browserbase.com) 云浏览器后端。
 
-    This provider requires direct BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID
-    credentials.  Managed Nous gateway support has been removed — the Nous
-    subscription now routes through Browser Use instead.
+    此提供商需要直接的 BROWSERBASE_API_KEY 和 BROWSERBASE_PROJECT_ID
+    凭证。托管 Nous 网关支持已被移除 — Nous
+    订阅现在通过 Browser Use 路由。
     """
 
     def provider_name(self) -> str:
@@ -27,7 +27,7 @@ class BrowserbaseProvider(CloudBrowserProvider):
         return self._get_config_or_none() is not None
 
     # ------------------------------------------------------------------
-    # Session lifecycle
+    # 会话生命周期
     # ------------------------------------------------------------------
 
     def _get_config_or_none(self) -> Optional[Dict[str, Any]]:
@@ -53,7 +53,7 @@ class BrowserbaseProvider(CloudBrowserProvider):
     def create_session(self, task_id: str) -> Dict[str, object]:
         config = self._get_config()
 
-        # Optional env-var knobs
+        # 可选的环境变量调节参数
         enable_proxies = os.environ.get("BROWSERBASE_PROXIES", "true").lower() != "false"
         enable_advanced_stealth = os.environ.get("BROWSERBASE_ADVANCED_STEALTH", "false").lower() == "true"
         enable_keep_alive = os.environ.get("BROWSERBASE_KEEP_ALIVE", "true").lower() != "false"
@@ -86,7 +86,7 @@ class BrowserbaseProvider(CloudBrowserProvider):
         if enable_advanced_stealth:
             session_config["browserSettings"] = {"advancedStealth": True}
 
-        # --- Create session via API ---
+        # --- 通过 API 创建会话 ---
         headers = {
             "Content-Type": "application/json",
             "X-BB-API-Key": config["api_key"],
@@ -102,7 +102,7 @@ class BrowserbaseProvider(CloudBrowserProvider):
         proxies_fallback = False
         keepalive_fallback = False
 
-        # Handle 402 — paid features unavailable
+        # 处理 402 — 付费功能不可用
         if response.status_code == 402:
             if enable_keep_alive:
                 keepalive_fallback = True

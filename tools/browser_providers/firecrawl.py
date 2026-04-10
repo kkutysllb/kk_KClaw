@@ -1,4 +1,4 @@
-"""Firecrawl cloud browser provider."""
+"""Firecrawl 云浏览器提供商。"""
 
 import logging
 import os
@@ -15,7 +15,7 @@ _BASE_URL = "https://api.firecrawl.dev"
 
 
 class FirecrawlProvider(CloudBrowserProvider):
-    """Firecrawl (https://firecrawl.dev) cloud browser backend."""
+    """Firecrawl (https://firecrawl.dev) 云浏览器后端。"""
 
     def provider_name(self) -> str:
         return "Firecrawl"
@@ -24,7 +24,7 @@ class FirecrawlProvider(CloudBrowserProvider):
         return bool(os.environ.get("FIRECRAWL_API_KEY"))
 
     # ------------------------------------------------------------------
-    # Session lifecycle
+    # 会话生命周期
     # ------------------------------------------------------------------
 
     def _api_url(self) -> str:

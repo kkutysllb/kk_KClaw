@@ -18,12 +18,12 @@ V4A Format:
     *** Move File: old/path.py -> new/path.py
     *** End Patch
 
-Usage:
+用法:
     from tools.patch_parser import parse_v4a_patch, apply_v4a_operations
-    
+
     operations, error = parse_v4a_patch(patch_content)
     if error:
-        print(f"Parse error: {error}")
+        print(f"解析错误: {error}")
     else:
         result = apply_v4a_operations(operations, file_ops)
 """
@@ -43,44 +43,44 @@ class OperationType(Enum):
 
 @dataclass
 class HunkLine:
-    """A single line in a patch hunk."""
-    prefix: str  # ' ', '-', or '+'
+    """补丁块中的单行内容。"""
+    prefix: str  # ' ', '-', 或 '+'
     content: str
 
 
 @dataclass
 class Hunk:
-    """A group of changes within a file."""
+    """文件中的一个变更组。"""
     context_hint: Optional[str] = None
     lines: List[HunkLine] = field(default_factory=list)
 
 
 @dataclass
 class PatchOperation:
-    """A single operation in a V4A patch."""
+    """V4A 补丁中的单个操作。"""
     operation: OperationType
     file_path: str
-    new_path: Optional[str] = None  # For move operations
+    new_path: Optional[str] = None  # 用于移动操作
     hunks: List[Hunk] = field(default_factory=list)
-    content: Optional[str] = None  # For add file operations
+    content: Optional[str] = None  # 用于添加文件操作
 
 
 def parse_v4a_patch(patch_content: str) -> Tuple[List[PatchOperation], Optional[str]]:
     """
-    Parse a V4A format patch.
-    
-    Args:
-        patch_content: The patch text in V4A format
-    
-    Returns:
-        Tuple of (operations, error_message)
-        - If successful: (list_of_operations, None)
-        - If failed: ([], error_description)
+    解析 V4A 格式的补丁。
+
+    参数:
+        patch_content: V4A 格式的补丁文本
+
+    返回:
+        (operations, error_message) 元组
+        - 成功时: (operations 列表, None)
+        - 失败时: ([], 错误描述)
     """
     lines = patch_content.split('\n')
     operations: List[PatchOperation] = []
-    
-    # Find patch boundaries
+
+    # 查找补丁边界
     start_idx = None
     end_idx = None
     
@@ -92,28 +92,28 @@ def parse_v4a_patch(patch_content: str) -> Tuple[List[PatchOperation], Optional[
             break
     
     if start_idx is None:
-        # Try to parse without explicit begin marker
+        # 尝试在没有明确起始标记的情况下解析
         start_idx = -1
     
     if end_idx is None:
         end_idx = len(lines)
     
-    # Parse operations between boundaries
+    # 解析边界之间的操作
     i = start_idx + 1
     current_op: Optional[PatchOperation] = None
     current_hunk: Optional[Hunk] = None
-    
+
     while i < end_idx:
         line = lines[i]
-        
-        # Check for file operation markers
+
+        # 检查文件操作标记
         update_match = re.match(r'\*\*\*\s*Update\s+File:\s*(.+)', line)
         add_match = re.match(r'\*\*\*\s*Add\s+File:\s*(.+)', line)
         delete_match = re.match(r'\*\*\*\s*Delete\s+File:\s*(.+)', line)
         move_match = re.match(r'\*\*\*\s*Move\s+File:\s*(.+?)\s*->\s*(.+)', line)
         
         if update_match:
-            # Save previous operation
+            # 保存之前的操作
             if current_op:
                 if current_hunk and current_hunk.lines:
                     current_op.hunks.append(current_hunk)
@@ -167,18 +167,18 @@ def parse_v4a_patch(patch_content: str) -> Tuple[List[PatchOperation], Optional[
             current_hunk = None
             
         elif line.startswith('@@'):
-            # Context hint / hunk marker
+            # 上下文提示 / 块标记
             if current_op:
                 if current_hunk and current_hunk.lines:
                     current_op.hunks.append(current_hunk)
-                
-                # Extract context hint
+
+                # 提取上下文提示
                 hint_match = re.match(r'@@\s*(.+?)\s*@@', line)
                 hint = hint_match.group(1) if hint_match else None
                 current_hunk = Hunk(context_hint=hint)
                 
         elif current_op and line:
-            # Parse hunk line
+            # 解析块行
             if current_hunk is None:
                 current_hunk = Hunk()
             
@@ -189,15 +189,15 @@ def parse_v4a_patch(patch_content: str) -> Tuple[List[PatchOperation], Optional[
             elif line.startswith(' '):
                 current_hunk.lines.append(HunkLine(' ', line[1:]))
             elif line.startswith('\\'):
-                # "\ No newline at end of file" marker - skip
+                # "\ No newline at end of file" 标记 - 跳过
                 pass
             else:
-                # Treat as context line (implicit space prefix)
+                # 作为上下文行处理（隐式空格前缀）
                 current_hunk.lines.append(HunkLine(' ', line))
         
         i += 1
     
-    # Don't forget the last operation
+    # 不要忘记最后一个操作
     if current_op:
         if current_hunk and current_hunk.lines:
             current_op.hunks.append(current_hunk)
@@ -206,19 +206,19 @@ def parse_v4a_patch(patch_content: str) -> Tuple[List[PatchOperation], Optional[
     return operations, None
 
 
-def apply_v4a_operations(operations: List[PatchOperation], 
+def apply_v4a_operations(operations: List[PatchOperation],
                           file_ops: Any) -> 'PatchResult':
     """
-    Apply V4A patch operations using a file operations interface.
-    
-    Args:
-        operations: List of PatchOperation from parse_v4a_patch
-        file_ops: Object with read_file, write_file methods
-    
-    Returns:
-        PatchResult with results of all operations
+    使用文件操作接口应用 V4A 补丁操作。
+
+    参数:
+        operations: 从 parse_v4a_patch 返回的 PatchOperation 列表
+        file_ops: 具有 read_file, write_file 方法的对象
+
+    返回:
+        包含所有操作结果的 PatchResult
     """
-    # Import here to avoid circular imports
+    # 在此处导入以避免循环导入
     from tools.file_operations import PatchResult
     
     files_modified = []
@@ -235,7 +235,7 @@ def apply_v4a_operations(operations: List[PatchOperation],
                     files_created.append(op.file_path)
                     all_diffs.append(result[1])
                 else:
-                    errors.append(f"Failed to add {op.file_path}: {result[1]}")
+                    errors.append(f"添加文件失败 {op.file_path}: {result[1]}")
                     
             elif op.operation == OperationType.DELETE:
                 result = _apply_delete(op, file_ops)
@@ -243,7 +243,7 @@ def apply_v4a_operations(operations: List[PatchOperation],
                     files_deleted.append(op.file_path)
                     all_diffs.append(result[1])
                 else:
-                    errors.append(f"Failed to delete {op.file_path}: {result[1]}")
+                    errors.append(f"删除文件失败 {op.file_path}: {result[1]}")
                     
             elif op.operation == OperationType.MOVE:
                 result = _apply_move(op, file_ops)
@@ -251,7 +251,7 @@ def apply_v4a_operations(operations: List[PatchOperation],
                     files_modified.append(f"{op.file_path} -> {op.new_path}")
                     all_diffs.append(result[1])
                 else:
-                    errors.append(f"Failed to move {op.file_path}: {result[1]}")
+                    errors.append(f"移动文件失败 {op.file_path}: {result[1]}")
                     
             elif op.operation == OperationType.UPDATE:
                 result = _apply_update(op, file_ops)
@@ -259,12 +259,12 @@ def apply_v4a_operations(operations: List[PatchOperation],
                     files_modified.append(op.file_path)
                     all_diffs.append(result[1])
                 else:
-                    errors.append(f"Failed to update {op.file_path}: {result[1]}")
+                    errors.append(f"更新文件失败 {op.file_path}: {result[1]}")
                     
         except Exception as e:
-            errors.append(f"Error processing {op.file_path}: {str(e)}")
+            errors.append(f"处理文件出错 {op.file_path}: {str(e)}")
     
-    # Run lint on all modified/created files
+    # 对所有修改/创建的文件运行 lint
     lint_results = {}
     for f in files_modified + files_created:
         if hasattr(file_ops, '_check_lint'):
@@ -295,8 +295,8 @@ def apply_v4a_operations(operations: List[PatchOperation],
 
 
 def _apply_add(op: PatchOperation, file_ops: Any) -> Tuple[bool, str]:
-    """Apply an add file operation."""
-    # Extract content from hunks (all + lines)
+    """应用添加文件操作。"""
+    # 从块中提取内容（所有 + 行）
     content_lines = []
     for hunk in op.hunks:
         for line in hunk.lines:
@@ -316,15 +316,15 @@ def _apply_add(op: PatchOperation, file_ops: Any) -> Tuple[bool, str]:
 
 
 def _apply_delete(op: PatchOperation, file_ops: Any) -> Tuple[bool, str]:
-    """Apply a delete file operation."""
-    # Read file first for diff
+    """应用删除文件操作。"""
+    # 首先读取文件以获取 diff
     read_result = file_ops.read_file(op.file_path)
-    
+
     if read_result.error and "not found" in read_result.error.lower():
-        # File doesn't exist, nothing to delete
-        return True, f"# {op.file_path} already deleted or doesn't exist"
+        # 文件不存在，无需删除
+        return True, f"# {op.file_path} 已删除或不存在"
     
-    # Delete directly via shell command using the underlying environment
+    # 通过底层环境直接使用 shell 命令删除
     rm_result = file_ops._exec(f"rm -f {file_ops._escape_shell_arg(op.file_path)}")
     
     if rm_result.exit_code != 0:
@@ -335,8 +335,8 @@ def _apply_delete(op: PatchOperation, file_ops: Any) -> Tuple[bool, str]:
 
 
 def _apply_move(op: PatchOperation, file_ops: Any) -> Tuple[bool, str]:
-    """Apply a move file operation."""
-    # Use shell mv command
+    """应用移动文件操作。"""
+    # 使用 shell mv 命令
     mv_result = file_ops._exec(
         f"mv {file_ops._escape_shell_arg(op.file_path)} {file_ops._escape_shell_arg(op.new_path)}"
     )
@@ -349,18 +349,18 @@ def _apply_move(op: PatchOperation, file_ops: Any) -> Tuple[bool, str]:
 
 
 def _apply_update(op: PatchOperation, file_ops: Any) -> Tuple[bool, str]:
-    """Apply an update file operation."""
-    # Read current content
+    """应用更新文件操作。"""
+    # 读取当前内容
     read_result = file_ops.read_file(op.file_path, limit=10000)
     
     if read_result.error:
-        return False, f"Cannot read file: {read_result.error}"
+        return False, f"无法读取文件: {read_result.error}"
     
-    # Parse content (remove line numbers)
+    # 解析内容（移除行号）
     current_lines = []
     for line in read_result.content.split('\n'):
         if re.match(r'^\s*\d+\|', line):
-            # Line format: "    123|content"
+            # 行格式: "    123|content"
             parts = line.split('|', 1)
             if len(parts) == 2:
                 current_lines.append(parts[1])
@@ -371,11 +371,11 @@ def _apply_update(op: PatchOperation, file_ops: Any) -> Tuple[bool, str]:
     
     current_content = '\n'.join(current_lines)
     
-    # Apply each hunk
+    # 应用每个块
     new_content = current_content
-    
+
     for hunk in op.hunks:
-        # Build search pattern from context and removed lines
+        # 从上下文和已删除的行构建搜索模式
         search_lines = []
         replace_lines = []
         
@@ -392,19 +392,19 @@ def _apply_update(op: PatchOperation, file_ops: Any) -> Tuple[bool, str]:
             search_pattern = '\n'.join(search_lines)
             replacement = '\n'.join(replace_lines)
             
-            # Use fuzzy matching
+            # 使用模糊匹配
             from tools.fuzzy_match import fuzzy_find_and_replace
             new_content, count, error = fuzzy_find_and_replace(
                 new_content, search_pattern, replacement, replace_all=False
             )
             
             if error and count == 0:
-                # Try with context hint if available
+                # 如果有上下文提示，尝试使用它
                 if hunk.context_hint:
-                    # Find the context hint location and search nearby
+                    # 找到上下文提示位置并在附近搜索
                     hint_pos = new_content.find(hunk.context_hint)
                     if hint_pos != -1:
-                        # Search in a window around the hint
+                        # 在提示周围窗口中搜索
                         window_start = max(0, hint_pos - 500)
                         window_end = min(len(new_content), hint_pos + 2000)
                         window = new_content[window_start:window_end]
@@ -418,15 +418,15 @@ def _apply_update(op: PatchOperation, file_ops: Any) -> Tuple[bool, str]:
                             error = None
                 
                 if error:
-                    return False, f"Could not apply hunk: {error}"
+                    return False, f"无法应用块: {error}"
         else:
-            # Addition-only hunk (no context or removed lines).
-            # Insert at the location indicated by the context hint, or at end of file.
+            # 仅添加的块（无上下文或已删除的行）。
+            # 插入到上下文提示指示的位置，或文件末尾。
             insert_text = '\n'.join(replace_lines)
             if hunk.context_hint:
                 hint_pos = new_content.find(hunk.context_hint)
                 if hint_pos != -1:
-                    # Insert after the line containing the context hint
+                    # 在包含上下文提示的行之后插入
                     eol = new_content.find('\n', hint_pos)
                     if eol != -1:
                         new_content = new_content[:eol + 1] + insert_text + '\n' + new_content[eol + 1:]
@@ -437,12 +437,12 @@ def _apply_update(op: PatchOperation, file_ops: Any) -> Tuple[bool, str]:
             else:
                 new_content = new_content.rstrip('\n') + '\n' + insert_text + '\n'
     
-    # Write new content
+    # 写入新内容
     write_result = file_ops.write_file(op.file_path, new_content)
     if write_result.error:
         return False, write_result.error
     
-    # Generate diff
+    # 生成 diff
     import difflib
     diff_lines = difflib.unified_diff(
         current_content.splitlines(keepends=True),
