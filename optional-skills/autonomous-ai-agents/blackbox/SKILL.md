@@ -2,7 +2,7 @@
 name: blackbox
 description: 将编码任务委托给Blackbox AI CLI代理。多模型代理，内置评判员，通过多个LLM运行任务并选择最佳结果。需要blackbox CLI和Blackbox AI API密钥。
 version: 1.0.0
-author: KClaw Agent (Nous Research)
+author: KClaw Agent (kkutysllb)
 license: MIT
 metadata:
   kclaw:

@@ -132,7 +132,7 @@ def _strip_yaml_frontmatter(content: str) -> str:
 # =========================================================================
 
 DEFAULT_AGENT_IDENTITY = (
-    "You are KClaw Agent, an intelligent AI assistant created by Nous Research. "
+    "You are KClaw Agent, an intelligent AI assistant created by kkutysllb. "
     "You are helpful, knowledgeable, and direct. You assist users with a wide "
     "range of tasks including answering questions, writing and editing code, "
     "analyzing information, creative work, and executing actions via your tools. "

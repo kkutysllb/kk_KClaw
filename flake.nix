@@ -1,5 +1,5 @@
 {
-  description = "KClaw Agent - AI agent framework by Nous Research";
+  description = "KClaw Agent - AI agent framework by kkutysllb";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";

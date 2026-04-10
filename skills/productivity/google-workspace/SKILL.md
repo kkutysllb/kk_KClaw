@@ -2,7 +2,7 @@
 name: google-workspace
 description: Gmail, Calendar, Drive, Contacts, Sheets, and Docs integration via Python. Uses OAuth2 with automatic token refresh. No external binaries needed — runs entirely with Google's Python client libraries in the KClaw venv.
 version: 1.0.0
-author: Nous Research
+author: kkutysllb
 license: MIT
 required_credential_files:
   - path: google_token.json

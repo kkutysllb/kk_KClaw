@@ -19,7 +19,7 @@
 - **PKCE：** S256 代码挑战、32 字节随机验证器
 
 ## 客户端 ID
-- 需要在 Nous Research GCP 项目上注册"桌面应用"OAuth 客户端
+- 需要在 kkutysllb GCP 项目上注册"桌面应用"OAuth 客户端
 - 在代码中附带 client_id + client_secret（Google 将已安装应用秘密视为非机密）
 - 或者：通过环境变量接受用户提供的 client_id 作为覆盖
 
@@ -71,7 +71,7 @@
 新代码约 400 行，修改约 150 行，测试约 100 行，文档约 50 行 = 总计约 700 行
 
 ## 先决条件
-- 在 Nous Research GCP 项目上注册桌面 OAuth 客户端
+- 在 kkutysllb GCP 项目上注册桌面 OAuth 客户端
 - 或者：通过 KCLAW_GEMINI_CLIENT_ID 环境变量接受用户提供的 client_id
 
 ## 参考实现

@@ -8,7 +8,7 @@
 
 ## ✨ Highlights
 
-- **Nous Portal now supports 400+ models** — The Nous Research inference portal has expanded dramatically, giving KClaw Agent users access to over 400 models through a single provider endpoint
+- **Nous Portal now supports 400+ models** — The kkutysllb inference portal has expanded dramatically, giving KClaw Agent users access to over 400 models through a single provider endpoint
 
 - **Hugging Face as a first-class inference provider** — Full integration with HF Inference API including curated agentic model picker that maps to OpenRouter analogues, live `/models` endpoint probe, and setup wizard flow ([#3419](https://github.com/NousResearch/kclaw/pull/3419), [#3440](https://github.com/NousResearch/kclaw/pull/3440))
 

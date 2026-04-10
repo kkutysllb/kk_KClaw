@@ -2,7 +2,7 @@
 name: openclaw-migration
 description: 将用户的OpenClaw自定义足迹迁移到KClaw Agent。从~/.openclaw导入KClaw兼容的记忆、SOUL.md、命令允许列表、用户技能和选定的workspace资产，然后准确报告什么无法迁移及原因。
 version: 1.0.0
-author: KClaw Agent (Nous Research)
+author: KClaw Agent (kkutysllb)
 license: MIT
 metadata:
   kclaw:

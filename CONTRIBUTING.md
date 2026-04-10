@@ -45,7 +45,7 @@
 
 如果您的技能是官方的且有用的，但不是普遍需要的（例如，付费服务集成、重型依赖），请将其放入 **`optional-skills/``** — 它随 repo 一起发布，但默认不激活。用户可以通过 `kclaw skills browse` 发现它（标记为"官方"）并使用 `kclaw skills install` 安装它（无第三方警告、内置信任）。
 
-如果您的技能是专门的、社区贡献的或小众的，它更适合 **技能中心** — 上传到技能注册表并在 [Nous Research Discord](https://discord.gg/NousResearch) 中分享。用户可以使用 `kclaw skills install` 安装它。
+如果您的技能是专门的、社区贡献的或小众的，它更适合 **技能中心** — 上传到技能注册表并在 [kkutysllb Discord](https://discord.gg/NousResearch) 中分享。用户可以使用 `kclaw skills install` 安装它。
 
 ---
 

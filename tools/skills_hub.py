@@ -2105,7 +2105,7 @@ class OptionalSkillSource(SkillSource):
     """
     从仓库附带的 optional-skills/ 目录获取工具。
 
-    这些工具是官方的（由 Nous Research 维护）但默认未激活
+    这些工具是官方的（由 kkutysllb 维护）但默认未激活
     —— 它们不会出现在系统提示中，也不会被复制到
     ~/.kclaw/skills/ during setup.  They are discoverable via the Skills Hub
     (search / install / inspect) and labelled "official" with "builtin" trust.

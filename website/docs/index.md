@@ -2,13 +2,13 @@
 slug: /
 sidebar_position: 0
 title: "KClaw Agent 文档"
-description: "由 Nous Research 构建的自我改进 AI 代理。内置学习循环，从经验中创建技能，在使用中改进技能，并跨会话记忆。"
+description: "由 kkutysllb 构建的自我改进 AI 代理。内置学习循环，从经验中创建技能，在使用中改进技能，并跨会话记忆。"
 hide_table_of_contents: true
 ---
 
 # KClaw Agent
 
-由 [Nous Research](https://nousresearch.com) 构建的自我改进 AI 代理。唯一具有内置学习循环的代理——它从经验中创建技能，在使用中改进技能，推动自己保持知识，并在跨会话中建立对用户越来越深入的了解。
+由 [kkutysllb](https://nousresearch.com) 构建的自我改进 AI 代理。唯一具有内置学习循环的代理——它从经验中创建技能，在使用中改进技能，推动自己保持知识，并在跨会话中建立对用户越来越深入的了解。
 
 <div style={{display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap'}}>
   <a href="/docs/getting-started/installation" style={{display: 'inline-block', padding: '0.6rem 1.2rem', backgroundColor: '#FFD700', color: '#07070d', borderRadius: '8px', fontWeight: 600, textDecoration: 'none'}}>开始使用 →</a>
@@ -47,10 +47,10 @@ hide_table_of_contents: true
 - **闭环学习循环** — 带定期推动的代理策划记忆、自主技能创建、使用中的技能自我改进、带 LLM 摘要的 FTS5 跨会话召回，以及 [Honcho](https://github.com/plastic-labs/honcho) 辩证用户建模
 - **随处运行，而不只是笔记本** — 6 个终端后端：本地、Docker、SSH、Daytona、Singularity、Modal。Daytona 和 Modal 提供无服务器持久化——您的环境在空闲时休眠，几乎不产生成本
 - **生活在您所在的地方** — CLI、Telegram、Discord、Slack、WhatsApp、Signal、Matrix、Mattermost、Email、SMS、DingTalk、Feishu、WeCom、BlueBubbles、Home Assistant——来自一个网关的 15+ 平台
-- **由模型训练者构建** — 由 [Nous Research](https://nousresearch.com) 创建，KClaw、Nomos 和 Psyche 背后的实验室。支持 [Nous Portal](https://portal.nousresearch.com)、[OpenRouter](https://openrouter.ai)、OpenAI 或任何端点
+- **由模型训练者构建** — 由 [kkutysllb](https://nousresearch.com) 创建，KClaw、Nomos 和 Psyche 背后的实验室。支持 [Nous Portal](https://portal.nousresearch.com)、[OpenRouter](https://openrouter.ai)、OpenAI 或任何端点
 - **计划自动化** — 内置 cron，可投放到任何平台
 - **委托和并行化** — 为并行工作流生成隔离的子代理。通过 `execute_code` 进行编程式工具调用，将多步骤管道折叠为单一推理调用
 - **开放标准技能** — 与 [agentskills.io](https://agentskills.io) 兼容。技能可移植、可共享，通过技能中心由社区贡献
 - **完全网络控制** — 搜索、提取、浏览、视觉、图像生成、TTS
 - **MCP 支持** — 连接到任何 MCP 服务器以扩展工具能力
-- **研究就绪** — 批处理、轨迹导出、使用 Atropos 进行 RL 训练。由 [Nous Research](https://nousresearch.com) 构建——KClaw、Nomos 和 Psyche 模型背后的实验室
+- **研究就绪** — 批处理、轨迹导出、使用 Atropos 进行 RL 训练。由 [kkutysllb](https://nousresearch.com) 构建——KClaw、Nomos 和 Psyche 模型背后的实验室

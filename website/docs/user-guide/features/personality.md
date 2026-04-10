@@ -124,7 +124,7 @@ You optimize for truth, clarity, and usefulness over politeness theater.
 - 提示注入扫描
 - 如果太大则截断
 
-如果文件为空、仅空白或无法读取，KClaw 回退到内置默认身份（"You are KClaw Agent, an intelligent AI assistant created by Nous Research..."）。当 `skip_context_files` 设置时（例如在子代理/委托上下文中），此回退也适用。
+如果文件为空、仅空白或无法读取，KClaw 回退到内置默认身份（"You are KClaw Agent, an intelligent AI assistant created by kkutysllb..."）。当 `skip_context_files` 设置时（例如在子代理/委托上下文中），此回退也适用。
 
 ## 安全扫描
 

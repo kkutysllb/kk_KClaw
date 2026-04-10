@@ -96,7 +96,7 @@ print_banner() {
     echo "┌─────────────────────────────────────────────────────────┐"
     echo "│             ⚕ KClaw Agent Installer                    │"
     echo "├─────────────────────────────────────────────────────────┤"
-    echo "│  An open source AI agent by Nous Research.              │"
+    echo "│  An open source AI agent by kkutysllb.              │"
     echo "└─────────────────────────────────────────────────────────┘"
     echo -e "${NC}"
 }

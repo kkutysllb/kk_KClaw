@@ -2,7 +2,7 @@
 name: telephony
 description: 赋予 KClaw 电话能力而无需核心工具更改。配置和持久化 Twilio 号码、发送和接收 SMS/MMS、直接通话，以及通过 Bland.ai 或 Vapi 放置 AI 驱动的外呼电话。
 version: 1.0.0
-author: Nous Research
+author: kkutysllb
 license: MIT
 metadata:
   kclaw:

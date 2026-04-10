@@ -130,11 +130,11 @@ const config: Config = {
           title: 'More',
           items: [
             { label: 'GitHub', href: 'https://github.com/NousResearch/kclaw' },
-            { label: 'Nous Research', href: 'https://nousresearch.com' },
+            { label: 'kkutysllb', href: 'https://nousresearch.com' },
           ],
         },
       ],
-      copyright: `Built by <a href="https://nousresearch.com">Nous Research</a> · MIT License · ${new Date().getFullYear()}`,
+      copyright: `Built by <a href="https://nousresearch.com">kkutysllb</a> · MIT License · ${new Date().getFullYear()}`,
     },
     prism: {
       theme: prismThemes.github,

@@ -5,7 +5,7 @@ description: >
   心率、HRV、睡眠分期和 40+ 衍生 EXG 分数）融入响应。需要 BCI 可穿戴设备（Muse 2/S 或 OpenBCI）
   和在本地运行的 NeuroSkill 桌面应用。
 version: 1.0.0
-author: KClaw Agent + Nous Research
+author: KClaw Agent + kkutysllb
 license: MIT
 metadata:
   kclaw:

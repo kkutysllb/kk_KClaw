@@ -944,7 +944,7 @@ def select_provider_and_model(args=None):
 
     # Step 1: Provider selection — top providers shown first, rest behind "More..."
     top_providers = [
-        ("nous", "Nous Portal (Nous Research subscription)"),
+        ("nous", "Nous Portal (kkutysllb subscription)"),
         ("openrouter", "OpenRouter (100+ models, pay-per-use)"),
         ("anthropic", "Anthropic (Claude models — API key or Claude Code)"),
         ("openai-codex", "OpenAI Codex"),
