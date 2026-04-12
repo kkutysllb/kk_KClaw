@@ -2912,13 +2912,13 @@ def _stash_local_changes_if_needed(git_cmd: list[str], cwd: Path) -> Optional[st
         text=True,
     )
     if unmerged.stdout.strip():
-        print("→ Clearing unmerged index entries from a previous conflict...")
+        print("→ 正在清除之前冲突产生的未合并索引项...")
         subprocess.run(git_cmd + ["reset"], cwd=cwd, capture_output=True)
 
     from datetime import datetime, timezone
 
     stash_name = datetime.now(timezone.utc).strftime("kclaw-update-autostash-%Y%m%d-%H%M%S")
-    print("→ Local changes detected — stashing before update...")
+    print("→ 检测到本地修改 — 更新前先暂存...")
     subprocess.run(
         git_cmd + ["stash", "push", "--include-untracked", "-m", stash_name],
         cwd=cwd,
@@ -2952,12 +2952,12 @@ def _resolve_stash_selector(git_cmd: list[str], cwd: Path, stash_ref: str) -> Op
 
 
 def _print_stash_cleanup_guidance(stash_ref: str, stash_selector: Optional[str] = None) -> None:
-    print("  Check `git status` first so you don't accidentally reapply the same change twice.")
-    print("  Find the saved entry with: git stash list --format='%gd %H %s'")
+    print("  请先检查 `git status`，避免重复应用相同的修改。")
+    print("  查看已保存条目: git stash list --format='%gd %H %s'")
     if stash_selector:
-        print(f"  Remove it with: git stash drop {stash_selector}")
+        print(f"  删除条目: git stash drop {stash_selector}")
     else:
-        print(f"  Look for commit {stash_ref}, then drop its selector with: git stash drop stash@{{N}}")
+        print(f"  查找提交 {stash_ref}，然后删除对应选择器: git stash drop stash@{{N}}")
 
 
 
@@ -2970,21 +2970,21 @@ def _restore_stashed_changes(
 ) -> bool:
     if prompt_user:
         print()
-        print("⚠ Local changes were stashed before updating.")
-        print("  Restoring them may reapply local customizations onto the updated codebase.")
-        print("  Review the result afterward if KClaw behaves unexpectedly.")
-        print("Restore local changes now? [Y/n]")
+        print("⚠ 更新前已暂存本地修改。")
+        print("  恢复后可能会将本地定制重新应用到更新后的代码上。")
+        print("  如果 KClaw 运行异常，请检查结果。")
+        print("是否现在恢复本地修改? [Y/n]")
         if input_fn is not None:
-            response = input_fn("Restore local changes now? [Y/n]", "y")
+            response = input_fn("是否现在恢复本地修改? [Y/n]", "y")
         else:
             response = input().strip().lower()
         if response not in ("", "y", "yes"):
-            print("Skipped restoring local changes.")
-            print("Your changes are still preserved in git stash.")
-            print(f"Restore manually with: git stash apply {stash_ref}")
+            print("已跳过恢复本地修改。")
+            print("您的修改仍保存在 git stash 中。")
+            print(f"手动恢复: git stash apply {stash_ref}")
             return False
 
-    print("→ Restoring local changes...")
+    print("→ 正在恢复本地修改...")
     restore = subprocess.run(
         git_cmd + ["stash", "apply", stash_ref],
         cwd=cwd,
@@ -3002,7 +3002,7 @@ def _restore_stashed_changes(
     has_conflicts = bool(unmerged.stdout.strip())
 
     if restore.returncode != 0 or has_conflicts:
-        print("✗ Update pulled new code, but restoring local changes hit conflicts.")
+        print("✗ 代码已更新，但恢复本地修改时遇到冲突。")
         if restore.stdout.strip():
             print(restore.stdout.strip())
         if restore.stderr.strip():
@@ -3011,18 +3011,18 @@ def _restore_stashed_changes(
         # Show which files conflicted
         conflicted_files = unmerged.stdout.strip()
         if conflicted_files:
-            print("\nConflicted files:")
+            print("\n冲突文件:")
             for f in conflicted_files.splitlines():
                 print(f"  • {f}")
 
-        print("\nYour stashed changes are preserved — nothing is lost.")
-        print(f"  Stash ref: {stash_ref}")
+        print("\n暂存的修改已保留 — 没有丢失任何内容。")
+        print(f"  Stash 引用: {stash_ref}")
 
         # Ask before resetting (if interactive)
         do_reset = True
         if prompt_user:
-            print("\nReset working tree to clean state so KClaw can run?")
-            print("  (You can re-apply your changes later with: git stash apply)")
+            print("\n是否重置工作区为干净状态以便 KClaw 正常运行?")
+            print("  (稍后可用 git stash apply 重新应用修改)")
             print("[Y/n] ", end="", flush=True)
             response = input().strip().lower()
             if response not in ("", "y", "yes"):
@@ -3034,12 +3034,12 @@ def _restore_stashed_changes(
                 cwd=cwd,
                 capture_output=True,
             )
-            print("Working tree reset to clean state.")
+            print("工作区已重置为干净状态。")
         else:
-            print("Working tree left as-is (may have conflict markers).")
-            print("Resolve conflicts manually, then run: git stash drop")
+            print("工作区保持原样 (可能有冲突标记)。")
+            print("手动解决冲突后运行: git stash drop")
 
-        print(f"Restore your changes with: git stash apply {stash_ref}")
+        print(f"恢复修改: git stash apply {stash_ref}")
         # In non-interactive mode (gateway /update), don't abort — the code
         # update itself succeeded, only the stash restore had conflicts.
         # Aborting would report the entire update as failed.
@@ -3049,8 +3049,8 @@ def _restore_stashed_changes(
 
     stash_selector = _resolve_stash_selector(git_cmd, cwd, stash_ref)
     if stash_selector is None:
-        print("⚠ Local changes were restored, but KClaw couldn't find the stash entry to drop.")
-        print("  The stash was left in place. You can remove it manually after checking the result.")
+        print("⚠ 本地修改已恢复，但 KClaw 无法找到对应 stash 条目以删除。")
+        print("  stash 条目已保留。确认结果后可手动删除。")
         _print_stash_cleanup_guidance(stash_ref)
     else:
         drop = subprocess.run(
@@ -3060,16 +3060,16 @@ def _restore_stashed_changes(
             text=True,
         )
         if drop.returncode != 0:
-            print("⚠ Local changes were restored, but KClaw couldn't drop the saved stash entry.")
+            print("⚠ 本地修改已恢复，但 KClaw 无法删除保存的 stash 条目。")
             if drop.stdout.strip():
                 print(drop.stdout.strip())
             if drop.stderr.strip():
                 print(drop.stderr.strip())
-            print("  The stash was left in place. You can remove it manually after checking the result.")
+            print("  stash 条目已保留。确认结果后可手动删除。")
             _print_stash_cleanup_guidance(stash_ref, stash_selector)
 
-    print("⚠ Local changes were restored on top of the updated codebase.")
-    print("  Review `git diff` / `git status` if KClaw behaves unexpectedly.")
+    print("⚠ 本地修改已恢复到更新后的代码上。")
+    print("  如果 KClaw 运行异常，请检查 `git diff` / `git status`。")
     return True
 
 # =========================================================================
@@ -3213,31 +3213,31 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
 
         # Ask user if they want to add upstream
         print()
-        print("ℹ Your fork is not tracking the official KClaw repository.")
-        print("  This means you may miss updates from NousResearch/kclaw.")
+        print("ℹ 您的分支仓库未跟踪 KClaw 官方仓库。")
+        print("  这意味着您可能错过 NousResearch/kclaw 的更新。")
         print()
         try:
-            response = input("Add official repo as 'upstream' remote? [Y/n]: ").strip().lower()
+            response = input("是否添加官方仓库作为 'upstream' 远程? [Y/n]: ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             print()
             response = "n"
 
         if response in ("", "y", "yes"):
-            print("→ Adding upstream remote...")
+            print("→ 正在添加 upstream 远程仓库...")
             if _add_upstream_remote(git_cmd, cwd):
-                print("  ✓ Added upstream: https://github.com/NousResearch/kclaw.git")
+                print("  ✓ 已添加 upstream: https://github.com/NousResearch/kclaw.git")
                 has_upstream = True
             else:
-                print("  ✗ Failed to add upstream remote. Skipping upstream sync.")
+                print("  ✗ 添加 upstream 远程仓库失败。跳过上游同步。")
                 return
         else:
-            print("  Skipped. Run 'git remote add upstream https://github.com/NousResearch/kclaw.git' to add later.")
+            print("  已跳过。稍后运行 'git remote add upstream https://github.com/NousResearch/kclaw.git' 添加。")
             _mark_skip_upstream_prompt()
             return
 
     # Fetch upstream
     print()
-    print("→ Fetching upstream...")
+    print("→ 正在获取 upstream 更新...")
     try:
         subprocess.run(
             git_cmd + ["fetch", "upstream", "--quiet"],
@@ -3246,7 +3246,7 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
             check=True,
         )
     except subprocess.CalledProcessError:
-        print("  ✗ Failed to fetch upstream. Skipping upstream sync.")
+        print("  ✗ 获取 upstream 失败。跳过上游同步。")
         return
 
     # Compare origin/main with upstream/main
@@ -3254,27 +3254,27 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
     upstream_ahead = _count_commits_between(git_cmd, cwd, "origin/main", "upstream/main")
 
     if origin_ahead < 0 or upstream_ahead < 0:
-        print("  ✗ Could not compare branches. Skipping upstream sync.")
+        print("  ✗ 无法比较分支。跳过上游同步。")
         return
 
     # If origin/main has commits not on upstream, don't trample
     if origin_ahead > 0:
         print()
-        print(f"ℹ Your fork has {origin_ahead} commit(s) not on upstream.")
-        print("  Skipping upstream sync to preserve your changes.")
-        print("  If you want to merge upstream changes, run:")
+        print(f"ℹ 您的分支仓库有 {origin_ahead} 个提交不在 upstream 中。")
+        print("  跳过上游同步以保留您的修改。")
+        print("  如需合并上游更改，请运行:")
         print("    git pull upstream main")
         return
 
     # If upstream is not ahead, fork is up to date
     if upstream_ahead == 0:
-        print("  ✓ Fork is up to date with upstream")
+        print("  ✓ 分支仓库与上游已是最新")
         return
 
     # origin/main is strictly behind upstream/main (can fast-forward)
     print()
-    print(f"→ Fork is {upstream_ahead} commit(s) behind upstream")
-    print("→ Pulling from upstream...")
+    print(f"→ 分支仓库落后上游 {upstream_ahead} 个提交")
+    print("→ 正在从上游拉取...")
 
     try:
         subprocess.run(
@@ -3283,18 +3283,18 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
             check=True,
         )
     except subprocess.CalledProcessError:
-        print("  ✗ Failed to pull from upstream. You may need to resolve conflicts manually.")
+        print("  ✗ 从上游拉取失败。可能需要手动解决冲突。")
         return
 
-    print("  ✓ Updated from upstream")
+    print("  ✓ 已从上游更新")
 
     # Try to sync fork back to origin
-    print("→ Syncing fork...")
+    print("→ 正在同步分支仓库...")
     if _sync_fork_with_upstream(git_cmd, cwd):
-        print("  ✓ Fork synced with upstream")
+        print("  ✓ 分支仓库已与上游同步")
     else:
-        print("  ℹ Got updates from upstream but couldn't push to fork (no write access?)")
-        print("    Your local repo is updated, but your fork on GitHub may be behind.")
+        print("  ℹ 已获取上游更新，但无法推送到分支仓库 (无写入权限?)")
+        print("    本地仓库已更新，但 GitHub 上的分支仓库可能落后。")
 
 
 def _invalidate_update_cache():
@@ -3371,7 +3371,7 @@ def _install_python_dependencies_with_optional_fallback(
         )
         return
     except subprocess.CalledProcessError:
-        print("  ⚠ Optional extras failed, reinstalling base dependencies and retrying extras individually...")
+        print(f"  ⚠ 可选依赖安装失败，正在重新安装基础依赖并逐个重试可选依赖...")
 
     subprocess.run(
         install_cmd_prefix + ["install", "-e", ".", "--quiet"],
@@ -3395,9 +3395,9 @@ def _install_python_dependencies_with_optional_fallback(
             failed_extras.append(extra)
 
     if installed_extras:
-        print(f"  ✓ Reinstalled optional extras individually: {', '.join(installed_extras)}")
+        print(f"  ✓ 已逐个重装可选依赖: {', '.join(installed_extras)}")
     if failed_extras:
-        print(f"  ⚠ Skipped optional extras that still failed: {', '.join(failed_extras)}")
+        print(f"  ⚠ 跳过仍失败的可选依赖: {', '.join(failed_extras)}")
 
 
 def cmd_update(args):
@@ -3413,7 +3413,7 @@ def cmd_update(args):
     # In gateway mode, use file-based IPC for prompts instead of stdin
     gw_input_fn = (lambda prompt, default="": _gateway_prompt(prompt, default)) if gateway_mode else None
     
-    print("⚕ Updating KClaw Agent...")
+    print("⚕ 正在更新 KClaw Agent...")
     print()
     
     # Try git-based update first, fall back to ZIP download on Windows
@@ -3425,7 +3425,7 @@ def cmd_update(args):
         if sys.platform == "win32":
             use_zip_update = True
         else:
-            print("✗ Not a git repository. Please reinstall:")
+            print("✗ 不是 Git 仓库。请重新安装:")
             print("  curl -fsSL https://raw.githubusercontent.com/NousResearch/kclaw/main/scripts/install.sh | bash")
             sys.exit(1)
     
@@ -3447,7 +3447,7 @@ def cmd_update(args):
     is_fork = _is_fork(origin_url)
 
     if is_fork:
-        print("⚠ Updating from fork:")
+        print("⚠ 从分支仓库更新:")
         print(f"  {origin_url}")
         print()
 
@@ -3459,7 +3459,7 @@ def cmd_update(args):
     # Fetch and pull
     try:
 
-        print("→ Fetching updates...")
+        print("→ 正在获取更新...")
         fetch_result = subprocess.run(
             git_cmd + ["fetch", "origin"],
             cwd=PROJECT_ROOT,
@@ -3469,12 +3469,12 @@ def cmd_update(args):
         if fetch_result.returncode != 0:
             stderr = fetch_result.stderr.strip()
             if "Could not resolve host" in stderr or "unable to access" in stderr:
-                print("✗ Network error — cannot reach the remote repository.")
+                print("✗ 网络错误 — 无法连接远程仓库。")
                 print(f"  {stderr.splitlines()[0]}" if stderr else "")
             elif "Authentication failed" in stderr or "could not read Username" in stderr:
-                print("✗ Authentication failed — check your git credentials or SSH key.")
+                print("✗ 认证失败 — 请检查 Git 凭据或 SSH 密钥。")
             else:
-                print(f"✗ Failed to fetch updates from origin.")
+                print(f"✗ 获取远程更新失败。")
                 if stderr:
                     print(f"  {stderr.splitlines()[0]}")
             sys.exit(1)
@@ -3495,7 +3495,7 @@ def cmd_update(args):
         # If user is on a non-main branch or detached HEAD, switch to main
         if current_branch != "main":
             label = "detached HEAD" if current_branch == "HEAD" else f"branch '{current_branch}'"
-            print(f"  ⚠ Currently on {label} — switching to main for update...")
+            print(f"  ⚠ 当前位于 {label} — 切换到 main 分支以进行更新...")
             # Stash before checkout so uncommitted work isn't lost
             auto_stash_ref = _stash_local_changes_if_needed(git_cmd, PROJECT_ROOT)
             subprocess.run(
@@ -3536,12 +3536,12 @@ def cmd_update(args):
                     git_cmd + ["checkout", current_branch],
                     cwd=PROJECT_ROOT, capture_output=True, text=True, check=False,
                 )
-            print("✓ Already up to date!")
+            print("✓ 已是最新版本！")
             return
 
-        print(f"→ Found {commit_count} new commit(s)")
+        print(f"→ 发现 {commit_count} 个新提交")
 
-        print("→ Pulling updates...")
+        print("→ 正在拉取更新...")
         update_succeeded = False
         try:
             pull_result = subprocess.run(
@@ -3554,7 +3554,7 @@ def cmd_update(args):
                 # ff-only failed — local and remote have diverged (e.g. upstream
                 # force-pushed or rebase).  Since local changes are already
                 # stashed, reset to match the remote exactly.
-                print("  ⚠ Fast-forward not possible (history diverged), resetting to match remote...")
+                print("  ⚠ 无法快进合并（历史分叉），正在重置以匹配远程...")
                 reset_result = subprocess.run(
                     git_cmd + ["reset", "--hard", f"origin/{branch}"],
                     cwd=PROJECT_ROOT,
@@ -3562,10 +3562,10 @@ def cmd_update(args):
                     text=True,
                 )
                 if reset_result.returncode != 0:
-                    print(f"✗ Failed to reset to origin/{branch}.")
+                    print(f"✗ 重置到 origin/{branch} 失败。")
                     if reset_result.stderr.strip():
                         print(f"  {reset_result.stderr.strip()}")
-                    print("  Try manually: git fetch origin && git reset --hard origin/main")
+                    print("  手动尝试: git fetch origin && git reset --hard origin/main")
                     sys.exit(1)
             update_succeeded = True
         finally:
@@ -3573,8 +3573,8 @@ def cmd_update(args):
                 # Don't attempt stash restore if the code update itself failed —
                 # working tree is in an unknown state.
                 if not update_succeeded:
-                    print(f"  ℹ️  Local changes preserved in stash (ref: {auto_stash_ref})")
-                    print(f"  Restore manually with: git stash apply")
+                    print(f"  ℹ️  本地修改已保存在 stash 中 (ref: {auto_stash_ref})")
+                    print(f"  手动恢复: git stash apply")
                 else:
                     _restore_stashed_changes(
                         git_cmd,
@@ -3591,7 +3591,7 @@ def cmd_update(args):
         # the old bytecode (e.g. get_kclaw_home added to kclaw_constants).
         removed = _clear_bytecode_cache(PROJECT_ROOT)
         if removed:
-            print(f"  ✓ Cleared {removed} stale __pycache__ director{'y' if removed == 1 else 'ies'}")
+            print(f"  ✓ 已清理 {removed} 个过期的 __pycache__ 目录")
 
         # Fork upstream sync logic (only for main branch on forks)
         if is_fork and branch == "main":
@@ -3600,7 +3600,7 @@ def cmd_update(args):
         # Reinstall Python dependencies. Prefer .[all], but if one optional extra
         # breaks on this machine, keep base deps and reinstall the remaining extras
         # individually so update does not silently strip working capabilities.
-        print("→ Updating Python dependencies...")
+        print("→ 正在更新 Python 依赖...")
         uv_bin = shutil.which("uv")
         if uv_bin:
             uv_env = {**os.environ, "VIRTUAL_ENV": str(PROJECT_ROOT / "venv")}
@@ -3625,11 +3625,11 @@ def cmd_update(args):
         if (PROJECT_ROOT / "package.json").exists():
             import shutil
             if shutil.which("npm"):
-                print("→ Updating Node.js dependencies...")
+                print("→ 正在更新 Node.js 依赖...")
                 subprocess.run(["npm", "install", "--silent"], cwd=PROJECT_ROOT, check=False)
         
         print()
-        print("✓ Code updated!")
+        print("✓ 代码已更新！")
         
         # After git pull, source files on disk are newer than cached Python
         # modules in this process.  Reload kclaw_constants so that any lazy
@@ -3646,18 +3646,18 @@ def cmd_update(args):
         try:
             from tools.skills_sync import sync_skills
             print()
-            print("→ Syncing bundled skills...")
+            print("→ 正在同步内置技能...")
             result = sync_skills(quiet=True)
             if result["copied"]:
-                print(f"  + {len(result['copied'])} new: {', '.join(result['copied'])}")
+                print(f"  + {len(result['copied'])} 个新增: {', '.join(result['copied'])}")
             if result.get("updated"):
-                print(f"  ↑ {len(result['updated'])} updated: {', '.join(result['updated'])}")
+                print(f"  ↑ {len(result['updated'])} 个更新: {', '.join(result['updated'])}")
             if result.get("user_modified"):
-                print(f"  ~ {len(result['user_modified'])} user-modified (kept)")
+                print(f"  ~ {len(result['user_modified'])} 个用户修改 (已保留)")
             if result.get("cleaned"):
-                print(f"  − {len(result['cleaned'])} removed from manifest")
+                print(f"  − {len(result['cleaned'])} 个从清单中移除")
             if not result["copied"] and not result.get("updated"):
-                print("  ✓ Skills are up to date")
+                print("  ✓ 技能已是最新")
         except Exception as e:
             logger.debug("Skills sync during update failed: %s", e)
 
@@ -3668,7 +3668,7 @@ def cmd_update(args):
             other_profiles = [p for p in list_profiles() if p.name != active]
             if other_profiles:
                 print()
-                print("→ Syncing bundled skills to other profiles...")
+                print("→ 正在同步内置技能到其他档案...")
                 for p in other_profiles:
                     try:
                         r = seed_profile_skills(p.path, quiet=True)
@@ -3677,15 +3677,15 @@ def cmd_update(args):
                             updated = len(r.get("updated", []))
                             modified = len(r.get("user_modified", []))
                             parts = []
-                            if copied: parts.append(f"+{copied} new")
-                            if updated: parts.append(f"↑{updated} updated")
-                            if modified: parts.append(f"~{modified} user-modified")
-                            status = ", ".join(parts) if parts else "up to date"
+                            if copied: parts.append(f"+{copied} 个新增")
+                            if updated: parts.append(f"↑{updated} 个更新")
+                            if modified: parts.append(f"~{modified} 个用户修改")
+                            status = "、".join(parts) if parts else "已是最新"
                         else:
-                            status = "sync failed"
+                            status = "同步失败"
                         print(f"  {p.name}: {status}")
                     except Exception as pe:
-                        print(f"  {p.name}: error ({pe})")
+                        print(f"  {p.name}: 错误 ({pe})")
         except Exception:
             pass  # profiles module not available or no profiles
 
@@ -3694,13 +3694,13 @@ def cmd_update(args):
             from plugins.memory.honcho.cli import sync_honcho_profiles_quiet
             synced = sync_honcho_profiles_quiet()
             if synced:
-                print(f"\n-> Honcho: synced {synced} profile(s)")
+                print(f"\n-> Honcho: 已同步 {synced} 个档案")
         except Exception:
             pass  # honcho plugin not installed or not configured
 
         # Check for config migrations
         print()
-        print("→ Checking configuration for new options...")
+        print("→ 正在检查新配置项...")
         
         from kclaw_cli.config import (
             get_missing_env_vars, get_missing_config_fields, 
@@ -3716,22 +3716,22 @@ def cmd_update(args):
         if needs_migration:
             print()
             if missing_env:
-                print(f"  ⚠️  {len(missing_env)} new required setting(s) need configuration")
+                print(f"  ⚠️  {len(missing_env)} 个新必填项需要配置")
             if missing_config:
-                print(f"  ℹ️  {len(missing_config)} new config option(s) available")
+                print(f"  ℹ️  {len(missing_config)} 个新配置项可用")
             
             print()
             if gateway_mode:
                 response = _gateway_prompt(
-                    "Would you like to configure new options now? [Y/n]", "n"
+                    "是否现在配置新选项? [Y/n]", "n"
                 ).strip().lower()
             elif not (sys.stdin.isatty() and sys.stdout.isatty()):
-                print("  ℹ Non-interactive session — skipping config migration prompt.")
-                print("    Run 'kclaw config migrate' later to apply any new config/env options.")
+                print("  ℹ 非交互式会话 — 跳过配置迁移提示。")
+                print("    稍后运行 'kclaw config migrate' 应用新配置项。")
                 response = "n"
             else:
                 try:
-                    response = input("Would you like to configure them now? [Y/n]: ").strip().lower()
+                    response = input("是否现在配置? [Y/n]: ").strip().lower()
                 except EOFError:
                     response = "n"
             
@@ -3743,17 +3743,17 @@ def cmd_update(args):
                 
                 if results["env_added"] or results["config_added"]:
                     print()
-                    print("✓ Configuration updated!")
+                    print("✓ 配置已更新！")
                 if gateway_mode and missing_env:
-                    print("  ℹ API keys require manual entry: kclaw config migrate")
+                    print("  ℹ API 密钥需手动输入: kclaw config migrate")
             else:
                 print()
-                print("Skipped. Run 'kclaw config migrate' later to configure.")
+                print("已跳过。稍后运行 'kclaw config migrate' 进行配置。")
         else:
-            print("  ✓ Configuration is up to date")
+            print("  ✓ 配置已是最新")
         
         print()
-        print("✓ Update complete!")
+        print("✓ 更新完成！")
         
         # Auto-restart ALL gateways after update.
         # The code update (git pull) is shared across all profiles, so every
@@ -3804,7 +3804,7 @@ def cmd_update(args):
                                 if restart.returncode == 0:
                                     restarted_services.append(svc_name)
                                 else:
-                                    print(f"  ⚠ Failed to restart {svc_name}: {restart.stderr.strip()}")
+                                    print(f"  ⚠ 重启 {svc_name} 失败: {restart.stderr.strip()}")
                     except (FileNotFoundError, subprocess.TimeoutExpired):
                         pass
 
@@ -3824,7 +3824,7 @@ def cmd_update(args):
                                 restarted_services.append(get_launchd_label())
                             except subprocess.CalledProcessError as e:
                                 stderr = (getattr(e, "stderr", "") or "").strip()
-                                print(f"  ⚠ Gateway restart failed: {stderr}")
+                                print(f"  ⚠ Gateway 重启失败: {stderr}")
                 except (FileNotFoundError, subprocess.TimeoutExpired, ImportError):
                     pass
 
@@ -3844,13 +3844,13 @@ def cmd_update(args):
             if restarted_services or killed_pids:
                 print()
                 for svc in restarted_services:
-                    print(f"  ✓ Restarted {svc}")
+                    print(f"  ✓ 已重启 {svc}")
                 if killed_pids:
-                    print(f"  → Stopped {len(killed_pids)} manual gateway process(es)")
-                    print("    Restart manually: kclaw gateway run")
+                    print(f"  → 已停止 {len(killed_pids)} 个手动 Gateway 进程")
+                    print("    手动重启: kclaw gateway run")
                     # Also restart for each profile if needed
                     if len(killed_pids) > 1:
-                        print("    (or: kclaw -p <profile> gateway run  for each profile)")
+                        print("    (或: kclaw -p <档案名> gateway run  为每个档案分别重启)")
 
             if not restarted_services and not killed_pids:
                 # No gateways were running — nothing to do
@@ -3860,17 +3860,17 @@ def cmd_update(args):
             logger.debug("Gateway restart during update failed: %s", e)
         
         print()
-        print("Tip: You can now select a provider and model:")
-        print("  kclaw model              # Select provider and model")
+        print("提示: 您现在可以选择提供商和模型:")
+        print("  kclaw model              # 选择提供商和模型")
         
     except subprocess.CalledProcessError as e:
         if sys.platform == "win32":
-            print(f"⚠ Git update failed: {e}")
-            print("→ Falling back to ZIP download...")
+            print(f"⚠ Git 更新失败: {e}")
+            print("→ 正在回退到 ZIP 下载方式...")
             print()
             _update_via_zip(args)
         else:
-            print(f"✗ Update failed: {e}")
+            print(f"✗ 更新失败: {e}")
             sys.exit(1)
 
 
