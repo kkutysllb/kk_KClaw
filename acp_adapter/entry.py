@@ -1,15 +1,15 @@
-"""CLI entry point for the kclaw ACP adapter.
+"""kclaw ACP 适配器的 CLI 入口点。
 
-Loads environment variables from ``~/.kclaw/.env``, configures logging
-to write to stderr (so stdout is reserved for ACP JSON-RPC transport),
-and starts the ACP agent server.
+从 ``~/.kclaw/.env`` 加载环境变量，配置日志输出到 stderr
+（以便 stdout 专用于 ACP JSON-RPC 传输），
+并启动 ACP 代理服务器。
 
-Usage::
+用法::
 
     python -m acp_adapter.entry
-    # or
+    # 或
     kclaw acp
-    # or
+    # 或
     kclaw-acp
 """
 

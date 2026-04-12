@@ -1,1 +1,1 @@
-"""ACP (Agent Communication Protocol) adapter for kclaw."""
+"""kclaw 的 ACP（智能体通信协议）适配器。"""

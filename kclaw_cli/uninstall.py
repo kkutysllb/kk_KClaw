@@ -29,9 +29,30 @@ def log_warn(msg: str):
 def log_error(msg: str):
     print(f"{color('✗', Colors.RED)} {msg}")
 
-def get_project_root() -> Path:
-    """获取项目安装目录。"""
-    return Path(__file__).parent.parent.resolve()
+def is_install_directory(path: Path) -> bool:
+    """判断路径是否为标准安装目录（~/.kclaw/kclaw/）而非开发源码目录。"""
+    kclaw_home = get_kclaw_home()
+    # 标准安装目录位于 ~/.kclaw/ 下
+    if kclaw_home in path.parents or path.parent == kclaw_home:
+        return True
+    # 检查是否包含 .git 且有 pyproject.toml（典型的开发源码目录特征）
+    if (path / ".git").exists() and (path / "pyproject.toml").exists():
+        return False
+    # 检查常见开发路径模式
+    dev_patterns = ["/Projects/", "/workspace/", "/dev/", "/code/", "/src/"]
+    for pattern in dev_patterns:
+        if pattern in str(path):
+            return False
+    return True
+
+
+def get_install_directory() -> Path | None:
+    """获取标准安装目录路径（如果存在）。"""
+    kclaw_home = get_kclaw_home()
+    install_dir = kclaw_home / "kclaw"
+    if install_dir.exists() and (install_dir / ".git").exists():
+        return install_dir
+    return None
 
 
 def find_shell_configs() -> list:
@@ -305,8 +326,10 @@ def run_uninstall(args):
     - 保留数据卸载：移除代码，保留 ~/.kclaw/ 的配置和会话数据
     - 完全卸载：移除所有内容，包括 ~/.kclaw/ 的所有数据
     """
-    project_root = get_project_root()
+    source_root = Path(__file__).parent.parent.resolve()
     kclaw_home = get_kclaw_home()
+    install_dir = get_install_directory()
+    is_dev_dir = not is_install_directory(source_root)
     
     print()
     print(color("┌─────────────────────────────────────────────────────────┐", Colors.MAGENTA, Colors.BOLD))
@@ -316,7 +339,15 @@ def run_uninstall(args):
     
     # 显示受影响的内容
     print(color("当前安装信息:", Colors.CYAN, Colors.BOLD))
-    print(f"  代码目录:  {project_root}")
+    
+    if is_dev_dir:
+        print(f"  源码目录:  {source_root} " + color("(开发目录 — 不会自动删除)", Colors.YELLOW))
+    else:
+        print(f"  安装目录:  {source_root}")
+    
+    if install_dir and install_dir != source_root:
+        print(f"  安装目录:  {install_dir}")
+    
     print(f"  配置文件:  {kclaw_home / 'config.yaml'}")
     print(f"  密钥文件:  {kclaw_home / '.env'}")
     print(f"  数据目录:  {kclaw_home / 'cron/'}, {kclaw_home / 'sessions/'}, {kclaw_home / 'logs/'}")
@@ -334,15 +365,21 @@ def run_uninstall(args):
             elif install_type == "conda_package":
                 print(f"  conda 包:  {location}")
     
+    # 开发目录保护提示
+    if is_dev_dir:
+        print()
+        print(color("⚠️  检测到当前运行在开发源码目录中!", Colors.YELLOW, Colors.BOLD))
+        print(color("   源码目录将不会被删除，仅清理运行环境。", Colors.YELLOW))
+    
     print()
     
     # 确认卸载方式
     print(color("卸载选项:", Colors.YELLOW, Colors.BOLD))
     print()
-    print("  1) " + color("保留数据", Colors.GREEN) + " - 仅移除代码，保留配置/会话/日志")
+    print("  1) " + color("保留数据", Colors.GREEN) + " - 仅清理运行环境，保留配置/会话/日志")
     print("     (推荐 — 重新安装后可恢复原有设置)")
     print()
-    print("  2) " + color("完全卸载", Colors.RED) + " - 移除所有内容，包括全部数据")
+    print("  2) " + color("完全卸载", Colors.RED) + " - 清理运行环境 + 删除所有数据")
     print("     (警告: 将永久删除所有配置、会话和日志)")
     print()
     print("  3) " + color("取消", Colors.CYAN) + " - 不执行卸载")
@@ -362,13 +399,42 @@ def run_uninstall(args):
     
     full_uninstall = (choice == "2")
     
+    # 确定要删除的代码目录
+    code_dirs_to_remove = []
+    
+    if install_dir and install_dir.exists():
+        code_dirs_to_remove.append(install_dir)
+    
+    # 只有非开发目录才考虑删除源码目录本身
+    if not is_dev_dir and source_root.exists():
+        if source_root not in code_dirs_to_remove:
+            code_dirs_to_remove.append(source_root)
+    elif is_dev_dir and source_root.exists():
+        # 开发目录：询问是否也删除（默认不删除）
+        print()
+        print(color("源码目录:", Colors.CYAN), f"{source_root}")
+        try:
+            del_dev = input(color("是否也删除源码目录? [y/N]: ", Colors.BOLD)).strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            del_dev = "n"
+        if del_dev in ("y", "yes"):
+            code_dirs_to_remove.append(source_root)
+        else:
+            log_info(f"已保留源码目录: {source_root}")
+    
     # 最终确认
     print()
     if full_uninstall:
         print(color("⚠️  警告: 这将永久删除所有 KClaw 数据!", Colors.RED, Colors.BOLD))
         print(color("   包括: 配置、API 密钥、会话、定时任务、日志", Colors.RED))
     else:
-        print("这将移除 KClaw 代码，但保留您的配置和数据。")
+        print("这将清理 KClaw 运行环境，但保留您的配置和数据。")
+    
+    if code_dirs_to_remove:
+        print()
+        print(color("将删除以下代码目录:", Colors.YELLOW))
+        for d in code_dirs_to_remove:
+            print(f"  - {d}")
     
     print()
     try:
@@ -425,22 +491,19 @@ def run_uninstall(args):
     else:
         log_info("未检测到 pip/conda 安装")
     
-    # 5. 移除安装目录（代码）
-    log_info("正在移除安装目录...")
-    
-    try:
-        if project_root.exists():
-            # 如果安装在 ~/.kclaw/ 内部，只移除 kclaw 子目录
-            if kclaw_home in project_root.parents or project_root.parent == kclaw_home:
-                shutil.rmtree(project_root)
-                log_success(f"已移除 {project_root}")
-            else:
-                # 安装在其他位置
-                shutil.rmtree(project_root)
-                log_success(f"已移除 {project_root}")
-    except Exception as e:
-        log_warn(f"无法完全移除 {project_root}: {e}")
-        log_info("您可能需要手动删除")
+    # 5. 移除代码目录
+    if code_dirs_to_remove:
+        for code_dir in code_dirs_to_remove:
+            log_info(f"正在移除代码目录 {code_dir}...")
+            try:
+                if code_dir.exists():
+                    shutil.rmtree(code_dir)
+                    log_success(f"已移除 {code_dir}")
+            except Exception as e:
+                log_warn(f"无法完全移除 {code_dir}: {e}")
+                log_info("您可能需要手动删除")
+    else:
+        log_info("无需移除代码目录")
     
     # 6. 可选移除 ~/.kclaw/ 数据目录
     if full_uninstall:

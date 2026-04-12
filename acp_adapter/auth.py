@@ -1,4 +1,4 @@
-"""ACP auth helpers — detect the currently configured KClaw provider."""
+"""检测当前配置的 KClaw 提供者。"""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Optional
 
 
 def detect_provider() -> Optional[str]:
-    """Resolve the active KClaw runtime provider, or None if unavailable."""
+    """解析当前活动的 KClaw 运行时提供者，如果不可用则返回 None。"""
     try:
         from kclaw_cli.runtime_provider import resolve_runtime_provider
         runtime = resolve_runtime_provider()
@@ -20,5 +20,5 @@ def detect_provider() -> Optional[str]:
 
 
 def has_provider() -> bool:
-    """Return True if KClaw can resolve any runtime provider credentials."""
+    """如果 KClaw 能够解析任何运行时提供者凭据，则返回 True。"""
     return detect_provider() is not None
