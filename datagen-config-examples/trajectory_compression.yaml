@@ -1,101 +1,101 @@
-# Trajectory Compression Configuration
+# 轨迹压缩配置
 # 
-# Post-processes completed agent trajectories to fit within a target token budget.
-# Compression preserves head/tail turns and summarizes middle content only as needed.
+# 对已完成的 agent 轨迹进行后处理，使其符合目标 token 预算。
+# 压缩保留头尾轮次，仅在需要时对中间内容进行摘要。
 
-# Tokenizer settings for accurate token counting
+# 分词器设置，用于精确的 token 计数
 tokenizer:
-  # HuggingFace tokenizer name
+  # HuggingFace 分词器名称
   name: "moonshotai/Kimi-K2-Thinking"
   
-  # Trust remote code (required for some tokenizers)
+  # 信任远程代码（某些分词器需要）
   trust_remote_code: true
 
-# Compression targets and behavior
+# 压缩目标和行为
 compression:
-  # Target maximum tokens for compressed trajectory
+  # 压缩后轨迹的目标最大 token 数
   target_max_tokens: 29000
   
-  # Target size for summary (in tokens)
-  # This is factored into calculations when determining what to compress
+  # 摘要的目标大小（以 token 为单位）
+  # 在决定要压缩什么时，此值会纳入计算
   summary_target_tokens: 750
 
-# Protected turns that should NEVER be compressed
+# 永远不应压缩的受保护轮次
 protected_turns:
-  # Always protect the first system message (tool definitions)
+  # 始终保护第一个系统消息（工具定义）
   first_system: true
   
-  # Always protect the first human message (original request)
+  # 始终保护第一个人类消息（原始请求）
   first_human: true
   
-  # Always protect the first gpt message (initial response/tool_call)
+  # 始终保护第一个 GPT 消息（初始响应/tool_call）
   first_gpt: true
   
-  # Always protect the first tool response (result of first action)
+  # 始终保护第一个工具响应（第一个操作的结果）
   first_tool: true
   
-  # Always protect the last 2 complete turn pairs (gpt+tool or gpt only)
-  # This ensures the model's final actions and conclusions are preserved
+  # 始终保护最后 2 个完整的轮次对（gpt+tool 或仅 gpt）
+  # 这确保模型的最终操作和结论被保留
   last_n_turns: 4
 
-# LLM settings for generating summaries (OpenRouter only)
+# 用于生成摘要的 LLM 设置（仅 OpenRouter）
 summarization:
-  # Model to use for summarization (should be fast and cheap)
-  # Using OpenRouter model path format
+  # 用于摘要的模型（应该快速且便宜）
+  # 使用 OpenRouter 模型路径格式
   model: "google/gemini-3-flash-preview"
   
-  # OpenRouter API settings
+  # OpenRouter API 设置
   base_url: "https://openrouter.ai/api/v1"
   
-  # Environment variable containing OpenRouter API key
+  # 包含 OpenRouter API 密钥的环境变量
   api_key_env: "OPENROUTER_API_KEY"
   
-  # Temperature for summarization (lower = more deterministic)
+  # 摘要的温度（越低 = 越确定性）
   temperature: 0.3
   
-  # Max retries for API failures
+  # API 失败时的最大重试次数
   max_retries: 3
   
-  # Delay between retries (seconds)
+  # 重试之间的延迟（秒）
   retry_delay: 2
 
-# Output settings
+# 输出设置
 output:
-  # Add notice to system message about potential summarization
+  # 在系统消息中添加关于可能摘要的通知
   add_summary_notice: true
   
-  # Text to append to system message
+  # 追加到系统消息的文本
   summary_notice_text: "\n\nSome of the conversation may be summarized to preserve context."
   
-  # Output directory suffix (appended to input directory name)
+  # 输出目录后缀（附加到输入目录名）
   output_suffix: "_compressed"
 
-# Processing settings
+# 处理设置
 processing:
-  # Number of parallel workers for batch processing
+  # 用于批量处理的并行工作进程数
   num_workers: 4
   
-  # Maximum concurrent API calls for summarization (async parallelism)
+  # 摘要的最大并发 API 调用数（异步并行）
   max_concurrent_requests: 50
   
-  # Skip trajectories that are already under target length
+  # 跳过已低于目标长度的轨迹
   skip_under_target: true
   
-  # If true, save trajectories even if compression can't get under target
-  # (will compress as much as possible)
+  # 如果为 true，即使压缩无法达到目标以下也保存轨迹
+  #（将尽可能压缩）
   save_over_limit: true
   
-  # Timeout per trajectory in seconds (skip if takes longer)
-  # Helps avoid hanging on problematic entries
-  per_trajectory_timeout: 300  # 5 minutes
+  # 每个轨迹的超时时间（秒）（如果花费更长则跳过）
+  # 有助于避免在问题条目上挂起
+  per_trajectory_timeout: 300  # 5 分钟
 
-# Metrics to track
+# 指标跟踪
 metrics:
-  # Log detailed compression statistics
+  # 记录详细的压缩统计信息
   enabled: true
   
-  # Save per-trajectory metrics in output
+  # 在输出中保存每个轨迹的指标
   per_trajectory: false
   
-  # Metrics file name (saved in output directory)
+  # 指标文件名（保存在输出目录中）
   output_file: "compression_metrics.json"
