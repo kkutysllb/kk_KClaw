@@ -1,8 +1,8 @@
 """
-Qwen 2.5 tool call parser.
+Qwen 2.5 工具调用解析器。
 
-Uses the same <tool_call> format as KClaw.
-Registered as a separate parser name for clarity when using --tool-parser=qwen.
+使用与 KClaw 相同的 <tool_call>格式。
+注册为单独的解析器名称，以便使用 --tool-parser=qwen 时更清晰。
 """
 
 from environments.tool_call_parsers import register_parser
@@ -12,8 +12,8 @@ from environments.tool_call_parsers.kclaw_parser import KClawToolCallParser
 @register_parser("qwen")
 class QwenToolCallParser(KClawToolCallParser):
     """
-    Parser for Qwen 2.5 tool calls.
-    Same <tool_call>{"name": ..., "arguments": ...}</tool_call> format as KClaw.
+    Qwen 2.5 工具调用解析器。
+    与 KClaw 相同的 <tool_call>{"name": ..., "arguments": ...}</tool_call>格式。
     """
 
-    pass  # Identical format -- inherits everything from KClaw
+    pass  # 格式相同 -- 继承 KClaw 的所有内容

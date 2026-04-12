@@ -1,34 +1,32 @@
 """
-TerminalBench2Env -- Terminal-Bench 2.0 Evaluation Environment
+TerminalBench2Env -- Terminal-Bench 2.0 评估环境
 
-Evaluates agentic LLMs on challenging terminal tasks from Terminal-Bench 2.0.
-Each task provides a unique Docker environment (pre-built on Docker Hub), a natural
-language instruction, and a test suite for verification. The agent uses terminal +
-file tools to complete the task, then the test suite runs inside the same sandbox.
+在 Terminal-Bench 2.0 的挑战性终端任务上评估 Agentic LLM。
+每个任务提供唯一的 Docker 环境（预构建在 Docker Hub 上）、自然语言指令和验证测试套件。
+Agent 使用 terminal + file 工具完成任务，然后在同一沙箱内运行测试套件。
 
-This is an eval-only environment (not a training environment). It is designed to
-be run via the `evaluate` subcommand:
+这是纯评估环境（非训练环境）。设计为通过 `evaluate` 子命令运行：
 
     python environments/terminalbench2_env.py evaluate \\
         --env.dataset_name NousResearch/terminal-bench-2
 
-The evaluate flow:
-    1. setup()     -- Loads the TB2 dataset from HuggingFace
-    2. evaluate()  -- Iterates over all tasks, running each through:
-        a. rollout_and_score_eval()  -- Per-task agent loop + test verification
-            - Resolves Docker image (pre-built Hub image or Dockerfile fallback)
-            - Registers per-task Modal sandbox via register_task_env_overrides()
-            - Runs the KClawAgentLoop (terminal + file tools)
-            - Uploads test suite and runs test.sh in the same sandbox
-            - Returns binary pass/fail result
-        b. Aggregates per-task, per-category, and overall pass rates
-        c. Logs results via evaluate_log() and wandb
+评估流程:
+    1. setup()     -- 从 HuggingFace 加载 TB2 数据集
+    2. evaluate()  -- 遍历所有任务，每个任务经过:
+        a. rollout_and_score_eval()  -- 每个任务的 Agent 循环 + 测试验证
+            - 解析 Docker 镜像（预构建 Hub 镜像或 Dockerfile 回退）
+            - 通过 register_task_env_overrides() 注册每个任务的 Modal 沙箱
+            - 运行 KClawAgentLoop（terminal + file 工具）
+            - 上传测试套件并在同一沙箱中运行 test.sh
+            - 返回二进制通过/失败结果
+        b. 聚合每个任务、每个类别和整体通过率
+        c. 通过 evaluate_log() 和 wandb 记录结果
 
-Key features:
-  - Per-task Modal sandboxes using pre-built Docker Hub images
-  - Binary reward: 1.0 if all tests pass, 0.0 otherwise
-  - Concurrency-controlled parallel evaluation via asyncio.Semaphore
-  - Per-task, per-category, and aggregate pass rate tracking
+关键特性:
+  - 每个任务的 Modal 沙箱，使用预构建的 Docker Hub 镜像
+  - 二进制奖励: 1.0 表示所有测试通过，0.0 表示失败
+  - 通过 asyncio.Semaphore 控制并发的并行评估
+  - 每个任务、每个类别和整体通过率跟踪
 """
 
 import asyncio
@@ -47,7 +45,7 @@ from collections import defaultdict
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-# Ensure repo root is on sys.path for imports
+# 确保仓库根目录在 sys.path 中以便导入
 _repo_root = Path(__file__).resolve().parent.parent.parent.parent
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
@@ -70,86 +68,86 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Configuration
+# 配置
 # =============================================================================
 
 class TerminalBench2EvalConfig(KClawAgentEnvConfig):
     """
-    Configuration for the Terminal-Bench 2.0 evaluation environment.
+    Terminal-Bench 2.0 评估环境配置。
 
-    Extends KClawAgentEnvConfig with TB2-specific settings for dataset loading,
-    test execution, task filtering, and eval concurrency.
+    扩展 KClawAgentEnvConfig，添加 TB2 特定设置，包括数据集加载、
+    测试执行、任务过滤和评估并发。
     """
 
-    # --- Dataset ---
+    # --- 数据集 ---
     dataset_name: str = Field(
         default="NousResearch/terminal-bench-2",
-        description="HuggingFace dataset containing TB2 tasks.",
+        description="包含 TB2 任务的 HuggingFace 数据集。",
     )
 
-    # --- Test execution ---
+    # --- 测试执行 ---
     test_timeout: int = Field(
         default=180,
-        description="Timeout in seconds for running the test suite after agent completes.",
+        description="Agent 完成后运行测试套件的超时时间（秒）。",
     )
 
-    # --- Image strategy ---
+    # --- 镜像策略 ---
     force_build: bool = Field(
         default=False,
-        description="If True, always build from Dockerfile (ignore docker_image). "
-        "Useful for testing custom Dockerfiles.",
+        description="如果为 True，始终从 Dockerfile 构建（忽略 docker_image）。"
+        "适用于测试自定义 Dockerfile。",
     )
 
-    # --- Task filtering (comma-separated from CLI) ---
+    # --- 任务过滤（从 CLI 逗号分隔） ---
     task_filter: Optional[str] = Field(
         default=None,
-        description="Comma-separated task names to run (e.g., 'fix-git,git-multibranch'). "
-        "If not set, all tasks are run.",
+        description="逗号分隔的要运行的任务名（例如 'fix-git,git-multibranch'）。"
+        "如果未设置，运行所有任务。",
     )
     skip_tasks: Optional[str] = Field(
         default=None,
-        description="Comma-separated task names to skip on top of the default skip list.",
+        description="逗号分隔的要跳过的任务名，在默认跳过列表之上。",
     )
 
-    # --- Per-task wall-clock timeout ---
+    # --- 每个任务的挂钟超时 ---
     task_timeout: int = Field(
         default=1800,
-        description="Maximum wall-clock seconds per task (agent loop + verification). "
-        "Tasks exceeding this are scored as FAIL. Default 30 minutes.",
+        description="每个任务的最大挂钟时间（秒）（Agent 循环 + 验证）。"
+        "超过此时间的任务计为失败。默认 30 分钟。",
     )
 
-    # --- Concurrency control ---
+    # --- 并发控制 ---
     max_concurrent_tasks: int = Field(
         default=8,
-        description="Maximum number of tasks to run concurrently. "
-        "Limits concurrent Modal sandbox creations to avoid async/threading deadlocks. "
-        "Modal has internal limits and creating too many sandboxes simultaneously "
-        "causes blocking calls to deadlock inside the thread pool.",
+        description="最大并发任务数。"
+        "限制并发 Modal 沙箱创建以避免异步/线程死锁。"
+        "Modal 有内部限制，同时创建过多沙箱"
+        "会导致线程池内的阻塞调用死锁。",
     )
 
-    # --- Eval concurrency ---
+    # --- 评估并发 ---
     eval_concurrency: int = Field(
         default=0,
-        description="Maximum number of tasks to evaluate in parallel. "
-        "0 means unlimited (all tasks run concurrently). "
-        "Set to 8 for local backends to avoid overwhelming the machine.",
+        description="最大并行评估任务数。"
+        "0 表示无限制（所有任务同时运行）。"
+        "本地后端建议设为 8 以避免机器过载。",
     )
 
 
-# Tasks that cannot run properly on Modal and are excluded from scoring.
+# 无法在 Modal 上正常运行的任务，从评分中排除。
 MODAL_INCOMPATIBLE_TASKS = {
-    "qemu-startup",        # Needs KVM/hardware virtualization
-    "qemu-alpine-ssh",     # Needs KVM/hardware virtualization
-    "crack-7z-hash",       # Password brute-force -- too slow for cloud sandbox timeouts
+    "qemu-startup",        # 需要 KVM/硬件虚拟化
+    "qemu-alpine-ssh",     # 需要 KVM/硬件虚拟化
+    "crack-7z-hash",       # 密码暴力破解 -- 云沙箱超时太慢
 }
 
 
 # =============================================================================
-# Tar extraction helper
+# Tar 解压辅助函数
 # =============================================================================
 
 def _normalize_tar_member_parts(member_name: str) -> list:
-    """Return safe path components for a tar member or raise ValueError."""
+    """返回 tar 成员的安全路径组件，或抛出 ValueError。"""
     normalized_name = member_name.replace("\\", "/")
     posix_path = PurePosixPath(normalized_name)
     windows_path = PureWindowsPath(member_name)
@@ -160,16 +158,16 @@ def _normalize_tar_member_parts(member_name: str) -> list:
         or windows_path.is_absolute()
         or windows_path.drive
     ):
-        raise ValueError(f"Unsafe archive member path: {member_name}")
+        raise ValueError(f"不安全的归档成员路径: {member_name}")
 
     parts = [part for part in posix_path.parts if part not in ("", ".")]
     if not parts or any(part == ".." for part in parts):
-        raise ValueError(f"Unsafe archive member path: {member_name}")
+        raise ValueError(f"不安全的归档成员路径: {member_name}")
     return parts
 
 
 def _safe_extract_tar(tar: tarfile.TarFile, target_dir: Path) -> None:
-    """Extract a tar archive without allowing traversal or link entries."""
+    """解压 tar 归档文件，禁止路径遍历和链接条目。"""
     target_dir.mkdir(parents=True, exist_ok=True)
     target_root = target_dir.resolve()
 
@@ -188,12 +186,12 @@ def _safe_extract_tar(tar: tarfile.TarFile, target_dir: Path) -> None:
             continue
 
         if not member.isfile():
-            raise ValueError(f"Unsupported archive member type: {member.name}")
+            raise ValueError(f"不支持的归档成员类型: {member.name}")
 
         target_real.parent.mkdir(parents=True, exist_ok=True)
         extracted = tar.extractfile(member)
         if extracted is None:
-            raise ValueError(f"Cannot read archive member: {member.name}")
+            raise ValueError(f"无法读取归档成员: {member.name}")
 
         with extracted, open(target_real, "wb") as dst:
             shutil.copyfileobj(extracted, dst)
@@ -205,7 +203,7 @@ def _safe_extract_tar(tar: tarfile.TarFile, target_dir: Path) -> None:
 
 
 def _extract_base64_tar(b64_data: str, target_dir: Path):
-    """Extract a base64-encoded tar.gz archive into target_dir."""
+    """将 base64 编码的 tar.gz 归档文件解压到 target_dir。"""
     if not b64_data:
         return
     raw = base64.b64decode(b64_data)
@@ -215,30 +213,30 @@ def _extract_base64_tar(b64_data: str, target_dir: Path):
 
 
 # =============================================================================
-# Main Environment
+# 主环境
 # =============================================================================
 
 class TerminalBench2EvalEnv(KClawAgentBaseEnv):
     """
-    Terminal-Bench 2.0 evaluation environment (eval-only, no training).
+    Terminal-Bench 2.0 评估环境（纯评估，无训练）。
 
-    Inherits from KClawAgentBaseEnv for:
-      - Terminal backend setup (os.environ["TERMINAL_ENV"])
-      - Tool resolution via _resolve_tools_for_group()
-      - Monkey patches for async-safe tool operation
-      - Wandb trajectory formatting
+    继承 KClawAgentBaseEnv 的:
+      - 终端后端设置 (os.environ["TERMINAL_ENV"])
+      - 通过 _resolve_tools_for_group() 进行工具解析
+      - 异步安全工具操作的猴子补丁
+      - Wandb 轨迹格式化
 
-    The evaluate flow (triggered by `environment.py evaluate`):
-      1. setup()    -- Load dataset from HuggingFace
-      2. evaluate() -- Run all tasks through rollout_and_score_eval()
+    评估流程（由 `environment.py evaluate` 触发）:
+      1. setup()    -- 从 HuggingFace 加载数据集
+      2. evaluate() -- 通过 rollout_and_score_eval() 运行所有任务
 
-    Each task in rollout_and_score_eval():
-      1. Resolve Docker image (pre-built Hub image or Dockerfile fallback)
-      2. Register per-task Modal sandbox override
-      3. Run KClawAgentLoop with terminal + file tools
-      4. Upload test suite and execute test.sh in the same sandbox
-      5. Check /logs/verifier/reward.txt for pass/fail
-      6. Clean up sandbox, overrides, and temp files
+    rollout_and_score_eval() 中的每个任务:
+      1. 解析 Docker 镜像（预构建 Hub 镜像或 Dockerfile 回退）
+      2. 注册每个任务的 Modal 沙箱覆盖
+      3. 使用 terminal + file 工具运行 KClawAgentLoop
+      4. 上传测试套件并在同一沙箱中执行 test.sh
+      5. 检查 /logs/verifier/reward.txt 判断通过/失败
+      6. 清理沙箱、覆盖和临时文件
     """
 
     name = "terminal-bench-2"
@@ -247,43 +245,43 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
     @classmethod
     def config_init(cls) -> Tuple[TerminalBench2EvalConfig, List[APIServerConfig]]:
         """
-        Default configuration for Terminal-Bench 2.0 evaluation.
+        Terminal-Bench 2.0 评估的默认配置。
 
-        Uses eval-only settings:
-          - eval_handling=STOP_TRAIN so the eval flow runs cleanly
-          - steps_per_eval=1, total_steps=1 so eval triggers immediately
-          - group_size=1 (one rollout per group, each task is expensive)
+        使用纯评估设置:
+          - eval_handling=STOP_TRAIN 以便评估流程干净运行
+          - steps_per_eval=1, total_steps=1 以便评估立即触发
+          - group_size=1（每组一个 rollout，每个任务开销大）
 
-        Uses Modal terminal backend (cloud-isolated sandbox per task) and
-        OpenRouter with Claude for inference.
+        使用 Modal 终端后端（每个任务一个云隔离沙箱）和
+        OpenRouter + Claude 进行推理。
         """
         env_config = TerminalBench2EvalConfig(
-            # Terminal + file tools only (the agent interacts via shell commands)
+            # 仅 terminal + file 工具（Agent 通过 shell 命令交互）
             enabled_toolsets=["terminal", "file"],
             disabled_toolsets=None,
             distribution=None,
 
-            # Agent settings -- TB2 tasks are complex, need many turns
+            # Agent 设置 -- TB2 任务复杂，需要多轮
             max_agent_turns=60,
             max_token_length=16000,
             agent_temperature=0.6,
             system_prompt=None,
 
-            # Modal backend for per-task cloud-isolated sandboxes
+            # Modal 后端，每个任务一个云隔离沙箱
             terminal_backend="modal",
-            terminal_timeout=300,   # 5 min per command (builds, pip install, etc.)
+            terminal_timeout=300,   # 每个命令 5 分钟（构建、pip install 等）
 
-            # Test execution timeout (TB2 test scripts can install deps like pytest)
+            # 测试执行超时（TB2 测试脚本可能安装 pytest 等依赖）
             test_timeout=180,
 
-            # 89 tasks run in parallel, each needs a thread for tool calls
+            # 89 个任务并行运行，每个需要一个线程进行工具调用
             tool_pool_size=128,
 
-            # --- Eval-only Atropos settings ---
-            # These settings make the env work as an eval-only environment:
-            #   - STOP_TRAIN: pauses training during eval (standard for eval envs)
-            #   - steps_per_eval=1, total_steps=1: eval triggers immediately
-            #   - group_size=1: one rollout per group (each task is expensive)
+            # --- 纯评估 Atropos 设置 ---
+            # 这些设置使环境作为纯评估环境工作:
+            #   - STOP_TRAIN: 评估期间暂停训练（评估环境标准）
+            #   - steps_per_eval=1, total_steps=1: 评估立即触发
+            #   - group_size=1: 每组一个 rollout（每个任务开销大）
             eval_handling=EvalHandlingEnum.STOP_TRAIN,
             group_size=1,
             steps_per_eval=1,
@@ -292,10 +290,10 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
             tokenizer_name="NousResearch/KClaw-3-Llama-3.1-8B",
             use_wandb=True,
             wandb_name="terminal-bench-2",
-            ensure_scores_are_not_same=False,  # Binary rewards may all be 0 or 1
+            ensure_scores_are_not_same=False,  # 二进制奖励可能全部为 0 或 1
         )
 
-        # OpenRouter with Claude -- API key loaded from .env
+        # OpenRouter + Claude -- API 密钥从 .env 加载
         server_configs = [
             APIServerConfig(
                 base_url="https://openrouter.ai/api/v1",
@@ -309,33 +307,33 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
         return env_config, server_configs
 
     # =========================================================================
-    # Setup -- load dataset
+    # Setup -- 加载数据集
     # =========================================================================
 
     async def setup(self):
-        """Load the Terminal-Bench 2.0 dataset from HuggingFace."""
+        """从 HuggingFace 加载 Terminal-Bench 2.0 数据集。"""
         from datasets import load_dataset
 
-        # Auto-set terminal_lifetime to task_timeout + 120s so sandboxes
-        # never get killed during an active task, but still get cleaned up
-        # promptly after the task times out.
+        # 自动设置 terminal_lifetime 为 task_timeout + 120 秒，
+        # 确保沙箱在活跃任务期间不会被终止，
+        # 但任务超时后仍能及时清理。
         lifetime = self.config.task_timeout + 120
         self.config.terminal_lifetime = lifetime
         os.environ["TERMINAL_LIFETIME_SECONDS"] = str(lifetime)
-        print(f"  Terminal lifetime auto-set to {lifetime}s (task_timeout + 120s)")
+        print(f"  Terminal 生命周期自动设置为 {lifetime}s (task_timeout + 120s)")
 
-        print(f"Loading TB2 dataset from: {self.config.dataset_name}")
+        print(f"正在加载 TB2 数据集: {self.config.dataset_name}")
         ds = load_dataset(self.config.dataset_name, split="train")
 
-        # Apply task filters (comma-separated strings from CLI)
+        # 应用任务过滤（从 CLI 传入的逗号分隔字符串）
         tasks = list(ds)
         if self.config.task_filter:
             allowed = {name.strip() for name in self.config.task_filter.split(",")}
             tasks = [t for t in tasks if t["task_name"] in allowed]
-            print(f"  Filtered to {len(tasks)} tasks: {sorted(allowed)}")
+            print(f"  已过滤为 {len(tasks)} 个任务: {sorted(allowed)}")
 
-        # Skip tasks incompatible with the current backend (e.g., QEMU on Modal)
-        # plus any user-specified skip_tasks
+        # 跳过与当前后端不兼容的任务（如 Modal 上的 QEMU）
+        # 以及用户指定的 skip_tasks
         skip = set(MODAL_INCOMPATIBLE_TASKS) if self.config.terminal_backend == "modal" else set()
         if self.config.skip_tasks:
             skip |= {name.strip() for name in self.config.skip_tasks.split(",")}
@@ -344,22 +342,22 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
             tasks = [t for t in tasks if t["task_name"] not in skip]
             skipped = before - len(tasks)
             if skipped > 0:
-                print(f"  Skipped {skipped} incompatible tasks: {sorted(skip & {t['task_name'] for t in ds})}")
+                print(f"  已跳过 {skipped} 个不兼容任务: {sorted(skip & {t['task_name'] for t in ds})}")
 
         self.all_eval_items = tasks
         self.iter = 0
 
-        # Build category index for per-category metrics
+        # 构建类别索引以支持按类别统计指标
         self.category_index: Dict[str, List[int]] = defaultdict(list)
         for i, task in enumerate(self.all_eval_items):
             self.category_index[task.get("category", "unknown")].append(i)
 
-        # Reward tracking for wandb logging
+        # 奖励跟踪用于 wandb 日志
         self.eval_metrics: List[Tuple[str, float]] = []
 
-        # Streaming JSONL writer -- saves each task's full conversation
-        # immediately on completion so data is preserved even on Ctrl+C.
-        # Timestamped filename so each run produces a unique file.
+        # 流式 JSONL 写入器 -- 每个任务完成后立即保存完整对话，
+        # 即使 Ctrl+C 也能保留数据。
+        # 带时间戳的文件名使每次运行产生唯一文件。
         import datetime
         log_dir = os.path.join(os.path.dirname(__file__), "logs")
         os.makedirs(log_dir, exist_ok=True)
@@ -367,14 +365,14 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
         self._streaming_path = os.path.join(log_dir, f"samples_{run_ts}.jsonl")
         self._streaming_file = open(self._streaming_path, "w")
         self._streaming_lock = __import__("threading").Lock()
-        print(f"  Streaming results to: {self._streaming_path}")
+        print(f"  流式结果写入: {self._streaming_path}")
 
-        print(f"TB2 ready: {len(self.all_eval_items)} tasks across {len(self.category_index)} categories")
+        print(f"TB2 就绪: {len(self.all_eval_items)} 个任务，跨 {len(self.category_index)} 个类别")
         for cat, indices in sorted(self.category_index.items()):
-            print(f"  {cat}: {len(indices)} tasks")
+            print(f"  {cat}: {len(indices)} 个任务")
 
     def _save_result(self, result: Dict[str, Any]):
-        """Write a single task result to the streaming JSONL file immediately."""
+        """立即将单个任务结果写入流式 JSONL 文件。"""
         if not hasattr(self, "_streaming_file") or self._streaming_file.closed:
             return
         with self._streaming_lock:
@@ -382,140 +380,138 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
             self._streaming_file.flush()
 
     # =========================================================================
-    # Training pipeline stubs -- NOT used in eval-only mode
+    # 训练管线桩 -- 纯评估模式下不使用
     # =========================================================================
-    # These satisfy the abstract method requirements from KClawAgentBaseEnv.
-    # The evaluate subcommand calls setup() -> evaluate() directly, bypassing
-    # the training pipeline entirely.
+    # 这些满足 KClawAgentBaseEnv 的抽象方法要求。
+    # evaluate 子命令直接调用 setup() -> evaluate()，完全绕过训练管线。
 
     async def get_next_item(self):
-        """Return next item (stub -- not used in eval-only mode)."""
+        """返回下一个项目（桩 -- 纯评估模式下不使用）。"""
         item = self.all_eval_items[self.iter % len(self.all_eval_items)]
         self.iter += 1
         return item
 
     def format_prompt(self, item: Dict[str, Any]) -> str:
-        """Return the task's instruction as the user prompt."""
+        """返回任务指令作为用户提示。"""
         return item["instruction"]
 
     async def compute_reward(self, item, result, ctx) -> float:
-        """Compute reward (stub -- actual verification is in rollout_and_score_eval)."""
+        """计算奖励（桩 -- 实际验证在 rollout_and_score_eval 中）。"""
         return 0.0
 
     async def collect_trajectories(self, item):
-        """Collect trajectories (stub -- not used in eval-only mode)."""
+        """收集轨迹（桩 -- 纯评估模式下不使用）。"""
         return None, []
 
     async def score(self, rollout_group_data):
-        """Score rollouts (stub -- not used in eval-only mode)."""
+        """评分 rollout（桩 -- 纯评估模式下不使用）。"""
         return None
 
     # =========================================================================
-    # Docker image resolution
+    # Docker 镜像解析
     # =========================================================================
 
     def _resolve_task_image(
         self, item: Dict[str, Any], task_name: str
     ) -> Tuple[str, Optional[Path]]:
         """
-        Resolve the Docker image for a task, with fallback to Dockerfile.
+        解析任务的 Docker 镜像，回退到 Dockerfile。
 
-        Strategy (mirrors Harbor's approach):
-        1. If force_build=True, always build from Dockerfile in environment_tar
-        2. If docker_image is available, use the pre-built Docker Hub image (fast)
-        3. Otherwise, extract Dockerfile from environment_tar and build (slow)
+        策略（模仿 Harbor 的方法）:
+        1. 如果 force_build=True，始终从 environment_tar 中的 Dockerfile 构建
+        2. 如果 docker_image 可用，使用预构建的 Docker Hub 镜像（快速）
+        3. 否则，从 environment_tar 提取 Dockerfile 并构建（慢）
 
         Returns:
-            (modal_image, temp_dir) -- modal_image is a Docker Hub name or a
-            Dockerfile path. temp_dir is set if we extracted files that need
-            cleanup later.
+            (modal_image, temp_dir) -- modal_image 是 Docker Hub 名称或
+            Dockerfile 路径。temp_dir 在提取了需要后续清理的文件时设置。
         """
         docker_image = item.get("docker_image", "")
         environment_tar = item.get("environment_tar", "")
 
-        # Fast path: use pre-built Docker Hub image
+        # 快速路径: 使用预构建的 Docker Hub 镜像
         if docker_image and not self.config.force_build:
-            logger.info("Task %s: using pre-built image %s", task_name, docker_image)
+            logger.info("任务 %s: 使用预构建镜像 %s", task_name, docker_image)
             return docker_image, None
 
-        # Slow path: extract Dockerfile from environment_tar and build
+        # 慢路径: 从 environment_tar 提取 Dockerfile 并构建
         if environment_tar:
             task_dir = Path(tempfile.mkdtemp(prefix=f"tb2-{task_name}-"))
             _extract_base64_tar(environment_tar, task_dir)
             dockerfile_path = task_dir / "Dockerfile"
             if dockerfile_path.exists():
                 logger.info(
-                    "Task %s: building from Dockerfile (force_build=%s, docker_image=%s)",
+                    "任务 %s: 从 Dockerfile 构建 (force_build=%s, docker_image=%s)",
                     task_name, self.config.force_build, bool(docker_image),
                 )
                 return str(dockerfile_path), task_dir
 
-        # Neither available -- fall back to Hub image if force_build was True
+        # 两者都不可用 -- 如果 force_build 为 True 则回退到 Hub 镜像
         if docker_image:
             logger.warning(
-                "Task %s: force_build=True but no environment_tar, "
-                "falling back to docker_image %s", task_name, docker_image,
+                "任务 %s: force_build=True 但没有 environment_tar，"
+                "回退到 docker_image %s", task_name, docker_image,
             )
             return docker_image, None
 
         return "", None
 
     # =========================================================================
-    # Per-task evaluation -- agent loop + test verification
+    # 每个任务的评估 -- Agent 循环 + 测试验证
     # =========================================================================
 
     async def rollout_and_score_eval(self, eval_item: Dict[str, Any]) -> Dict:
         """
-        Evaluate a single TB2 task: run the agent loop, then verify with tests.
+        评估单个 TB2 任务: 运行 Agent 循环，然后用测试验证。
 
-        This is the core evaluation method. For each task it:
-        1. Resolves the Docker image and registers the Modal sandbox override
-        2. Runs KClawAgentLoop with terminal + file tools
-        3. Uploads the test suite into the sandbox
-        4. Executes test.sh and checks the result
-        5. Cleans up the sandbox and temp files
+        这是核心评估方法。对于每个任务:
+        1. 解析 Docker 镜像并注册 Modal 沙箱覆盖
+        2. 使用 terminal + file 工具运行 KClawAgentLoop
+        3. 上传测试套件到沙箱
+        4. 执行 test.sh 并检查结果
+        5. 清理沙箱和临时文件
 
         Args:
-            eval_item: A single TB2 task dict from the dataset
+            eval_item: 数据集中的单个 TB2 任务字典
 
         Returns:
-            Dict with 'passed' (bool), 'reward' (float), 'task_name' (str),
-            'category' (str), and optional debug info
+            包含 'passed' (bool)、'reward' (float)、'task_name' (str)、
+            'category' (str) 和可选调试信息的字典
         """
         task_name = eval_item.get("task_name", "unknown")
         category = eval_item.get("category", "unknown")
         task_id = str(uuid.uuid4())
-        task_dir = None  # Set if we extract a Dockerfile (needs cleanup)
+        task_dir = None  # 在提取 Dockerfile 时设置（需要清理）
 
         from tqdm import tqdm
-        tqdm.write(f"  [START] {task_name} (task_id={task_id[:8]})")
+        tqdm.write(f"  [开始] {task_name} (task_id={task_id[:8]})")
         task_start = time.time()
 
         try:
-            # --- 1. Resolve Docker image ---
+            # --- 1. 解析 Docker 镜像 ---
             modal_image, task_dir = self._resolve_task_image(eval_item, task_name)
             if not modal_image:
-                logger.error("Task %s: no docker_image or environment_tar, skipping", task_name)
+                logger.error("任务 %s: 没有 docker_image 或 environment_tar，跳过", task_name)
                 return {
                     "passed": False, "reward": 0.0,
                     "task_name": task_name, "category": category,
                     "error": "no_image",
                 }
 
-            # --- 2. Register per-task image override ---
-            # Set both modal_image and docker_image so the task image is used
-            # regardless of which backend is configured.
+            # --- 2. 注册每个任务的镜像覆盖 ---
+            # 同时设置 modal_image 和 docker_image，确保无论配置了哪个后端
+            # 都能使用任务镜像。
             register_task_env_overrides(task_id, {
                 "modal_image": modal_image,
                 "docker_image": modal_image,
                 "cwd": "/app",
             })
             logger.info(
-                "Task %s: registered image override for task_id %s",
+                "任务 %s: 已为 task_id %s 注册镜像覆盖",
                 task_name, task_id[:8],
             )
 
-            # --- 3. Resolve tools and build messages ---
+            # --- 3. 解析工具并构建消息 ---
             tools, valid_names = self._resolve_tools_for_group()
 
             messages: List[Dict[str, Any]] = []
@@ -523,10 +519,10 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
                 messages.append({"role": "system", "content": self.config.system_prompt})
             messages.append({"role": "user", "content": self.format_prompt(eval_item)})
 
-            # --- 4. Run agent loop ---
-            # Use ManagedServer (Phase 2) for vLLM/SGLang backends to get
-            # token-level tracking via /generate. Falls back to direct
-            # ServerManager (Phase 1) for OpenAI endpoints.
+            # --- 4. 运行 Agent 循环 ---
+            # 对 vLLM/SGLang 后端使用 ManagedServer（阶段2）以获取
+            # 通过 /generate 的 token 级跟踪。对 OpenAI 端点回退到
+            # 直接 ServerManager（阶段1）。
             if self._use_managed_server():
                 async with self.server.managed_server(
                     tokenizer=self.tokenizer,
@@ -558,40 +554,40 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
                 )
                 result = await agent.run(messages)
 
-            # --- 5. Verify -- run test suite in the agent's sandbox ---
-            # Skip verification if the agent produced no meaningful output
+            # --- 5. 验证 -- 在 Agent 沙箱中运行测试套件 ---
+            # 如果 Agent 没有产生有意义的输出则跳过验证
             only_system_and_user = all(
                 msg.get("role") in ("system", "user") for msg in result.messages
             )
             if result.turns_used == 0 or only_system_and_user:
                 logger.warning(
-                    "Task %s: agent produced no output (turns=%d). Reward=0.",
+                    "任务 %s: Agent 没有产生输出 (turns=%d)。奖励=0。",
                     task_name, result.turns_used,
                 )
                 reward = 0.0
             else:
-                # Run tests in a thread so the blocking ctx.terminal() calls
-                # don't freeze the entire event loop (which would stall all
-                # other tasks, tqdm updates, and timeout timers).
+                # 在线程中运行测试，使阻塞的 ctx.terminal() 调用
+                # 不会冻结整个事件循环（这会导致所有其他任务、
+                # tqdm 更新和超时计时器停滞）。
                 ctx = ToolContext(task_id)
                 try:
                     loop = asyncio.get_event_loop()
                     reward = await loop.run_in_executor(
-                        None,  # default thread pool
+                        None,  # 默认线程池
                         self._run_tests, eval_item, ctx, task_name,
                     )
                 except Exception as e:
-                    logger.error("Task %s: test verification failed: %s", task_name, e)
+                    logger.error("任务 %s: 测试验证失败: %s", task_name, e)
                     reward = 0.0
                 finally:
                     ctx.cleanup()
 
             passed = reward == 1.0
-            status = "PASS" if passed else "FAIL"
+            status = "通过" if passed else "失败"
             elapsed = time.time() - task_start
             tqdm.write(f"  [{status}] {task_name} (turns={result.turns_used}, {elapsed:.0f}s)")
             logger.info(
-                "Task %s: reward=%.1f, turns=%d, finished=%s",
+                "任务 %s: reward=%.1f, turns=%d, finished=%s",
                 task_name, reward, result.turns_used, result.finished_naturally,
             )
 
@@ -609,8 +605,8 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
 
         except Exception as e:
             elapsed = time.time() - task_start
-            logger.error("Task %s: rollout failed: %s", task_name, e, exc_info=True)
-            tqdm.write(f"  [ERROR] {task_name}: {e} ({elapsed:.0f}s)")
+            logger.error("任务 %s: rollout 失败: %s", task_name, e, exc_info=True)
+            tqdm.write(f"  [错误] {task_name}: {e} ({elapsed:.0f}s)")
             out = {
                 "passed": False, "reward": 0.0,
                 "task_name": task_name, "category": category,
@@ -620,12 +616,12 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
             return out
 
         finally:
-            # --- Cleanup: clear overrides, sandbox, and temp files ---
+            # --- 清理: 清除覆盖、沙箱和临时文件 ---
             clear_task_env_overrides(task_id)
             try:
                 cleanup_vm(task_id)
             except Exception as e:
-                logger.debug("VM cleanup for %s: %s", task_id[:8], e)
+                logger.debug("VM 清理 %s: %s", task_id[:8], e)
             if task_dir and task_dir.exists():
                 shutil.rmtree(task_dir, ignore_errors=True)
 
@@ -633,59 +629,59 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
         self, item: Dict[str, Any], ctx: ToolContext, task_name: str
     ) -> float:
         """
-        Upload and execute the test suite in the agent's sandbox, then
-        download the verifier output locally to read the reward.
+        上传并执行 Agent 沙箱中的测试套件，然后
+        下载验证器输出到本地读取奖励值。
 
-        Follows Harbor's verification pattern:
-        1. Upload tests/ directory into the sandbox
-        2. Execute test.sh inside the sandbox
-        3. Download /logs/verifier/ directory to a local temp dir
-        4. Read reward.txt locally with native Python I/O
+        遵循 Harbor 的验证模式:
+        1. 上传 tests/ 目录到沙箱
+        2. 在沙箱内执行 test.sh
+        3. 下载 /logs/verifier/ 目录到本地临时目录
+        4. 使用原生 Python I/O 本地读取 reward.txt
 
-        Downloading locally avoids issues with the file_read tool on
-        the Modal VM and matches how Harbor handles verification.
+        本地下载避免了在 Modal VM 上使用 file_read 工具的问题，
+        并与 Harbor 的验证方式一致。
 
-        TB2 test scripts (test.sh) typically:
-        1. Install pytest via uv/pip
-        2. Run pytest against the test files in /tests/
-        3. Write results to /logs/verifier/reward.txt
+        TB2 测试脚本 (test.sh) 通常:
+        1. 通过 uv/pip 安装 pytest
+        2. 对 /tests/ 中的测试文件运行 pytest
+        3. 将结果写入 /logs/verifier/reward.txt
 
         Args:
-            item: The TB2 task dict (contains tests_tar, test_sh)
-            ctx: ToolContext scoped to this task's sandbox
-            task_name: For logging
+            item: TB2 任务字典（包含 tests_tar, test_sh）
+            ctx: 作用域为该任务沙箱的 ToolContext
+            task_name: 用于日志记录
 
         Returns:
-            1.0 if tests pass, 0.0 otherwise
+            1.0 表示测试通过，0.0 表示失败
         """
         tests_tar = item.get("tests_tar", "")
         test_sh = item.get("test_sh", "")
 
         if not test_sh:
-            logger.warning("Task %s: no test_sh content, reward=0", task_name)
+            logger.warning("任务 %s: 没有 test_sh 内容，reward=0", task_name)
             return 0.0
 
-        # Create required directories in the sandbox
+        # 在沙箱中创建所需目录
         ctx.terminal("mkdir -p /tests /logs/verifier")
 
-        # Upload test files into the sandbox (binary-safe via base64)
+        # 上传测试文件到沙箱（通过 base64 实现二进制安全）
         if tests_tar:
             tests_temp = Path(tempfile.mkdtemp(prefix=f"tb2-tests-{task_name}-"))
             try:
                 _extract_base64_tar(tests_tar, tests_temp)
                 ctx.upload_dir(str(tests_temp), "/tests")
             except Exception as e:
-                logger.warning("Task %s: failed to upload test files: %s", task_name, e)
+                logger.warning("任务 %s: 上传测试文件失败: %s", task_name, e)
             finally:
                 shutil.rmtree(tests_temp, ignore_errors=True)
 
-        # Write the test runner script (test.sh)
+        # 写入测试运行脚本 (test.sh)
         ctx.write_file("/tests/test.sh", test_sh)
         ctx.terminal("chmod +x /tests/test.sh")
 
-        # Execute the test suite
+        # 执行测试套件
         logger.info(
-            "Task %s: running test suite (timeout=%ds)",
+            "任务 %s: 正在运行测试套件 (timeout=%ds)",
             task_name, self.config.test_timeout,
         )
         test_result = ctx.terminal(
@@ -696,9 +692,8 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
         exit_code = test_result.get("exit_code", -1)
         output = test_result.get("output", "")
 
-        # Download the verifier output directory locally, then read reward.txt
-        # with native Python I/O. This avoids issues with file_read on the
-        # Modal VM and matches Harbor's verification pattern.
+        # 下载验证器输出目录到本地，然后用原生 Python I/O 读取 reward.txt。
+        # 这避免了在 Modal VM 上使用 file_read 的问题，并与 Harbor 的验证方式一致。
         reward = 0.0
         local_verifier_dir = Path(tempfile.mkdtemp(prefix=f"tb2-verifier-{task_name}-"))
         try:
@@ -712,54 +707,54 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
                 elif content == "0":
                     reward = 0.0
                 else:
-                    # Unexpected content -- try parsing as float
+                    # 意外内容 -- 尝试解析为浮点数
                     try:
                         reward = float(content)
                     except (ValueError, TypeError):
                         logger.warning(
-                            "Task %s: reward.txt content unexpected (%r), "
-                            "falling back to exit_code=%d",
+                            "任务 %s: reward.txt 内容异常 (%r)，"
+                            "回退到 exit_code=%d",
                             task_name, content, exit_code,
                         )
                         reward = 1.0 if exit_code == 0 else 0.0
             else:
-                # reward.txt not written -- fall back to exit code
+                # reward.txt 未写入 -- 回退到退出码
                 logger.warning(
-                    "Task %s: reward.txt not found after download, "
-                    "falling back to exit_code=%d",
+                    "任务 %s: 下载后未找到 reward.txt，"
+                    "回退到 exit_code=%d",
                     task_name, exit_code,
                 )
                 reward = 1.0 if exit_code == 0 else 0.0
         except Exception as e:
             logger.warning(
-                "Task %s: failed to download verifier dir: %s, "
-                "falling back to exit_code=%d",
+                "任务 %s: 下载验证器目录失败: %s，"
+                "回退到 exit_code=%d",
                 task_name, e, exit_code,
             )
             reward = 1.0 if exit_code == 0 else 0.0
         finally:
             shutil.rmtree(local_verifier_dir, ignore_errors=True)
 
-        # Log test output for debugging failures
+        # 记录测试输出用于调试失败
         if reward == 0.0:
             output_preview = output[-500:] if output else "(no output)"
             logger.info(
-                "Task %s: FAIL (exit_code=%d)\n%s",
+                "任务 %s: 失败 (exit_code=%d)\n%s",
                 task_name, exit_code, output_preview,
             )
 
         return reward
 
     # =========================================================================
-    # Evaluate -- main entry point for the eval subcommand
+    # Evaluate -- eval 子命令的主入口
     # =========================================================================
 
     async def _eval_with_timeout(self, item: Dict[str, Any]) -> Dict:
         """
-        Wrap rollout_and_score_eval with a per-task wall-clock timeout.
+        为 rollout_and_score_eval 包装每个任务的挂钟超时。
 
-        If the task exceeds task_timeout seconds, it's automatically scored
-        as FAIL. This prevents any single task from hanging indefinitely.
+        如果任务超过 task_timeout 秒，自动计为失败。
+        这防止单个任务无限挂起。
         """
         task_name = item.get("task_name", "unknown")
         category = item.get("category", "unknown")
@@ -771,8 +766,8 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
         except asyncio.TimeoutError:
             from tqdm import tqdm
             elapsed = self.config.task_timeout
-            tqdm.write(f"  [TIMEOUT] {task_name} (exceeded {elapsed}s wall-clock limit)")
-            logger.error("Task %s: wall-clock timeout after %ds", task_name, elapsed)
+            tqdm.write(f"  [超时] {task_name} (超过 {elapsed}s 挂钟限制)")
+            logger.error("任务 %s: 挂钟超时 %ds", task_name, elapsed)
             out = {
                 "passed": False, "reward": 0.0,
                 "task_name": task_name, "category": category,
@@ -783,22 +778,21 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
 
     async def evaluate(self, *args, **kwargs) -> None:
         """
-        Run Terminal-Bench 2.0 evaluation over all tasks.
+        运行 Terminal-Bench 2.0 评估，覆盖所有任务。
 
-        This is the main entry point when invoked via:
+        通过以下方式调用时的主入口:
             python environments/terminalbench2_env.py evaluate
 
-        Runs all tasks through rollout_and_score_eval() via asyncio.gather()
-        (same pattern as GPQA and other Atropos eval envs). Each task is
-        wrapped with a wall-clock timeout so hung tasks auto-fail.
+        通过 asyncio.gather() 运行所有任务的 rollout_and_score_eval()
+        （与 GPQA 和其他 Atropos 评估环境相同的模式）。
+        每个任务都有挂钟超时保护，防止挂起。
 
-        Suppresses noisy Modal/terminal output (KCLAW_QUIET) so the tqdm
-        bar stays visible.
+        抑制嘈杂的 Modal/terminal 输出 (KCLAW_QUIET) 以保持 tqdm 进度条可见。
         """
         start_time = time.time()
 
-        # Route all logging through tqdm.write() so the progress bar stays
-        # pinned at the bottom while log lines scroll above it.
+        # 将所有日志路由通过 tqdm.write() 以保持进度条
+        # 固定在底部，日志行在其上方滚动。
         from tqdm import tqdm
 
         class _TqdmHandler(logging.Handler):
@@ -817,37 +811,37 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
         root.handlers = [handler]  # Replace any existing handlers
         root.setLevel(logging.INFO)
 
-        # Silence noisy third-party loggers that flood the output
-        logging.getLogger("httpx").setLevel(logging.WARNING)      # Every HTTP request
-        logging.getLogger("openai").setLevel(logging.WARNING)     # OpenAI client retries
-        logging.getLogger("rex-deploy").setLevel(logging.WARNING) # Swerex deployment
-        logging.getLogger("rex_image_builder").setLevel(logging.WARNING)  # Image builds
+        # 抑制嘈杂的第三方日志器
+        logging.getLogger("httpx").setLevel(logging.WARNING)      # 每个 HTTP 请求
+        logging.getLogger("openai").setLevel(logging.WARNING)     # OpenAI 客户端重试
+        logging.getLogger("rex-deploy").setLevel(logging.WARNING) # Swerex 部署
+        logging.getLogger("rex_image_builder").setLevel(logging.WARNING)  # 镜像构建
 
         print(f"\n{'='*60}")
-        print("Starting Terminal-Bench 2.0 Evaluation")
+        print("正在启动 Terminal-Bench 2.0 评估")
         print(f"{'='*60}")
-        print(f"  Dataset: {self.config.dataset_name}")
-        print(f"  Total tasks: {len(self.all_eval_items)}")
-        print(f"  Max agent turns: {self.config.max_agent_turns}")
-        print(f"  Task timeout: {self.config.task_timeout}s")
-        print(f"  Terminal backend: {self.config.terminal_backend}")
-        print(f"  Tool thread pool: {self.config.tool_pool_size}")
-        print(f"  Terminal timeout: {self.config.terminal_timeout}s/cmd")
-        print(f"  Terminal lifetime: {self.config.terminal_lifetime}s (auto: task_timeout + 120)")
-        print(f"  Max concurrent tasks: {self.config.max_concurrent_tasks}")
+        print(f"  数据集: {self.config.dataset_name}")
+        print(f"  任务总数: {len(self.all_eval_items)}")
+        print(f"  最大 Agent 轮次: {self.config.max_agent_turns}")
+        print(f"  任务超时: {self.config.task_timeout}s")
+        print(f"  终端后端: {self.config.terminal_backend}")
+        print(f"  工具线程池: {self.config.tool_pool_size}")
+        print(f"  终端超时: {self.config.terminal_timeout}s/命令")
+        print(f"  终端生命周期: {self.config.terminal_lifetime}s (自动: task_timeout + 120)")
+        print(f"  最大并发任务: {self.config.max_concurrent_tasks}")
         print(f"{'='*60}\n")
 
-        # Semaphore to limit concurrent Modal sandbox creations.
-        # Without this, all 86 tasks fire simultaneously, each creating a Modal
-        # sandbox via asyncio.run() inside a thread pool worker. Modal's blocking
-        # calls (App.lookup, etc.) deadlock when too many are created at once.
+        # 信号量限制并发 Modal 沙箱创建。
+        # 没有这个，所有 86 个任务会同时启动，每个通过线程池工作器中的
+        # asyncio.run() 创建 Modal 沙箱。Modal 的阻塞调用 (App.lookup 等)
+        # 在同时创建过多时会死锁。
         semaphore = asyncio.Semaphore(self.config.max_concurrent_tasks)
 
         async def _eval_with_semaphore(item):
             async with semaphore:
                 return await self._eval_with_timeout(item)
 
-        # Fire all tasks with wall-clock timeout, track live accuracy on the bar
+        # 启动所有任务并带挂钟超时，在进度条上跟踪实时准确率
         total_tasks = len(self.all_eval_items)
         eval_tasks = [
             asyncio.ensure_future(_eval_with_semaphore(item))
@@ -856,7 +850,7 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
 
         results = []
         passed_count = 0
-        pbar = tqdm(total=total_tasks, desc="Evaluating TB2", dynamic_ncols=True)
+        pbar = tqdm(total=total_tasks, desc="正在评估 TB2", dynamic_ncols=True)
         try:
             for coro in asyncio.as_completed(eval_tasks):
                 result = await coro
@@ -869,40 +863,40 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
                 pbar.update(1)
         except (KeyboardInterrupt, asyncio.CancelledError):
             pbar.close()
-            print(f"\n\nInterrupted! Cleaning up {len(eval_tasks)} tasks...")
-            # Cancel all pending tasks
+            print(f"\n\n已中断! 正在清理 {len(eval_tasks)} 个任务...")
+            # 取消所有待处理任务
             for task in eval_tasks:
                 task.cancel()
-            # Let cancellations propagate (finally blocks run cleanup_vm)
+            # 让取消传播（finally 块会运行 cleanup_vm）
             await asyncio.gather(*eval_tasks, return_exceptions=True)
-            # Belt-and-suspenders: clean up any remaining sandboxes
+            # 安全起见: 清理所有剩余沙箱
             from tools.terminal_tool import cleanup_all_environments
             cleanup_all_environments()
-            print("All sandboxes cleaned up.")
+            print("所有沙箱已清理。")
             return
         finally:
             pbar.close()
 
         end_time = time.time()
 
-        # Filter out None results (shouldn't happen, but be safe)
+        # 过滤 None 结果（不应发生，但安全起见）
         valid_results = [r for r in results if r is not None]
 
         if not valid_results:
-            print("Warning: No valid evaluation results obtained")
+            print("警告: 未获得有效的评估结果")
             return
 
-        # ---- Compute metrics ----
+        # ---- 计算指标 ----
         total = len(valid_results)
         passed = sum(1 for r in valid_results if r.get("passed"))
         overall_pass_rate = passed / total if total > 0 else 0.0
 
-        # Per-category breakdown
+        # 按类别细分
         cat_results: Dict[str, List[Dict]] = defaultdict(list)
         for r in valid_results:
             cat_results[r.get("category", "unknown")].append(r)
 
-        # Build metrics dict
+        # 构建指标字典
         eval_metrics = {
             "eval/pass_rate": overall_pass_rate,
             "eval/total_tasks": total,
@@ -910,7 +904,7 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
             "eval/evaluation_time_seconds": end_time - start_time,
         }
 
-        # Per-category metrics
+        # 按类别指标
         for category, cat_items in sorted(cat_results.items()):
             cat_passed = sum(1 for r in cat_items if r.get("passed"))
             cat_total = len(cat_items)
@@ -918,35 +912,35 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
             cat_key = category.replace(" ", "_").replace("-", "_").lower()
             eval_metrics[f"eval/pass_rate_{cat_key}"] = cat_pass_rate
 
-        # Store metrics for wandb_log
+        # 存储指标用于 wandb_log
         self.eval_metrics = [(k, v) for k, v in eval_metrics.items()]
 
-        # ---- Print summary ----
+        # ---- 打印摘要 ----
         print(f"\n{'='*60}")
-        print("Terminal-Bench 2.0 Evaluation Results")
+        print("Terminal-Bench 2.0 评估结果")
         print(f"{'='*60}")
-        print(f"Overall Pass Rate: {overall_pass_rate:.4f} ({passed}/{total})")
-        print(f"Evaluation Time: {end_time - start_time:.1f} seconds")
+        print(f"整体通过率: {overall_pass_rate:.4f} ({passed}/{total})")
+        print(f"评估时间: {end_time - start_time:.1f} 秒")
 
-        print("\nCategory Breakdown:")
+        print("\n类别细分:")
         for category, cat_items in sorted(cat_results.items()):
             cat_passed = sum(1 for r in cat_items if r.get("passed"))
             cat_total = len(cat_items)
             cat_rate = cat_passed / cat_total if cat_total > 0 else 0.0
             print(f"  {category}: {cat_rate:.1%} ({cat_passed}/{cat_total})")
 
-        # Print individual task results
-        print("\nTask Results:")
+        # 打印单个任务结果
+        print("\n任务结果:")
         for r in sorted(valid_results, key=lambda x: x.get("task_name", "")):
-            status = "PASS" if r.get("passed") else "FAIL"
+            status = "通过" if r.get("passed") else "失败"
             turns = r.get("turns_used", "?")
             error = r.get("error", "")
-            extra = f" (error: {error})" if error else ""
+            extra = f" (错误: {error})" if error else ""
             print(f"  [{status}] {r['task_name']} (turns={turns}){extra}")
 
         print(f"{'='*60}\n")
 
-        # Build sample records for evaluate_log (includes full conversations)
+        # 构建用于 evaluate_log 的样本记录（包含完整对话）
         samples = [
             {
                 "task_name": r.get("task_name"),
@@ -960,7 +954,7 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
             for r in valid_results
         ]
 
-        # Log evaluation results
+        # 记录评估结果
         try:
             await self.evaluate_log(
                 metrics=eval_metrics,
@@ -975,36 +969,35 @@ class TerminalBench2EvalEnv(KClawAgentBaseEnv):
                 },
             )
         except Exception as e:
-            print(f"Error logging evaluation results: {e}")
+            print(f"记录评估结果时出错: {e}")
 
-        # Close streaming file
+        # 关闭流式文件
         if hasattr(self, "_streaming_file") and not self._streaming_file.closed:
             self._streaming_file.close()
-            print(f"  Live results saved to: {self._streaming_path}")
+            print(f"  实时结果已保存到: {self._streaming_path}")
 
-        # Kill all remaining sandboxes. Timed-out tasks leave orphaned thread
-        # pool workers still executing commands -- cleanup_all stops them.
+        # 终止所有剩余沙箱。超时任务留下孤立的线程池工作器
+        # 仍在执行命令 -- cleanup_all 会停止它们。
         from tools.terminal_tool import cleanup_all_environments
-        print("\nCleaning up all sandboxes...")
+        print("\n正在清理所有沙箱...")
         cleanup_all_environments()
 
-        # Shut down the tool thread pool so orphaned workers from timed-out
-        # tasks are killed immediately instead of retrying against dead
-        # sandboxes and spamming the console with TimeoutError warnings.
+        # 关闭工具线程池，使超时任务的孤立工作器立即被终止，
+        # 而不是继续对已死沙箱重试并刷屏 TimeoutError 警告。
         from environments.agent_loop import _tool_executor
         _tool_executor.shutdown(wait=False, cancel_futures=True)
-        print("Done.")
+        print("完成。")
 
     # =========================================================================
-    # Wandb logging
+    # Wandb 日志
     # =========================================================================
 
     async def wandb_log(self, wandb_metrics: Optional[Dict] = None):
-        """Log TB2-specific metrics to wandb."""
+        """记录 TB2 特定指标到 wandb。"""
         if wandb_metrics is None:
             wandb_metrics = {}
 
-        # Add stored eval metrics
+        # 添加存储的评估指标
         for metric_name, metric_value in self.eval_metrics:
             wandb_metrics[metric_name] = metric_value
         self.eval_metrics = []

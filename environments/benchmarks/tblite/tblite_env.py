@@ -1,22 +1,20 @@
 """
-OpenThoughts-TBLite Evaluation Environment
+OpenThoughts-TBLite 评估环境
 
-A lighter, faster alternative to Terminal-Bench 2.0 for iterating on terminal
-agents. Uses the same evaluation logic as TerminalBench2EvalEnv but defaults
-to the NousResearch/openthoughts-tblite dataset (100 difficulty-calibrated
-tasks vs TB2's 89 harder tasks).
+Terminal-Bench 2.0 的轻量、快速替代方案，用于迭代终端 Agent。
+使用与 TerminalBench2EvalEnv 相同的评估逻辑，但默认使用
+NousResearch/openthoughts-tblite 数据集（100 个难度校准任务 vs TB2 的 89 个更难任务）。
 
-TBLite tasks are a curated subset of TB2 with a difficulty distribution
-designed to give meaningful signal even for smaller models:
-  - Easy (40 tasks):   >= 70% pass rate with Claude Haiku 4.5
-  - Medium (26 tasks): 40-69% pass rate
-  - Hard (26 tasks):   10-39% pass rate
-  - Extreme (8 tasks): < 10% pass rate
+TBLite 任务是 TB2 的精选子集，其难度分布设计为即使是较小的模型也能获得有意义的信号：
+  - 简单（40 个任务）: >= 70% 通过率（Claude Haiku 4.5）
+  - 中等（26 个任务）: 40-69% 通过率
+  - 困难（26 个任务）: 10-39% 通过率
+  - 极端（8 个任务）:  < 10% 通过率
 
-Usage:
+用法:
     python environments/benchmarks/tblite/tblite_env.py evaluate
 
-    # Filter to specific tasks:
+    # 过滤特定任务:
     python environments/benchmarks/tblite/tblite_env.py evaluate \\
         --env.task_filter "broken-python,pandas-etl"
 """
@@ -42,30 +40,30 @@ from environments.benchmarks.terminalbench_2.terminalbench2_env import (
 
 
 class TBLiteEvalConfig(TerminalBench2EvalConfig):
-    """Configuration for the OpenThoughts-TBLite evaluation environment.
+    """OpenThoughts-TBLite 评估环境配置。
 
-    Inherits all TB2 config fields. Only the dataset default and task timeout
-    differ -- TBLite tasks are calibrated to be faster.
+    继承所有 TB2 配置字段。仅数据集默认值和任务超时不同 --
+    TBLite 任务经校准更快完成。
     """
 
     dataset_name: str = Field(
         default="NousResearch/openthoughts-tblite",
-        description="HuggingFace dataset containing TBLite tasks.",
+        description="包含 TBLite 任务的 HuggingFace 数据集。",
     )
 
     task_timeout: int = Field(
         default=1200,
-        description="Maximum wall-clock seconds per task. TBLite tasks are "
-        "generally faster than TB2, so 20 minutes is usually sufficient.",
+        description="每个任务的最大挂钟时间（秒）。TBLite 任务"
+        "通常比 TB2 快，因此 20 分钟通常足够。",
     )
 
 
 class TBLiteEvalEnv(TerminalBench2EvalEnv):
-    """OpenThoughts-TBLite evaluation environment.
+    """OpenThoughts-TBLite 评估环境。
 
-    Inherits all evaluation logic from TerminalBench2EvalEnv (agent loop,
-    test verification, Docker image resolution, metrics, wandb logging).
-    Only the default configuration differs.
+    继承 TerminalBench2EvalEnv 的所有评估逻辑（Agent 循环、
+    测试验证、Docker 镜像解析、指标、wandb 日志）。
+    仅默认配置不同。
     """
 
     name = "openthoughts-tblite"
@@ -88,7 +86,7 @@ class TBLiteEvalEnv(TerminalBench2EvalEnv):
 
             test_timeout=180,
 
-            # 100 tasks in parallel
+            # 100 个任务并行
             tool_pool_size=128,
 
             eval_handling=EvalHandlingEnum.STOP_TRAIN,

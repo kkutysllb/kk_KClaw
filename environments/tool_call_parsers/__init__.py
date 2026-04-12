@@ -1,21 +1,20 @@
 """
-Tool Call Parser Registry
+工具调用解析器注册表
 
-Client-side parsers that extract structured tool_calls from raw model output text.
-Used in Phase 2 (VLLM server type) where ManagedServer's /generate endpoint returns
-raw text without tool call parsing.
+客户端解析器，用于从原始模型输出文本中提取结构化的 tool_calls。
+用于阶段2（VLLM 服务器类型），ManagedServer 的 /generate 端点返回
+未解析工具调用的原始文本。
 
-Each parser is a standalone reimplementation of the corresponding VLLM parser's
-non-streaming extract_tool_calls() logic. No VLLM dependency -- only standard library
-(re, json, uuid) and openai types.
+每个解析器都是对应 VLLM 解析器的非流式 extract_tool_calls() 逻辑的独立重新实现。
+不依赖 VLLM -- 仅使用标准库（re, json, uuid）和 openai 类型。
 
-Usage:
+用法:
     from environments.tool_call_parsers import get_parser
 
     parser = get_parser("kclaw")
     content, tool_calls = parser.parse(raw_model_output)
-    # content = text with tool call markup stripped
-    # tool_calls = list of ChatCompletionMessageToolCall objects, or None
+    # content = 已剥离工具调用标记的文本
+    # tool_calls = ChatCompletionMessageToolCall 对象列表，如果没有则为 None
 """
 
 import logging
@@ -28,45 +27,44 @@ from openai.types.chat.chat_completion_message_tool_call import (
 
 logger = logging.getLogger(__name__)
 
-# Type alias for parser return value
+# 解析器返回值类型别名
 ParseResult = Tuple[Optional[str], Optional[List[ChatCompletionMessageToolCall]]]
 
 
 class ToolCallParser(ABC):
     """
-    Base class for tool call parsers.
+    工具调用解析器基类。
 
-    Each parser knows how to extract structured tool_calls from a specific
-    model family's raw output text format.
+    每个解析器都知道如何从特定模型系列的原始输出文本格式中提取结构化的 tool_calls。
     """
 
     @abstractmethod
     def parse(self, text: str) -> ParseResult:
         """
-        Parse raw model output text for tool calls.
+        解析原始模型输出文本中的工具调用。
 
         Args:
-            text: Raw decoded text from the model's completion
+            text: 模型完成的原始解码文本
 
         Returns:
-            Tuple of (content, tool_calls) where:
-            - content: text with tool call markup stripped (the message 'content' field),
-                       or None if the entire output was tool calls
-            - tool_calls: list of ChatCompletionMessageToolCall objects,
-                          or None if no tool calls were found
+            (content, tool_calls) 元组，其中:
+            - content: 已剥离工具调用标记的文本（消息的 'content' 字段），
+                       如果整个输出都是工具调用则为 None
+            - tool_calls: ChatCompletionMessageToolCall 对象列表，
+                          如果没有找到工具调用则为 None
         """
         raise NotImplementedError
 
 
-# Global parser registry: name -> parser class
+# 全局解析器注册表: name -> parser class
 PARSER_REGISTRY: Dict[str, Type[ToolCallParser]] = {}
 
 
 def register_parser(name: str):
     """
-    Decorator to register a parser class under a given name.
+    装饰器，将解析器类注册到给定名称下。
 
-    Usage:
+    用法:
         @register_parser("kclaw")
         class KClawToolCallParser(ToolCallParser):
             ...
@@ -81,16 +79,16 @@ def register_parser(name: str):
 
 def get_parser(name: str) -> ToolCallParser:
     """
-    Get a parser instance by name.
+    按名称获取解析器实例。
 
     Args:
-        name: Parser name (e.g., "kclaw", "mistral", "llama3_json")
+        name: 解析器名称（例如 "kclaw", "mistral", "llama3_json"）
 
     Returns:
-        Instantiated parser
+        已实例化的解析器
 
     Raises:
-        KeyError: If parser name is not found in registry
+        KeyError: 如果在注册表中未找到解析器名称
     """
     if name not in PARSER_REGISTRY:
         available = sorted(PARSER_REGISTRY.keys())
@@ -101,12 +99,12 @@ def get_parser(name: str) -> ToolCallParser:
 
 
 def list_parsers() -> List[str]:
-    """Return sorted list of registered parser names."""
+    """返回已注册解析器名称的排序列表。"""
     return sorted(PARSER_REGISTRY.keys())
 
 
-# Import all parser modules to trigger registration via @register_parser decorators
-# Each module registers itself when imported
+# 导入所有解析器模块以通过 @register_parser 装饰器触发注册
+# 每个模块在导入时自行注册
 from environments.tool_call_parsers.kclaw_parser import KClawToolCallParser  # noqa: E402, F401
 from environments.tool_call_parsers.longcat_parser import LongcatToolCallParser  # noqa: E402, F401
 from environments.tool_call_parsers.mistral_parser import MistralToolCallParser  # noqa: E402, F401

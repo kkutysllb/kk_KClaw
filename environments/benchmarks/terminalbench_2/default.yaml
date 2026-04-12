@@ -1,14 +1,14 @@
-# Terminal-Bench 2.0 Evaluation -- Default Configuration
+# Terminal-Bench 2.0 评估 -- 默认配置
 #
-# Eval-only environment for the TB2 benchmark (89 terminal tasks).
-# Uses Modal terminal backend for per-task cloud-isolated sandboxes
-# and OpenRouter for inference.
+# TB2 基准的纯评估环境（89 个终端任务）。
+# 使用 Modal 终端后端提供每个任务的云隔离沙箱，
+# OpenRouter 进行推理。
 #
-# Usage:
+# 用法:
 #   python environments/benchmarks/terminalbench_2/terminalbench2_env.py evaluate \
 #       --config environments/benchmarks/terminalbench_2/default.yaml
 #
-#   # Override model:
+#   # 覆盖模型:
 #   python environments/benchmarks/terminalbench_2/terminalbench2_env.py evaluate \
 #       --config environments/benchmarks/terminalbench_2/default.yaml \
 #       --openai.model_name anthropic/claude-sonnet-4
@@ -19,19 +19,19 @@ env:
   max_token_length: 32000
   agent_temperature: 0.8
   terminal_backend: "modal"
-  terminal_timeout: 300        # 5 min per command (builds, pip install)
-  tool_pool_size: 128          # thread pool for 89 parallel tasks
+  terminal_timeout: 300        # 每个命令 5 分钟（构建、pip install）
+  tool_pool_size: 128          # 89 个并行任务的线程池
   dataset_name: "NousResearch/terminal-bench-2"
   test_timeout: 600
-  task_timeout: 1800           # 30 min wall-clock per task, auto-FAIL if exceeded
+  task_timeout: 1800           # 每个任务 30 分钟挂钟时间，超出自动计为失败
   tokenizer_name: "NousResearch/KClaw-3-Llama-3.1-8B"
   use_wandb: true
   wandb_name: "terminal-bench-2"
   ensure_scores_are_not_same: false
   data_dir_to_save_evals: "environments/benchmarks/evals/terminal-bench-2"
-  # CRITICAL: Limit concurrent Modal sandbox creations to avoid deadlocks.
-  # Modal's blocking calls (App.lookup, etc.) deadlock when too many sandboxes
-  # are created simultaneously inside thread pool workers via asyncio.run().
+  # 关键: 限制并发 Modal 沙箱创建以避免死锁。
+  # Modal 的阻塞调用 (App.lookup 等) 在线程池工作器中通过 asyncio.run()
+  # 同时创建过多沙箱时会死锁。
   max_concurrent_tasks: 8
 
 openai:
@@ -39,4 +39,4 @@ openai:
   model_name: "anthropic/claude-opus-4.6"
   server_type: "openai"
   health_check: false
-  # api_key loaded from OPENROUTER_API_KEY in .env
+  # api_key 从 .env 中的 OPENROUTER_API_KEY 加载

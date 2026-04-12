@@ -1,7 +1,7 @@
 """
-DeepSeek V3 tool call parser.
+DeepSeek V3 工具调用解析器。
 
-Format uses special unicode tokens:
+格式使用特殊的 unicode 标记：
     <｜tool▁calls▁begin｜>
     <｜tool▁call▁begin｜>type<｜tool▁sep｜>function_name
     ```json
@@ -10,7 +10,7 @@ Format uses special unicode tokens:
     <｜tool▁call▁end｜>
     <｜tool▁calls▁end｜>
 
-Fixes Issue #989: Support for multiple simultaneous tool calls.
+修复 Issue #989: 支持多个同时工具调用。
 """
 
 import re
@@ -30,17 +30,17 @@ logger = logging.getLogger(__name__)
 @register_parser("deepseek_v3")
 class DeepSeekV3ToolCallParser(ToolCallParser):
     """
-    Parser for DeepSeek V3 tool calls.
+    DeepSeek V3 工具调用解析器。
 
-    Uses special unicode tokens with fullwidth angle brackets and block elements.
-    Extracts type, function name, and JSON arguments from the structured format.
-    Ensures all tool calls are captured when the model executes multiple actions.
+    使用带有全角尖括号和块元素的特殊 unicode 标记。
+    从结构化格式中提取类型、函数名和 JSON 参数。
+    确保在模型执行多个操作时捕获所有工具调用。
     """
 
     START_TOKEN = "<｜tool▁calls▁begin｜>"
 
-    # Updated PATTERN: Using \s* instead of literal \n for increased robustness
-    # against variations in model formatting (Issue #989).
+    # 更新的 PATTERN: 使用 \s* 代替字面 \n 以增强对模型格式变化的鲁棒性
+    # (Issue #989)。
     PATTERN = re.compile(
         r"<｜tool▁call▁begin｜>(?P<type>.*?)<｜tool▁sep｜>(?P<function_name>.*?)\s*```json\s*(?P<function_arguments>.*?)\s*```\s*<｜tool▁call▁end｜>",
         re.DOTALL,
@@ -48,13 +48,13 @@ class DeepSeekV3ToolCallParser(ToolCallParser):
 
     def parse(self, text: str) -> ParseResult:
         """
-        Parses the input text and extracts all available tool calls.
+        解析输入文本并提取所有可用的工具调用。
         """
         if self.START_TOKEN not in text:
             return text, None
 
         try:
-            # Using finditer to capture ALL tool calls in the sequence
+            # 使用 finditer 捕获序列中的所有工具调用
             matches = list(self.PATTERN.finditer(text))
             if not matches:
                 return text, None
@@ -77,7 +77,7 @@ class DeepSeekV3ToolCallParser(ToolCallParser):
                 )
 
             if tool_calls:
-                # Content is text before the first tool call block
+                # Content 是第一个工具调用块之前的文本
                 content_index = text.find(self.START_TOKEN)
                 content = text[:content_index].strip()
                 return content if content else None, tool_calls
@@ -85,5 +85,5 @@ class DeepSeekV3ToolCallParser(ToolCallParser):
             return text, None
 
         except Exception as e:
-            logger.error(f"Error parsing DeepSeek V3 tool calls: {e}")
+            logger.error("解析 DeepSeek V3 工具调用时出错: %s", e)
             return text, None

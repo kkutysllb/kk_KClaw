@@ -1,15 +1,15 @@
-# OpenThoughts-TBLite Evaluation -- Local vLLM Backend
+# OpenThoughts-TBLite 评估 -- 本地 vLLM 后端
 #
-# Runs against a local vLLM server with Docker sandboxes.
+# 使用本地 vLLM 服务器和 Docker 沙箱运行。
 #
-# Start the vLLM server from the atropos directory:
+# 从 atropos 目录启动 vLLM 服务器:
 #   python -m example_trainer.vllm_api_server \
 #       --model Qwen/Qwen3-4B-Instruct-2507 \
 #       --port 9001 \
 #       --gpu-memory-utilization 0.8 \
 #       --max-model-len=32000
 #
-# Then run:
+# 然后运行:
 #   python environments/benchmarks/tblite/tblite_env.py evaluate \
 #       --config environments/benchmarks/tblite/local_vllm.yaml
 

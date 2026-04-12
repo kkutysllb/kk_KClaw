@@ -1,12 +1,12 @@
 """
-Mistral tool call parser.
+Mistral 工具调用解析器。
 
-Supports two formats depending on tokenizer version:
-- Pre-v11: content[TOOL_CALLS] [{"name": ..., "arguments": {...}}, ...]
+支持两种格式，取决于 tokenizer 版本：
+- v11 之前: content[TOOL_CALLS] [{"name": ..., "arguments": {...}}, ...]
 - v11+:    content[TOOL_CALLS]tool_name1{"arg": "val"}[TOOL_CALLS]tool_name2{"arg": "val"}
 
-Based on VLLM's MistralToolParser.extract_tool_calls()
-The [TOOL_CALLS] token is the bot_token used by Mistral models.
+基于 VLLM 的 MistralToolParser.extract_tool_calls()
+[TOOL_CALLS] 标记是 Mistral 模型使用的 bot_token。
 """
 
 import json
@@ -22,7 +22,7 @@ from environments.tool_call_parsers import ParseResult, ToolCallParser, register
 
 
 def _generate_mistral_id() -> str:
-    """Mistral tool call IDs are 9-char alphanumeric strings."""
+    """Mistral 工具调用 ID 是 9 字符的字母数字字符串。"""
     import random
     import string
 
@@ -32,13 +32,13 @@ def _generate_mistral_id() -> str:
 @register_parser("mistral")
 class MistralToolCallParser(ToolCallParser):
     """
-    Parser for Mistral-format tool calls.
+    Mistral 格式工具调用解析器。
 
-    Detects format by checking if the content after [TOOL_CALLS] starts with '['
-    (pre-v11 JSON array) or with a tool name (v11+ format).
+    通过检查 [TOOL_CALLS] 后的内容是否以 '[' 开头来检测格式
+    （v11 之前的 JSON 数组）或工具名（v11+ 格式）。
     """
 
-    # The [TOOL_CALLS] token -- may appear as different strings depending on tokenizer
+    # [TOOL_CALLS] 标记 -- 根据 tokenizer 不同可能显示为不同字符串
     BOT_TOKEN = "[TOOL_CALLS]"
 
     def parse(self, text: str) -> ParseResult:
@@ -50,7 +50,7 @@ class MistralToolCallParser(ToolCallParser):
             content = parts[0].strip()
             raw_tool_calls = parts[1:]
 
-            # Detect format: if the first raw part starts with '[', it's pre-v11
+            # 检测格式: 如果第一个原始部分以 '[' 开头，则为 v11 之前版本
             first_raw = raw_tool_calls[0].strip() if raw_tool_calls else ""
             is_pre_v11 = first_raw.startswith("[") or first_raw.startswith("{")
 
@@ -67,12 +67,12 @@ class MistralToolCallParser(ToolCallParser):
                     tool_name = raw[:brace_idx].strip()
                     args_str = raw[brace_idx:]
 
-                    # Validate and clean the JSON arguments
+                    # 验证并清理 JSON 参数
                     try:
                         parsed_args = json.loads(args_str)
                         args_str = json.dumps(parsed_args, ensure_ascii=False)
                     except json.JSONDecodeError:
-                        pass  # Keep raw if parsing fails
+                        pass  # 解析失败时保留原始内容
 
                     tool_calls.append(
                         ChatCompletionMessageToolCall(
@@ -82,7 +82,7 @@ class MistralToolCallParser(ToolCallParser):
                         )
                     )
             else:
-                # Pre-v11 format: [TOOL_CALLS] [{"name": ..., "arguments": {...}}]
+                # v11 之前格式: [TOOL_CALLS] [{"name": ..., "arguments": {...}}]
                 try:
                     parsed = json.loads(first_raw)
                     if isinstance(parsed, dict):
@@ -103,7 +103,7 @@ class MistralToolCallParser(ToolCallParser):
                             )
                         )
                 except json.JSONDecodeError:
-                    # Fallback: extract JSON objects using raw_decode
+                    # 回退: 使用 raw_decode 提取 JSON 对象
                     decoder = json.JSONDecoder()
                     idx = 0
                     while idx < len(first_raw):

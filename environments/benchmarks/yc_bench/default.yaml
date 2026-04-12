@@ -1,15 +1,15 @@
-# YC-Bench Evaluation -- Default Configuration
+# YC-Bench 评估 -- 默认配置
 #
-# Long-horizon agent benchmark: agent plays CEO of an AI startup over
-# a simulated 1-3 year run, interacting via yc-bench CLI subcommands.
+# 长期 Agent 基准: Agent 在模拟 1-3 年的运行中扮演 AI 初创公司 CEO，
+# 通过 yc-bench CLI 子命令交互。
 #
-# Requires: pip install "kclaw[yc-bench]"
+# 需要: pip install "kclaw[yc-bench]"
 #
-# Usage:
+# 用法:
 #   python environments/benchmarks/yc_bench/yc_bench_env.py evaluate \
 #       --config environments/benchmarks/yc_bench/default.yaml
 #
-#   # Override model:
+#   # 覆盖模型:
 #   python environments/benchmarks/yc_bench/yc_bench_env.py evaluate \
 #       --config environments/benchmarks/yc_bench/default.yaml \
 #       --openai.model_name anthropic/claude-opus-4-20250514
@@ -23,12 +23,12 @@ env:
   terminal_timeout: 60
   presets: ["fast_test", "medium", "hard"]
   seeds: [1, 2, 3]
-  run_timeout: 3600          # 60 min wall-clock per run, auto-FAIL if exceeded
-  survival_weight: 0.5       # weight of binary survival in composite score
-  funds_weight: 0.5          # weight of normalised final funds in composite score
+  run_timeout: 3600          # 每次运行 60 分钟挂钟时间，超出自动计为失败
+  survival_weight: 0.5       # 二进制生存在综合分数中的权重
+  funds_weight: 0.5          # 归一化最终资金在综合分数中的权重
   db_dir: "/tmp/yc_bench_dbs"
   company_name: "BenchCo"
-  start_date: "01/01/2025"   # MM/DD/YYYY (yc-bench convention)
+  start_date: "01/01/2025"   # MM/DD/YYYY（yc-bench 约定）
   tokenizer_name: "NousResearch/KClaw-3-Llama-3.1-8B"
   use_wandb: true
   wandb_name: "yc-bench"
@@ -40,4 +40,4 @@ openai:
   model_name: "anthropic/claude-sonnet-4.6"
   server_type: "openai"
   health_check: false
-  # api_key loaded from OPENROUTER_API_KEY in .env
+  # api_key 从 .env 中的 OPENROUTER_API_KEY 加载

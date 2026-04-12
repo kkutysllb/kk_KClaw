@@ -1,8 +1,8 @@
 """
-Longcat Flash Chat tool call parser.
+Longcat Flash Chat 工具调用解析器。
 
-Same as KClaw but uses <longcat_tool_call> tags instead of <tool_call>.
-Based on VLLM's LongcatFlashToolParser (extends KClaw2ProToolParser).
+与 KClaw 相同，但使用 <longcat_tool_call> 标签代替 <tool_call>。
+基于 VLLM 的 LongcatFlashToolParser（扩展 KClaw2ProToolParser）。
 """
 
 import json
@@ -21,8 +21,8 @@ from environments.tool_call_parsers import ParseResult, ToolCallParser, register
 @register_parser("longcat")
 class LongcatToolCallParser(ToolCallParser):
     """
-    Parser for Longcat Flash Chat tool calls.
-    Identical logic to KClaw, just different tag names.
+    Longcat Flash Chat 工具调用解析器。
+    与 KClaw 逻辑相同，只是标签名不同。
     """
 
     PATTERN = re.compile(

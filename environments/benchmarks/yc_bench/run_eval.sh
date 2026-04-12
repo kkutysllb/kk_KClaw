@@ -1,17 +1,17 @@
 #!/bin/bash
 
-# YC-Bench Evaluation
+# YC-Bench 评估
 #
-# Requires: pip install "kclaw[yc-bench]"
+# 需要: pip install "kclaw[yc-bench]"
 #
-# Run from repo root:
+# 从仓库根目录运行:
 #   bash environments/benchmarks/yc_bench/run_eval.sh
 #
-# Override model:
+# 覆盖模型:
 #   bash environments/benchmarks/yc_bench/run_eval.sh \
 #       --openai.model_name anthropic/claude-opus-4-20250514
 #
-# Run a single preset:
+# 运行单个 preset:
 #   bash environments/benchmarks/yc_bench/run_eval.sh \
 #       --env.presets '["fast_test"]' --env.seeds '[1]'
 
@@ -20,8 +20,8 @@ set -euo pipefail
 mkdir -p logs evals/yc-bench
 LOG_FILE="logs/yc_bench_$(date +%Y%m%d_%H%M%S).log"
 
-echo "YC-Bench Evaluation"
-echo "Log: $LOG_FILE"
+echo "YC-Bench 评估"
+echo "日志: $LOG_FILE"
 echo ""
 
 PYTHONUNBUFFERED=1 LOGLEVEL="${LOGLEVEL:-INFO}" \
@@ -31,4 +31,4 @@ PYTHONUNBUFFERED=1 LOGLEVEL="${LOGLEVEL:-INFO}" \
   2>&1 | tee "$LOG_FILE"
 
 echo ""
-echo "Log saved to: $LOG_FILE"
+echo "日志已保存到: $LOG_FILE"

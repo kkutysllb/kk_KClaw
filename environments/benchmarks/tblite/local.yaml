@@ -1,13 +1,13 @@
-# OpenThoughts-TBLite Evaluation -- Docker Backend (Local Compute)
+# OpenThoughts-TBLite 评估 -- Docker 后端（本地计算）
 #
-# Runs tasks in Docker containers on the local machine.
-# Sandboxed like Modal but no cloud costs. Good for dev/testing.
+# 在本地机器的 Docker 容器中运行任务。
+# 与 Modal 相同的沙箱隔离但无云费用。适合开发/测试。
 #
-# Usage:
+# 用法:
 #   python environments/benchmarks/tblite/tblite_env.py evaluate \
 #       --config environments/benchmarks/tblite/local.yaml
 #
-#   # Override concurrency:
+#   # 覆盖并发数:
 #   python environments/benchmarks/tblite/tblite_env.py evaluate \
 #       --config environments/benchmarks/tblite/local.yaml \
 #       --env.eval_concurrency 4
@@ -23,7 +23,7 @@ env:
   dataset_name: "NousResearch/openthoughts-tblite"
   test_timeout: 600
   task_timeout: 1200
-  eval_concurrency: 8          # max 8 tasks at once
+  eval_concurrency: 8          # 最多同时运行 8 个任务
   tokenizer_name: "NousResearch/KClaw-3-Llama-3.1-8B"
   use_wandb: false
   wandb_name: "openthoughts-tblite-local"
@@ -35,4 +35,4 @@ openai:
   model_name: "anthropic/claude-sonnet-4"
   server_type: "openai"
   health_check: false
-  # api_key loaded from OPENROUTER_API_KEY in .env
+  # api_key 从 .env 中的 OPENROUTER_API_KEY 加载

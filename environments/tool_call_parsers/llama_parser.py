@@ -1,11 +1,10 @@
 """
-Llama 3.x / 4 tool call parser.
+Llama 3.x / 4 工具调用解析器。
 
-Format: The model outputs JSON objects with "name" and "arguments" (or "parameters") keys.
-May be preceded by <|python_tag|> token. Supports multiple JSON objects separated
-by content or semicolons.
+格式: 模型输出包含 "name" 和 "arguments"（或 "parameters"）键的 JSON 对象。
+可能以 <|python_tag|> 标记开头。支持由内容或分号分隔的多个 JSON 对象。
 
-Based on VLLM's Llama3JsonToolParser.extract_tool_calls()
+基于 VLLM 的 Llama3JsonToolParser.extract_tool_calls()
 """
 
 import json
@@ -25,31 +24,30 @@ from environments.tool_call_parsers import ParseResult, ToolCallParser, register
 @register_parser("llama4_json")
 class LlamaToolCallParser(ToolCallParser):
     """
-    Parser for Llama 3.x and 4 JSON-format tool calls.
+    Llama 3.x 和 4 JSON 格式工具调用解析器。
 
-    Finds JSON objects containing "name" + ("arguments" or "parameters") keys.
-    Uses Python's json.JSONDecoder.raw_decode for robust extraction of
-    JSON objects from mixed text.
+    查找包含 "name" + ("arguments" 或 "parameters") 键的 JSON 对象。
+    使用 Python 的 json.JSONDecoder.raw_decode 从混合文本中鲁棒地提取 JSON 对象。
     """
 
     BOT_TOKEN = "<|python_tag|>"
 
-    # Regex to find the start of potential JSON objects
+    # 查找潜在 JSON 对象起始位置的正则表达式
     JSON_START = re.compile(r"\{")
 
     def parse(self, text: str) -> ParseResult:
-        # Quick check: need either the bot token or a JSON brace
+        # 快速检查: 需要 bot 标记或 JSON 大括号
         if self.BOT_TOKEN not in text and "{" not in text:
             return text, None
 
         try:
             decoder = json.JSONDecoder()
             tool_calls: List[ChatCompletionMessageToolCall] = []
-            end_index = -1  # Track where the last parsed JSON ended
+            end_index = -1  # 跟踪上次解析 JSON 的结束位置
 
             for match in self.JSON_START.finditer(text):
                 start = match.start()
-                # Skip if this brace is inside a previously parsed JSON object
+                # 如果此大括号在先前已解析的 JSON 对象内则跳过
                 if start <= end_index:
                     continue
 
@@ -57,14 +55,14 @@ class LlamaToolCallParser(ToolCallParser):
                     obj, json_end = decoder.raw_decode(text[start:])
                     end_index = start + json_end
 
-                    # Must have "name" and either "arguments" or "parameters"
+                    # 必须有 "name" 和 "arguments" 或 "parameters"
                     name = obj.get("name")
                     args = obj.get("arguments", obj.get("parameters"))
 
                     if not name or args is None:
                         continue
 
-                    # Normalize arguments to JSON string
+                    # 将参数规范化为 JSON 字符串
                     if isinstance(args, dict):
                         args = json.dumps(args, ensure_ascii=False)
                     elif not isinstance(args, str):
@@ -83,8 +81,8 @@ class LlamaToolCallParser(ToolCallParser):
             if not tool_calls:
                 return text, None
 
-            # Content is everything before the first tool call JSON
-            # Find where the first tool call starts in the text
+            # Content 是第一个工具调用 JSON 之前的所有文本
+            # 查找第一个工具调用在文本中的起始位置
             first_tc_start = text.find("{")
             if self.BOT_TOKEN in text:
                 first_tc_start = text.find(self.BOT_TOKEN)

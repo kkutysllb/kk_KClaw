@@ -1,40 +1,38 @@
 """
-YCBenchEvalEnv -- YC-Bench Long-Horizon Agent Benchmark Environment
+YCBenchEvalEnv -- YC-Bench 长期 Agent 基准评估环境
 
-Evaluates agentic LLMs on YC-Bench: a deterministic, long-horizon benchmark
-where the agent acts as CEO of an AI startup over a simulated 1-3 year run.
-The agent manages cash flow, employees, tasks, and prestige across 4 domains,
-interacting exclusively via CLI subprocess calls against a SQLite-backed
-discrete-event simulation.
+在 YC-Bench 上评估 Agentic LLM：一个确定性的长期基准，
+Agent 在 1-3 年的模拟运行中担任 AI 初创公司的 CEO。
+Agent 管理 4 个领域的现金流、员工、任务和声望，
+完全通过 CLI 子进程调用与 SQLite 支持的离散事件仿真交互。
 
-Unlike TerminalBench2 (per-task binary pass/fail), YC-Bench measures sustained
-multi-turn strategic coherence -- whether an agent can manage compounding
-decisions over hundreds of turns without going bankrupt.
+与 TerminalBench2（每个任务二进制通过/失败）不同，YC-Bench 衡量持续的
+多轮策略连贯性 -- Agent 是否能在数百轮中管理复合决策而不破产。
 
-This is an eval-only environment. Run via:
+这是纯评估环境。运行方式:
 
     python environments/benchmarks/yc_bench/yc_bench_env.py evaluate \
         --config environments/benchmarks/yc_bench/default.yaml
 
-The evaluate flow:
-    1. setup()     -- Verifies yc-bench installed, builds eval matrix (preset x seed)
-    2. evaluate()  -- Iterates over all runs sequentially through:
-        a. rollout_and_score_eval()  -- Per-run agent loop
-            - Initialises a fresh yc-bench simulation via `sim init` (NOT `run`)
-            - Runs KClawAgentLoop with terminal tool only
-            - Reads final SQLite DB to extract score
-            - Returns survival (0/1) + normalised funds score
-        b. Aggregates per-preset and overall metrics
-        c. Logs results via evaluate_log() and wandb
+评估流程:
+    1. setup()     -- 验证 yc-bench 已安装，构建评估矩阵（preset x seed）
+    2. evaluate()  -- 顺序遍历所有运行:
+        a. rollout_and_score_eval()  -- 每次运行的 Agent 循环
+            - 通过 `sim init`（而非 `run`）初始化新的 yc-bench 仿真
+            - 使用 terminal 工具运行 KClawAgentLoop
+            - 读取最终 SQLite DB 提取分数
+            - 返回生存 (0/1) + 归一化资金分数
+        b. 聚合每个 preset 和整体指标
+        c. 通过 evaluate_log() 和 wandb 记录结果
 
-Key features:
-  - CLI-only interface: agent calls yc-bench subcommands via terminal tool
-  - Deterministic: same seed + preset = same world (SHA256-based RNG)
-  - Multi-dimensional scoring: survival + normalised final funds
-  - Per-preset difficulty breakdown in results
-  - Isolated SQLite DB per run (no cross-run state leakage)
+关键特性:
+  - 纯 CLI 接口: Agent 通过 terminal 工具调用 yc-bench 子命令
+  - 确定性: 相同 seed + preset = 相同世界（基于 SHA256 的 RNG）
+  - 多维度评分: 生存 + 归一化最终资金
+  - 按 preset 难度细分结果
+  - 每次运行独立的 SQLite DB（无跨运行状态泄漏）
 
-Requires: pip install kclaw[yc-bench]
+需要: pip install kclaw[yc-bench]
 """
 
 import asyncio
@@ -68,7 +66,7 @@ from environments.kclaw_base_env import KClawAgentBaseEnv, KClawAgentEnvConfig
 logger = logging.getLogger(__name__)
 
 # =============================================================================
-# System prompt
+# 系统提示词
 # =============================================================================
 
 YC_BENCH_SYSTEM_PROMPT = """\
@@ -156,10 +154,10 @@ Each turn:
 
 Think step by step before acting."""
 
-# Starting funds in cents ($250,000)
+# 起始资金（美分）（$250,000）
 INITIAL_FUNDS_CENTS = 25_000_000
 
-# Default horizon per preset (years)
+# 每个 preset 的默认期限（年）
 _PRESET_HORIZONS = {
     "tutorial": 1,
     "easy": 1,
@@ -173,74 +171,74 @@ _PRESET_HORIZONS = {
 
 
 # =============================================================================
-# Configuration
+# 配置
 # =============================================================================
 
 class YCBenchEvalConfig(KClawAgentEnvConfig):
     """
-    Configuration for the YC-Bench evaluation environment.
+    YC-Bench 评估环境配置。
 
-    Extends KClawAgentEnvConfig with YC-Bench-specific settings for
-    preset selection, seed control, scoring, and simulation parameters.
+    扩展 KClawAgentEnvConfig，添加 YC-Bench 特定设置，包括
+    preset 选择、seed 控制、评分和仿真参数。
     """
 
     presets: List[str] = Field(
         default=["fast_test", "medium", "hard"],
-        description="YC-Bench preset names to evaluate.",
+        description="YC-Bench preset 名称列表。",
     )
     seeds: List[int] = Field(
         default=[1, 2, 3],
-        description="Random seeds -- each preset x seed = one run.",
+        description="随机种子 -- 每个 preset x seed = 一次运行。",
     )
     run_timeout: int = Field(
         default=3600,
-        description="Maximum wall-clock seconds per run. Default 60 minutes.",
+        description="每次运行的最大挂钟时间（秒）。默认 60 分钟。",
     )
     survival_weight: float = Field(
         default=0.5,
-        description="Weight of survival (0/1) in composite score.",
+        description="生存 (0/1) 在综合分数中的权重。",
     )
     funds_weight: float = Field(
         default=0.5,
-        description="Weight of normalised final funds in composite score.",
+        description="归一化最终资金在综合分数中的权重。",
     )
     db_dir: str = Field(
         default="/tmp/yc_bench_dbs",
-        description="Directory for per-run SQLite databases.",
+        description="每次运行的 SQLite 数据库目录。",
     )
     horizon_years: Optional[int] = Field(
         default=None,
         description=(
-            "Simulation horizon in years. If None (default), inferred from "
-            "preset name (1 year for most, 3 for 'default')."
+            "仿真期限（年）。如果为 None（默认），从 "
+            "preset 名称推断（大多数为 1 年，'default' 为 3 年）。"
         ),
     )
     company_name: str = Field(
         default="BenchCo",
-        description="Name of the simulated company.",
+        description="模拟公司名称。",
     )
     start_date: str = Field(
         default="01/01/2025",
-        description="Simulation start date in MM/DD/YYYY format (yc-bench convention).",
+        description="仿真开始日期，MM/DD/YYYY 格式（yc-bench 约定）。",
     )
 
 
 # =============================================================================
-# Scoring helpers
+# 评分辅助函数
 # =============================================================================
 
 def _read_final_score(db_path: str) -> Dict[str, Any]:
     """
-    Read final game state from a YC-Bench SQLite database.
+    从 YC-Bench SQLite 数据库读取最终游戏状态。
 
-    Returns dict with final_funds_cents (int), survived (bool),
-    terminal_reason (str).
+    返回包含 final_funds_cents (int)、survived (bool)、
+    terminal_reason (str) 的字典。
 
-    Note: yc-bench table names are plural -- 'companies' not 'company',
-    'sim_events' not 'simulation_log'.
+    注意: yc-bench 表名是复数 -- 'companies' 而非 'company'，
+    'sim_events' 而非 'simulation_log'。
     """
     if not os.path.exists(db_path):
-        logger.warning("DB not found at %s", db_path)
+        logger.warning("数据库未找到: %s", db_path)
         return {
             "final_funds_cents": 0,
             "survived": False,
@@ -252,12 +250,12 @@ def _read_final_score(db_path: str) -> Dict[str, Any]:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
 
-        # Read final funds from the 'companies' table
+        # 从 'companies' 表读取最终资金
         cur.execute("SELECT funds_cents FROM companies LIMIT 1")
         row = cur.fetchone()
         funds = row[0] if row else 0
 
-        # Determine terminal reason from 'sim_events' table
+        # 从 'sim_events' 表确定终止原因
         terminal_reason = "unknown"
         try:
             cur.execute(
@@ -269,7 +267,7 @@ def _read_final_score(db_path: str) -> Dict[str, Any]:
             if event_row:
                 terminal_reason = event_row[0]
         except sqlite3.OperationalError:
-            # Table may not exist if simulation didn't progress
+            # 如果仿真未进展，表可能不存在
             pass
 
         survived = funds >= 0 and terminal_reason != "bankruptcy"
@@ -280,7 +278,7 @@ def _read_final_score(db_path: str) -> Dict[str, Any]:
         }
 
     except Exception as e:
-        logger.error("Failed to read DB %s: %s", db_path, e)
+        logger.error("读取数据库失败 %s: %s", db_path, e)
         return {
             "final_funds_cents": 0,
             "survived": False,
@@ -299,12 +297,12 @@ def _compute_composite_score(
     initial_funds_cents: int = INITIAL_FUNDS_CENTS,
 ) -> float:
     """
-    Compute composite score from survival and final funds.
+    从生存和最终资金计算综合分数。
 
     Score = survival_weight * survival_score
           + funds_weight * normalised_funds_score
 
-    Normalised funds uses log-scale relative to initial capital:
+    归一化资金使用相对于初始资本的对数刻度:
     - funds <= 0:          0.0
     - funds == initial:   ~0.15
     - funds == 10x:       ~0.52
@@ -323,21 +321,20 @@ def _compute_composite_score(
 
 
 # =============================================================================
-# Main Environment
+# 主环境
 # =============================================================================
 
 class YCBenchEvalEnv(KClawAgentBaseEnv):
     """
-    YC-Bench long-horizon agent benchmark environment (eval-only).
+    YC-Bench 长期 Agent 基准评估环境（纯评估）。
 
-    Each eval item is a (preset, seed) pair. The environment initialises the
-    simulation via ``yc-bench sim init`` (NOT ``yc-bench run`` which would start
-    a competing built-in agent loop). The KClawAgentLoop then drives the
-    interaction by calling individual yc-bench CLI commands via the terminal tool.
+    每个评估项是 (preset, seed) 对。环境通过 ``yc-bench sim init``
+    （而非 ``yc-bench run``，后者会启动竞争的内置 Agent 循环）初始化仿真。
+    然后 KClawAgentLoop 通过 terminal 工具驱动交互，调用各个 yc-bench CLI 命令。
 
-    After the agent loop ends, the SQLite DB is read to extract the final score.
+    Agent 循环结束后，读取 SQLite DB 提取最终分数。
 
-    Scoring:
+    评分:
       composite = 0.5 * survival + 0.5 * normalised_funds
     """
 
@@ -389,8 +386,8 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
     # =========================================================================
 
     async def setup(self):
-        """Verify yc-bench is installed and build the eval matrix."""
-        # Verify yc-bench CLI is available
+        """验证 yc-bench 已安装并构建评估矩阵。"""
+        # 验证 yc-bench CLI 可用
         try:
             result = subprocess.run(
                 ["yc-bench", "--help"], capture_output=True, text=True, timeout=10
@@ -399,14 +396,14 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
                 raise FileNotFoundError
         except (FileNotFoundError, subprocess.TimeoutExpired):
             raise RuntimeError(
-                "yc-bench CLI not found. Install with:\n"
+                "未找到 yc-bench CLI。安装方式:\n"
                 '  pip install "kclaw[yc-bench]"\n'
-                "Or: git clone https://github.com/collinear-ai/yc-bench "
+                "或: git clone https://github.com/collinear-ai/yc-bench "
                 "&& cd yc-bench && pip install -e ."
             )
-        print("yc-bench CLI verified.")
+        print("yc-bench CLI 已验证。")
 
-        # Build eval matrix: preset x seed
+        # 构建评估矩阵: preset x seed
         self.all_eval_items = [
             {"preset": preset, "seed": seed}
             for preset in self.config.presets
@@ -417,7 +414,7 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
         os.makedirs(self.config.db_dir, exist_ok=True)
         self.eval_metrics: List[Tuple[str, float]] = []
 
-        # Streaming JSONL log for crash-safe result persistence
+        # 流式 JSONL 日志用于崩溃安全的结果持久化
         log_dir = os.path.join(os.path.dirname(__file__), "logs")
         os.makedirs(log_dir, exist_ok=True)
         run_ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -425,13 +422,13 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
         self._streaming_file = open(self._streaming_path, "w")
         self._streaming_lock = threading.Lock()
 
-        print(f"\nYC-Bench eval matrix: {len(self.all_eval_items)} runs")
+        print(f"\nYC-Bench 评估矩阵: {len(self.all_eval_items)} 次运行")
         for item in self.all_eval_items:
             print(f"  preset={item['preset']!r}  seed={item['seed']}")
-        print(f"Streaming results to: {self._streaming_path}\n")
+        print(f"流式结果写入: {self._streaming_path}\n")
 
     def _save_result(self, result: Dict[str, Any]):
-        """Write a single run result to the streaming JSONL file immediately."""
+        """立即将单次运行结果写入流式 JSONL 文件。"""
         if not hasattr(self, "_streaming_file") or self._streaming_file.closed:
             return
         with self._streaming_lock:
@@ -441,7 +438,7 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
             self._streaming_file.flush()
 
     # =========================================================================
-    # Training pipeline stubs (eval-only -- not used)
+    # 训练管线桩（纯评估 -- 不使用）
     # =========================================================================
 
     async def get_next_item(self):
@@ -476,18 +473,18 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
         return None
 
     # =========================================================================
-    # Per-run evaluation
+    # 每次运行的评估
     # =========================================================================
 
     async def rollout_and_score_eval(self, eval_item: Dict[str, Any]) -> Dict:
         """
-        Evaluate a single (preset, seed) run.
+        评估单个 (preset, seed) 运行。
 
-        1. Sets DATABASE_URL and YC_BENCH_EXPERIMENT env vars
-        2. Initialises the simulation via ``yc-bench sim init`` (NOT ``run``)
-        3. Runs KClawAgentLoop with terminal tool
-        4. Reads SQLite DB to compute final score
-        5. Returns result dict with survival, funds, and composite score
+        1. 设置 DATABASE_URL 和 YC_BENCH_EXPERIMENT 环境变量
+        2. 通过 ``yc-bench sim init``（而非 ``run``）初始化仿真
+        3. 使用 terminal 工具运行 KClawAgentLoop
+        4. 读取 SQLite DB 计算最终分数
+        5. 返回包含生存、资金和综合分数的结果字典
         """
         preset = eval_item["preset"]
         seed = eval_item["seed"]
@@ -495,24 +492,24 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
         run_key = f"{preset}_seed{seed}_{run_id}"
 
         from tqdm import tqdm
-        tqdm.write(f"  [START] preset={preset!r} seed={seed} (run_id={run_id})")
+        tqdm.write(f"  [开始] preset={preset!r} seed={seed} (run_id={run_id})")
         run_start = time.time()
 
-        # Isolated DB per run -- prevents cross-run state leakage
+        # 每次运行独立的 DB -- 防止跨运行状态泄漏
         db_path = os.path.join(self.config.db_dir, f"yc_bench_{run_key}.db")
         os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
         os.environ["YC_BENCH_EXPERIMENT"] = preset
 
-        # Determine horizon: explicit config override > preset lookup > default 1
+        # 确定期限: 显式配置覆盖 > preset 查找 > 默认 1
         horizon = self.config.horizon_years or _PRESET_HORIZONS.get(preset, 1)
 
         try:
             # ----------------------------------------------------------
-            # Step 1: Initialise the simulation via CLI
-            # IMPORTANT: We use `sim init`, NOT `yc-bench run`.
-            # `yc-bench run` starts yc-bench's own LLM agent loop (via
-            # LiteLLM), which would compete with our KClawAgentLoop.
-            # `sim init` just sets up the world and returns.
+            # 步骤 1: 通过 CLI 初始化仿真
+            # 重要: 我们使用 `sim init`，而非 `yc-bench run`。
+            # `yc-bench run` 会启动 yc-bench 自己的 LLM Agent 循环（通过
+            # LiteLLM），这会与我们的 KClawAgentLoop 竞争。
+            # `sim init` 只是设置世界然后返回。
             # ----------------------------------------------------------
             init_cmd = [
                 "yc-bench", "sim", "init",
@@ -526,12 +523,12 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
             )
             if init_result.returncode != 0:
                 error_msg = (init_result.stderr or init_result.stdout).strip()
-                raise RuntimeError(f"yc-bench sim init failed: {error_msg}")
+                raise RuntimeError(f"yc-bench sim init 失败: {error_msg}")
 
-            tqdm.write(f"    Simulation initialized (horizon={horizon}yr)")
+            tqdm.write(f"    仿真已初始化 (horizon={horizon}yr)")
 
             # ----------------------------------------------------------
-            # Step 2: Run the KClawAgentLoop
+            # 步骤 2: 运行 KClawAgentLoop
             # ----------------------------------------------------------
             tools, valid_names = self._resolve_tools_for_group()
 
@@ -554,7 +551,7 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
             result = await agent.run(messages)
 
             # ----------------------------------------------------------
-            # Step 3: Read final score from the simulation DB
+            # 步骤 3: 从仿真 DB 读取最终分数
             # ----------------------------------------------------------
             score_data = _read_final_score(db_path)
             final_funds = score_data["final_funds_cents"]
@@ -569,7 +566,7 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
             )
 
             elapsed = time.time() - run_start
-            status = "SURVIVED" if survived else "BANKRUPT"
+            status = "存活" if survived else "破产"
             if final_funds >= 0:
                 funds_str = f"${final_funds / 100:,.0f}"
             else:
@@ -600,9 +597,9 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
 
         except Exception as e:
             elapsed = time.time() - run_start
-            logger.error("Run %s failed: %s", run_key, e, exc_info=True)
+            logger.error("运行 %s 失败: %s", run_key, e, exc_info=True)
             tqdm.write(
-                f"  [ERROR] preset={preset!r} seed={seed}: {e} ({elapsed:.0f}s)"
+                f"  [错误] preset={preset!r} seed={seed}: {e} ({elapsed:.0f}s)"
             )
             out = {
                 "preset": preset,
@@ -624,7 +621,7 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
     # =========================================================================
 
     async def _run_with_timeout(self, item: Dict[str, Any]) -> Dict:
-        """Wrap a single rollout with a wall-clock timeout."""
+        """为单次 rollout 包装挂钟超时。"""
         preset = item["preset"]
         seed = item["seed"]
         try:
@@ -635,8 +632,8 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
         except asyncio.TimeoutError:
             from tqdm import tqdm
             tqdm.write(
-                f"  [TIMEOUT] preset={preset!r} seed={seed} "
-                f"(exceeded {self.config.run_timeout}s)"
+                f"  [超时] preset={preset!r} seed={seed} "
+                f"(超过 {self.config.run_timeout}s)"
             )
             out = {
                 "preset": preset,
@@ -654,15 +651,15 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
 
     async def evaluate(self, *args, **kwargs) -> None:
         """
-        Run YC-Bench evaluation over all (preset, seed) combinations.
+        运行 YC-Bench 评估，覆盖所有 (preset, seed) 组合。
 
-        Runs sequentially -- each run is 100-500 turns, parallelising would
-        be prohibitively expensive and cause env var conflicts.
+        顺序运行 -- 每次运行 100-500 轮，并行化会非常昂贵
+        且导致环境变量冲突。
         """
         start_time = time.time()
         from tqdm import tqdm
 
-        # --- tqdm-compatible logging handler (TB2 pattern) ---
+        # --- tqdm 兼容日志处理器（TB2 模式） ---
         class _TqdmHandler(logging.Handler):
             def emit(self, record):
                 try:
@@ -679,15 +676,15 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
         for noisy in ("httpx", "openai"):
             logging.getLogger(noisy).setLevel(logging.WARNING)
 
-        # --- Print config summary ---
+        # --- 打印配置摘要 ---
         print(f"\n{'='*60}")
-        print("Starting YC-Bench Evaluation")
+        print("正在启动 YC-Bench 评估")
         print(f"{'='*60}")
         print(f"  Presets: {self.config.presets}")
         print(f"  Seeds: {self.config.seeds}")
-        print(f"  Total runs: {len(self.all_eval_items)}")
-        print(f"  Max turns/run: {self.config.max_agent_turns}")
-        print(f"  Run timeout: {self.config.run_timeout}s")
+        print(f"  总运行数: {len(self.all_eval_items)}")
+        print(f"  最大轮次/运行: {self.config.max_agent_turns}")
+        print(f"  运行超时: {self.config.run_timeout}s")
         print(f"{'='*60}\n")
 
         results = []
@@ -706,7 +703,7 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
                 pbar.update(1)
 
         except (KeyboardInterrupt, asyncio.CancelledError):
-            tqdm.write("\n[INTERRUPTED] Stopping evaluation...")
+            tqdm.write("\n[已中断] 停止评估...")
             pbar.close()
             try:
                 from tools.terminal_tool import cleanup_all_environments
@@ -720,10 +717,10 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
         pbar.close()
         end_time = time.time()
 
-        # --- Compute metrics ---
+        # --- 计算指标 ---
         valid = [r for r in results if r is not None]
         if not valid:
-            print("Warning: No valid results.")
+            print("警告: 没有有效结果。")
             return
 
         total = len(valid)
@@ -761,18 +758,18 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
 
         self.eval_metrics = [(k, v) for k, v in eval_metrics.items()]
 
-        # --- Print summary ---
+        # --- 打印摘要 ---
         print(f"\n{'='*60}")
-        print("YC-Bench Evaluation Results")
+        print("YC-Bench 评估结果")
         print(f"{'='*60}")
         print(
-            f"Overall survival rate: {survival_rate:.1%} "
+            f"整体存活率: {survival_rate:.1%} "
             f"({survived_total}/{total})"
         )
-        print(f"Average composite score: {avg_score:.4f}")
-        print(f"Evaluation time: {end_time - start_time:.1f}s")
+        print(f"平均综合分数: {avg_score:.4f}")
+        print(f"评估时间: {end_time - start_time:.1f}s")
 
-        print("\nPer-preset breakdown:")
+        print("\n按 preset 细分:")
         for preset, items in sorted(preset_results.items()):
             ps = sum(1 for r in items if r.get("survived"))
             pt = len(items)
@@ -781,9 +778,9 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
                 if pt
                 else 0
             )
-            print(f"  {preset}: {ps}/{pt} survived  avg_score={pa:.4f}")
+            print(f"  {preset}: {ps}/{pt} 存活  avg_score={pa:.4f}")
             for r in items:
-                status = "SURVIVED" if r.get("survived") else "BANKRUPT"
+                status = "存活" if r.get("survived") else "破产"
                 funds = r.get("final_funds_usd", 0)
                 print(
                     f"    seed={r['seed']}  [{status}]  "
@@ -793,7 +790,7 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
 
         print(f"{'='*60}\n")
 
-        # --- Log results ---
+        # --- 记录结果 ---
         samples = [
             {k: v for k, v in r.items() if k != "messages"} for r in valid
         ]
@@ -811,12 +808,12 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
                 },
             )
         except Exception as e:
-            print(f"Error logging results: {e}")
+            print(f"记录结果时出错: {e}")
 
-        # --- Cleanup (TB2 pattern) ---
+        # --- 清理（TB2 模式） ---
         if hasattr(self, "_streaming_file") and not self._streaming_file.closed:
             self._streaming_file.close()
-            print(f"Results saved to: {self._streaming_path}")
+            print(f"结果已保存到: {self._streaming_path}")
 
         try:
             from tools.terminal_tool import cleanup_all_environments
@@ -831,11 +828,11 @@ class YCBenchEvalEnv(KClawAgentBaseEnv):
             pass
 
     # =========================================================================
-    # Wandb logging
+    # Wandb 日志
     # =========================================================================
 
     async def wandb_log(self, wandb_metrics: Optional[Dict] = None):
-        """Log YC-Bench-specific metrics to wandb."""
+        """记录 YC-Bench 特定指标到 wandb。"""
         if wandb_metrics is None:
             wandb_metrics = {}
         for k, v in self.eval_metrics:

@@ -1,35 +1,35 @@
 #!/bin/bash
 
-# Terminal-Bench 2.0 Evaluation
+# Terminal-Bench 2.0 评估
 #
-# Run from repo root:
+# 从仓库根目录运行:
 #   bash environments/benchmarks/terminalbench_2/run_eval.sh
 #
-# Override model:
+# 覆盖模型:
 #   bash environments/benchmarks/terminalbench_2/run_eval.sh \
 #       --openai.model_name anthropic/claude-sonnet-4
 #
-# Run a subset:
+# 运行子集:
 #   bash environments/benchmarks/terminalbench_2/run_eval.sh \
 #       --env.task_filter fix-git,git-multibranch
 #
-# All terminal settings (backend, timeout, lifetime, pool size) are
-# configured via env config fields -- no env vars needed.
+# 所有终端设置（后端、超时、生命周期、池大小）都
+# 通过环境配置字段配置 -- 不需要环境变量。
 
 set -euo pipefail
 
 mkdir -p logs evals/terminal-bench-2
 LOG_FILE="logs/terminalbench2_$(date +%Y%m%d_%H%M%S).log"
 
-echo "Terminal-Bench 2.0 Evaluation"
-echo "Log file: $LOG_FILE"
+echo "Terminal-Bench 2.0 评估"
+echo "日志文件: $LOG_FILE"
 echo ""
 
-# Unbuffered python output so logs are written in real-time
+# 无缓冲 Python 输出，使日志实时写入
 export PYTHONUNBUFFERED=1
 
-# Show INFO-level agent loop timing (api/tool durations per turn)
-# These go to the log file; tqdm + [START]/[PASS]/[FAIL] go to terminal
+# 显示 INFO 级别的 Agent 循环计时（每轮 API/工具耗时）
+# 这些写入日志文件; tqdm + [开始]/[通过]/[失败] 输出到终端
 export LOGLEVEL=INFO
 
 python terminalbench2_env.py evaluate \
@@ -38,5 +38,5 @@ python terminalbench2_env.py evaluate \
   2>&1 | tee "$LOG_FILE"
 
 echo ""
-echo "Log saved to: $LOG_FILE"
-echo "Eval results: evals/terminal-bench-2/"
+echo "日志已保存到: $LOG_FILE"
+echo "评估结果: evals/terminal-bench-2/"

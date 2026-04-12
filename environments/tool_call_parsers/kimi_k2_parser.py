@@ -1,14 +1,14 @@
 """
-Kimi K2 tool call parser.
+Kimi K2 工具调用解析器。
 
-Format:
+格式：
     <|tool_calls_section_begin|>
     <|tool_call_begin|>function_id:0<|tool_call_argument_begin|>{"arg": "val"}<|tool_call_end|>
     <|tool_calls_section_end|>
 
-The function_id format is typically "functions.func_name:index" or "func_name:index".
+function_id 格式通常为 "functions.func_name:index" 或 "func_name:index"。
 
-Based on VLLM's KimiK2ToolParser.extract_tool_calls()
+基于 VLLM 的 KimiK2ToolParser.extract_tool_calls()
 """
 
 import re
@@ -26,19 +26,19 @@ from environments.tool_call_parsers import ParseResult, ToolCallParser, register
 @register_parser("kimi_k2")
 class KimiK2ToolCallParser(ToolCallParser):
     """
-    Parser for Kimi K2 tool calls.
+    Kimi K2 工具调用解析器。
 
-    Uses section begin/end tokens wrapping individual tool call begin/end tokens.
-    The tool_call_id contains the function name (after last dot, before colon).
+    使用 section begin/end 标记包装单个工具调用的 begin/end 标记。
+    tool_call_id 包含函数名（最后一个点之后、冒号之前的部分）。
     """
 
-    # Support both singular and plural variants
+    # 支持单数和复数变体
     START_TOKENS = [
         "<|tool_calls_section_begin|>",
         "<|tool_call_section_begin|>",
     ]
 
-    # Regex captures: tool_call_id (e.g., "functions.get_weather:0"), function_arguments
+    # 正则捕获: tool_call_id (例如 "functions.get_weather:0"), function_arguments
     PATTERN = re.compile(
         r"<\|tool_call_begin\|>\s*(?P<tool_call_id>[^<]+:\d+)\s*"
         r"<\|tool_call_argument_begin\|>\s*"
@@ -48,7 +48,7 @@ class KimiK2ToolCallParser(ToolCallParser):
     )
 
     def parse(self, text: str) -> ParseResult:
-        # Check for any variant of the start token
+        # 检查是否存在任何变体的起始标记
         has_start = any(token in text for token in self.START_TOKENS)
         if not has_start:
             return text, None
@@ -62,12 +62,12 @@ class KimiK2ToolCallParser(ToolCallParser):
             for match in matches:
                 function_id, function_args = match
 
-                # Extract function name from ID format: "functions.get_weather:0" -> "get_weather"
+                # 从 ID 格式中提取函数名: "functions.get_weather:0" -> "get_weather"
                 function_name = function_id.split(":")[0].split(".")[-1]
 
                 tool_calls.append(
                     ChatCompletionMessageToolCall(
-                        id=function_id,  # Preserve the original ID format
+                        id=function_id,  # 保留原始 ID 格式
                         type="function",
                         function=Function(
                             name=function_name,
@@ -79,7 +79,7 @@ class KimiK2ToolCallParser(ToolCallParser):
             if not tool_calls:
                 return text, None
 
-            # Content is everything before the tool calls section
+            # Content 是工具调用 section 之前的所有文本
             earliest_start = len(text)
             for token in self.START_TOKENS:
                 idx = text.find(token)
