@@ -1,23 +1,22 @@
-"""Rate limit tracking for inference API responses.
+"""推理 API 响应的速率限制跟踪。
 
-Captures x-ratelimit-* headers from provider responses and provides
-formatted display for the /usage slash command.  Currently supports
-the Nous Portal header format (also used by OpenRouter and OpenAI-compatible
-APIs that follow the same convention).
+从提供者响应中捕获 x-ratelimit-* 头信息,并为 /usage 斜杠命令
+提供格式化显示。目前支持 Nous Portal 头格式(也被 OpenRouter 和
+遵循相同约定的 OpenAI 兼容 API 使用)。
 
-Header schema (12 headers total):
-    x-ratelimit-limit-requests          RPM cap
-    x-ratelimit-limit-requests-1h       RPH cap
-    x-ratelimit-limit-tokens            TPM cap
-    x-ratelimit-limit-tokens-1h         TPH cap
-    x-ratelimit-remaining-requests      requests left in minute window
-    x-ratelimit-remaining-requests-1h   requests left in hour window
-    x-ratelimit-remaining-tokens        tokens left in minute window
-    x-ratelimit-remaining-tokens-1h     tokens left in hour window
-    x-ratelimit-reset-requests          seconds until minute request window resets
-    x-ratelimit-reset-requests-1h       seconds until hour request window resets
-    x-ratelimit-reset-tokens            seconds until minute token window resets
-    x-ratelimit-reset-tokens-1h         seconds until hour token window resets
+头信息模式(共 12 个头):
+    x-ratelimit-limit-requests          RPM 上限
+    x-ratelimit-limit-requests-1h       RPH 上限
+    x-ratelimit-limit-tokens            TPM 上限
+    x-ratelimit-limit-tokens-1h         TPH 上限
+    x-ratelimit-remaining-requests      分钟窗口剩余请求数
+    x-ratelimit-remaining-requests-1h   小时窗口剩余请求数
+    x-ratelimit-remaining-tokens        分钟窗口剩余 token 数
+    x-ratelimit-remaining-tokens-1h     小时窗口剩余 token 数
+    x-ratelimit-reset-requests          分钟请求窗口重置秒数
+    x-ratelimit-reset-requests-1h       小时请求窗口重置秒数
+    x-ratelimit-reset-tokens            分钟 token 窗口重置秒数
+    x-ratelimit-reset-tokens-1h         小时 token 窗口重置秒数
 """
 
 from __future__ import annotations
@@ -29,12 +28,12 @@ from typing import Any, Dict, Mapping, Optional
 
 @dataclass
 class RateLimitBucket:
-    """One rate-limit window (e.g. requests per minute)."""
+    """一个速率限制窗口(例如每分钟请求数)。"""
 
     limit: int = 0
     remaining: int = 0
     reset_seconds: float = 0.0
-    captured_at: float = 0.0  # time.time() when this was captured
+    captured_at: float = 0.0  # 捕获时的 time.time()
 
     @property
     def used(self) -> int:
@@ -48,20 +47,20 @@ class RateLimitBucket:
 
     @property
     def remaining_seconds_now(self) -> float:
-        """Estimated seconds remaining until reset, adjusted for elapsed time."""
+        """预估的剩余重置秒数,已根据已过时间调整。"""
         elapsed = time.time() - self.captured_at
         return max(0.0, self.reset_seconds - elapsed)
 
 
 @dataclass
 class RateLimitState:
-    """Full rate-limit state parsed from response headers."""
+    """从响应头解析的完整速率限制状态。"""
 
     requests_min: RateLimitBucket = field(default_factory=RateLimitBucket)
     requests_hour: RateLimitBucket = field(default_factory=RateLimitBucket)
     tokens_min: RateLimitBucket = field(default_factory=RateLimitBucket)
     tokens_hour: RateLimitBucket = field(default_factory=RateLimitBucket)
-    captured_at: float = 0.0  # when the headers were captured
+    captured_at: float = 0.0  # 头信息被捕获的时间
     provider: str = ""
 
     @property
@@ -93,11 +92,11 @@ def parse_rate_limit_headers(
     headers: Mapping[str, str],
     provider: str = "",
 ) -> Optional[RateLimitState]:
-    """Parse x-ratelimit-* headers into a RateLimitState.
+    """将 x-ratelimit-* 头信息解析为 RateLimitState。
 
-    Returns None if no rate limit headers are present.
+    如果不存在速率限制头信息则返回 None。
     """
-    # Quick check: at least one rate limit header must exist
+    # 快速检查:必须至少存在一个速率限制头信息
     has_any = any(k.lower().startswith("x-ratelimit-") for k in headers)
     if not has_any:
         return None
@@ -105,8 +104,8 @@ def parse_rate_limit_headers(
     now = time.time()
 
     def _bucket(resource: str, suffix: str = "") -> RateLimitBucket:
-        # e.g. resource="requests", suffix="" -> per-minute
-        #      resource="tokens", suffix="-1h" -> per-hour
+        # 例如 resource="requests", suffix="" -> 每分钟
+        #      resource="tokens", suffix="-1h" -> 每小时
         tag = f"{resource}{suffix}"
         return RateLimitBucket(
             limit=_safe_int(headers.get(f"x-ratelimit-limit-{tag}")),
@@ -125,11 +124,11 @@ def parse_rate_limit_headers(
     )
 
 
-# ── Formatting ──────────────────────────────────────────────────────────
+# ── 格式化 ──────────────────────────────────────────────────────────
 
 
 def _fmt_count(n: int) -> str:
-    """Human-friendly number: 7999856 -> '8.0M', 33599 -> '33.6K', 799 -> '799'."""
+    """人类友好的数字: 7999856 -> '8.0M', 33599 -> '33.6K', 799 -> '799'。"""
     if n >= 1_000_000:
         return f"{n / 1_000_000:.1f}M"
     if n >= 10_000:
@@ -140,7 +139,7 @@ def _fmt_count(n: int) -> str:
 
 
 def _fmt_seconds(seconds: float) -> str:
-    """Seconds -> human-friendly duration: '58s', '2m 14s', '58m 57s', '1h 2m'."""
+    """秒数 -> 人类友好的时长: '58s'、'2m 14s'、'58m 57s'、'1h 2m'。"""
     s = max(0, int(seconds))
     if s < 60:
         return f"{s}s"
@@ -153,7 +152,7 @@ def _fmt_seconds(seconds: float) -> str:
 
 
 def _bar(pct: float, width: int = 20) -> str:
-    """ASCII progress bar: [████████░░░░░░░░░░░░] 40%."""
+    """ASCII 进度条: [████████░░░░░░░░░░░░] 40%。"""
     filled = int(pct / 100.0 * width)
     filled = max(0, min(width, filled))
     empty = width - filled
@@ -161,9 +160,9 @@ def _bar(pct: float, width: int = 20) -> str:
 
 
 def _bucket_line(label: str, bucket: RateLimitBucket, label_width: int = 14) -> str:
-    """Format one bucket as a single line."""
+    """将一个桶格式化为单行。"""
     if bucket.limit <= 0:
-        return f"  {label:<{label_width}}  (no data)"
+        return f"  {label:<{label_width}}  (无数据)"
 
     pct = bucket.usage_pct
     used = _fmt_count(bucket.used)
@@ -172,35 +171,35 @@ def _bucket_line(label: str, bucket: RateLimitBucket, label_width: int = 14) -> 
     reset = _fmt_seconds(bucket.remaining_seconds_now)
 
     bar = _bar(pct)
-    return f"  {label:<{label_width}} {bar} {pct:5.1f}%  {used}/{limit} used  ({remaining} left, resets in {reset})"
+    return f"  {label:<{label_width}} {bar} {pct:5.1f}%  {used}/{limit} 已用  ({remaining} 剩余, {reset} 后重置)"
 
 
 def format_rate_limit_display(state: RateLimitState) -> str:
-    """Format rate limit state for terminal/chat display."""
+    """格式化速率限制状态用于终端/聊天显示。"""
     if not state.has_data:
-        return "No rate limit data yet — make an API request first."
+        return "暂无速率限制数据 — 请先发起一次 API 请求。"
 
     age = state.age_seconds
     if age < 5:
-        freshness = "just now"
+        freshness = "刚刚"
     elif age < 60:
-        freshness = f"{int(age)}s ago"
+        freshness = f"{int(age)}秒前"
     else:
-        freshness = f"{_fmt_seconds(age)} ago"
+        freshness = f"{_fmt_seconds(age)}前"
 
-    provider_label = state.provider.title() if state.provider else "Provider"
+    provider_label = state.provider.title() if state.provider else "提供者"
 
     lines = [
-        f"{provider_label} Rate Limits (captured {freshness}):",
+        f"{provider_label} 速率限制 (捕获于 {freshness}):",
         "",
-        _bucket_line("Requests/min", state.requests_min),
-        _bucket_line("Requests/hr", state.requests_hour),
+        _bucket_line("请求/分钟", state.requests_min),
+        _bucket_line("请求/小时", state.requests_hour),
         "",
-        _bucket_line("Tokens/min", state.tokens_min),
-        _bucket_line("Tokens/hr", state.tokens_hour),
+        _bucket_line("Token/分钟", state.tokens_min),
+        _bucket_line("Token/小时", state.tokens_hour),
     ]
 
-    # Add warnings if any bucket is getting hot
+    # 如果任何桶变得紧张则添加警告
     warnings = []
     for label, bucket in [
         ("requests/min", state.requests_min),
@@ -210,7 +209,7 @@ def format_rate_limit_display(state: RateLimitState) -> str:
     ]:
         if bucket.limit > 0 and bucket.usage_pct >= 80:
             reset = _fmt_seconds(bucket.remaining_seconds_now)
-            warnings.append(f"  ⚠ {label} at {bucket.usage_pct:.0f}% — resets in {reset}")
+            warnings.append(f"  ⚠ {label} 已达 {bucket.usage_pct:.0f}% — {reset} 后重置")
 
     if warnings:
         lines.append("")
@@ -220,9 +219,9 @@ def format_rate_limit_display(state: RateLimitState) -> str:
 
 
 def format_rate_limit_compact(state: RateLimitState) -> str:
-    """One-line compact summary for status bars / gateway messages."""
+    """单行紧凑摘要,用于状态栏 / gateway 消息。"""
     if not state.has_data:
-        return "No rate limit data."
+        return "暂无速率限制数据。"
 
     rm = state.requests_min
     tm = state.tokens_min

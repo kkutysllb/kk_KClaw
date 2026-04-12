@@ -78,8 +78,7 @@ class CostResult:
 _UTC_NOW = lambda: datetime.now(timezone.utc)
 
 
-# Official docs snapshot entries. Models whose published pricing and cache
-# semantics are stable enough to encode exactly.
+# 官方文档快照条目。其已发布定价和缓存语义足够稳定可以精确编码的模型。
 _OFFICIAL_DOCS_PRICING: Dict[tuple[str, str], PricingEntry] = {
     (
         "anthropic",
@@ -423,16 +422,16 @@ def normalize_usage(
     provider: Optional[str] = None,
     api_mode: Optional[str] = None,
 ) -> CanonicalUsage:
-    """Normalize raw API response usage into canonical token buckets.
+    """将原始 API 响应 usage 规范化为标准 token 桶。
 
-    Handles three API shapes:
+    处理三种 API 格式:
     - Anthropic: input_tokens/output_tokens/cache_read_input_tokens/cache_creation_input_tokens
-    - Codex Responses: input_tokens includes cache tokens; input_tokens_details.cached_tokens separates them
-    - OpenAI Chat Completions: prompt_tokens includes cache tokens; prompt_tokens_details.cached_tokens separates them
+    - Codex Responses: input_tokens 包含缓存 token;input_tokens_details.cached_tokens 分离它们
+    - OpenAI Chat Completions: prompt_tokens 包含缓存 token;prompt_tokens_details.cached_tokens 分离它们
 
-    In both Codex and OpenAI modes, input_tokens is derived by subtracting cache
-    tokens from the total — the API contract is that input/prompt totals include
-    cached tokens and the details object breaks them out.
+    在 Codex 和 OpenAI 模式下,input_tokens 通过从总数中减去缓存
+    token 得出 — API 契约是 input/prompt 总数包含缓存 token,
+    而 details 对象将它们分解。
     """
     if not response_usage:
         return CanonicalUsage()
@@ -563,10 +562,10 @@ def has_known_pricing(
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
 ) -> bool:
-    """Check whether we have pricing data for this model+route.
+    """检查我们是否有此模型+路由的定价数据。
 
-    Uses direct lookup instead of routing through the full estimation
-    pipeline — avoids creating dummy usage objects just to check status.
+    使用直接查找而不是通过完整的估算管道路由 —
+    避免仅为了检查状态而创建虚拟 usage 对象。
     """
     route = resolve_billing_route(model_name, provider=provider, base_url=base_url)
     if route.billing_mode == "subscription_included":
@@ -581,10 +580,10 @@ def get_pricing(
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
 ) -> Dict[str, float]:
-    """Backward-compatible thin wrapper for legacy callers.
+    """向后兼容的薄封装,用于旧版调用者。
 
-    Returns only non-cache input/output fields when a pricing entry exists.
-    Unknown routes return zeroes.
+    当定价条目存在时,仅返回非缓存的 input/output 字段。
+    未知路由返回零值。
     """
     entry = get_pricing_entry(model_name, provider=provider, base_url=base_url, api_key=api_key)
     if not entry:
@@ -604,10 +603,10 @@ def estimate_cost_usd(
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
 ) -> float:
-    """Backward-compatible helper for legacy callers.
+    """向后兼容的助手函数,用于旧版调用者。
 
-    This uses non-cached input/output only. New code should call
-    `estimate_usage_cost()` with canonical usage buckets.
+    仅使用非缓存的 input/output。新代码应使用
+    `estimate_usage_cost()` 和标准 usage 桶。
     """
     result = estimate_usage_cost(
         model,

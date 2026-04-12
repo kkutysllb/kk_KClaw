@@ -1,7 +1,7 @@
-"""Model metadata, context lengths, and token estimation utilities.
+"""模型元数据、上下文长度和 token 估算工具。
 
-Pure utility functions with no AIAgent dependency. Used by ContextCompressor
-and run_agent.py for pre-flight context checks.
+纯工具函数,无 AIAgent 依赖。由 ContextCompressor 和 run_agent.py
+用于预检上下文检查。
 """
 
 import logging
@@ -19,16 +19,16 @@ from kclaw_constants import OPENROUTER_MODELS_URL
 
 logger = logging.getLogger(__name__)
 
-# Provider names that can appear as a "provider:" prefix before a model ID.
-# Only these are stripped — Ollama-style "model:tag" colons (e.g. "qwen3.5:27b")
-# are preserved so the full model name reaches cache lookups and server queries.
+# 可作为 "provider:" 前缀出现在模型 ID 之前的提供者名称。
+# 只剥离这些 — Ollama 风格的 "model:tag" 冒号(例如 "qwen3.5:27b")
+# 被保留,以便完整模型名到达缓存查找和服务器查询。
 _PROVIDER_PREFIXES: frozenset[str] = frozenset({
     "openrouter", "nous", "openai-codex", "copilot", "copilot-acp",
     "gemini", "zai", "kimi-coding", "minimax", "minimax-cn", "anthropic", "deepseek",
     "opencode-zen", "opencode-go", "ai-gateway", "kilocode", "alibaba",
     "qwen-oauth",
     "custom", "local",
-    # Common aliases
+    # 常见别名
     "google", "google-gemini", "google-ai-studio",
     "glm", "z-ai", "z.ai", "zhipu", "github", "github-copilot",
     "github-models", "kimi", "moonshot", "claude", "deep-seek",
@@ -44,19 +44,19 @@ _OLLAMA_TAG_PATTERN = re.compile(
 
 
 def _strip_provider_prefix(model: str) -> str:
-    """Strip a recognised provider prefix from a model string.
+    """从模型字符串中剥离已识别的提供者前缀。
 
     ``"local:my-model"`` → ``"my-model"``
-    ``"qwen3.5:27b"``   → ``"qwen3.5:27b"``  (unchanged — not a provider prefix)
-    ``"qwen:0.5b"``     → ``"qwen:0.5b"``    (unchanged — Ollama model:tag)
-    ``"deepseek:latest"``→ ``"deepseek:latest"``(unchanged — Ollama model:tag)
+    ``"qwen3.5:27b"``   → ``"qwen3.5:27b"``  (不变 — 不是提供者前缀)
+    ``"qwen:0.5b"``     → ``"qwen:0.5b"``    (不变 — Ollama model:tag)
+    ``"deepseek:latest"``→ ``"deepseek:latest"``(不变 — Ollama model:tag)
     """
     if ":" not in model or model.startswith("http"):
         return model
     prefix, suffix = model.split(":", 1)
     prefix_lower = prefix.strip().lower()
     if prefix_lower in _PROVIDER_PREFIXES:
-        # Don't strip if suffix looks like an Ollama tag (e.g. "7b", "latest", "q4_0")
+        # 如果后缀看起来像 Ollama tag(例如 "7b"、"latest"、"q4_0")则不剥离
         if _OLLAMA_TAG_PATTERN.match(suffix.strip()):
             return model
         return suffix
@@ -69,9 +69,9 @@ _endpoint_model_metadata_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
 _endpoint_model_metadata_cache_time: Dict[str, float] = {}
 _ENDPOINT_MODEL_CACHE_TTL = 300
 
-# Descending tiers for context length probing when the model is unknown.
-# We start at 128K (a safe default for most modern models) and step down
-# on context-length errors until one works.
+# 当模型未知时,上下文长度探测的递减层级。
+# 从 128K 开始(大多数现代模型的安全默认值),在遇到
+# 上下文长度错误时逐步降低,直到一个生效。
 CONTEXT_PROBE_TIERS = [
     128_000,
     64_000,
@@ -80,23 +80,23 @@ CONTEXT_PROBE_TIERS = [
     8_000,
 ]
 
-# Default context length when no detection method succeeds.
+# 当所有检测方法都失败时的默认上下文长度。
 DEFAULT_FALLBACK_CONTEXT = CONTEXT_PROBE_TIERS[0]
 
-# Thin fallback defaults — only broad model family patterns.
-# These fire only when provider is unknown AND models.dev/OpenRouter/Anthropic
-# all miss. Replaced the previous 80+ entry dict.
-# For provider-specific context lengths, models.dev is the primary source.
+# 精简的回退默认值 — 仅宽泛的模型家族模式。
+# 仅当提供者未知且 models.dev/OpenRouter/Anthropic 都未命中时触发。
+# 替换了之前的 80+ 条目字典。
+# 对于提供者特定的上下文长度,models.dev 是主要来源。
 DEFAULT_CONTEXT_LENGTHS = {
-    # Anthropic Claude 4.6 (1M context) — bare IDs only to avoid
-    # fuzzy-match collisions (e.g. "anthropic/claude-sonnet-4" is a
-    # substring of "anthropic/claude-sonnet-4.6").
-    # OpenRouter-prefixed models resolve via OpenRouter live API or models.dev.
+    # Anthropic Claude 4.6 (1M 上下文) — 仅裸 ID 以避免
+    # 模糊匹配冲突(例如 "anthropic/claude-sonnet-4" 是
+    # "anthropic/claude-sonnet-4.6" 的子串)。
+    # OpenRouter 前缀的模型通过 OpenRouter 实时 API 或 models.dev 解析。
     "claude-opus-4-6": 1000000,
     "claude-sonnet-4-6": 1000000,
     "claude-opus-4.6": 1000000,
     "claude-sonnet-4.6": 1000000,
-    # Catch-all for older Claude models (must sort after specific entries)
+    # 旧版 Claude 模型的通用匹配(必须排在具体条目之后)
     "claude": 200000,
     # OpenAI
     "gpt-4.1": 1047576,
@@ -104,18 +104,18 @@ DEFAULT_CONTEXT_LENGTHS = {
     "gpt-4": 128000,
     # Google
     "gemini": 1048576,
-    # Gemma (open models served via AI Studio)
+    # Gemma(通过 AI Studio 服务的开放模型)
     "gemma-4-31b": 256000,
     "gemma-4-26b": 256000,
     "gemma-3": 131072,
-    "gemma": 8192,  # fallback for older gemma models
+    "gemma": 8192,  # 旧版 gemma 模型的回退
     # DeepSeek
     "deepseek": 128000,
     # Meta
     "llama": 131072,
     # Qwen
     "qwen": 131072,
-    # MiniMax (lowercase — lookup lowercases model names at line 973)
+    # MiniMax (小写 — 查找时在第 973 行将模型名转为小写)
     "minimax-m1-256k": 1000000,
     "minimax-m1-128k": 1000000,
     "minimax-m1-80k": 1000000,
@@ -130,7 +130,7 @@ DEFAULT_CONTEXT_LENGTHS = {
     "kimi": 262144,
     # Arcee
     "trinity": 262144,
-    # Hugging Face Inference Providers — model IDs use org/name format
+    # Hugging Face 推理提供者 — 模型 ID 使用 org/name 格式
     "Qwen/Qwen3.5-397B-A17B": 131072,
     "Qwen/Qwen3.5-35B-A3B": 131072,
     "deepseek-ai/DeepSeek-V3.2": 65536,
@@ -162,7 +162,7 @@ _MAX_COMPLETION_KEYS = (
     "max_tokens",
 )
 
-# Local server hostnames / address patterns
+# 本地服务器主机名 / 地址模式
 _LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1", "0.0.0.0")
 
 
@@ -202,11 +202,11 @@ _URL_TO_PROVIDER: Dict[str, str] = {
 
 
 def _infer_provider_from_url(base_url: str) -> Optional[str]:
-    """Infer the models.dev provider name from a base URL.
+    """从 base URL 推断 models.dev 的提供者名称。
 
-    This allows context length resolution via models.dev for custom endpoints
-    like DashScope (Alibaba), Z.AI, Kimi, etc. without requiring the user to
-    explicitly set the provider name in config.
+    这允许通过 models.dev 为自定义端点(如 DashScope(阿里巴巴)、
+    Z.AI、Kimi 等)解析上下文长度,而无需用户在配置中显式设置
+    提供者名称。
     """
     normalized = _normalize_base_url(base_url)
     if not normalized:
@@ -224,7 +224,7 @@ def _is_known_provider_base_url(base_url: str) -> bool:
 
 
 def is_local_endpoint(base_url: str) -> bool:
-    """Return True if base_url points to a local machine (localhost / RFC-1918 / WSL)."""
+    """如果 base_url 指向本机(localhost / RFC-1918 / WSL)则返回 True。"""
     normalized = _normalize_base_url(base_url)
     if not normalized:
         return False
@@ -236,14 +236,14 @@ def is_local_endpoint(base_url: str) -> bool:
         return False
     if host in _LOCAL_HOSTS:
         return True
-    # RFC-1918 private ranges and link-local
+    # RFC-1918 私有范围和链路本地地址
     import ipaddress
     try:
         addr = ipaddress.ip_address(host)
         return addr.is_private or addr.is_loopback or addr.is_link_local
     except ValueError:
         pass
-    # Bare IP that looks like a private range (e.g. 172.26.x.x for WSL)
+    # 看起来像私有范围的裸 IP(例如 172.26.x.x 用于 WSL)
     parts = host.split(".")
     if len(parts) == 4:
         try:
@@ -260,9 +260,9 @@ def is_local_endpoint(base_url: str) -> bool:
 
 
 def detect_local_server_type(base_url: str) -> Optional[str]:
-    """Detect which local server is running at base_url by probing known endpoints.
+    """通过探测已知端点检测 base_url 上运行的是哪个本地服务器。
 
-    Returns one of: "ollama", "lm-studio", "vllm", "llamacpp", or None.
+    返回以下之一: "ollama"、"lm-studio"、"vllm"、"llamacpp" 或 None。
     """
     import httpx
 
@@ -273,16 +273,16 @@ def detect_local_server_type(base_url: str) -> Optional[str]:
 
     try:
         with httpx.Client(timeout=2.0) as client:
-            # LM Studio exposes /api/v1/models — check first (most specific)
+            # LM Studio 暴露 /api/v1/models — 首先检查(最具体)
             try:
                 r = client.get(f"{server_url}/api/v1/models")
                 if r.status_code == 200:
                     return "lm-studio"
             except Exception:
                 pass
-            # Ollama exposes /api/tags and responds with {"models": [...]}
-            # LM Studio returns {"error": "Unexpected endpoint"} with status 200
-            # on this path, so we must verify the response contains "models".
+            # Ollama 暴露 /api/tags 并响应 {"models": [...]}
+            # LM Studio 在此路径返回 {"error": "Unexpected endpoint"} 并带有 status 200,
+            # 所以我们必须验证响应是否包含 "models"。
             try:
                 r = client.get(f"{server_url}/api/tags")
                 if r.status_code == 200:
@@ -294,11 +294,11 @@ def detect_local_server_type(base_url: str) -> Optional[str]:
                         pass
             except Exception:
                 pass
-            # llama.cpp exposes /v1/props (older builds used /props without the /v1 prefix)
+            # llama.cpp 暴露 /v1/props(旧版本使用 /props 而无 /v1 前缀)
             try:
                 r = client.get(f"{server_url}/v1/props")
                 if r.status_code != 200:
-                    r = client.get(f"{server_url}/props")  # fallback for older builds
+                    r = client.get(f"{server_url}/props")  # 旧版本的回退
                 if r.status_code == 200 and "default_generation_settings" in r.text:
                     return "llamacpp"
             except Exception:
@@ -393,7 +393,7 @@ def _add_model_aliases(cache: Dict[str, Dict[str, Any]], model_id: str, entry: D
 
 
 def fetch_model_metadata(force_refresh: bool = False) -> Dict[str, Dict[str, Any]]:
-    """Fetch model metadata from OpenRouter (cached for 1 hour)."""
+    """从 OpenRouter 获取模型元数据(缓存 1 小时)。"""
     global _model_metadata_cache, _model_metadata_cache_time
 
     if not force_refresh and _model_metadata_cache and (time.time() - _model_metadata_cache_time) < _MODEL_CACHE_TTL:
@@ -424,7 +424,7 @@ def fetch_model_metadata(force_refresh: bool = False) -> Dict[str, Dict[str, Any
         return cache
 
     except Exception as e:
-        logging.warning(f"Failed to fetch model metadata from OpenRouter: {e}")
+        logging.warning(f"从 OpenRouter 获取模型元数据失败: {e}")
         return _model_metadata_cache or {}
 
 
@@ -433,10 +433,10 @@ def fetch_endpoint_model_metadata(
     api_key: str = "",
     force_refresh: bool = False,
 ) -> Dict[str, Dict[str, Any]]:
-    """Fetch model metadata from an OpenAI-compatible ``/models`` endpoint.
+    """从 OpenAI 兼容的 ``/models`` 端点获取模型元数据。
 
-    This is used for explicit custom endpoints where hardcoded global model-name
-    defaults are unreliable. Results are cached in memory per base URL.
+    用于硬编码的全局模型名默认值不可靠的显式自定义端点。
+    结果按 base URL 在内存中缓存。
     """
     normalized = _normalize_base_url(base_url)
     if not normalized or _is_openrouter_base_url(normalized):
@@ -484,14 +484,14 @@ def fetch_endpoint_model_metadata(
                     entry["pricing"] = pricing
                 _add_model_aliases(cache, model_id, entry)
 
-            # If this is a llama.cpp server, query /props for actual allocated context
+            # 如果这是 llama.cpp 服务器,查询 /props 获取实际分配的上下文
             is_llamacpp = any(
                 m.get("owned_by") == "llamacpp"
                 for m in payload.get("data", []) if isinstance(m, dict)
             )
             if is_llamacpp:
                 try:
-                    # Try /v1/props first (current llama.cpp); fall back to /props for older builds
+                    # 先尝试 /v1/props(当前 llama.cpp);回退到 /props 用于旧版本
                     base = candidate.rstrip("/").replace("/v1", "")
                     props_resp = requests.get(base + "/v1/props", headers=headers, timeout=5)
                     if not props_resp.ok:
@@ -520,13 +520,13 @@ def fetch_endpoint_model_metadata(
 
 
 def _get_context_cache_path() -> Path:
-    """Return path to the persistent context length cache file."""
+    """返回持久化上下文长度缓存文件的路径。"""
     from kclaw_constants import get_kclaw_home
     return get_kclaw_home() / "context_length_cache.yaml"
 
 
 def _load_context_cache() -> Dict[str, int]:
-    """Load the model+provider -> context_length cache from disk."""
+    """从磁盘加载 model+provider → context_length 缓存。"""
     path = _get_context_cache_path()
     if not path.exists():
         return {}
@@ -535,40 +535,40 @@ def _load_context_cache() -> Dict[str, int]:
             data = yaml.safe_load(f) or {}
         return data.get("context_lengths", {})
     except Exception as e:
-        logger.debug("Failed to load context length cache: %s", e)
+        logger.debug("加载上下文长度缓存失败: %s", e)
         return {}
 
 
 def save_context_length(model: str, base_url: str, length: int) -> None:
-    """Persist a discovered context length for a model+provider combo.
+    """持久化发现的模型+提供者组合的上下文长度。
 
-    Cache key is ``model@base_url`` so the same model name served from
-    different providers can have different limits.
+    缓存键为 ``model@base_url``,以便从不同提供者服务的同一模型名
+    可以有不同的限制。
     """
     key = f"{model}@{base_url}"
     cache = _load_context_cache()
     if cache.get(key) == length:
-        return  # already stored
+        return  # 已存储
     cache[key] = length
     path = _get_context_cache_path()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:
             yaml.dump({"context_lengths": cache}, f, default_flow_style=False)
-        logger.info("Cached context length %s -> %s tokens", key, f"{length:,}")
+        logger.info("已缓存上下文长度 %s -> %s token", key, f"{length:,}")
     except Exception as e:
-        logger.debug("Failed to save context length cache: %s", e)
+        logger.debug("保存上下文长度缓存失败: %s", e)
 
 
 def get_cached_context_length(model: str, base_url: str) -> Optional[int]:
-    """Look up a previously discovered context length for model+provider."""
+    """查找之前发现的模型+提供者上下文长度。"""
     key = f"{model}@{base_url}"
     cache = _load_context_cache()
     return cache.get(key)
 
 
 def get_next_probe_tier(current_length: int) -> Optional[int]:
-    """Return the next lower probe tier, or None if already at minimum."""
+    """返回下一个较低的探测层级,如果已在最低则返回 None。"""
     for tier in CONTEXT_PROBE_TIERS:
         if tier < current_length:
             return tier
@@ -576,16 +576,16 @@ def get_next_probe_tier(current_length: int) -> Optional[int]:
 
 
 def parse_context_limit_from_error(error_msg: str) -> Optional[int]:
-    """Try to extract the actual context limit from an API error message.
+    """尝试从 API 错误消息中提取实际的上下文限制。
 
-    Many providers include the limit in their error text, e.g.:
+    许多提供者在其错误文本中包含限制,例如:
       - "maximum context length is 32768 tokens"
       - "context_length_exceeded: 131072"
       - "Maximum context size 32768 exceeded"
       - "model's max context length is 65536"
     """
     error_lower = error_msg.lower()
-    # Pattern: look for numbers near context-related keywords
+    # 模式:查找上下文相关关键词附近的数字
     patterns = [
         r'(?:max(?:imum)?|limit)\s*(?:context\s*)?(?:length|size|window)?\s*(?:is|of|:)?\s*(\d{4,})',
         r'context\s*(?:length|size|window)\s*(?:is|of|:)?\s*(\d{4,})',
@@ -597,40 +597,40 @@ def parse_context_limit_from_error(error_msg: str) -> Optional[int]:
         match = re.search(pattern, error_lower)
         if match:
             limit = int(match.group(1))
-            # Sanity check: must be a reasonable context length
+            # 健全性检查:必须是合理的上下文长度
             if 1024 <= limit <= 10_000_000:
                 return limit
     return None
 
 
 def _model_id_matches(candidate_id: str, lookup_model: str) -> bool:
-    """Return True if *candidate_id* (from server) matches *lookup_model* (configured).
+    """如果 *candidate_id*(来自服务器)匹配 *lookup_model*(配置的)则返回 True。
 
-    Supports two forms:
-    - Exact match:  "nvidia-nemotron-super-49b-v1" == "nvidia-nemotron-super-49b-v1"
-    - Slug match:   "nvidia/nvidia-nemotron-super-49b-v1" matches "nvidia-nemotron-super-49b-v1"
-                    (the part after the last "/" equals lookup_model)
+    支持两种形式:
+    - 精确匹配: "nvidia-nemotron-super-49b-v1" == "nvidia-nemotron-super-49b-v1"
+    - Slug 匹配: "nvidia/nvidia-nemotron-super-49b-v1" 匹配 "nvidia-nemotron-super-49b-v1"
+                    (最后一个 "/" 之后的部分等于 lookup_model)
 
-    This covers LM Studio's native API which stores models as "publisher/slug"
-    while users typically configure only the slug after the "local:" prefix.
+    这覆盖了 LM Studio 的原生 API,它将模型存储为 "publisher/slug",
+    而用户通常在 "local:" 前缀后只配置 slug。
     """
     if candidate_id == lookup_model:
         return True
-    # Slug match: basename of candidate equals the lookup name
+    # Slug 匹配: candidate 的基本名等于查找名
     if "/" in candidate_id and candidate_id.rsplit("/", 1)[1] == lookup_model:
         return True
     return False
 
 
 def query_ollama_num_ctx(model: str, base_url: str) -> Optional[int]:
-    """Query an Ollama server for the model's context length.
+    """查询 Ollama 服务器获取模型的上下文长度。
 
-    Returns the model's maximum context from GGUF metadata via ``/api/show``,
-    or the explicit ``num_ctx`` from the Modelfile if set.  Returns None if
-    the server is unreachable or not Ollama.
+    通过 ``/api/show`` 从 GGUF 元数据返回模型的最大上下文,
+    或如果设置了 Modelfile 中的显式 ``num_ctx`` 则返回它。
+    如果服务器不可达或不是 Ollama 则返回 None。
 
-    This is the value that should be passed as ``num_ctx`` in Ollama chat
-    requests to override the default 2048.
+    这是应该作为 Ollama 聊天请求中 ``num_ctx`` 传递的值,
+    以覆盖默认的 2048。
     """
     import httpx
 
@@ -653,7 +653,7 @@ def query_ollama_num_ctx(model: str, base_url: str) -> Optional[int]:
                 return None
             data = resp.json()
 
-            # Prefer explicit num_ctx from Modelfile parameters (user override)
+            # 优先使用 Modelfile 参数中的显式 num_ctx(用户覆盖)
             params = data.get("parameters", "")
             if "num_ctx" in params:
                 for line in params.split("\n"):
@@ -665,7 +665,7 @@ def query_ollama_num_ctx(model: str, base_url: str) -> Optional[int]:
                             except ValueError:
                                 pass
 
-            # Fall back to GGUF model_info context_length (training max)
+            # 回退到 GGUF model_info context_length(训练最大值)
             model_info = data.get("model_info", {})
             for key, value in model_info.items():
                 if "context_length" in key and isinstance(value, (int, float)):
@@ -676,14 +676,14 @@ def query_ollama_num_ctx(model: str, base_url: str) -> Optional[int]:
 
 
 def _query_local_context_length(model: str, base_url: str) -> Optional[int]:
-    """Query a local server for the model's context length."""
+    """查询本地服务器获取模型的上下文长度。"""
     import httpx
 
-    # Strip recognised provider prefix (e.g., "local:model-name" → "model-name").
-    # Ollama "model:tag" colons (e.g. "qwen3.5:27b") are intentionally preserved.
+    # 剥离已识别的提供者前缀(例如 "local:model-name" → "model-name")。
+    # Ollama "model:tag" 冒号(例如 "qwen3.5:27b")被有意保留。
     model = _strip_provider_prefix(model)
 
-    # Strip /v1 suffix to get the server root
+    # 剥离 /v1 后缀以获取服务器根目录
     server_url = base_url.rstrip("/")
     if server_url.endswith("/v1"):
         server_url = server_url[:-3]
@@ -695,17 +695,17 @@ def _query_local_context_length(model: str, base_url: str) -> Optional[int]:
 
     try:
         with httpx.Client(timeout=3.0) as client:
-            # Ollama: /api/show returns model details with context info
+            # Ollama: /api/show 返回带有上下文信息的模型详情
             if server_type == "ollama":
                 resp = client.post(f"{server_url}/api/show", json={"name": model})
                 if resp.status_code == 200:
                     data = resp.json()
-                    # Check model_info for context length
+                    # 检查 model_info 获取上下文长度
                     model_info = data.get("model_info", {})
                     for key, value in model_info.items():
                         if "context_length" in key and isinstance(value, (int, float)):
                             return int(value)
-                    # Check parameters string for num_ctx
+                    # 检查参数字符串中的 num_ctx
                     params = data.get("parameters", "")
                     if "num_ctx" in params:
                         for line in params.split("\n"):
@@ -717,39 +717,39 @@ def _query_local_context_length(model: str, base_url: str) -> Optional[int]:
                                     except ValueError:
                                         pass
 
-            # LM Studio native API: /api/v1/models returns max_context_length.
-            # This is more reliable than the OpenAI-compat /v1/models which
-            # doesn't include context window information for LM Studio servers.
-            # Use _model_id_matches for fuzzy matching: LM Studio stores models as
-            # "publisher/slug" but users configure only "slug" after "local:" prefix.
+            # LM Studio 原生 API: /api/v1/models 返回 max_context_length。
+            # 这比 OpenAI 兼容的 /v1/models 更可靠,后者不包含
+            # LM Studio 服务器的上下文窗口信息。
+            # 使用 _model_id_matches 进行模糊匹配: LM Studio 将模型存储为
+            # "publisher/slug",但用户在 "local:" 前缀后只配置 "slug"。
             if server_type == "lm-studio":
                 resp = client.get(f"{server_url}/api/v1/models")
                 if resp.status_code == 200:
                     data = resp.json()
                     for m in data.get("models", []):
                         if _model_id_matches(m.get("key", ""), model) or _model_id_matches(m.get("id", ""), model):
-                            # Prefer loaded instance context (actual runtime value)
+                            # 优先使用已加载实例的上下文(实际运行时值)
                             for inst in m.get("loaded_instances", []):
                                 cfg = inst.get("config", {})
                                 ctx = cfg.get("context_length")
                                 if ctx and isinstance(ctx, (int, float)):
                                     return int(ctx)
-                            # Fall back to max_context_length (theoretical model max)
+                            # 回退到 max_context_length(理论模型最大值)
                             ctx = m.get("max_context_length") or m.get("context_length")
                             if ctx and isinstance(ctx, (int, float)):
                                 return int(ctx)
 
-            # LM Studio / vLLM / llama.cpp: try /v1/models/{model}
+            # LM Studio / vLLM / llama.cpp: 尝试 /v1/models/{model}
             resp = client.get(f"{server_url}/v1/models/{model}")
             if resp.status_code == 200:
                 data = resp.json()
-                # vLLM returns max_model_len
+                # vLLM 返回 max_model_len
                 ctx = data.get("max_model_len") or data.get("context_length") or data.get("max_tokens")
                 if ctx and isinstance(ctx, (int, float)):
                     return int(ctx)
 
-            # Try /v1/models and find the model in the list.
-            # Use _model_id_matches to handle "publisher/slug" vs bare "slug".
+            # 尝试 /v1/models 并在列表中查找模型。
+            # 使用 _model_id_matches 处理 "publisher/slug" vs 裸 "slug"。
             resp = client.get(f"{server_url}/v1/models")
             if resp.status_code == 200:
                 data = resp.json()
@@ -766,23 +766,23 @@ def _query_local_context_length(model: str, base_url: str) -> Optional[int]:
 
 
 def _normalize_model_version(model: str) -> str:
-    """Normalize version separators for matching.
+    """规范化版本分隔符用于匹配。
 
-    Nous uses dashes: claude-opus-4-6, claude-sonnet-4-5
-    OpenRouter uses dots: claude-opus-4.6, claude-sonnet-4.5
-    Normalize both to dashes for comparison.
+    Nous 使用破折号: claude-opus-4-6, claude-sonnet-4-5
+    OpenRouter 使用点: claude-opus-4.6, claude-sonnet-4.5
+    将两者规范化为破折号进行比较。
     """
     return model.replace(".", "-")
 
 
 def _query_anthropic_context_length(model: str, base_url: str, api_key: str) -> Optional[int]:
-    """Query Anthropic's /v1/models endpoint for context length.
+    """查询 Anthropic 的 /v1/models 端点获取上下文长度。
 
-    Only works with regular ANTHROPIC_API_KEY (sk-ant-api*).
-    OAuth tokens (sk-ant-oat*) from Claude Code return 401.
+    仅适用于常规 ANTHROPIC_API_KEY (sk-ant-api*)。
+    OAuth 令牌 (sk-ant-oat*) 来自 Claude Code 会返回 401。
     """
     if not api_key or api_key.startswith("sk-ant-oat"):
-        return None  # OAuth tokens can't access /v1/models
+        return None  # OAuth 令牌无法访问 /v1/models
     try:
         base = base_url.rstrip("/")
         if base.endswith("/v1"):
@@ -802,19 +802,19 @@ def _query_anthropic_context_length(model: str, base_url: str, api_key: str) -> 
                 if isinstance(ctx, int) and ctx > 0:
                     return ctx
     except Exception as e:
-        logger.debug("Anthropic /v1/models query failed: %s", e)
+        logger.debug("Anthropic /v1/models 查询失败: %s", e)
     return None
 
 
 def _resolve_nous_context_length(model: str) -> Optional[int]:
-    """Resolve Nous Portal model context length via OpenRouter metadata.
+    """通过 OpenRouter 元数据解析 Nous Portal 模型上下文长度。
 
-    Nous model IDs are bare (e.g. 'claude-opus-4-6') while OpenRouter uses
-    prefixed IDs (e.g. 'anthropic/claude-opus-4.6'). Try suffix matching
-    with version normalization (dot↔dash).
+    Nous 模型 ID 是裸的(例如 'claude-opus-4-6'),而 OpenRouter 使用
+    带前缀的 ID(例如 'anthropic/claude-opus-4.6')。尝试后缀匹配
+    并进行版本规范化(点↔破折号)。
     """
     metadata = fetch_model_metadata()  # OpenRouter cache
-    # Exact match first
+    # 精确匹配优先
     if model in metadata:
         return metadata[model].get("context_length")
 
@@ -825,8 +825,8 @@ def _resolve_nous_context_length(model: str) -> Optional[int]:
         if bare.lower() == model.lower() or _normalize_model_version(bare).lower() == normalized:
             return entry.get("context_length")
 
-    # Partial prefix match for cases like gemini-3-flash → gemini-3-flash-preview
-    # Require match to be at a word boundary (followed by -, :, or end of string)
+    # 部分前缀匹配,例如 gemini-3-flash → gemini-3-flash-preview
+    # 要求匹配在词边界处(后面跟着 -、: 或字符串结尾)
     model_lower = model.lower()
     for or_id, entry in metadata.items():
         bare = or_id.split("/", 1)[1] if "/" in or_id else or_id
@@ -846,49 +846,49 @@ def get_model_context_length(
     config_context_length: int | None = None,
     provider: str = "",
 ) -> int:
-    """Get the context length for a model.
+    """获取模型的上下文长度。
 
-    Resolution order:
-    0. Explicit config override (model.context_length or custom_providers per-model)
-    1. Persistent cache (previously discovered via probing)
-    2. Active endpoint metadata (/models for explicit custom endpoints)
-    3. Local server query (for local endpoints)
-    4. Anthropic /v1/models API (API-key users only, not OAuth)
-    5. OpenRouter live API metadata
-    6. Nous suffix-match via OpenRouter cache
-    7. models.dev registry lookup (provider-aware)
-    8. Thin hardcoded defaults (broad family patterns)
-    9. Default fallback (128K)
+    解析顺序:
+    0. 显式配置覆盖(model.context_length 或 custom_providers 每模型)
+    1. 持久化缓存(之前通过探测发现的)
+    2. 活动端点元数据(显式自定义端点的 /models)
+    3. 本地服务器查询(用于本地端点)
+    4. Anthropic /v1/models API(仅 API-key 用户,非 OAuth)
+    5. OpenRouter 实时 API 元数据
+    6. Nous 后缀匹配(通过 OpenRouter 缓存)
+    7. models.dev 注册表查找(感知提供者)
+    8. 精简的硬编码默认值(宽泛家族模式)
+    9. 默认回退(128K)
     """
-    # 0. Explicit config override — user knows best
+    # 0. 显式配置覆盖 — 用户最清楚
     if config_context_length is not None and isinstance(config_context_length, int) and config_context_length > 0:
         return config_context_length
 
-    # Normalise provider-prefixed model names (e.g. "local:model-name" →
-    # "model-name") so cache lookups and server queries use the bare ID that
-    # local servers actually know about.  Ollama "model:tag" colons are preserved.
+    # 规范化带提供者前缀的模型名(例如 "local:model-name" →
+    # "model-name"),以便缓存查找和服务器查询使用本地服务器
+    # 实际知道的裸 ID。Ollama "model:tag" 冒号被保留。
     model = _strip_provider_prefix(model)
 
-    # 1. Check persistent cache (model+provider)
+    # 1. 检查持久化缓存(model+provider)
     if base_url:
         cached = get_cached_context_length(model, base_url)
         if cached is not None:
             return cached
 
-    # 2. Active endpoint metadata for truly custom/unknown endpoints.
-    # Known providers (Copilot, OpenAI, Anthropic, etc.) skip this — their
-    # /models endpoint may report a provider-imposed limit (e.g. Copilot
-    # returns 128k) instead of the model's full context (400k).  models.dev
-    # has the correct per-provider values and is checked at step 5+.
+    # 2. 真正自定义/未知端点的活动端点元数据。
+    # 已知提供者(Copilot、OpenAI、Anthropic 等)跳过此步 — 它们的
+    # /models 端点可能报告提供者施加的限制(例如 Copilot 返回 128k)
+    # 而非模型的完整上下文(400k)。models.dev 有正确的每提供者值,
+    # 在步骤 5+ 中检查。
     if _is_custom_endpoint(base_url) and not _is_known_provider_base_url(base_url):
         endpoint_metadata = fetch_endpoint_model_metadata(base_url, api_key=api_key)
         matched = endpoint_metadata.get(model)
         if not matched:
-            # Single-model servers: if only one model is loaded, use it
+            # 单模型服务器:如果只加载了一个模型,使用它
             if len(endpoint_metadata) == 1:
                 matched = next(iter(endpoint_metadata.values()))
             else:
-                # Fuzzy match: substring in either direction
+                    # 模糊匹配:子串双向匹配
                 for key, entry in endpoint_metadata.items():
                     if model in key or key in model:
                         matched = entry
@@ -898,21 +898,21 @@ def get_model_context_length(
             if isinstance(context_length, int):
                 return context_length
         if not _is_known_provider_base_url(base_url):
-            # 3. Try querying local server directly
+            # 3. 尝试直接查询本地服务器
             if is_local_endpoint(base_url):
                 local_ctx = _query_local_context_length(model, base_url)
                 if local_ctx and local_ctx > 0:
                     save_context_length(model, base_url, local_ctx)
                     return local_ctx
             logger.info(
-                "Could not detect context length for model %r at %s — "
-                "defaulting to %s tokens (probe-down). Set model.context_length "
-                "in config.yaml to override.",
+                "无法检测模型 %r 在 %s 的上下文长度 — "
+                "默认为 %s token(向下探测)。在 config.yaml 中设置 model.context_length "
+                "以覆盖。",
                 model, base_url, f"{DEFAULT_FALLBACK_CONTEXT:,}",
             )
             return DEFAULT_FALLBACK_CONTEXT
 
-    # 4. Anthropic /v1/models API (only for regular API keys, not OAuth)
+    # 4. Anthropic /v1/models API(仅限常规 API 密钥,非 OAuth)
     if provider == "anthropic" or (
         base_url and "api.anthropic.com" in base_url
     ):
@@ -920,11 +920,11 @@ def get_model_context_length(
         if ctx:
             return ctx
 
-    # 5. Provider-aware lookups (before generic OpenRouter cache)
-    # These are provider-specific and take priority over the generic OR cache,
-    # since the same model can have different context limits per provider
-    # (e.g. claude-opus-4.6 is 1M on Anthropic but 128K on GitHub Copilot).
-    # If provider is generic (openrouter/custom/empty), try to infer from URL.
+    # 5. 感知提供者的查找(在通用 OpenRouter 缓存之前)
+    # 这些是提供者特定的,优先于通用 OR 缓存,
+    # 因为同一模型在不同提供者可能有不同的上下文限制
+    # (例如 claude-opus-4.6 在 Anthropic 为 1M,但在 GitHub Copilot 为 128K)。
+    # 如果提供者是通用的(openrouter/custom/空),尝试从 URL 推断。
     effective_provider = provider
     if not effective_provider or effective_provider in ("openrouter", "custom"):
         if base_url:
@@ -942,15 +942,15 @@ def get_model_context_length(
         if ctx:
             return ctx
 
-    # 6. OpenRouter live API metadata (provider-unaware fallback)
+    # 6. OpenRouter 实时 API 元数据(不感知提供者的回退)
     metadata = fetch_model_metadata()
     if model in metadata:
         return metadata[model].get("context_length", 128000)
 
-    # 8. Hardcoded defaults (fuzzy match — longest key first for specificity)
-    # Only check `default_model in model` (is the key a substring of the input).
-    # The reverse (`model in default_model`) causes shorter names like
-    # "claude-sonnet-4" to incorrectly match "claude-sonnet-4-6" and return 1M.
+    # 8. 硬编码默认值(模糊匹配 — 最长键优先以获得特异性)
+    # 仅检查 `default_model in model`(键是否是输入的子串)。
+    # 反向(`model in default_model`)会导致较短名称如
+    # "claude-sonnet-4" 错误匹配 "claude-sonnet-4-6" 并返回 1M。
     model_lower = model.lower()
     for default_model, length in sorted(
         DEFAULT_CONTEXT_LENGTHS.items(), key=lambda x: len(x[0]), reverse=True
@@ -958,26 +958,26 @@ def get_model_context_length(
         if default_model in model_lower:
             return length
 
-    # 9. Query local server as last resort
+    # 9. 最后手段:查询本地服务器
     if base_url and is_local_endpoint(base_url):
         local_ctx = _query_local_context_length(model, base_url)
         if local_ctx and local_ctx > 0:
             save_context_length(model, base_url, local_ctx)
             return local_ctx
 
-    # 10. Default fallback — 128K
+    # 10. 默认回退 — 128K
     return DEFAULT_FALLBACK_CONTEXT
 
 
 def estimate_tokens_rough(text: str) -> int:
-    """Rough token estimate (~4 chars/token) for pre-flight checks."""
+    """粗略 token 估算(~4 字符/token),用于预检。"""
     if not text:
         return 0
     return len(text) // 4
 
 
 def estimate_messages_tokens_rough(messages: List[Dict[str, Any]]) -> int:
-    """Rough token estimate for a message list (pre-flight only)."""
+    """消息列表的粗略 token 估算(仅用于预检)。"""
     total_chars = sum(len(str(msg)) for msg in messages)
     return total_chars // 4
 
@@ -988,12 +988,12 @@ def estimate_request_tokens_rough(
     system_prompt: str = "",
     tools: Optional[List[Dict[str, Any]]] = None,
 ) -> int:
-    """Rough token estimate for a full chat-completions request.
+    """完整 chat-completions 请求的粗略 token 估算。
 
-    Includes the major payload buckets KClaw sends to providers:
-    system prompt, conversation messages, and tool schemas.  With 50+
-    tools enabled, schemas alone can add 20-30K tokens — a significant
-    blind spot when only counting messages.
+    包含 KClaw 发送给提供者的主要载荷桶:
+    系统提示词、对话消息和工具 schema。启用 50+
+    工具时,仅 schema 就可增加 20-30K token — 仅计算
+    消息时的一个显著盲点。
     """
     total_chars = 0
     if system_prompt:

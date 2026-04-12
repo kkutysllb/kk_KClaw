@@ -1,4 +1,4 @@
-"""Helpers for optional cheap-vs-strong model routing."""
+"""可选的便宜 vs 强大模型路由的助手函数。"""
 
 from __future__ import annotations
 
@@ -60,10 +60,10 @@ def _coerce_int(value: Any, default: int) -> int:
 
 
 def choose_cheap_model_route(user_message: str, routing_config: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """Return the configured cheap-model route when a message looks simple.
+    """当消息看起来简单时,返回配置的便宜模型路由。
 
-    Conservative by design: if the message has signs of code/tool/debugging/
-    long-form work, keep the primary model.
+    设计上偏保守:如果消息有代码/工具/调试/
+    长篇工作的迹象,保留主模型。
     """
     cfg = routing_config or {}
     if not _coerce_bool(cfg.get("enabled"), False):
@@ -103,7 +103,7 @@ def choose_cheap_model_route(user_message: str, routing_config: Optional[Dict[st
     route = dict(cheap_model)
     route["provider"] = provider
     route["model"] = model
-    route["routing_reason"] = "simple_turn"
+    route["routing_reason"] = "simple_turn"  # 简单轮次
     return route
 
 

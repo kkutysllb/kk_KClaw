@@ -1,12 +1,12 @@
-"""BuiltinMemoryProvider — wraps MEMORY.md / USER.md as a MemoryProvider.
+"""BuiltinMemoryProvider — 将 MEMORY.md / USER.md 包装为 MemoryProvider。
 
-Always registered as the first provider. Cannot be disabled or removed.
-This is the existing KClaw memory system exposed through the provider
-interface for compatibility with the MemoryManager.
+始终注册为第一个提供者。无法禁用或移除。
+这是现有的 KClaw 记忆系统,通过提供者接口暴露
+以兼容 MemoryManager。
 
-The actual storage logic lives in tools/memory_tool.py (MemoryStore).
-This provider is a thin adapter that delegates to MemoryStore and
-exposes the memory tool schema.
+实际的存储逻辑在 tools/memory_tool.py (MemoryStore) 中。
+此提供者是一个薄适配器,委托给 MemoryStore 并
+暴露记忆工具 schema。
 """
 
 from __future__ import annotations
@@ -22,12 +22,12 @@ logger = logging.getLogger(__name__)
 
 
 class BuiltinMemoryProvider(MemoryProvider):
-    """Built-in file-backed memory (MEMORY.md + USER.md).
+    """内置的文件支持记忆(MEMORY.md + USER.md)。
 
-    Always active, never disabled by other providers. The `memory` tool
-    is handled by run_agent.py's agent-level tool interception (not through
-    the normal registry), so get_tool_schemas() returns an empty list —
-    the memory tool is already wired separately.
+    始终激活,永远不会被其他提供者禁用。`memory` 工具
+    由 run_agent.py 的 agent 级别工具拦截处理(不通过
+    正常注册表),因此 get_tool_schemas() 返回空列表 —
+    记忆工具已单独连接。
     """
 
     def __init__(
@@ -45,20 +45,20 @@ class BuiltinMemoryProvider(MemoryProvider):
         return "builtin"
 
     def is_available(self) -> bool:
-        """Built-in memory is always available."""
+        """内置记忆始终可用。"""
         return True
 
     def initialize(self, session_id: str, **kwargs) -> None:
-        """Load memory from disk if not already loaded."""
+        """如果尚未加载,从磁盘加载记忆。"""
         if self._store is not None:
             self._store.load_from_disk()
 
     def system_prompt_block(self) -> str:
-        """Return MEMORY.md and USER.md content for the system prompt.
+        """返回 MEMORY.md 和 USER.md 内容用于系统提示词。
 
-        Uses the frozen snapshot captured at load time. This ensures the
-        system prompt stays stable throughout a session (preserving the
-        prompt cache), even though the live entries may change via tool calls.
+        使用加载时捕获的冻结快照。这确保系统提示词
+        在整个会话期间保持稳定(保留提示词缓存),
+        即使实时条目可能通过工具调用更改。
         """
         if not self._store:
             return ""
@@ -76,33 +76,33 @@ class BuiltinMemoryProvider(MemoryProvider):
         return "\n\n".join(parts)
 
     def prefetch(self, query: str, *, session_id: str = "") -> str:
-        """Built-in memory doesn't do query-based recall — it's injected via system_prompt_block."""
+        """内置记忆不做基于查询的召回 — 它通过 system_prompt_block 注入。"""
         return ""
 
     def sync_turn(self, user_content: str, assistant_content: str, *, session_id: str = "") -> None:
-        """Built-in memory doesn't auto-sync turns — writes happen via the memory tool."""
+        """内置记忆不自动同步轮次 — 写入通过记忆工具发生。"""
 
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
-        """Return empty list.
+        """返回空列表。
 
-        The `memory` tool is an agent-level intercepted tool, handled
-        specially in run_agent.py before normal tool dispatch. It's not
-        part of the standard tool registry. We don't duplicate it here.
+        `memory` 工具是 agent 级别拦截的工具,在正常工具分发之前
+        在 run_agent.py 中特殊处理。它不是标准工具注册表的一部分。
+        我们不在这里复制它。
         """
         return []
 
     def handle_tool_call(self, tool_name: str, args: Dict[str, Any], **kwargs) -> str:
-        """Not used — the memory tool is intercepted in run_agent.py."""
+        """未使用 — 记忆工具在 run_agent.py 中拦截。"""
         return tool_error("Built-in memory tool is handled by the agent loop")
 
     def shutdown(self) -> None:
-        """No cleanup needed — files are saved on every write."""
+        """无需清理 — 文件在每次写入时保存。"""
 
-    # -- Property access for backward compatibility --------------------------
+    # -- 属性访问,用于向后兼容 --------------------------
 
     @property
     def store(self):
-        """Access the underlying MemoryStore for legacy code paths."""
+        """访问底层 MemoryStore,用于旧代码路径。"""
         return self._store
 
     @property

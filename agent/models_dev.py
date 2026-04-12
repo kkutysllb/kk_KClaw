@@ -1,21 +1,21 @@
-"""Models.dev registry integration — primary database for providers and models.
+"""models.dev 注册表集成 — 提供者和模型的主要数据库。
 
-Fetches from https://models.dev/api.json — a community-maintained database
-of 4000+ models across 109+ providers.  Provides:
+从 https://models.dev/api.json 获取 — 一个社区维护的数据库,
+包含 4000+ 模型和 109+ 提供者。提供:
 
-- **Provider metadata**: name, base URL, env vars, documentation link
-- **Model metadata**: context window, max output, cost/M tokens, capabilities
-  (reasoning, tools, vision, PDF, audio), modalities, knowledge cutoff,
-  open-weights flag, family grouping, deprecation status
+- **提供者元数据**: 名称、base URL、环境变量、文档链接
+- **模型元数据**: 上下文窗口、最大输出、每百万 token 成本、能力
+  (推理、工具、视觉、PDF、音频)、模态、知识截止日期、
+  开放权重标志、家族分组、弃用状态
 
-Data resolution order (like TypeScript OpenCode):
-  1. Bundled snapshot (ships with the package — offline-first)
-  2. Disk cache (~/.kclaw/models_dev_cache.json)
-  3. Network fetch (https://models.dev/api.json)
-  4. Background refresh every 60 minutes
+数据解析顺序(类似 TypeScript OpenCode):
+  1. 捆绑快照(随包发布 — 离线优先)
+  2. 磁盘缓存(~/.kclaw/models_dev_cache.json)
+  3. 网络获取(https://models.dev/api.json)
+  4. 后台每 60 分钟刷新
 
-Other modules should import the dataclasses and query functions from here
-rather than parsing the raw JSON themselves.
+其他模块应从此处导入 dataclass 和查询函数,
+而不是自己解析原始 JSON。
 """
 
 import difflib
@@ -36,51 +36,51 @@ logger = logging.getLogger(__name__)
 MODELS_DEV_URL = "https://models.dev/api.json"
 _MODELS_DEV_CACHE_TTL = 3600  # 1 hour in-memory
 
-# In-memory cache
+# 内存缓存
 _models_dev_cache: Dict[str, Any] = {}
 _models_dev_cache_time: float = 0
 
 
 # ---------------------------------------------------------------------------
-# Dataclasses — rich metadata for providers and models
+# Dataclass — 提供者和模型的丰富元数据
 # ---------------------------------------------------------------------------
 
 @dataclass
 class ModelInfo:
-    """Full metadata for a single model from models.dev."""
+    """来自 models.dev 的单个模型的完整元数据。"""
 
     id: str
     name: str
     family: str
-    provider_id: str        # models.dev provider ID (e.g. "anthropic")
+    provider_id: str        # models.dev 提供者 ID(例如 "anthropic")
 
-    # Capabilities
+    # 能力
     reasoning: bool = False
     tool_call: bool = False
-    attachment: bool = False       # supports image/file attachments (vision)
+    attachment: bool = False       # 支持图片/文件附件(视觉)
     temperature: bool = False
     structured_output: bool = False
     open_weights: bool = False
 
-    # Modalities
+    # 模态
     input_modalities: Tuple[str, ...] = ()    # ("text", "image", "pdf", ...)
     output_modalities: Tuple[str, ...] = ()
 
-    # Limits
+    # 限制
     context_window: int = 0
     max_output: int = 0
     max_input: Optional[int] = None
 
-    # Cost (per million tokens, USD)
+    # 成本(每百万 token, USD)
     cost_input: float = 0.0
     cost_output: float = 0.0
     cost_cache_read: Optional[float] = None
     cost_cache_write: Optional[float] = None
 
-    # Metadata
+    # 元数据
     knowledge_cutoff: str = ""
     release_date: str = ""
-    status: str = ""          # "alpha", "beta", "deprecated", or ""
+    status: str = ""          # "alpha"、"beta"、"deprecated" 或 ""
     interleaved: Any = False  # True or {"field": "reasoning_content"}
 
     def has_cost_data(self) -> bool:
@@ -96,7 +96,7 @@ class ModelInfo:
         return "audio" in self.input_modalities
 
     def format_cost(self) -> str:
-        """Human-readable cost string, e.g. '$3.00/M in, $15.00/M out'."""
+        """人类可读的成本字符串,例如 '$3.00/M 输入, $15.00/M 输出'。"""
         if not self.has_cost_data():
             return "unknown"
         parts = [f"${self.cost_input:.2f}/M in", f"${self.cost_output:.2f}/M out"]
@@ -105,7 +105,7 @@ class ModelInfo:
         return ", ".join(parts)
 
     def format_capabilities(self) -> str:
-        """Human-readable capabilities, e.g. 'reasoning, tools, vision, PDF'."""
+        """人类可读的能力描述,例如 '推理, 工具, 视觉, PDF'。"""
         caps = []
         if self.reasoning:
             caps.append("reasoning")
@@ -126,13 +126,13 @@ class ModelInfo:
 
 @dataclass
 class ProviderInfo:
-    """Full metadata for a provider from models.dev."""
+    """来自 models.dev 的提供者完整元数据。"""
 
-    id: str                         # models.dev provider ID
-    name: str                       # display name
-    env: Tuple[str, ...]            # env var names for API key
+    id: str                         # models.dev 提供者 ID
+    name: str                       # 显示名称
+    env: Tuple[str, ...]            # API 密钥的环境变量名
     api: str                        # base URL
-    doc: str = ""                   # documentation URL
+    doc: str = ""                   # 文档 URL
     model_count: int = 0
 
     def has_api_url(self) -> bool:
@@ -140,10 +140,10 @@ class ProviderInfo:
 
 
 # ---------------------------------------------------------------------------
-# Provider ID mapping: KClaw ↔ models.dev
+# 提供者 ID 映射: KClaw ↔ models.dev
 # ---------------------------------------------------------------------------
 
-# KClaw provider names → models.dev provider IDs
+# KClaw 提供者名称 → models.dev 提供者 ID
 PROVIDER_TO_MODELS_DEV: Dict[str, str] = {
     "openrouter": "openrouter",
     "anthropic": "anthropic",
@@ -172,12 +172,12 @@ PROVIDER_TO_MODELS_DEV: Dict[str, str] = {
     "cohere": "cohere",
 }
 
-# Reverse mapping: models.dev → KClaw (built lazily)
+# 反向映射: models.dev → KClaw(惰性构建)
 _MODELS_DEV_TO_PROVIDER: Optional[Dict[str, str]] = None
 
 
 def _get_reverse_mapping() -> Dict[str, str]:
-    """Return models.dev ID → KClaw provider ID mapping."""
+    """返回 models.dev ID → KClaw 提供者 ID 的映射。"""
     global _MODELS_DEV_TO_PROVIDER
     if _MODELS_DEV_TO_PROVIDER is None:
         _MODELS_DEV_TO_PROVIDER = {v: k for k, v in PROVIDER_TO_MODELS_DEV.items()}
@@ -185,40 +185,40 @@ def _get_reverse_mapping() -> Dict[str, str]:
 
 
 def _get_cache_path() -> Path:
-    """Return path to disk cache file."""
+    """返回磁盘缓存文件路径。"""
     from kclaw_constants import get_kclaw_home
     return get_kclaw_home() / "models_dev_cache.json"
 
 
 def _load_disk_cache() -> Dict[str, Any]:
-    """Load models.dev data from disk cache."""
+    """从磁盘缓存加载 models.dev 数据。"""
     try:
         cache_path = _get_cache_path()
         if cache_path.exists():
             with open(cache_path, encoding="utf-8") as f:
                 return json.load(f)
     except Exception as e:
-        logger.debug("Failed to load models.dev disk cache: %s", e)
+        logger.debug("加载 models.dev 磁盘缓存失败: %s", e)
     return {}
 
 
 def _save_disk_cache(data: Dict[str, Any]) -> None:
-    """Save models.dev data to disk cache atomically."""
+    """原子性地将 models.dev 数据保存到磁盘缓存。"""
     try:
         cache_path = _get_cache_path()
         atomic_json_write(cache_path, data, indent=None, separators=(",", ":"))
     except Exception as e:
-        logger.debug("Failed to save models.dev disk cache: %s", e)
+        logger.debug("保存 models.dev 磁盘缓存失败: %s", e)
 
 
 def fetch_models_dev(force_refresh: bool = False) -> Dict[str, Any]:
-    """Fetch models.dev registry. In-memory cache (1hr) + disk fallback.
+    """获取 models.dev 注册表。内存缓存(1小时) + 磁盘回退。
 
-    Returns the full registry dict keyed by provider ID, or empty dict on failure.
+    返回以提供者 ID 为键的完整注册表字典,失败则返回空字典。
     """
     global _models_dev_cache, _models_dev_cache_time
 
-    # Check in-memory cache
+    # 检查内存缓存
     if (
         not force_refresh
         and _models_dev_cache
@@ -226,7 +226,7 @@ def fetch_models_dev(force_refresh: bool = False) -> Dict[str, Any]:
     ):
         return _models_dev_cache
 
-    # Try network fetch
+    # 尝试网络获取
     try:
         response = requests.get(MODELS_DEV_URL, timeout=15)
         response.raise_for_status()
@@ -244,22 +244,22 @@ def fetch_models_dev(force_refresh: bool = False) -> Dict[str, Any]:
     except Exception as e:
         logger.debug("Failed to fetch models.dev: %s", e)
 
-    # Fall back to disk cache — use a short TTL (5 min) so we retry
-    # the network fetch soon instead of serving stale data for a full hour.
+    # 回退到磁盘缓存 — 使用较短的 TTL(5分钟)以便我们很快
+    # 重试网络获取,而不是提供一整小时的过期数据。
     if not _models_dev_cache:
         _models_dev_cache = _load_disk_cache()
         if _models_dev_cache:
             _models_dev_cache_time = time.time() - _MODELS_DEV_CACHE_TTL + 300
-            logger.debug("Loaded models.dev from disk cache (%d providers)", len(_models_dev_cache))
+            logger.debug("从磁盘缓存加载 models.dev(%d 个提供者)", len(_models_dev_cache))
 
     return _models_dev_cache
 
 
 def lookup_models_dev_context(provider: str, model: str) -> Optional[int]:
-    """Look up context_length for a provider+model combo in models.dev.
+    """在 models.dev 中查找提供者+模型的 context_length。
 
-    Returns the context window in tokens, or None if not found.
-    Handles case-insensitive matching and filters out context=0 entries.
+    返回以 token 为单位的上下文窗口,如果未找到则返回 None。
+    处理不区分大小写的匹配,并过滤掉 context=0 的条目。
     """
     mdev_provider_id = PROVIDER_TO_MODELS_DEV.get(provider)
     if not mdev_provider_id:
@@ -274,14 +274,14 @@ def lookup_models_dev_context(provider: str, model: str) -> Optional[int]:
     if not isinstance(models, dict):
         return None
 
-    # Exact match
+    # 精确匹配
     entry = models.get(model)
     if entry:
         ctx = _extract_context(entry)
         if ctx:
             return ctx
 
-    # Case-insensitive match
+    # 不区分大小写匹配
     model_lower = model.lower()
     for mid, mdata in models.items():
         if mid.lower() == model_lower:
@@ -293,9 +293,9 @@ def lookup_models_dev_context(provider: str, model: str) -> Optional[int]:
 
 
 def _extract_context(entry: Dict[str, Any]) -> Optional[int]:
-    """Extract context_length from a models.dev model entry.
+    """从 models.dev 模型条目中提取 context_length。
 
-    Returns None for invalid/zero values (some audio/image models have context=0).
+    对无效/零值返回 None(某些音频/图像模型的 context=0)。
     """
     if not isinstance(entry, dict):
         return None
@@ -309,13 +309,13 @@ def _extract_context(entry: Dict[str, Any]) -> Optional[int]:
 
 
 # ---------------------------------------------------------------------------
-# Model capability metadata
+# 模型能力元数据
 # ---------------------------------------------------------------------------
 
 
 @dataclass
 class ModelCapabilities:
-    """Structured capability metadata for a model from models.dev."""
+    """来自 models.dev 的模型结构化能力元数据。"""
 
     supports_tools: bool = True
     supports_vision: bool = False
@@ -326,9 +326,9 @@ class ModelCapabilities:
 
 
 def _get_provider_models(provider: str) -> Optional[Dict[str, Any]]:
-    """Resolve a KClaw provider ID to its models dict from models.dev.
+    """将 KClaw 提供者 ID 解析为其 models.dev 模型字典。
 
-    Returns the models dict or None if the provider is unknown or has no data.
+    返回模型字典,如果提供者未知或无数据则返回 None。
     """
     mdev_provider_id = PROVIDER_TO_MODELS_DEV.get(provider)
     if not mdev_provider_id:
@@ -347,13 +347,13 @@ def _get_provider_models(provider: str) -> Optional[Dict[str, Any]]:
 
 
 def _find_model_entry(models: Dict[str, Any], model: str) -> Optional[Dict[str, Any]]:
-    """Find a model entry by exact match, then case-insensitive fallback."""
-    # Exact match
+    """通过精确匹配查找模型条目,然后是不区分大小写的回退。"""
+    # 精确匹配
     entry = models.get(model)
     if isinstance(entry, dict):
         return entry
 
-    # Case-insensitive match
+    # 不区分大小写匹配
     model_lower = model.lower()
     for mid, mdata in models.items():
         if mid.lower() == model_lower and isinstance(mdata, dict):
@@ -363,12 +363,12 @@ def _find_model_entry(models: Dict[str, Any], model: str) -> Optional[Dict[str, 
 
 
 def get_model_capabilities(provider: str, model: str) -> Optional[ModelCapabilities]:
-    """Look up full capability metadata from models.dev cache.
+    """从 models.dev 缓存查找完整的能力元数据。
 
-    Uses the existing fetch_models_dev() and PROVIDER_TO_MODELS_DEV mapping.
-    Returns None if model not found.
+    使用现有的 fetch_models_dev() 和 PROVIDER_TO_MODELS_DEV 映射。
+    如果模型未找到则返回 None。
 
-    Extracts from model entry fields:
+    从模型条目字段中提取:
       - reasoning  (bool)  → supports_reasoning
       - tool_call  (bool)  → supports_tools
       - attachment (bool)  → supports_vision
@@ -384,12 +384,12 @@ def get_model_capabilities(provider: str, model: str) -> Optional[ModelCapabilit
     if entry is None:
         return None
 
-    # Extract capability flags (default to False if missing)
+    # 提取能力标志(缺失时默认为 False)
     supports_tools = bool(entry.get("tool_call", False))
     supports_vision = bool(entry.get("attachment", False))
     supports_reasoning = bool(entry.get("reasoning", False))
 
-    # Extract limits
+    # 提取限制
     limit = entry.get("limit", {})
     if not isinstance(limit, dict):
         limit = {}
@@ -413,9 +413,9 @@ def get_model_capabilities(provider: str, model: str) -> Optional[ModelCapabilit
 
 
 def list_provider_models(provider: str) -> List[str]:
-    """Return all model IDs for a provider from models.dev.
+    """返回 models.dev 中某提供者的所有模型 ID。
 
-    Returns an empty list if the provider is unknown or has no data.
+    如果提供者未知或无数据则返回空列表。
     """
     models = _get_provider_models(provider)
     if models is None:
@@ -423,8 +423,8 @@ def list_provider_models(provider: str) -> List[str]:
     return list(models.keys())
 
 
-# Patterns that indicate non-agentic or noise models (TTS, embedding,
-# dated preview snapshots, live/streaming-only, image-only).
+# 指示非代理或噪声模型(TTS、嵌入、过期预览快照、
+# 仅直播/流式、仅图像)的模式。
 import re
 _NOISE_PATTERNS: re.Pattern = re.compile(
     r"-tts\b|embedding|live-|-(preview|exp)-\d{2,4}[-_]|"
@@ -434,11 +434,10 @@ _NOISE_PATTERNS: re.Pattern = re.compile(
 
 
 def list_agentic_models(provider: str) -> List[str]:
-    """Return model IDs suitable for agentic use from models.dev.
+    """返回 models.dev 中适合代理使用的模型 ID。
 
-    Filters for tool_call=True and excludes noise (TTS, embedding,
-    dated preview snapshots, live/streaming, image-only models).
-    Returns an empty list on any failure.
+    过滤 tool_call=True 并排除噪声(TTS、嵌入、过期预览快照、
+    仅直播/流式、仅图像模型)。任何失败时返回空列表。
     """
     models = _get_provider_models(provider)
     if models is None:
@@ -459,27 +458,27 @@ def list_agentic_models(provider: str) -> List[str]:
 def search_models_dev(
     query: str, provider: str = None, limit: int = 5
 ) -> List[Dict[str, Any]]:
-    """Fuzzy search across models.dev catalog. Returns matching model entries.
+    """在 models.dev 目录中进行模糊搜索。返回匹配的模型条目。
 
     Args:
-        query: Search string to match against model IDs.
-        provider: Optional KClaw provider ID to restrict search scope.
-                  If None, searches across all providers in PROVIDER_TO_MODELS_DEV.
-        limit: Maximum number of results to return.
+        query: 用于匹配模型 ID 的搜索字符串。
+        provider: 可选的 KClaw 提供者 ID 以限制搜索范围。
+                  如果为 None,在 PROVIDER_TO_MODELS_DEV 中的所有提供者中搜索。
+        limit: 要返回的最大结果数。
 
     Returns:
-        List of dicts, each containing 'provider', 'model_id', and the full
-        model 'entry' from models.dev.
+        dict 列表,每个包含 'provider'、'model_id' 和来自 models.dev 的
+        完整模型 'entry'。
     """
     data = fetch_models_dev()
     if not data:
         return []
 
-    # Build list of (provider_id, model_id, entry) candidates
+    # 构建 (provider_id, model_id, entry) 候选列表
     candidates: List[tuple] = []
 
     if provider is not None:
-        # Search only the specified provider
+        # 仅搜索指定提供者
         mdev_provider_id = PROVIDER_TO_MODELS_DEV.get(provider)
         if not mdev_provider_id:
             return []
@@ -490,7 +489,7 @@ def search_models_dev(
                 for mid, mdata in models.items():
                     candidates.append((provider, mid, mdata))
     else:
-        # Search across all mapped providers
+        # 搜索所有映射的提供者
         for kclaw_prov, mdev_prov in PROVIDER_TO_MODELS_DEV.items():
             provider_data = data.get(mdev_prov, {})
             if isinstance(provider_data, dict):
@@ -502,17 +501,17 @@ def search_models_dev(
     if not candidates:
         return []
 
-    # Use difflib for fuzzy matching — case-insensitive comparison
+    # 使用 difflib 进行模糊匹配 — 不区分大小写比较
     model_ids_lower = [c[1].lower() for c in candidates]
     query_lower = query.lower()
 
-    # First try exact substring matches (more intuitive than pure edit-distance)
+    # 首先尝试精确子串匹配(比纯编辑距离更直观)
     substring_matches = []
     for prov, mid, mdata in candidates:
         if query_lower in mid.lower():
             substring_matches.append({"provider": prov, "model_id": mid, "entry": mdata})
 
-    # Then add difflib fuzzy matches for any remaining slots
+    # 然后为剩余槽位添加 difflib 模糊匹配
     fuzzy_ids = difflib.get_close_matches(
         query_lower, model_ids_lower, n=limit * 2, cutoff=0.4
     )
@@ -520,7 +519,7 @@ def search_models_dev(
     seen_ids: set = set()
     results: List[Dict[str, Any]] = []
 
-    # Prioritize substring matches
+    # 优先处理子串匹配
     for match in substring_matches:
         key = (match["provider"], match["model_id"])
         if key not in seen_ids:
@@ -529,9 +528,9 @@ def search_models_dev(
             if len(results) >= limit:
                 return results
 
-    # Add fuzzy matches
+    # 添加模糊匹配
     for fid in fuzzy_ids:
-        # Find original-case candidates matching this lowered ID
+        # 查找与此小写 ID 匹配的原始大小写候选
         for prov, mid, mdata in candidates:
             if mid.lower() == fid:
                 key = (prov, mid)
@@ -545,11 +544,11 @@ def search_models_dev(
 
 
 # ---------------------------------------------------------------------------
-# Rich dataclass constructors — parse raw models.dev JSON into dataclasses
+# 丰富 dataclass 构造器 — 将原始 models.dev JSON 解析为 dataclass
 # ---------------------------------------------------------------------------
 
 def _parse_model_info(model_id: str, raw: Dict[str, Any], provider_id: str) -> ModelInfo:
-    """Convert a raw models.dev model entry dict into a ModelInfo dataclass."""
+    """将原始 models.dev 模型条目字典转换为 ModelInfo dataclass。"""
     limit = raw.get("limit") or {}
     if not isinstance(limit, dict):
         limit = {}
@@ -600,7 +599,7 @@ def _parse_model_info(model_id: str, raw: Dict[str, Any], provider_id: str) -> M
 
 
 def _parse_provider_info(provider_id: str, raw: Dict[str, Any]) -> ProviderInfo:
-    """Convert a raw models.dev provider entry dict into a ProviderInfo."""
+    """将原始 models.dev 提供者条目字典转换为 ProviderInfo。"""
     env = raw.get("env") or []
     models = raw.get("models") or {}
     return ProviderInfo(
@@ -614,16 +613,16 @@ def _parse_provider_info(provider_id: str, raw: Dict[str, Any]) -> ProviderInfo:
 
 
 # ---------------------------------------------------------------------------
-# Provider-level queries
+# 提供者级查询
 # ---------------------------------------------------------------------------
 
 def get_provider_info(provider_id: str) -> Optional[ProviderInfo]:
-    """Get full provider metadata from models.dev.
+    """从 models.dev 获取提供者完整元数据。
 
-    Accepts either a KClaw provider ID (e.g. "kilocode") or a models.dev
-    ID (e.g. "kilo").  Returns None if the provider is not in the catalog.
+    接受 KClaw 提供者 ID(例如 "kilocode")或 models.dev ID(例如 "kilo")。
+    如果提供者不在目录中则返回 None。
     """
-    # Resolve KClaw ID → models.dev ID
+    # 解析 KClaw ID → models.dev ID
     mdev_id = PROVIDER_TO_MODELS_DEV.get(provider_id, provider_id)
 
     data = fetch_models_dev()
@@ -635,10 +634,10 @@ def get_provider_info(provider_id: str) -> Optional[ProviderInfo]:
 
 
 def list_all_providers() -> Dict[str, ProviderInfo]:
-    """Return all providers from models.dev as {provider_id: ProviderInfo}.
+    """返回 models.dev 中的所有提供者,格式为 {provider_id: ProviderInfo}。
 
-    Returns the full catalog — 109+ providers.  For providers that have
-    a KClaw alias, both the models.dev ID and the KClaw ID are included.
+    返回完整目录 — 109+ 提供者。对于有 KClaw 别名的提供者,
+    models.dev ID 和 KClaw ID 都会包含。
     """
     data = fetch_models_dev()
     result: Dict[str, ProviderInfo] = {}
@@ -652,12 +651,11 @@ def list_all_providers() -> Dict[str, ProviderInfo]:
 
 
 def get_providers_for_env_var(env_var: str) -> List[str]:
-    """Reverse lookup: find all providers that use a given env var.
+    """反向查找:查找使用给定环境变量的所有提供者。
 
-    Useful for auto-detection: "user has ANTHROPIC_API_KEY set, which
-    providers does that enable?"
+    用于自动检测: "用户设置了 ANTHROPIC_API_KEY,这启用了哪些提供者?"
 
-    Returns list of models.dev provider IDs.
+    返回 models.dev 提供者 ID 列表。
     """
     data = fetch_models_dev()
     matches: List[str] = []
@@ -672,16 +670,16 @@ def get_providers_for_env_var(env_var: str) -> List[str]:
 
 
 # ---------------------------------------------------------------------------
-# Model-level queries (rich ModelInfo)
+# 模型级查询(丰富 ModelInfo)
 # ---------------------------------------------------------------------------
 
 def get_model_info(
     provider_id: str, model_id: str
 ) -> Optional[ModelInfo]:
-    """Get full model metadata from models.dev.
+    """从 models.dev 获取模型完整元数据。
 
-    Accepts KClaw or models.dev provider ID.  Tries exact match then
-    case-insensitive fallback.  Returns None if not found.
+    接受 KClaw 或 models.dev 提供者 ID。先尝试精确匹配,然后
+    不区分大小写的回退。如果未找到则返回 None。
     """
     mdev_id = PROVIDER_TO_MODELS_DEV.get(provider_id, provider_id)
 
@@ -694,12 +692,12 @@ def get_model_info(
     if not isinstance(models, dict):
         return None
 
-    # Exact match
+    # 精确匹配
     raw = models.get(model_id)
     if isinstance(raw, dict):
         return _parse_model_info(model_id, raw, mdev_id)
 
-    # Case-insensitive fallback
+    # 不区分大小写回退
     model_lower = model_id.lower()
     for mid, mdata in models.items():
         if mid.lower() == model_lower and isinstance(mdata, dict):
@@ -709,15 +707,15 @@ def get_model_info(
 
 
 def get_model_info_any_provider(model_id: str) -> Optional[ModelInfo]:
-    """Search all providers for a model by ID.
+    """在所有提供者中按 ID 搜索模型。
 
-    Useful when you have a full slug like "anthropic/claude-sonnet-4.6" or
-    a bare name and want to find it anywhere.  Checks KClaw-mapped providers
-    first, then falls back to all models.dev providers.
+    当你有完整的 slug 如 "anthropic/claude-sonnet-4.6" 或裸名称并
+    想在任何地方找到它时很有用。先检查 KClaw 映射的提供者,
+    然后回退到所有 models.dev 提供者。
     """
     data = fetch_models_dev()
 
-    # Try KClaw-mapped providers first (more likely what the user wants)
+    # 先尝试 KClaw 映射的提供者(更可能是用户想要的)
     for kclaw_id, mdev_id in PROVIDER_TO_MODELS_DEV.items():
         pdata = data.get(mdev_id)
         if not isinstance(pdata, dict):
@@ -730,16 +728,16 @@ def get_model_info_any_provider(model_id: str) -> Optional[ModelInfo]:
         if isinstance(raw, dict):
             return _parse_model_info(model_id, raw, mdev_id)
 
-        # Case-insensitive
+        # 不区分大小写
         model_lower = model_id.lower()
         for mid, mdata in models.items():
             if mid.lower() == model_lower and isinstance(mdata, dict):
                 return _parse_model_info(mid, mdata, mdev_id)
 
-    # Fall back to ALL providers
-    for pid, pdata in data.items():
+    # 回退到所有提供者
+    for pid, pdata in data.items:
         if pid in _get_reverse_mapping():
-            continue  # already checked
+            continue  # 已检查
         if not isinstance(pdata, dict):
             continue
         models = pdata.get("models", {})
@@ -754,9 +752,9 @@ def get_model_info_any_provider(model_id: str) -> Optional[ModelInfo]:
 
 
 def list_provider_model_infos(provider_id: str) -> List[ModelInfo]:
-    """Return all models for a provider as ModelInfo objects.
+    """返回某提供者的所有模型,格式为 ModelInfo 对象。
 
-    Filters out deprecated models by default.
+    默认过滤掉已弃用的模型。
     """
     mdev_id = PROVIDER_TO_MODELS_DEV.get(provider_id, provider_id)
 

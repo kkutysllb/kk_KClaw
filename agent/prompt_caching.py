@@ -1,11 +1,11 @@
-"""Anthropic prompt caching (system_and_3 strategy).
+"""Anthropic 提示词缓存(system_and_3 策略)。
 
-Reduces input token costs by ~75% on multi-turn conversations by caching
-the conversation prefix. Uses 4 cache_control breakpoints (Anthropic max):
-  1. System prompt (stable across all turns)
-  2-4. Last 3 non-system messages (rolling window)
+通过缓存对话前缀,在多轮对话中减少约 75% 的输入 token 成本。
+使用 4 个 cache_control 断点(Anthropic 最大值):
+  1. 系统提示词(在所有轮次中稳定)
+  2-4. 最后 3 条非系统消息(滚动窗口)
 
-Pure functions -- no class state, no AIAgent dependency.
+纯函数 — 无类状态,无 AIAgent 依赖。
 """
 
 import copy
@@ -13,7 +13,7 @@ from typing import Any, Dict, List
 
 
 def _apply_cache_marker(msg: dict, cache_marker: dict, native_anthropic: bool = False) -> None:
-    """Add cache_control to a single message, handling all format variations."""
+    """向单条消息添加 cache_control,处理所有格式变体。"""
     role = msg.get("role", "")
     content = msg.get("content")
 
@@ -43,12 +43,12 @@ def apply_anthropic_cache_control(
     cache_ttl: str = "5m",
     native_anthropic: bool = False,
 ) -> List[Dict[str, Any]]:
-    """Apply system_and_3 caching strategy to messages for Anthropic models.
+    """对 Anthropic 模型的消息应用 system_and_3 缓存策略。
 
-    Places up to 4 cache_control breakpoints: system prompt + last 3 non-system messages.
+    放置最多 4 个 cache_control 断点: 系统提示词 + 最后 3 条非系统消息。
 
     Returns:
-        Deep copy of messages with cache_control breakpoints injected.
+        注入了 cache_control 断点的消息深拷贝。
     """
     messages = copy.deepcopy(api_messages)
     if not messages:

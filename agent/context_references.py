@@ -120,7 +120,7 @@ def preprocess_context_references(
         url_fetcher=url_fetcher,
         allowed_root=allowed_root,
     )
-    # Safe for both CLI (no loop) and gateway (loop already running).
+    # 安全适用于 CLI(无循环)和 gateway(循环已在运行)。
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
@@ -145,8 +145,8 @@ async def preprocess_context_references_async(
         return ContextReferenceResult(message=message, original_message=message)
 
     cwd_path = Path(cwd).expanduser().resolve()
-    # Default to the current working directory so @ references cannot escape
-    # the active workspace unless a caller explicitly widens the root.
+    # 默认为当前工作目录,使 @ 引用无法逃逸
+    # 活动工作区,除非调用者显式放宽根目录。
     allowed_root_path = (
         Path(allowed_root).expanduser().resolve() if allowed_root is not None else cwd_path
     )
@@ -171,7 +171,7 @@ async def preprocess_context_references_async(
     soft_limit = max(1, int(context_length * 0.25))
     if injected_tokens > hard_limit:
         warnings.append(
-            f"@ context injection refused: {injected_tokens} tokens exceeds the 50% hard limit ({hard_limit})."
+            f"@ 上下文注入被拒绝: {injected_tokens} token 超过 50% 硬限制({hard_limit})。"
         )
         return ContextReferenceResult(
             message=message,
@@ -185,15 +185,15 @@ async def preprocess_context_references_async(
 
     if injected_tokens > soft_limit:
         warnings.append(
-            f"@ context injection warning: {injected_tokens} tokens exceeds the 25% soft limit ({soft_limit})."
+            f"@ 上下文注入警告: {injected_tokens} token 超过 25% 软限制({soft_limit})。"
         )
 
     stripped = _remove_reference_tokens(message, refs)
     final = stripped
     if warnings:
-        final = f"{final}\n\n--- Context Warnings ---\n" + "\n".join(f"- {warning}" for warning in warnings)
+        final = f"{final}\n\n--- 上下文警告 ---\n" + "\n".join(f"- {warning}" for warning in warnings)
     if blocks:
-        final = f"{final}\n\n--- Attached Context ---\n\n" + "\n\n".join(blocks)
+        final = f"{final}\n\n--- 附加上下文 ---\n\n" + "\n\n".join(blocks)
 
     return ContextReferenceResult(
         message=final.strip(),
@@ -228,12 +228,12 @@ async def _expand_reference(
         if ref.kind == "url":
             content = await _fetch_url_content(ref.target, url_fetcher=url_fetcher)
             if not content:
-                return f"{ref.raw}: no content extracted", None
+                return f"{ref.raw}: 未提取到内容", None
             return None, f"🌐 {ref.raw} ({estimate_tokens_rough(content)} tokens)\n{content}"
     except Exception as exc:
         return f"{ref.raw}: {exc}", None
 
-    return f"{ref.raw}: unsupported reference type", None
+    return f"{ref.raw}: 不支持的引用类型", None
 
 
 def _expand_file_reference(
@@ -245,11 +245,11 @@ def _expand_file_reference(
     path = _resolve_path(cwd, ref.target, allowed_root=allowed_root)
     _ensure_reference_path_allowed(path)
     if not path.exists():
-        return f"{ref.raw}: file not found", None
+        return f"{ref.raw}: 文件未找到", None
     if not path.is_file():
-        return f"{ref.raw}: path is not a file", None
+        return f"{ref.raw}: 路径不是文件", None
     if _is_binary_file(path):
-        return f"{ref.raw}: binary files are not supported", None
+        return f"{ref.raw}: 不支持二进制文件", None
 
     text = path.read_text(encoding="utf-8")
     if ref.line_start is not None:
@@ -272,9 +272,9 @@ def _expand_folder_reference(
     path = _resolve_path(cwd, ref.target, allowed_root=allowed_root)
     _ensure_reference_path_allowed(path)
     if not path.exists():
-        return f"{ref.raw}: folder not found", None
+        return f"{ref.raw}: 文件夹未找到", None
     if not path.is_dir():
-        return f"{ref.raw}: path is not a folder", None
+        return f"{ref.raw}: 路径不是文件夹", None
 
     listing = _build_folder_listing(path, cwd)
     return None, f"📁 {ref.raw} ({estimate_tokens_rough(listing)} tokens)\n{listing}"
@@ -295,13 +295,13 @@ def _expand_git_reference(
             timeout=30,
         )
     except subprocess.TimeoutExpired:
-        return f"{ref.raw}: git command timed out (30s)", None
+        return f"{ref.raw}: git 命令超时(30秒)", None
     if result.returncode != 0:
-        stderr = (result.stderr or "").strip() or "git command failed"
+        stderr = (result.stderr or "").strip() or "git 命令失败"
         return f"{ref.raw}: {stderr}", None
     content = result.stdout.strip()
     if not content:
-        content = "(no output)"
+        content = "(无输出)"
     return None, f"🧾 {label} ({estimate_tokens_rough(content)} tokens)\n```diff\n{content}\n```"
 
 
@@ -338,7 +338,7 @@ def _resolve_path(cwd: Path, target: str, *, allowed_root: Path | None = None) -
         try:
             resolved.relative_to(allowed_root)
         except ValueError as exc:
-            raise ValueError("path is outside the allowed workspace") from exc
+            raise ValueError("路径在允许的工作区之外") from exc
     return resolved
 
 
@@ -353,14 +353,14 @@ def _ensure_reference_path_allowed(path: Path) -> None:
     blocked_dirs.extend(kclaw_home / rel for rel in _SENSITIVE_KCLAW_DIRS)
 
     if path in blocked_exact:
-        raise ValueError("path is a sensitive credential file and cannot be attached")
+        raise ValueError("路径是敏感凭据文件,无法附加")
 
     for blocked_dir in blocked_dirs:
         try:
             path.relative_to(blocked_dir)
         except ValueError:
             continue
-        raise ValueError("path is a sensitive credential or internal KClaw path and cannot be attached")
+        raise ValueError("路径是敏感凭据或 KClaw 内部路径,无法附加")
 
 
 def _strip_trailing_punctuation(value: str) -> str:

@@ -1,17 +1,16 @@
-"""Retry utilities — jittered backoff for decorrelated retries.
+"""重试工具函数 — 抖动退避算法用于去相关重试。
 
-Replaces fixed exponential backoff with jittered delays to prevent
-thundering-herd retry spikes when multiple sessions hit the same
-rate-limited provider concurrently.
+用抖动延迟替换固定的指数退避,防止多个会话同时
+重试同一受限提供者时产生雷击效应。
 """
 
 import random
 import threading
 import time
 
-# Monotonic counter for jitter seed uniqueness within the same process.
-# Protected by a lock to avoid race conditions in concurrent retry paths
-# (e.g. multiple gateway sessions retrying simultaneously).
+# 单调计数器,用于进程内抖动种子的唯一性。
+# 通过锁保护,避免并发重试路径中的竞态条件
+# (例如多个 gateway 会话同时重试)。
 _jitter_counter = 0
 _jitter_lock = threading.Lock()
 
@@ -23,20 +22,20 @@ def jittered_backoff(
     max_delay: float = 120.0,
     jitter_ratio: float = 0.5,
 ) -> float:
-    """Compute a jittered exponential backoff delay.
+    """计算抖动指数退避延迟。
 
     Args:
-        attempt: 1-based retry attempt number.
-        base_delay: Base delay in seconds for attempt 1.
-        max_delay: Maximum delay cap in seconds.
-        jitter_ratio: Fraction of computed delay to use as random jitter
-            range.  0.5 means jitter is uniform in [0, 0.5 * delay].
+        attempt: 从 1 开始的重试尝试次数。
+        base_delay: 第 1 次尝试的基础延迟(秒)。
+        max_delay: 最大延迟上限(秒)。
+        jitter_ratio: 用作随机抖动范围的计算延迟比例。
+            0.5 表示抖动范围为 [0, 0.5 * delay]。
 
     Returns:
-        Delay in seconds: min(base * 2^(attempt-1), max_delay) + jitter.
+        延迟秒数: min(base * 2^(attempt-1), max_delay) + jitter。
 
-    The jitter decorrelates concurrent retries so multiple sessions
-    hitting the same provider don't all retry at the same instant.
+    抖动使并发重试去相关,因此多个会话
+    访问同一提供者时不会在同一时刻重试。
     """
     global _jitter_counter
     with _jitter_lock:
@@ -49,7 +48,7 @@ def jittered_backoff(
     else:
         delay = min(base_delay * (2 ** exponent), max_delay)
 
-    # Seed from time + counter for decorrelation even with coarse clocks.
+    # 使用 时间 + 计数器 作为种子,即使时钟精度较低也能去相关。
     seed = (time.time_ns() ^ (tick * 0x9E3779B9)) & 0xFFFFFFFF
     rng = random.Random(seed)
     jitter = rng.uniform(0, jitter_ratio * delay)

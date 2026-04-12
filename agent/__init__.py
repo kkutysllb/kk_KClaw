@@ -1,6 +1,6 @@
-"""Agent internals -- extracted modules from run_agent.py.
+"""Agent 内部模块 — 从 run_agent.py 中提取。
 
-These modules contain pure utility functions and self-contained classes
-that were previously embedded in the 3,600-line run_agent.py. Extracting
-them makes run_agent.py focused on the AIAgent orchestrator class.
+这些模块包含纯工具函数和自包含的类，
+它们之前嵌入在 3600 行的 run_agent.py 中。提取出来
+使 run_agent.py 专注于 AIAgent 调度器类。
 """

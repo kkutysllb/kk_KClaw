@@ -1,10 +1,10 @@
-"""Regex-based secret redaction for logs and tool output.
+"""基于正则表达式的密钥脱敏,用于日志和工具输出。
 
-Applies pattern matching to mask API keys, tokens, and credentials
-before they reach log files, verbose output, or gateway logs.
+在 API 密钥、令牌和凭据到达日志文件、详细输出或 gateway
+日志之前,应用模式匹配进行掩码。
 
-Short tokens (< 18 chars) are fully masked. Longer tokens preserve
-the first 6 and last 4 characters for debuggability.
+短令牌(< 18 字符)完全掩码。较长令牌保留前 6 位和后 4 位
+字符以便调试。
 """
 
 import logging
@@ -13,11 +13,11 @@ import re
 
 logger = logging.getLogger(__name__)
 
-# Snapshot at import time so runtime env mutations (e.g. LLM-generated
-# `export KCLAW_REDACT_SECRETS=false`) cannot disable redaction mid-session.
+# 导入时快照,因此运行时环境变化(例如 LLM 生成的
+# `export KCLAW_REDACT_SECRETS=false`)无法在会话中间禁用脱敏。
 _REDACT_ENABLED = os.getenv("KCLAW_REDACT_SECRETS", "").lower() not in ("0", "false", "no", "off")
 
-# Known API key prefixes -- match the prefix + contiguous token chars
+# 已知的 API 密钥前缀 — 匹配前缀 + 连续的令牌字符
 _PREFIX_PATTERNS = [
     r"sk-[A-Za-z0-9_-]{10,}",           # OpenAI / OpenRouter / Anthropic (sk-ant-*)
     r"ghp_[A-Za-z0-9]{10,}",            # GitHub PAT (classic)
@@ -56,65 +56,65 @@ _PREFIX_PATTERNS = [
     r"brv_[A-Za-z0-9]{10,}",            # ByteRover API key
 ]
 
-# ENV assignment patterns: KEY=value where KEY contains a secret-like name
+# 环境变量赋值模式: KEY=value,其中 KEY 包含类似密钥的名称
 _SECRET_ENV_NAMES = r"(?:API_?KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH)"
 _ENV_ASSIGN_RE = re.compile(
     rf"([A-Z0-9_]{{0,50}}{_SECRET_ENV_NAMES}[A-Z0-9_]{{0,50}})\s*=\s*(['\"]?)(\S+)\2",
 )
 
-# JSON field patterns: "apiKey": "value", "token": "value", etc.
+# JSON 字段模式: "apiKey": "value", "token": "value" 等
 _JSON_KEY_NAMES = r"(?:api_?[Kk]ey|token|secret|password|access_token|refresh_token|auth_token|bearer|secret_value|raw_secret|secret_input|key_material)"
 _JSON_FIELD_RE = re.compile(
     rf'("{_JSON_KEY_NAMES}")\s*:\s*"([^"]+)"',
     re.IGNORECASE,
 )
 
-# Authorization headers
+# 授权头
 _AUTH_HEADER_RE = re.compile(
     r"(Authorization:\s*Bearer\s+)(\S+)",
     re.IGNORECASE,
 )
 
-# Telegram bot tokens: bot<digits>:<token> or <digits>:<token>,
-# where token part is restricted to [-A-Za-z0-9_] and length >= 30
+# Telegram 机器人令牌: bot<数字>:<令牌> 或 <数字>:<令牌>,
+# 其中令牌部分限制为 [-A-Za-z0-9_] 且长度 >= 30
 _TELEGRAM_RE = re.compile(
     r"(bot)?(\d{8,}):([-A-Za-z0-9_]{30,})",
 )
 
-# Private key blocks: -----BEGIN RSA PRIVATE KEY----- ... -----END RSA PRIVATE KEY-----
+# 私钥块: -----BEGIN RSA PRIVATE KEY----- ... -----END RSA PRIVATE KEY-----
 _PRIVATE_KEY_RE = re.compile(
     r"-----BEGIN[A-Z ]*PRIVATE KEY-----[\s\S]*?-----END[A-Z ]*PRIVATE KEY-----"
 )
 
-# Database connection strings: protocol://user:PASSWORD@host
-# Catches postgres, mysql, mongodb, redis, amqp URLs and redacts the password
+# 数据库连接字符串: protocol://user:PASSWORD@host
+# 捕获 postgres、mysql、mongodb、redis、amqp URL 并脱敏密码
 _DB_CONNSTR_RE = re.compile(
     r"((?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp)://[^:]+:)([^@]+)(@)",
     re.IGNORECASE,
 )
 
-# E.164 phone numbers: +<country><number>, 7-15 digits
-# Negative lookahead prevents matching hex strings or identifiers
+# E.164 电话号码: +<国家><号码>, 7-15 位数字
+# 负向前瞻防止匹配十六进制字符串或标识符
 _SIGNAL_PHONE_RE = re.compile(r"(\+[1-9]\d{6,14})(?![A-Za-z0-9])")
 
-# Compile known prefix patterns into one alternation
+# 将已知前缀模式编译为一个多选
 _PREFIX_RE = re.compile(
     r"(?<![A-Za-z0-9_-])(" + "|".join(_PREFIX_PATTERNS) + r")(?![A-Za-z0-9_-])"
 )
 
 
 def _mask_token(token: str) -> str:
-    """Mask a token, preserving prefix for long tokens."""
+    """掩码令牌,为长令牌保留前缀。"""
     if len(token) < 18:
         return "***"
     return f"{token[:6]}...{token[-4:]}"
 
 
 def redact_sensitive_text(text: str) -> str:
-    """Apply all redaction patterns to a block of text.
+    """将脱敏模式应用于文本块。
 
-    Safe to call on any string -- non-matching text passes through unchanged.
-    Disabled when security.redact_secrets is false in config.yaml.
+    可安全调用任意字符串 — 不匹配的文本原样通过。
+    当 config.yaml 中 security.redact_secrets 为 false 时禁用。
     """
     if text is None:
         return None
@@ -125,41 +125,41 @@ def redact_sensitive_text(text: str) -> str:
     if not _REDACT_ENABLED:
         return text
 
-    # Known prefixes (sk-, ghp_, etc.)
+    # 已知前缀(sk-、ghp_ 等)
     text = _PREFIX_RE.sub(lambda m: _mask_token(m.group(1)), text)
 
-    # ENV assignments: OPENAI_API_KEY=sk-abc...
+    # 环境变量赋值: OPENAI_API_KEY=sk-abc...
     def _redact_env(m):
         name, quote, value = m.group(1), m.group(2), m.group(3)
         return f"{name}={quote}{_mask_token(value)}{quote}"
     text = _ENV_ASSIGN_RE.sub(_redact_env, text)
 
-    # JSON fields: "apiKey": "value"
+    # JSON 字段: "apiKey": "value"
     def _redact_json(m):
         key, value = m.group(1), m.group(2)
         return f'{key}: "{_mask_token(value)}"'
     text = _JSON_FIELD_RE.sub(_redact_json, text)
 
-    # Authorization headers
+    # 授权头
     text = _AUTH_HEADER_RE.sub(
         lambda m: m.group(1) + _mask_token(m.group(2)),
         text,
     )
 
-    # Telegram bot tokens
+    # Telegram 机器人令牌
     def _redact_telegram(m):
         prefix = m.group(1) or ""
         digits = m.group(2)
         return f"{prefix}{digits}:***"
     text = _TELEGRAM_RE.sub(_redact_telegram, text)
 
-    # Private key blocks
+    # 私钥块
     text = _PRIVATE_KEY_RE.sub("[REDACTED PRIVATE KEY]", text)
 
-    # Database connection string passwords
+    # 数据库连接字符串密码
     text = _DB_CONNSTR_RE.sub(lambda m: f"{m.group(1)}***{m.group(3)}", text)
 
-    # E.164 phone numbers (Signal, WhatsApp)
+    # E.164 电话号码 (Signal, WhatsApp)
     def _redact_phone(m):
         phone = m.group(1)
         if len(phone) <= 8:
@@ -171,7 +171,7 @@ def redact_sensitive_text(text: str) -> str:
 
 
 class RedactingFormatter(logging.Formatter):
-    """Log formatter that redacts secrets from all log messages."""
+    """日志格式化器,从所有日志消息中脱敏密钥。"""
 
     def __init__(self, fmt=None, datefmt=None, style='%', **kwargs):
         super().__init__(fmt, datefmt, style, **kwargs)
