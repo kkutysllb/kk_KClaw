@@ -95,7 +95,7 @@ def prompt_for_secret(cli, var_name: str, prompt: str, metadata=None) -> dict:
         return {
             **stored,
             "skipped": False,
-            "message": "Secret stored securely. The secret value was not exposed to the model.",
+            "message": "密钥已安全存储。密钥值未暴露给模型。",
         }
 
     timeout = 120

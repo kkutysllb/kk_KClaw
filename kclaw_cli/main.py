@@ -67,7 +67,7 @@ def _require_tty(command_name: str) -> None:
         sys.exit(1)
 
 
-# Add project root to path
+# 将项目根目录添加到路径
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -118,11 +118,11 @@ def _apply_profile_override() -> None:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
         except Exception as exc:
-            # A bug in profiles.py must NEVER prevent kclaw from starting
+            # profiles.py 中的 bug 绝对不能阻止 kclaw 启动
             print(f"Warning: profile override failed ({exc}), using default", file=sys.stderr)
             return
         os.environ["KCLAW_HOME"] = kclaw_home
-        # Strip the flag from argv so argparse doesn't choke
+        # 从 argv 中移除标志，以免 argparse 报错
         if consume > 0:
             for i, arg in enumerate(argv):
                 if arg in ("--profile", "-p"):
@@ -161,7 +161,7 @@ logger = logging.getLogger(__name__)
 
 
 def _relative_time(ts) -> str:
-    """Format a timestamp as relative time (e.g., '2h ago', 'yesterday')."""
+    """将时间戳格式化为相对时间（例如 '2小时前'、'昨天'）。"""
     if not ts:
         return "?"
     delta = _time.time() - ts
@@ -179,14 +179,14 @@ def _relative_time(ts) -> str:
 
 
 def _has_any_provider_configured() -> bool:
-    """Check if at least one inference provider is usable."""
+    """检查是否至少有一个推理 provider 可用。"""
     from kclaw_cli.config import get_env_path, get_kclaw_home, load_config
     from kclaw_cli.auth import get_auth_status
 
-    # Determine whether KClaw itself has been explicitly configured (model
-    # in config that isn't the hardcoded default). Used below to gate external
-    # tool credentials (Claude Code, Codex CLI) that shouldn't silently skip
-    # the setup wizard on a fresh install.
+    # 判断 KClaw 是否已被显式配置（config 中的 model
+    # 不是硬编码默认值）。用于下面门控外部工具凭据
+    # （Claude Code、Codex CLI），这些凭据不应在全新安装时
+    # 静默跳过设置向导。
     from kclaw_cli.config import DEFAULT_CONFIG
     _DEFAULT_MODEL = DEFAULT_CONFIG.get("model", "")
     cfg = load_config()
@@ -199,12 +199,12 @@ def _has_any_provider_configured() -> bool:
         _model_name = ""
     _has_kclaw_config = _model_name and _model_name != _DEFAULT_MODEL
 
-    # Check env vars (may be set by .env or shell).
-    # OPENAI_BASE_URL alone counts — local models (vLLM, llama.cpp, etc.)
-    # often don't require an API key.
+    # 检查环境变量（可能由 .env 或 shell 设置）。
+    # 仅 OPENAI_BASE_URL 也算 — 本地模型（vLLM、llama.cpp 等）
+    # 通常不需要 API 密钥。
     from kclaw_cli.auth import PROVIDER_REGISTRY
 
-    # Collect all provider env vars
+    # 收集所有 provider 环境变量
     provider_env_vars = {"OPENROUTER_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_TOKEN", "OPENAI_BASE_URL"}
     for pconfig in PROVIDER_REGISTRY.values():
         if pconfig.auth_type == "api_key":
@@ -212,7 +212,7 @@ def _has_any_provider_configured() -> bool:
     if any(os.getenv(v) for v in provider_env_vars):
         return True
 
-    # Check .env file for keys
+    # 检查 .env 文件中的密钥
     env_file = get_env_path()
     if env_file.exists():
         try:
@@ -227,7 +227,7 @@ def _has_any_provider_configured() -> bool:
         except Exception:
             pass
 
-    # Check provider-specific auth fallbacks (for example, Copilot via gh auth).
+    # 检查 provider 特定的认证回退（例如 Copilot 通过 gh auth）。
     try:
         for provider_id, pconfig in PROVIDER_REGISTRY.items():
             if pconfig.auth_type != "api_key":
@@ -238,7 +238,7 @@ def _has_any_provider_configured() -> bool:
     except Exception:
         pass
 
-    # Check for Nous Portal OAuth credentials
+    # 检查 Nous Portal OAuth 凭据
     auth_file = get_kclaw_home() / "auth.json"
     if auth_file.exists():
         try:
@@ -253,10 +253,9 @@ def _has_any_provider_configured() -> bool:
             pass
 
 
-    # Check config.yaml — if model is a dict with an explicit provider set,
-    # the user has gone through setup (fresh installs have model as a plain
-    # string).  Also covers custom endpoints that store api_key/base_url in
-    # config rather than .env.
+    # 检查 config.yaml — 如果 model 是字典且包含显式 provider 设置，
+    # 说明用户已完成设置（全新安装时 model 是纯字符串）。
+    # 也覆盖将 api_key/base_url 存储在 config 而非 .env 中的自定义端点。
     if isinstance(model_cfg, dict):
         cfg_provider = (model_cfg.get("provider") or "").strip()
         cfg_base_url = (model_cfg.get("base_url") or "").strip()
@@ -264,9 +263,9 @@ def _has_any_provider_configured() -> bool:
         if cfg_provider or cfg_base_url or cfg_api_key:
             return True
 
-    # Check for Claude Code OAuth credentials (~/.claude/.credentials.json)
-    # Only count these if KClaw has been explicitly configured — Claude Code
-    # being installed doesn't mean the user wants KClaw to use their tokens.
+    # 检查 Claude Code OAuth 凭据 (~/.claude/.credentials.json)
+    # 仅在 KClaw 已被显式配置时计入 — 安装 Claude Code
+    # 并不意味着用户希望 KClaw 使用其令牌。
     if _has_kclaw_config:
         try:
             from agent.anthropic_adapter import read_claude_code_credentials, is_claude_code_token_valid
@@ -280,31 +279,31 @@ def _has_any_provider_configured() -> bool:
 
 
 def _session_browse_picker(sessions: list) -> Optional[str]:
-    """Interactive curses-based session browser with live search filtering.
+    """交互式 curses 会话浏览器，支持实时搜索过滤。
 
-    Returns the selected session ID, or None if cancelled.
-    Uses curses (not simple_term_menu) to avoid the ghost-duplication rendering
-    bug in tmux/iTerm when arrow keys are used.
+    返回选中的会话 ID，取消则返回 None。
+    使用 curses（而非 simple_term_menu），避免在 tmux/iTerm2 中
+    使用方向键时出现的残影渲染 bug。
     """
     if not sessions:
         print("No sessions found.")
         return None
 
-    # Try curses-based picker first
+    # 首先尝试基于 curses 的选择器
     try:
         import curses
 
         result_holder = [None]
 
         def _format_row(s, max_x):
-            """Format a session row for display."""
+            """格式化会话行以供显示。"""
             title = (s.get("title") or "").strip()
             preview = (s.get("preview") or "").strip()
             source = s.get("source", "")[:6]
             last_active = _relative_time(s.get("last_active"))
             sid = s["id"][:18]
 
-            # Adaptive column widths based on terminal width
+            # 根据终端宽度自适应列宽
             # Layout: [arrow 3] [title/preview flexible] [active 12] [src 6] [id 18]
             fixed_cols = 3 + 12 + 6 + 18 + 6  # arrow + active + src + id + padding
             name_width = max(20, max_x - fixed_cols)
@@ -319,7 +318,7 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
             return f"{name:<{name_width}}  {last_active:<10}  {source:<5} {sid}"
 
         def _match(s, query):
-            """Check if a session matches the search query (case-insensitive)."""
+            """检查会话是否匹配搜索查询（不区分大小写）。"""
             q = query.lower()
             return (
                 q in (s.get("title") or "").lower()
@@ -347,7 +346,7 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
                 stdscr.clear()
                 max_y, max_x = stdscr.getmaxyx()
                 if max_y < 5 or max_x < 40:
-                    # Terminal too small
+                    # 终端太小
                     try:
                         stdscr.addstr(0, 0, "Terminal too small")
                     except curses.error:
@@ -356,7 +355,7 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
                     stdscr.getch()
                     return
 
-                # Header line
+                # 标题行
                 if search_text:
                     header = f"  Browse sessions — filter: {search_text}█"
                     header_attr = curses.A_BOLD
@@ -372,7 +371,7 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
                 except curses.error:
                     pass
 
-                # Column header line
+                # 列标题行
                 fixed_cols = 3 + 12 + 6 + 18 + 6
                 name_width = max(20, max_x - fixed_cols)
                 col_header = f"   {'Title / Preview':<{name_width}}  {'Active':<10}  {'Src':<5} {'ID'}"
@@ -382,12 +381,12 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
                 except curses.error:
                     pass
 
-                # Compute visible area
+                # 计算可见区域
                 visible_rows = max_y - 4  # header + col header + blank + footer
                 if visible_rows < 1:
                     visible_rows = 1
 
-                # Clamp cursor and scroll
+                # 限制光标和滚动范围
                 if not filtered:
                     try:
                         msg = "  No sessions match the filter."
@@ -424,7 +423,7 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
                         except curses.error:
                             pass
 
-                # Footer
+                # 页脚
                 footer_y = max_y - 1
                 if filtered:
                     footer = f"  {cursor + 1}/{len(filtered)} sessions"
@@ -453,13 +452,13 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
                     return
                 elif key == 27:  # Esc
                     if search_text:
-                        # First Esc clears the search
+                        # 第一次 Esc 清除搜索
                         search_text = ""
                         filtered = list(sessions)
                         cursor = 0
                         scroll_offset = 0
                     else:
-                        # Second Esc exits
+                        # 第二次 Esc 退出
                         return
                 elif key in (curses.KEY_BACKSPACE, 127, 8):
                     if search_text:
@@ -473,7 +472,7 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
                 elif key == ord('q') and not search_text:
                     return
                 elif 32 <= key <= 126:
-                    # Printable character → add to search filter
+                    # 可打印字符 → 添加到搜索过滤器
                     search_text += chr(key)
                     filtered = [s for s in sessions if _match(s, search_text)]
                     cursor = 0
@@ -485,7 +484,7 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
     except Exception:
         pass
 
-    # Fallback: numbered list (Windows without curses, etc.)
+    # 回退：编号列表（无 curses 的 Windows 等）
     print("\n  Browse sessions  (enter number to resume, q to cancel)\n")
     for i, s in enumerate(sessions):
         title = (s.get("title") or "").strip()
@@ -514,7 +513,7 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
 
 
 def _resolve_last_cli_session() -> Optional[str]:
-    """Look up the most recent CLI session ID from SQLite. Returns None if unavailable."""
+    """查找 SQLite 中最近的 CLI 会话 ID。不可用则返回 None。"""
     try:
         from kclaw_state import SessionDB
         db = SessionDB()
@@ -528,23 +527,23 @@ def _resolve_last_cli_session() -> Optional[str]:
 
 
 def _resolve_session_by_name_or_id(name_or_id: str) -> Optional[str]:
-    """Resolve a session name (title) or ID to a session ID.
+    """将会话名称（标题）或 ID 解析为会话 ID。
 
-    - If it looks like a session ID (contains underscore + hex), try direct lookup first.
-    - Otherwise, treat it as a title and use resolve_session_by_title (auto-latest).
-    - Falls back to the other method if the first doesn't match.
+    - 如果看起来像会话 ID（包含下划线 + 十六进制），先尝试直接查找。
+    - 否则，将其作为标题处理，使用 resolve_session_by_title（自动选择最新）。
+    - 如果第一种方式不匹配，回遇到另一种方法。
     """
     try:
         from kclaw_state import SessionDB
         db = SessionDB()
 
-        # Try as exact session ID first
+        # 首先尝试精确会话 ID
         session = db.get_session(name_or_id)
         if session:
             db.close()
             return session["id"]
 
-        # Try as title (with auto-latest for lineage)
+        # 尝试作为标题查找（自动选择最新沿袭）
         session_id = db.resolve_session_by_title(name_or_id)
         db.close()
         return session_id
@@ -554,8 +553,8 @@ def _resolve_session_by_name_or_id(name_or_id: str) -> Optional[str]:
 
 
 def cmd_chat(args):
-    """Run interactive chat CLI."""
-    # Resolve --continue into --resume with the latest CLI session or by name
+    """运行交互式聊天 CLI。"""
+    # 将 --continue 解析为 --resume，使用最近的 CLI 会话或按名称
     continue_val = getattr(args, "continue_last", None)
     if continue_val and not getattr(args, "resume", None):
         if isinstance(continue_val, str):
@@ -576,7 +575,7 @@ def cmd_chat(args):
                 print("No previous CLI session found to continue.")
                 sys.exit(1)
 
-    # Resolve --resume by title if it's not a direct session ID
+    # 如果 --resume 不是直接的会话 ID，按标题解析
     resume_val = getattr(args, "resume", None)
     if resume_val:
         resolved = _resolve_session_by_name_or_id(resume_val)
@@ -663,13 +662,13 @@ def cmd_chat(args):
 
 
 def cmd_gateway(args):
-    """Gateway management commands."""
+    """Gateway 管理命令。"""
     from kclaw_cli.gateway import gateway_command
     gateway_command(args)
 
 
 def cmd_whatsapp(args):
-    """Set up WhatsApp: choose mode, configure, install bridge, pair via QR."""
+    """设置 WhatsApp：选择模式、配置、安装桥接、通过 QR 配对。"""
     _require_tty("whatsapp")
     import subprocess
     from pathlib import Path
@@ -856,25 +855,24 @@ def cmd_whatsapp(args):
 
 
 def cmd_setup(args):
-    """Interactive setup wizard."""
+    """交互式设置向导。"""
     _require_tty("setup")
     from kclaw_cli.setup import run_setup_wizard
     run_setup_wizard(args)
 
 
 def cmd_model(args):
-    """Select default model — starts with provider selection, then model picker."""
+    """选择默认模型 — 从 provider 选择开始，然后是模型选择器。"""
     _require_tty("model")
     select_provider_and_model(args=args)
 
 
 def select_provider_and_model(args=None):
-    """Core provider selection + model picking logic.
+    """核心 provider 选择 + 模型选取逻辑。
 
-    Shared by ``cmd_model`` (``kclaw model``) and the setup wizard
-    (``setup_model_provider`` in setup.py).  Handles the full flow:
-    provider picker, credential prompting, model selection, and config
-    persistence.
+    由 ``cmd_model``（``kclaw model``）和设置向导
+    （``setup.py`` 中的 ``setup_model_provider``）共享。处理完整流程：
+    provider 选择器、凭据提示、模型选择和配置持久化。
     """
     from kclaw_cli.auth import (
         resolve_provider, AuthError, format_auth_error,
@@ -1066,11 +1064,10 @@ def select_provider_and_model(args=None):
 
 
 def _prompt_provider_choice(choices, *, default=0):
-    """Show provider selection menu with curses arrow-key navigation.
+    """显示 provider 选择菜单，支持 curses 方向键导航。
 
-    Falls back to a numbered list when curses is unavailable (e.g. piped
-    stdin, non-TTY environments).  Returns the selected index, or None
-    if the user cancels.
+    当 curses 不可用时回退到编号列表（例如管道 stdin、
+    非 TTY 环境）。返回选中的索引，用户取消则返回 None。
     """
     try:
         from kclaw_cli.setup import _curses_prompt_choice
@@ -1104,7 +1101,7 @@ def _prompt_provider_choice(choices, *, default=0):
 
 
 def _model_flow_openrouter(config, current_model=""):
-    """OpenRouter provider: ensure API key, then pick model."""
+    """OpenRouter provider：确保 API 密钥已配置，然后选择模型。"""
     from kclaw_cli.auth import _prompt_model_selection, _save_model_choice, deactivate_provider
     from kclaw_cli.config import get_env_value, save_env_value
 
@@ -1154,7 +1151,7 @@ def _model_flow_openrouter(config, current_model=""):
 
 
 def _model_flow_nous(config, current_model="", args=None):
-    """Nous Portal provider: ensure logged in, then pick model."""
+    """Nous Portal provider：确保已登录，然后选择模型。"""
     from kclaw_cli.auth import (
         get_provider_auth_state, _prompt_model_selection, _save_model_choice,
         _update_config_for_provider, resolve_nous_runtime_credentials,
@@ -1311,7 +1308,7 @@ def _model_flow_nous(config, current_model="", args=None):
 
 
 def _model_flow_openai_codex(config, current_model=""):
-    """OpenAI Codex provider: ensure logged in, then pick model."""
+    """OpenAI Codex provider：确保已登录，然后选择模型。"""
     from kclaw_cli.auth import (
         get_codex_auth_status, _prompt_model_selection, _save_model_choice,
         _update_config_for_provider, _login_openai_codex,
@@ -1370,7 +1367,7 @@ _DEFAULT_QWEN_PORTAL_MODELS = [
 
 
 def _model_flow_qwen_oauth(_config, current_model=""):
-    """Qwen OAuth provider: reuse local Qwen CLI login, then pick model."""
+    """Qwen OAuth provider：复用本地 Qwen CLI 登录，然后选择模型。"""
     from kclaw_cli.auth import (
         get_qwen_auth_status,
         resolve_qwen_runtime_credentials,
@@ -1414,10 +1411,10 @@ def _model_flow_qwen_oauth(_config, current_model=""):
 
 
 def _model_flow_custom(config):
-    """Custom endpoint: collect URL, API key, and model name.
+    """自定义端点：收集 URL、API 密钥和模型名称。
 
-    Automatically saves the endpoint to ``custom_providers`` in config.yaml
-    so it appears in the provider menu on subsequent runs.
+    自动将端点保存到 config.yaml 的 ``custom_providers`` 中，
+    以便下次运行时出现在 provider 菜单中。
     """
     from kclaw_cli.auth import _save_model_choice, deactivate_provider
     from kclaw_cli.config import get_env_value, load_config, save_config
@@ -1563,11 +1560,10 @@ def _model_flow_custom(config):
 
 
 def _save_custom_provider(base_url, api_key="", model="", context_length=None):
-    """Save a custom endpoint to custom_providers in config.yaml.
+    """将自定义端点保存到 config.yaml 的 custom_providers 中。
 
-    Deduplicates by base_url — if the URL already exists, updates the
-    model name and context_length but doesn't add a duplicate entry.
-    Auto-generates a display name from the URL hostname.
+    按 base_url 去重 — 如果 URL 已存在，更新模型名称和 context_length，
+    但不添加重复条目。自动从 URL 主机名生成显示名称。
     """
     from kclaw_cli.config import load_config, save_config
 
@@ -1625,7 +1621,7 @@ def _save_custom_provider(base_url, api_key="", model="", context_length=None):
 
 
 def _remove_custom_provider(config):
-    """Let the user remove a saved custom provider from config.yaml."""
+    """让用户从 config.yaml 中删除已保存的自定义 provider。"""
     from kclaw_cli.config import load_config, save_config
 
     cfg = load_config()
@@ -1680,10 +1676,10 @@ def _remove_custom_provider(config):
 
 
 def _model_flow_named_custom(config, provider_info):
-    """Handle a named custom provider from config.yaml custom_providers list.
+    """处理 config.yaml custom_providers 列表中的命名自定义 provider。
 
-    If the entry has a saved model name, activates it immediately.
-    Otherwise probes the endpoint's /models API to let the user pick one.
+    如果条目有保存的模型名称，立即激活。
+    否则探测端点的 /models API 让用户选择。
     """
     from kclaw_cli.auth import _save_model_choice, deactivate_provider
     from kclaw_cli.config import load_config, save_config
@@ -1810,7 +1806,7 @@ def _set_reasoning_effort(config, effort: str) -> None:
 
 
 def _prompt_reasoning_effort_selection(efforts, current_effort=""):
-    """Prompt for a reasoning effort. Returns effort, 'none', or None to keep current."""
+    """提示选择推理力度。返回力度值、'none' 或 None 以保持当前设置。"""
     ordered = list(dict.fromkeys(str(effort).strip().lower() for effort in efforts if str(effort).strip()))
     if not ordered:
         return None
@@ -1888,7 +1884,7 @@ def _prompt_reasoning_effort_selection(efforts, current_effort=""):
 
 
 def _model_flow_copilot(config, current_model=""):
-    """GitHub Copilot flow using env vars, gh CLI, or OAuth device code."""
+    """GitHub Copilot 流程：使用环境变量、gh CLI 或 OAuth 设备代码。"""
     from kclaw_cli.auth import (
         PROVIDER_REGISTRY,
         _prompt_model_selection,
@@ -2060,7 +2056,7 @@ def _model_flow_copilot(config, current_model=""):
 
 
 def _model_flow_copilot_acp(config, current_model=""):
-    """GitHub Copilot ACP flow using the local Copilot CLI."""
+    """GitHub Copilot ACP 流程：使用本地 Copilot CLI。"""
     from kclaw_cli.auth import (
         PROVIDER_REGISTRY,
         _prompt_model_selection,
@@ -2161,12 +2157,12 @@ def _model_flow_copilot_acp(config, current_model=""):
 
 
 def _model_flow_kimi(config, current_model=""):
-    """Kimi / Moonshot model selection with automatic endpoint routing.
+    """Kimi / Moonshot 模型选择，支持自动端点路由。
 
-    - sk-kimi-* keys   → api.kimi.com/coding/v1  (Kimi Coding Plan)
-    - Other keys        → api.moonshot.ai/v1      (legacy Moonshot)
+    - sk-kimi-* 密钥 → api.kimi.com/coding/v1  (Kimi Coding Plan)
+    - 其他密钥     → api.moonshot.ai/v1      (旧版 Moonshot)
 
-    No manual base URL prompt — endpoint is determined by key prefix.
+    无需手动 base URL 提示 — 端点由密钥前缀决定。
     """
     from kclaw_cli.auth import (
         PROVIDER_REGISTRY, KIMI_CODE_BASE_URL, _prompt_model_selection,
@@ -2262,7 +2258,7 @@ def _model_flow_kimi(config, current_model=""):
 
 
 def _model_flow_api_key_provider(config, provider_id, current_model=""):
-    """Generic flow for API-key providers (z.ai, MiniMax, OpenCode, etc.)."""
+    """API 密钥 provider 的通用流程（z.ai、MiniMax、OpenCode 等）。"""
     from kclaw_cli.auth import (
         PROVIDER_REGISTRY, _prompt_model_selection, _save_model_choice,
         deactivate_provider,
@@ -2388,7 +2384,7 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
 
 
 def _run_anthropic_oauth_flow(save_env_value):
-    """Run the Claude OAuth setup-token flow. Returns True if credentials were saved."""
+    """运行 Claude OAuth setup-token 流程。成功保存凭据则返回 True。"""
     from agent.anthropic_adapter import (
         run_oauth_setup_token,
         read_claude_code_credentials,
@@ -2475,7 +2471,7 @@ def _run_anthropic_oauth_flow(save_env_value):
 
 
 def _model_flow_anthropic(config, current_model=""):
-    """Flow for Anthropic provider — OAuth subscription, API key, or Claude Code creds."""
+    """Anthropic provider 流程 — OAuth 订阅、API 密钥或 Claude Code 凭据。"""
     import os
     from kclaw_cli.auth import (
         PROVIDER_REGISTRY, _prompt_model_selection, _save_model_choice,
@@ -2602,61 +2598,61 @@ def _model_flow_anthropic(config, current_model=""):
 
 
 def cmd_login(args):
-    """Authenticate KClaw CLI with a provider."""
+    """认证 KClaw CLI 与 provider。"""
     from kclaw_cli.auth import login_command
     login_command(args)
 
 
 def cmd_logout(args):
-    """Clear provider authentication."""
+    """清除 provider 认证信息。"""
     from kclaw_cli.auth import logout_command
     logout_command(args)
 
 
 def cmd_auth(args):
-    """Manage pooled credentials."""
+    """管理凭据池。"""
     from kclaw_cli.auth_commands import auth_command
     auth_command(args)
 
 
 def cmd_status(args):
-    """Show status of all components."""
+    """显示所有组件的状态。"""
     from kclaw_cli.status import show_status
     show_status(args)
 
 
 def cmd_cron(args):
-    """Cron job management."""
+    """定时任务管理。"""
     from kclaw_cli.cron import cron_command
     cron_command(args)
 
 
 def cmd_webhook(args):
-    """Webhook subscription management."""
+    """Webhook 订阅管理。"""
     from kclaw_cli.webhook import webhook_command
     webhook_command(args)
 
 
 def cmd_doctor(args):
-    """Check configuration and dependencies."""
+    """检查配置和依赖。"""
     from kclaw_cli.doctor import run_doctor
     run_doctor(args)
 
 
 def cmd_dump(args):
-    """Dump setup summary for support/debugging."""
+    """导出配置摘要用于支持/调试。"""
     from kclaw_cli.dump import run_dump
     run_dump(args)
 
 
 def cmd_config(args):
-    """Configuration management."""
+    """配置管理。"""
     from kclaw_cli.config import config_command
     config_command(args)
 
 
 def cmd_version(args):
-    """Show version."""
+    """显示版本。"""
     print(f"KClaw Agent v{__version__} ({__release_date__})")
     print(f"Project: {PROJECT_ROOT}")
     
@@ -2688,21 +2684,20 @@ def cmd_version(args):
 
 
 def cmd_uninstall(args):
-    """Uninstall KClaw Agent."""
+    """卸载 KClaw Agent。"""
     _require_tty("uninstall")
     from kclaw_cli.uninstall import run_uninstall
     run_uninstall(args)
 
 
 def _clear_bytecode_cache(root: Path) -> int:
-    """Remove all __pycache__ directories under *root*.
+    """移除 *root* 下所有 __pycache__ 目录。
 
-    Stale .pyc files can cause ImportError after code updates when Python
-    loads a cached bytecode file that references names that no longer exist
-    (or don't yet exist) in the updated source.  Clearing them forces Python
-    to recompile from the .py source on next import.
+    代码更新后，过时的 .pyc 文件可能导致 ImportError，因为 Python
+    加载了引用已不存在的名称（或尚未存在的名称）的缓存字节码文件。
+    清除它们会强制 Python 在下次导入时从 .py 源文件重新编译。
 
-    Returns the number of directories removed.
+    返回移除的目录数量。
     """
     removed = 0
     for dirpath, dirnames, _ in os.walk(root):
@@ -2723,14 +2718,13 @@ def _clear_bytecode_cache(root: Path) -> int:
 
 
 def _gateway_prompt(prompt_text: str, default: str = "", timeout: float = 300.0) -> str:
-    """File-based IPC prompt for gateway mode.
+    """基于文件的 IPC 提示，用于 gateway 模式。
 
-    Writes a prompt marker file so the gateway can forward the question to the
-    user, then polls for a response file.  Falls back to *default* on timeout.
+    写入提示标记文件，以便 gateway 可以将问题转发给用户，
+    然后轮询响应文件。超时时回退到 *default*。
 
-    Used by ``kclaw update --gateway`` so interactive prompts (stash restore,
-    config migration) are forwarded to the messenger instead of being silently
-    skipped.
+    由 ``kclaw update --gateway`` 使用，使交互式提示（stash 恢复、
+    配置迁移）转发到消息平台而非被静默跳过。
     """
     import json as _json
     import uuid as _uuid
@@ -2774,10 +2768,10 @@ def _gateway_prompt(prompt_text: str, default: str = "", timeout: float = 300.0)
 
 
 def _update_via_zip(args):
-    """Update KClaw Agent by downloading a ZIP archive.
-    
-    Used on Windows when git file I/O is broken (antivirus, NTFS filter 
-    drivers causing 'Invalid argument' errors on file creation).
+    """通过下载 ZIP 归档更新 KClaw Agent。
+
+    在 Windows 上当 git 文件 I/O 损坏时使用（杀毒软件、NTFS 过滤器
+    驱动导致文件创建时出现 'Invalid argument' 错误）。
     """
     import shutil
     import tempfile
@@ -3087,7 +3081,7 @@ SKIP_UPSTREAM_PROMPT_FILE = ".skip_upstream_prompt"
 
 
 def _get_origin_url(git_cmd: list[str], cwd: Path) -> Optional[str]:
-    """Get the URL of the origin remote, or None if not set."""
+    """获取 origin 远程的 URL，未设置则返回 None。"""
     try:
         result = subprocess.run(
             git_cmd + ["remote", "get-url", "origin"],
@@ -3103,10 +3097,10 @@ def _get_origin_url(git_cmd: list[str], cwd: Path) -> Optional[str]:
 
 
 def _is_fork(origin_url: Optional[str]) -> bool:
-    """Check if the origin remote points to a fork (not the official repo)."""
+    """检查 origin 远程是否指向一个分支仓库（非官方仓库）。"""
     if not origin_url:
         return False
-    # Normalize URL for comparison (strip trailing .git if present)
+    # 规范化 URL 以进行比较（如有尾部 .git 则去除）
     normalized = origin_url.rstrip("/")
     if normalized.endswith(".git"):
         normalized = normalized[:-4]
@@ -3120,7 +3114,7 @@ def _is_fork(origin_url: Optional[str]) -> bool:
 
 
 def _has_upstream_remote(git_cmd: list[str], cwd: Path) -> bool:
-    """Check if an 'upstream' remote already exists."""
+    """检查 'upstream' 远程是否已存在。"""
     try:
         result = subprocess.run(
             git_cmd + ["remote", "get-url", "upstream"],
@@ -3134,7 +3128,7 @@ def _has_upstream_remote(git_cmd: list[str], cwd: Path) -> bool:
 
 
 def _add_upstream_remote(git_cmd: list[str], cwd: Path) -> bool:
-    """Add the official repo as the 'upstream' remote. Returns True on success."""
+    """将官方仓库添加为 'upstream' 远程。成功返回 True。"""
     try:
         result = subprocess.run(
             git_cmd + ["remote", "add", "upstream", OFFICIAL_REPO_URL],
@@ -3148,7 +3142,7 @@ def _add_upstream_remote(git_cmd: list[str], cwd: Path) -> bool:
 
 
 def _count_commits_between(git_cmd: list[str], cwd: Path, base: str, head: str) -> int:
-    """Count commits on `head` that are not on `base`. Returns -1 on error."""
+    """计算 `head` 上不在 `base` 上的提交数。错误时返回 -1。"""
     try:
         result = subprocess.run(
             git_cmd + ["rev-list", "--count", f"{base}..{head}"],
@@ -3164,13 +3158,13 @@ def _count_commits_between(git_cmd: list[str], cwd: Path, base: str, head: str) 
 
 
 def _should_skip_upstream_prompt() -> bool:
-    """Check if user previously declined to add upstream."""
+    """检查用户之前是否拒绝添加 upstream。"""
     from kclaw_constants import get_kclaw_home
     return (get_kclaw_home() / SKIP_UPSTREAM_PROMPT_FILE).exists()
 
 
 def _mark_skip_upstream_prompt():
-    """Create marker file to skip future upstream prompts."""
+    """创建标记文件以跳过未来的 upstream 提示。"""
     try:
         from kclaw_constants import get_kclaw_home
         (get_kclaw_home() / SKIP_UPSTREAM_PROMPT_FILE).touch()
@@ -3179,9 +3173,9 @@ def _mark_skip_upstream_prompt():
 
 
 def _sync_fork_with_upstream(git_cmd: list[str], cwd: Path) -> bool:
-    """Attempt to push updated main to origin (sync fork).
+    """尝试将更新的 main 推送到 origin（同步分支仓库）。
 
-    Returns True if push succeeded, False otherwise.
+    推送成功返回 True，否则返回 False。
     """
     try:
         result = subprocess.run(
@@ -3196,13 +3190,13 @@ def _sync_fork_with_upstream(git_cmd: list[str], cwd: Path) -> bool:
 
 
 def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
-    """Check if fork is behind upstream and sync if safe.
+    """检查分支仓库是否落后于上游，并在安全时同步。
 
-    This implements the fork upstream sync logic:
-    - If upstream remote doesn't exist, ask user if they want to add it
-    - Compare origin/main with upstream/main
-    - If origin/main is strictly behind upstream/main, pull from upstream
-    - Try to sync fork back to origin if possible
+    实现分支仓库上游同步逻辑：
+    - 如果 upstream 远程不存在，询问用户是否添加
+    - 比较 origin/main 与 upstream/main
+    - 如果 origin/main 严格落后于 upstream/main，从上游拉取
+    - 尝试将分支仓库同步回 origin（如可能）
     """
     has_upstream = _has_upstream_remote(git_cmd, cwd)
 
@@ -3298,11 +3292,10 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
 
 
 def _invalidate_update_cache():
-    """Delete the update-check cache for ALL profiles so no banner
-    reports a stale "commits behind" count after a successful update.
+    """删除所有 profile 的更新检查缓存，以免更新成功后横幅仍报告过时的 '落后 N 个提交' 计数。
 
-    The git repo is shared across profiles — when one profile runs
-    ``kclaw update``, every profile is now current.
+    git 仓库在所有 profile 间共享 — 当一个 profile 运行
+    ``kclaw update`` 后，所有 profile 都已是最新。
     """
     homes = []
     # Default profile home
@@ -3324,12 +3317,11 @@ def _invalidate_update_cache():
 
 
 def _load_installable_optional_extras() -> list[str]:
-    """Return the optional extras referenced by the ``all`` group.
+    """返回 ``all`` 组引用的可选依赖。
 
-    Only extras that ``[all]`` actually pulls in are retried individually.
-    Extras outside ``[all]`` (e.g. ``rl``, ``yc-bench``) are intentionally
-    excluded — they have heavy or platform-specific deps that most users
-    never installed.
+    仅重试 ``[all]`` 实际拉入的可选依赖。
+    ``[all]`` 之外的可选依赖（如 ``rl``、``yc-bench``）被有意排除 —
+    它们有重度或平台特定的依赖，大多数用户从未安装。
     """
     try:
         import tomllib
@@ -3361,7 +3353,7 @@ def _install_python_dependencies_with_optional_fallback(
     *,
     env: dict[str, str] | None = None,
 ) -> None:
-    """Install base deps plus as many optional extras as the environment supports."""
+    """安装基础依赖及尽可能多的可选依赖。"""
     try:
         subprocess.run(
             install_cmd_prefix + ["install", "-e", ".[all]", "--quiet"],
@@ -3401,7 +3393,7 @@ def _install_python_dependencies_with_optional_fallback(
 
 
 def cmd_update(args):
-    """Update KClaw Agent to the latest version."""
+    """更新 KClaw Agent 到最新版本。"""
     import shutil
     from kclaw_cli.config import is_managed, managed_error
 
@@ -3875,15 +3867,14 @@ def cmd_update(args):
 
 
 def _coalesce_session_name_args(argv: list) -> list:
-    """Join unquoted multi-word session names after -c/--continue and -r/--resume.
+    """合并 -c/--continue 和 -r/--resume 后未加引号的多词会话名称。
 
-    When a user types ``kclaw -c Pokemon Agent Dev`` without quoting the
-    session name, argparse sees three separate tokens.  This function merges
-    them into a single argument so argparse receives
-    ``['-c', 'Pokemon Agent Dev']`` instead.
+    当用户输入 ``kclaw -c Pokemon Agent Dev`` 而未给会话名称加引号时，
+    argparse 会看到三个独立的标记。此函数将它们合并为一个参数，
+    使 argparse 收到 ``['-c', 'Pokemon Agent Dev']`` 而非三个标记。
 
-    Tokens are collected after the flag until we hit another flag (``-*``)
-    or a known top-level subcommand.
+    标记在标志之后收集，直到遇到另一个标志（``-*``）
+    或已知的顶级子命令。
     """
     _SUBCOMMANDS = {
         "chat", "model", "gateway", "setup", "whatsapp", "login", "logout", "auth",
@@ -3900,7 +3891,7 @@ def _coalesce_session_name_args(argv: list) -> list:
         if token in _SESSION_FLAGS:
             result.append(token)
             i += 1
-            # Collect subsequent non-flag, non-subcommand tokens as one name
+            # 收集后续非标志、非子命令的标记为一个名称
             parts: list = []
             while i < len(argv) and not argv[i].startswith("-") and argv[i] not in _SUBCOMMANDS:
                 parts.append(argv[i])
@@ -3914,7 +3905,7 @@ def _coalesce_session_name_args(argv: list) -> list:
 
 
 def cmd_profile(args):
-    """Profile management — create, delete, list, switch, alias."""
+    """档案管理 — 创建、删除、列表、切换、别名。"""
     from kclaw_cli.profiles import (
         list_profiles, create_profile, delete_profile, seed_profile_skills,
         set_active_profile, get_active_profile_name,
@@ -3926,7 +3917,7 @@ def cmd_profile(args):
     action = getattr(args, "profile_action", None)
 
     if action is None:
-        # Bare `kclaw profile` — show current profile status
+        # 裸命令 `kclaw profile` — 显示当前档案状态
         profile_name = get_active_profile_name()
         dhh = display_kclaw_home()
         print(f"\nActive profile: {profile_name}")
@@ -3953,7 +3944,7 @@ def cmd_profile(args):
             print("No profiles found.")
             return
 
-        # Header
+        # 标题行
         print(f"\n {'Profile':<16} {'Model':<28} {'Gateway':<12} {'Alias'}")
         print(f" {'─' * 15}    {'─' * 27}    {'─' * 11}    {'─' * 12}")
 
@@ -4159,7 +4150,7 @@ def cmd_profile(args):
 
 
 def cmd_completion(args):
-    """Print shell completion script."""
+    """打印 shell 补全脚本。"""
     from kclaw_cli.profiles import generate_bash_completion, generate_zsh_completion
     shell = getattr(args, "shell", "bash")
     if shell == "zsh":
@@ -4169,7 +4160,7 @@ def cmd_completion(args):
 
 
 def cmd_logs(args):
-    """View and filter KClaw log files."""
+    """查看和过滤 KClaw 日志文件。"""
     from kclaw_cli.logs import tail_log, list_logs
 
     log_name = getattr(args, "log_name", "agent") or "agent"
@@ -4189,7 +4180,7 @@ def cmd_logs(args):
 
 
 def main():
-    """Main entry point for kclaw CLI."""
+    """kclaw CLI 的主入口点。"""
     parser = argparse.ArgumentParser(
         prog="kclaw",
         description="KClaw Agent - AI assistant with tool-calling capabilities",
@@ -5156,7 +5147,7 @@ For more help on a command:
     sessions_browse.add_argument("--limit", type=int, default=50, help="Max sessions to load (default: 50)")
 
     def _confirm_prompt(prompt: str) -> bool:
-        """Prompt for y/N confirmation, safe against non-TTY environments."""
+        """提示 y/N 确认，对非 TTY 环境安全。"""
         try:
             return input(prompt).strip().lower() in ("y", "yes")
         except (EOFError, KeyboardInterrupt):
@@ -5173,7 +5164,7 @@ For more help on a command:
 
         action = args.sessions_action
 
-        # Hide third-party tool sessions by default, but honour explicit --source
+        # 默认隐藏第三方工具会话，但遵守显式 --source 参数
         _source = getattr(args, "source", None)
         _exclude = None if _source else ["tool"]
 
@@ -5283,19 +5274,19 @@ For more help on a command:
                 print("Cancelled.")
                 return
 
-            # Launch kclaw --resume <id> by replacing the current process
+            # 通过替换当前进程启动 kclaw --resume <id>
             print(f"Resuming session: {selected_id}")
             import shutil
             kclaw_bin = shutil.which("kclaw")
             if kclaw_bin:
                 os.execvp(kclaw_bin, ["kclaw", "--resume", selected_id])
             else:
-                # Fallback: re-invoke via python -m
+                # 回退：通过 python -m 重新调用
                 os.execvp(
                     sys.executable,
                     [sys.executable, "-m", "kclaw_cli.main", "--resume", selected_id],
                 )
-            return  # won't reach here after execvp
+            return  # execvp 后不会执行到这里
 
         elif action == "stats":
             total = db.session_count()
@@ -5482,7 +5473,7 @@ For more help on a command:
     )
 
     def cmd_acp(args):
-        """Launch KClaw Agent as an ACP server."""
+        """将 KClaw Agent 启动为 ACP 服务器。"""
         try:
             from acp_adapter.entry import main as acp_main
             acp_main()
@@ -5611,18 +5602,18 @@ Examples:
     # =========================================================================
     # Parse and execute
     # =========================================================================
-    # Pre-process argv so unquoted multi-word session names after -c / -r
-    # are merged into a single token before argparse sees them.
-    # e.g. ``kclaw -c Pokemon Agent Dev`` → ``kclaw -c 'Pokemon Agent Dev'``
+    # 预处理 argv，将 -c / -r 后未加引号的多词会话名称
+    # 合并为单个标记，再交给 argparse。
+    # 例如 ``kclaw -c Pokemon Agent Dev`` → ``kclaw -c 'Pokemon Agent Dev'``
     _processed_argv = _coalesce_session_name_args(sys.argv[1:])
     args = parser.parse_args(_processed_argv)
     
-    # Handle --version flag
+    # 处理 --version 标志
     if args.version:
         cmd_version(args)
         return
     
-    # Handle top-level --resume / --continue as shortcut to chat
+    # 将顶层 --resume / --continue 作为 chat 的快捷方式处理
     if (args.resume or args.continue_last) and args.command is None:
         args.command = "chat"
         args.query = None
@@ -5635,7 +5626,7 @@ Examples:
         cmd_chat(args)
         return
     
-    # Default to chat if no command specified
+    # 未指定命令时默认进入 chat
     if args.command is None:
         args.query = None
         args.model = None
@@ -5649,7 +5640,7 @@ Examples:
         cmd_chat(args)
         return
     
-    # Execute the command
+    # 执行命令
     if hasattr(args, 'func'):
         args.func(args)
     else:
