@@ -1,22 +1,22 @@
 """
-Event Hook System
+事件钩子系统
 
-A lightweight event-driven system that fires handlers at key lifecycle points.
-Hooks are discovered from ~/.kclaw/hooks/ directories, each containing:
-  - HOOK.yaml  (metadata: name, description, events list)
-  - handler.py (Python handler with async def handle(event_type, context))
+一个轻量级的事件驱动系统，在关键生命周期点触发处理程序。
+钩子从 ~/.kclaw/hooks/ 目录发现，每个包含：
+  - HOOK.yaml（元数据：name、description、events 列表）
+  - handler.py（带 async def handle(event_type, context) 的 Python 处理程序）
 
-Events:
-  - gateway:startup     -- Gateway process starts
-  - session:start       -- New session created (first message of a new session)
-  - session:end         -- Session ends (user ran /new or /reset)
-  - session:reset       -- Session reset completed (new session entry created)
-  - agent:start         -- Agent begins processing a message
-  - agent:step          -- Each turn in the tool-calling loop
-  - agent:end           -- Agent finishes processing
-  - command:*           -- Any slash command executed (wildcard match)
+事件：
+  - gateway:startup     -- 网关进程启动
+  - session:start       -- 新会话创建（首个新会话消息）
+  - session:end         -- 会话结束（用户运行了 /new 或 /reset）
+  - session:reset       -- 会话重置完成（创建了新的会话条目）
+  - agent:start         -- 代理开始处理消息
+  - agent:step          -- 工具调用循环中的每个回合
+  - agent:end           -- 代理完成处理
+  - command:*           -- 执行的任何斜杠命令（通配符匹配）
 
-Errors in hooks are caught and logged but never block the main pipeline.
+钩子中的错误被捕获并记录，但从不阻塞主管道。
 """
 
 import asyncio
@@ -33,9 +33,9 @@ HOOKS_DIR = get_kclaw_home() / "hooks"
 
 class HookRegistry:
     """
-    Discovers, loads, and fires event hooks.
+    发现、加载和触发事件钩子。
 
-    Usage:
+    用法：
         registry = HookRegistry()
         registry.discover_and_load()
         await registry.emit("agent:start", {"platform": "telegram", ...})
@@ -44,15 +44,15 @@ class HookRegistry:
     def __init__(self):
         # event_type -> [handler_fn, ...]
         self._handlers: Dict[str, List[Callable]] = {}
-        self._loaded_hooks: List[dict] = []  # metadata for listing
+        self._loaded_hooks: List[dict] = []  # 用于列表的元数据
 
     @property
     def loaded_hooks(self) -> List[dict]:
-        """Return metadata about all loaded hooks."""
+        """返回所有已加载钩子的元数据。"""
         return list(self._loaded_hooks)
 
     def _register_builtin_hooks(self) -> None:
-        """Register built-in hooks that are always active."""
+        """注册始终处于活动状态的内置钩子。"""
         try:
             from gateway.builtin_hooks.boot_md import handle as boot_md_handle
 
@@ -64,17 +64,17 @@ class HookRegistry:
                 "path": "(builtin)",
             })
         except Exception as e:
-            print(f"[hooks] Could not load built-in boot-md hook: {e}", flush=True)
+            print(f"[钩子] 无法加载内置 boot-md 钩子: {e}", flush=True)
 
     def discover_and_load(self) -> None:
         """
-        Scan the hooks directory for hook directories and load their handlers.
+        扫描钩子目录以查找钩子目录并加载其处理程序。
 
-        Also registers built-in hooks that are always active.
+        还注册始终处于活动状态的内置钩子。
 
-        Each hook directory must contain:
-          - HOOK.yaml with at least 'name' and 'events' keys
-          - handler.py with a top-level 'handle' function (sync or async)
+        每个钩子目录必须包含：
+          - HOOK.yaml 至少包含 'name' 和 'events' 键
+          - handler.py 带顶级 'handle' 函数（同步或异步）
         """
         self._register_builtin_hooks()
 
@@ -94,21 +94,21 @@ class HookRegistry:
             try:
                 manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
                 if not manifest or not isinstance(manifest, dict):
-                    print(f"[hooks] Skipping {hook_dir.name}: invalid HOOK.yaml", flush=True)
+                    print(f"[钩子] 跳过 {hook_dir.name}: 无效的 HOOK.yaml", flush=True)
                     continue
 
                 hook_name = manifest.get("name", hook_dir.name)
                 events = manifest.get("events", [])
                 if not events:
-                    print(f"[hooks] Skipping {hook_name}: no events declared", flush=True)
+                    print(f"[钩子] 跳过 {hook_name}: 未声明事件", flush=True)
                     continue
 
-                # Dynamically load the handler module
+                # 动态加载处理程序模块
                 spec = importlib.util.spec_from_file_location(
                     f"kclaw_hook_{hook_name}", handler_path
                 )
                 if spec is None or spec.loader is None:
-                    print(f"[hooks] Skipping {hook_name}: could not load handler.py", flush=True)
+                    print(f"[钩子] 跳过 {hook_name}: 无法加载 handler.py", flush=True)
                     continue
 
                 module = importlib.util.module_from_spec(spec)
@@ -116,10 +116,10 @@ class HookRegistry:
 
                 handle_fn = getattr(module, "handle", None)
                 if handle_fn is None:
-                    print(f"[hooks] Skipping {hook_name}: no 'handle' function found", flush=True)
+                    print(f"[钩子] 跳过 {hook_name}: 未找到 'handle' 函数", flush=True)
                     continue
 
-                # Register the handler for each declared event
+                # 为每个声明的事件注册处理程序
                 for event in events:
                     self._handlers.setdefault(event, []).append(handle_fn)
 
@@ -130,23 +130,23 @@ class HookRegistry:
                     "path": str(hook_dir),
                 })
 
-                print(f"[hooks] Loaded hook '{hook_name}' for events: {events}", flush=True)
+                print(f"[钩子] 已加载钩子 '{hook_name}' 用于事件: {events}", flush=True)
 
             except Exception as e:
-                print(f"[hooks] Error loading hook {hook_dir.name}: {e}", flush=True)
+                print(f"[钩子] 加载钩子 {hook_dir.name} 时出错: {e}", flush=True)
 
     async def emit(self, event_type: str, context: Optional[Dict[str, Any]] = None) -> None:
         """
-        Fire all handlers registered for an event.
+        触发为事件注册的所有处理程序。
 
-        Supports wildcard matching: handlers registered for "command:*" will
-        fire for any "command:..." event. Handlers registered for a base type
-        like "agent" won't fire for "agent:start" -- only exact matches and
-        explicit wildcards.
+        支持通配符匹配：注册用于 "command:*" 的处理程序将
+        为任何 "command:..." 事件触发。为基本类型
+        如 "agent" 注册的处理程序不会为 "agent:start" 触发 — 
+        仅精确匹配和显式通配符。
 
-        Args:
-            event_type: The event identifier (e.g. "agent:start").
-            context:    Optional dict with event-specific data.
+        参数：
+            event_type: 事件标识符（例如 "agent:start"）。
+            context:    带有事件特定数据的可选字典。
         """
         if context is None:
             context = {}
@@ -167,4 +167,4 @@ class HookRegistry:
                 if asyncio.iscoroutine(result):
                     await result
             except Exception as e:
-                print(f"[hooks] Error in handler for '{event_type}': {e}", flush=True)
+                print(f"[钩子] '{event_type}' 的处理程序出错: {e}", flush=True)

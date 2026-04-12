@@ -1,1 +1,1 @@
-"""Built-in gateway hooks that are always registered."""
+"""内置的网关钩子，始终注册。"""

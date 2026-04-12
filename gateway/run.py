@@ -1,15 +1,15 @@
 """
-Gateway runner - entry point for messaging platform integrations.
+Gateway 运行器 - 消息平台集成的入口点。
 
-This module provides:
-- start_gateway(): Start all configured platform adapters
-- GatewayRunner: Main class managing the gateway lifecycle
+本模块提供：
+- start_gateway()：启动所有已配置的平台适配器
+- GatewayRunner：管理 gateway 生命周期的主类
 
-Usage:
-    # Start the gateway
+用法：
+    # 启动 gateway
     python -m gateway.run
     
-    # Or from CLI
+    # 或从 CLI
     python cli.py --gateway
 """
 
@@ -29,24 +29,24 @@ from datetime import datetime
 from typing import Dict, Optional, Any, List
 
 # ---------------------------------------------------------------------------
-# SSL certificate auto-detection for NixOS and other non-standard systems.
-# Must run BEFORE any HTTP library (discord, aiohttp, etc.) is imported.
+# SSL 证书自动检测，用于 NixOS 和其他非标准系统。
+# 必须在任何 HTTP 库（discord、aiohttp 等）导入之前运行。
 # ---------------------------------------------------------------------------
 def _ensure_ssl_certs() -> None:
-    """Set SSL_CERT_FILE if the system doesn't expose CA certs to Python."""
+    """如果系统未向 Python 暴露 CA 证书，则设置 SSL_CERT_FILE。"""
     if "SSL_CERT_FILE" in os.environ:
-        return  # user already configured it
+        return  # 用户已配置
 
     import ssl
 
-    # 1. Python's compiled-in defaults
+    # 1. Python 编译时默认设置
     paths = ssl.get_default_verify_paths()
     for candidate in (paths.cafile, paths.openssl_cafile):
         if candidate and os.path.exists(candidate):
             os.environ["SSL_CERT_FILE"] = candidate
             return
 
-    # 2. certifi (ships its own Mozilla bundle)
+    # 2. certifi（附带自己的 Mozilla 证书包）
     try:
         import certifi
         os.environ["SSL_CERT_FILE"] = certifi.where()
@@ -54,7 +54,7 @@ def _ensure_ssl_certs() -> None:
     except ImportError:
         pass
 
-    # 3. Common distro / macOS locations
+    # 3. 常见发行版 / macOS 位置
     for candidate in (
         "/etc/ssl/certs/ca-certificates.crt",               # Debian/Ubuntu/Gentoo
         "/etc/pki/tls/certs/ca-bundle.crt",                 # RHEL/CentOS 7
@@ -71,38 +71,38 @@ def _ensure_ssl_certs() -> None:
 
 _ensure_ssl_certs()
 
-# Add parent directory to path
+# 将父目录添加到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Resolve KClaw home directory (respects KCLAW_HOME override)
+# 解析 KClaw 主目录（尊重 KCLAW_HOME 覆盖）
 from kclaw_constants import get_kclaw_home
 from utils import atomic_yaml_write
 _kclaw_home = get_kclaw_home()
 
-# Load environment variables from ~/.kclaw/.env first.
-# User-managed env files should override stale shell exports on restart.
-from dotenv import load_dotenv  # backward-compat for tests that monkeypatch this symbol
+# 加载环境变量 - 优先从 ~/.kclaw/.env 读取。
+# 用户管理的环境文件应该在重启时覆盖过时的 shell 导出。
+from dotenv import load_dotenv  # 向后兼容用于测试中猴子补丁此符号
 from kclaw_cli.env_loader import load_kclaw_dotenv
 _env_path = _kclaw_home / '.env'
 load_kclaw_dotenv(kclaw_home=_kclaw_home, project_env=Path(__file__).resolve().parents[1] / '.env')
 
-# Bridge config.yaml values into the environment so os.getenv() picks them up.
-# config.yaml is authoritative for terminal settings — overrides .env.
+# 将 config.yaml 值桥接到环境变量，以便 os.getenv() 获取。
+# config.yaml 是终端设置的权威来源 — 覆盖 .env。
 _config_path = _kclaw_home / 'config.yaml'
 if _config_path.exists():
     try:
         import yaml as _yaml
         with open(_config_path, encoding="utf-8") as _f:
             _cfg = _yaml.safe_load(_f) or {}
-        # Expand ${ENV_VAR} references before bridging to env vars.
+        # 在桥接到环境变量之前展开 ${ENV_VAR} 引用。
         from kclaw_cli.config import _expand_env_vars
         _cfg = _expand_env_vars(_cfg)
-        # Top-level simple values (fallback only — don't override .env)
+        # 顶层简单值（仅回退 — 不要覆盖 .env）
         for _key, _val in _cfg.items():
             if isinstance(_val, (str, int, float, bool)) and _key not in os.environ:
                 os.environ[_key] = str(_val)
-        # Terminal config is nested — bridge to TERMINAL_* env vars.
-        # config.yaml overrides .env for these since it's the documented config path.
+        # 终端配置是嵌套的 — 桥接到 TERMINAL_* 环境变量。
+        # config.yaml 覆盖 .env 因为这是文档化的配置路径。
         _terminal_cfg = _cfg.get("terminal", {})
         if _terminal_cfg and isinstance(_terminal_cfg, dict):
             _terminal_env_map = {
@@ -134,10 +134,10 @@ if _config_path.exists():
                         os.environ[_env_var] = json.dumps(_val)
                     else:
                         os.environ[_env_var] = str(_val)
-        # Compression config is read directly from config.yaml by run_agent.py
-        # and auxiliary_client.py — no env var bridging needed.
-        # Auxiliary model/direct-endpoint overrides (vision, web_extract).
-        # Each task has provider/model/base_url/api_key; bridge non-default values to env vars.
+        # 压缩配置由 run_agent.py 直接从 config.yaml 读取
+        # 和 auxiliary_client.py — 无需环境变量桥接。
+        # 辅助模型/直接端点覆盖 (vision, web_extract)。
+        # 每个任务有 provider/model/base_url/api_key；将非默认值桥接到环境变量。
         _auxiliary_cfg = _cfg.get("auxiliary", {})
         if _auxiliary_cfg and isinstance(_auxiliary_cfg, dict):
             _aux_task_env = {
@@ -180,42 +180,42 @@ if _config_path.exists():
         if _agent_cfg and isinstance(_agent_cfg, dict):
             if "max_turns" in _agent_cfg:
                 os.environ["KCLAW_MAX_ITERATIONS"] = str(_agent_cfg["max_turns"])
-            # Bridge agent.gateway_timeout → KCLAW_AGENT_TIMEOUT env var.
-            # Env var from .env takes precedence (already in os.environ).
+            # 桥接 agent.gateway_timeout → KCLAW_AGENT_TIMEOUT 环境变量。
+            # .env 中的环境变量优先（已在 os.environ 中）。
             if "gateway_timeout" in _agent_cfg and "KCLAW_AGENT_TIMEOUT" not in os.environ:
                 os.environ["KCLAW_AGENT_TIMEOUT"] = str(_agent_cfg["gateway_timeout"])
             if "gateway_timeout_warning" in _agent_cfg and "KCLAW_AGENT_TIMEOUT_WARNING" not in os.environ:
                 os.environ["KCLAW_AGENT_TIMEOUT_WARNING"] = str(_agent_cfg["gateway_timeout_warning"])
-        # Timezone: bridge config.yaml → KCLAW_TIMEZONE env var.
-        # KCLAW_TIMEZONE from .env takes precedence (already in os.environ).
+        # 时区：桥接 config.yaml → KCLAW_TIMEZONE 环境变量。
+        # .env 中的 KCLAW_TIMEZONE 优先（已在 os.environ 中）。
         _tz_cfg = _cfg.get("timezone", "")
         if _tz_cfg and isinstance(_tz_cfg, str) and "KCLAW_TIMEZONE" not in os.environ:
             os.environ["KCLAW_TIMEZONE"] = _tz_cfg.strip()
-        # Security settings
+        # 安全设置
         _security_cfg = _cfg.get("security", {})
         if isinstance(_security_cfg, dict):
             _redact = _security_cfg.get("redact_secrets")
             if _redact is not None:
                 os.environ["KCLAW_REDACT_SECRETS"] = str(_redact).lower()
     except Exception:
-        pass  # Non-fatal; gateway can still run with .env values
+        pass  # 非致命；gateway 仍可以使用 .env 值运行
 
-# Validate config structure early — log warnings so gateway operators see problems
+# 尽早验证配置结构 — 记录警告以便 gateway 运营商看到问题
 try:
     from kclaw_cli.config import print_config_warnings
     print_config_warnings()
 except Exception:
     pass
 
-# Gateway runs in quiet mode - suppress debug output and use cwd directly (no temp dirs)
+# Gateway 以安静模式运行 - 抑制调试输出并直接使用 cwd（无临时目录）
 os.environ["KCLAW_QUIET"] = "1"
 
-# Enable interactive exec approval for dangerous commands on messaging platforms
+# 在消息平台上启用危险命令的交互式执行审批
 os.environ["KCLAW_EXEC_ASK"] = "1"
 
-# Set terminal working directory for messaging platforms.
-# If the user set an explicit path in config.yaml (not "." or "auto"),
-# respect it. Otherwise use MESSAGING_CWD or default to home directory.
+# 为消息平台设置终端工作目录。
+# 如果用户在 config.yaml 中设置了显式路径（非 "." 或 "auto"），
+# 尊重它。否则使用 MESSAGING_CWD 或默认为主目录。
 _configured_cwd = os.environ.get("TERMINAL_CWD", "")
 if not _configured_cwd or _configured_cwd in (".", "auto", "cwd"):
     messaging_cwd = os.getenv("MESSAGING_CWD") or str(Path.home())
@@ -239,7 +239,7 @@ from gateway.platforms.base import BasePlatformAdapter, MessageEvent, MessageTyp
 
 
 def _normalize_whatsapp_identifier(value: str) -> str:
-    """Strip WhatsApp JID/LID syntax down to its stable numeric identifier."""
+    """将 WhatsApp JID/LID 语法剥离为其稳定的数字标识符。"""
     return (
         str(value or "")
         .strip()
@@ -250,7 +250,7 @@ def _normalize_whatsapp_identifier(value: str) -> str:
 
 
 def _expand_whatsapp_auth_aliases(identifier: str) -> set:
-    """Resolve WhatsApp phone/LID aliases using bridge session mapping files."""
+    """使用桥接会话映射文件解析 WhatsApp phone/LID 别名。"""
     normalized = _normalize_whatsapp_identifier(identifier)
     if not normalized:
         return set()
@@ -282,15 +282,15 @@ def _expand_whatsapp_auth_aliases(identifier: str) -> set:
 
 logger = logging.getLogger(__name__)
 
-# Sentinel placed into _running_agents immediately when a session starts
-# processing, *before* any await.  Prevents a second message for the same
-# session from bypassing the "already running" guard during the async gap
-# between the guard check and actual agent creation.
+# 哨兵，在会话开始处理时立即放入 _running_agents，
+# *在任何 await 之前*。防止第二个相同会话的消息
+# 在保护检查和实际代理创建之间的异步间隙期间
+# 绕过 "already running" 保护。
 _AGENT_PENDING_SENTINEL = object()
 
 
 def _resolve_runtime_agent_kwargs() -> dict:
-    """Resolve provider credentials for gateway-created AIAgent instances."""
+    """为 gateway 创建的 AIAgent 实例解析提供商凭据。"""
     from kclaw_cli.runtime_provider import (
         resolve_runtime_provider,
         format_runtime_provider_error,
@@ -315,12 +315,11 @@ def _resolve_runtime_agent_kwargs() -> dict:
 
 
 def _build_media_placeholder(event) -> str:
-    """Build a text placeholder for media-only events so they aren't dropped.
+    """为纯媒体事件构建文本占位符，以免它们被丢弃。
 
-    When a photo/document is queued during active processing and later
-    dequeued, only .text is extracted.  If the event has no caption,
-    the media would be silently lost.  This builds a placeholder that
-    the vision enrichment pipeline will replace with a real description.
+    当照片/文档在活动处理期间排队，稍后出队时，只提取 .text。
+    如果事件没有标题，媒体将静默丢失。这构建一个占位符，
+    视觉富化管道将用真实描述替换它。
     """
     parts = []
     media_urls = getattr(event, "media_urls", None) or []
@@ -328,19 +327,19 @@ def _build_media_placeholder(event) -> str:
     for i, url in enumerate(media_urls):
         mtype = media_types[i] if i < len(media_types) else ""
         if mtype.startswith("image/") or getattr(event, "message_type", None) == MessageType.PHOTO:
-            parts.append(f"[User sent an image: {url}]")
+            parts.append(f"[用户发送了一张图片: {url}]")
         elif mtype.startswith("audio/"):
-            parts.append(f"[User sent audio: {url}]")
+            parts.append(f"[用户发送了音频: {url}]")
         else:
-            parts.append(f"[User sent a file: {url}]")
+            parts.append(f"[用户发送了一个文件: {url}]")
     return "\n".join(parts)
 
 
 def _dequeue_pending_text(adapter, session_key: str) -> str | None:
-    """Consume and return the text of a pending queued message.
+    """消费并返回排队消息的文本。
 
-    Preserves media context for captionless photo/document events by
-    building a placeholder so the message isn't silently dropped.
+    通过构建占位符保留无标题照片/文档事件的媒体上下文，
+    以便消息不会被静默丢弃。
     """
     event = adapter.get_pending_message(session_key)
     if not event:
@@ -352,19 +351,19 @@ def _dequeue_pending_text(adapter, session_key: str) -> str | None:
 
 
 def _check_unavailable_skill(command_name: str) -> str | None:
-    """Check if a command matches a known-but-inactive skill.
+    """检查命令是否匹配已知但未激活的技能。
 
-    Returns a helpful message if the skill exists but is disabled or only
-    available as an optional install. Returns None if no match found.
+    如果技能存在但被禁用或仅作为可选安装可用，返回有帮助的消息。
+    如果没有找到匹配则返回 None。
     """
-    # Normalize: command uses hyphens, skill names may use hyphens or underscores
+    # 规范化：命令使用连字符，技能名称可能使用连字符或下划线
     normalized = command_name.lower().replace("_", "-")
     try:
         from tools.skills_tool import _get_disabled_skill_names
         from agent.skill_utils import get_all_skills_dirs
         disabled = _get_disabled_skill_names()
 
-        # Check disabled skills across all dirs (local + external)
+        # 检查所有目录的禁用技能（本地 + 外部）
         for skills_dir in get_all_skills_dirs():
             if not skills_dir.exists():
                 continue
@@ -374,11 +373,11 @@ def _check_unavailable_skill(command_name: str) -> str | None:
                 name = skill_md.parent.name.lower().replace("_", "-")
                 if name == normalized and name in disabled:
                     return (
-                        f"The **{command_name}** skill is installed but disabled.\n"
-                        f"Enable it with: `kclaw skills config`"
+                        f"**{command_name}** 技能已安装但被禁用。\n"
+                        f"使用以下命令启用：``kclaw skills config``"
                     )
 
-        # Check optional skills (shipped with repo but not installed)
+        # 检查可选技能（随仓库附带但未安装）
         from kclaw_constants import get_optional_skills_dir
         repo_root = Path(__file__).resolve().parent.parent
         optional_dir = get_optional_skills_dir(repo_root / "optional-skills")
@@ -386,13 +385,13 @@ def _check_unavailable_skill(command_name: str) -> str | None:
             for skill_md in optional_dir.rglob("SKILL.md"):
                 name = skill_md.parent.name.lower().replace("_", "-")
                 if name == normalized:
-                    # Build install path: official/<category>/<name>
+                    # 构建安装路径：official/<category>/<name>
                     rel = skill_md.parent.relative_to(optional_dir)
                     parts = list(rel.parts)
                     install_path = f"official/{'/'.join(parts)}"
                     return (
-                        f"The **{command_name}** skill is available but not installed.\n"
-                        f"Install it with: `kclaw skills install {install_path}`"
+                        f"**{command_name}** 技能可用但未安装。\n"
+                        f"使用以下命令安装：``kclaw skills install {install_path}``"
                     )
     except Exception:
         pass
@@ -400,12 +399,12 @@ def _check_unavailable_skill(command_name: str) -> str | None:
 
 
 def _platform_config_key(platform: "Platform") -> str:
-    """Map a Platform enum to its config.yaml key (LOCAL→"cli", rest→enum value)."""
+    """将 Platform 枚举映射到其 config.yaml 键（LOCAL→"cli"，其余→枚举值）。"""
     return "cli" if platform == Platform.LOCAL else platform.value
 
 
 def _load_gateway_config() -> dict:
-    """Load and parse ~/.kclaw/config.yaml, returning {} on any error."""
+    """加载并解析 ~/.kclaw/config.yaml，任意错误时返回 {}。"""
     try:
         config_path = _kclaw_home / 'config.yaml'
         if config_path.exists():
@@ -413,16 +412,15 @@ def _load_gateway_config() -> dict:
             with open(config_path, 'r', encoding='utf-8') as f:
                 return yaml.safe_load(f) or {}
     except Exception:
-        logger.debug("Could not load gateway config from %s", _kclaw_home / 'config.yaml')
+        logger.debug("无法从 %s 加载 gateway 配置", _kclaw_home / 'config.yaml')
     return {}
 
 
 def _resolve_gateway_model(config: dict | None = None) -> str:
-    """Read model from config.yaml — single source of truth.
+    """从 config.yaml 读取模型 — 单一真相来源。
 
-    Without this, temporary AIAgent instances (memory flush, /compress) fall
-    back to the hardcoded default which fails when the active provider is
-    openai-codex.
+    没有这个，临时 AIAgent 实例（内存刷新、/compress）会回退到
+    当活动提供商是 openai-codex 时会失败的硬编码默认值。
     """
     cfg = config if config is not None else _load_gateway_config()
     model_cfg = cfg.get("model", {})
@@ -434,14 +432,14 @@ def _resolve_gateway_model(config: dict | None = None) -> str:
 
 
 def _resolve_kclaw_bin() -> Optional[list[str]]:
-    """Resolve the KClaw update command as argv parts.
+    """将 KClaw 更新命令解析为 argv 部分。
 
-    Tries in order:
-    1. ``shutil.which("kclaw")`` — standard PATH lookup
-    2. ``sys.executable -m kclaw_cli.main`` — fallback when KClaw is running
-       from a venv/module invocation and the ``kclaw`` shim is not on PATH
+    按顺序尝试：
+    1. ``shutil.which("kclaw")`` — 标准 PATH 查找
+    2. ``sys.executable -m kclaw_cli.main`` — 当 KClaw 从
+       venv/module 调用运行且 ``kclaw`` shim 不在 PATH 上时的回退
 
-    Returns argv parts ready for quoting/joining, or ``None`` if neither works.
+    返回可供引用/连接的准备好的 argv 部分，如果都不行则返回 ``None``。
     """
     import shutil
 
@@ -462,22 +460,22 @@ def _resolve_kclaw_bin() -> Optional[list[str]]:
 
 class GatewayRunner:
     """
-    Main gateway controller.
+    主 gateway 控制器。
 
-    Manages the lifecycle of all platform adapters and routes
-    messages to/from the agent.
+    管理所有平台适配器的生命周期以及
+    与代理之间的消息路由。
     """
 
-    # Class-level defaults so partial construction in tests doesn't
-    # blow up on attribute access.
+    # 类级别默认值，以便测试中的部分构造不会
+    # 在属性访问时崩溃。
     _running_agents_ts: Dict[str, float] = {}
     
     def __init__(self, config: Optional[GatewayConfig] = None):
         self.config = config or load_gateway_config()
         self.adapters: Dict[Platform, BasePlatformAdapter] = {}
 
-        # Load ephemeral config from config.yaml / env vars.
-        # Both are injected at API-call time only and never persisted.
+        # 从 config.yaml / 环境变量加载临时配置。
+        # 两者都在 API 调用时注入，从不持久化。
         self._prefill_messages = self._load_prefill_messages()
         self._ephemeral_system_prompt = self._load_ephemeral_system_prompt()
         self._reasoning_config = self._load_reasoning_config()
@@ -486,7 +484,7 @@ class GatewayRunner:
         self._fallback_model = self._load_fallback_model()
         self._smart_model_routing = self._load_smart_model_routing()
 
-        # Wire process registry into session store for reset protection
+        # 将进程注册表连接到会话存储以进行重置保护
         from tools.process_registry import process_registry
         self.session_store = SessionStore(
             self.config.sessions_dir, self.config,
@@ -499,91 +497,90 @@ class GatewayRunner:
         self._exit_with_failure = False
         self._exit_reason: Optional[str] = None
         
-        # Track running agents per session for interrupt support
-        # Key: session_key, Value: AIAgent instance
+        # 跟踪每个会话的运行代理以支持中断
+        # 键：session_key，值：AIAgent 实例
         self._running_agents: Dict[str, Any] = {}
-        self._running_agents_ts: Dict[str, float] = {}  # start timestamp per session
-        self._pending_messages: Dict[str, str] = {}  # Queued messages during interrupt
+        self._running_agents_ts: Dict[str, float] = {}  # 每个会话的开始时间戳
+        self._pending_messages: Dict[str, str] = {}  # 中断期间排队的消息
 
-        # Cache AIAgent instances per session to preserve prompt caching.
-        # Without this, a new AIAgent is created per message, rebuilding the
-        # system prompt (including memory) every turn — breaking prefix cache
-        # and costing ~10x more on providers with prompt caching (Anthropic).
-        # Key: session_key, Value: (AIAgent, config_signature_str)
+        # 缓存每个会话的 AIAgent 实例以保留提示词缓存。
+        # 没有这个，每个消息都会创建新的 AIAgent，每次都会重建
+        # 系统提示词（包括内存），破坏前缀缓存
+        # 并在有提示词缓存的提供商（Anthropic）上花费约 10 倍成本。
+        # 键：session_key，值：(AIAgent, config_signature_str)
         import threading as _threading
         self._agent_cache: Dict[str, tuple] = {}
         self._agent_cache_lock = _threading.Lock()
 
-        # Track active fallback model/provider when primary is rate-limited.
-        # Set after an agent run where fallback was activated; cleared when
-        # the primary model succeeds again or the user switches via /model.
+        # 跟踪当主提供商被速率限制时的有效回退模型/提供商。
+        # 在激活了回退的代理运行后设置；
+        # 当主模型再次成功或用户通过 /model 切换时清除。
         self._effective_model: Optional[str] = None
         self._effective_provider: Optional[str] = None
 
-        # Per-session model overrides from /model command.
-        # Key: session_key, Value: dict with model/provider/api_key/base_url/api_mode
+        # 每个会话的模型覆盖来自 /model 命令。
+        # 键：session_key，值：带有 model/provider/api_key/base_url/api_mode 的字典
         self._session_model_overrides: Dict[str, Dict[str, str]] = {}
-        # Track pending exec approvals per session
-        # Key: session_key, Value: {"command": str, "pattern_key": str, ...}
+        # 跟踪每个会话的待处理执行审批
+        # 键：session_key，值：{"command": str, "pattern_key": str, ...}
         self._pending_approvals: Dict[str, Dict[str, Any]] = {}
 
-        # Track platforms that failed to connect for background reconnection.
-        # Key: Platform enum, Value: {"config": platform_config, "attempts": int, "next_retry": float}
+        # 跟踪连接失败的平台以便后台重连。
+        # 键：Platform 枚举，值：{"config": platform_config, "attempts": int, "next_retry": float}
         self._failed_platforms: Dict[Platform, Dict[str, Any]] = {}
 
-        # Track pending /update prompt responses per session.
-        # Key: session_key, Value: True when a prompt is waiting for user input.
+        # 跟踪每个会话的待处理 /update 提示响应。
+        # 键：session_key，当提示等待用户输入时为 True
         self._update_prompt_pending: Dict[str, bool] = {}
 
-        # Persistent Honcho managers keyed by gateway session key.
-        # This preserves write_frequency="session" semantics across short-lived
-        # per-message AIAgent instances.
+        # 按 gateway 会话键持久化的 Honcho 管理器。
+        # 这在短命的每消息 AIAgent 实例中保留 write_frequency="session" 语义。
 
 
 
-        # Ensure tirith security scanner is available (downloads if needed)
+        # 确保 tirith 安全扫描器可用（按需下载）
         try:
             from tools.tirith_security import ensure_installed
             ensure_installed(log_failures=False)
         except Exception:
-            pass  # Non-fatal — fail-open at scan time if unavailable
+            pass  # 非致命 — 在扫描时失败打开如果不可用
         
-        # Initialize session database for session_search tool support
+        # 初始化会话数据库以支持 session_search 工具
         self._session_db = None
         try:
             from kclaw_state import SessionDB
             self._session_db = SessionDB()
         except Exception as e:
-            logger.debug("SQLite session store not available: %s", e)
+            logger.debug("SQLite 会话存储不可用：%s", e)
         
-        # DM pairing store for code-based user authorization
+        # DM 配对存储用于基于代码的用户授权
         from gateway.pairing import PairingStore
         self.pairing_store = PairingStore()
         
-        # Event hook system
+        # 事件钩子系统
         from gateway.hooks import HookRegistry
         self.hooks = HookRegistry()
 
-        # Per-chat voice reply mode: "off" | "voice_only" | "all"
+        # 每个聊天室的语音回复模式："off" | "voice_only" | "all"
         self._voice_mode: Dict[str, str] = self._load_voice_modes()
 
-        # Track background tasks to prevent garbage collection mid-execution
+        # 跟踪后台任务以防止在执行中间被垃圾回收
         self._background_tasks: set = set()
 
 
 
 
-    # -- Setup skill availability ----------------------------------------
+    # -- 设置技能可用性 ----------------------------------------
 
     def _has_setup_skill(self) -> bool:
-        """Check if the kclaw-setup skill is installed."""
+        """检查 kclaw-setup 技能是否已安装。"""
         try:
             from tools.skill_manager_tool import _find_skill
             return _find_skill("kclaw-setup") is not None
         except Exception:
             return False
 
-    # -- Voice mode persistence ------------------------------------------
+    # -- 语音模式持久化 ------------------------------------------
 
     _VOICE_MODE_PATH = _kclaw_home / "gateway_voice_mode.json"
 
@@ -610,10 +607,10 @@ class GatewayRunner:
                 json.dumps(self._voice_mode, indent=2)
             )
         except OSError as e:
-            logger.warning("Failed to save voice modes: %s", e)
+            logger.warning("保存语音模式失败: %s", e)
 
     def _set_adapter_auto_tts_disabled(self, adapter, chat_id: str, disabled: bool) -> None:
-        """Update an adapter's in-memory auto-TTS suppression set if present."""
+        """如果存在则更新适配器的内存中自动 TTS 抑制集。"""
         disabled_chats = getattr(adapter, "_auto_tts_disabled_chats", None)
         if not isinstance(disabled_chats, set):
             return
@@ -623,7 +620,7 @@ class GatewayRunner:
             disabled_chats.discard(chat_id)
 
     def _sync_voice_mode_state_to_adapter(self, adapter) -> None:
-        """Restore persisted /voice off state into a live platform adapter."""
+        """将持续的 /voice off 状态恢复到实时平台适配器。"""
         disabled_chats = getattr(adapter, "_auto_tts_disabled_chats", None)
         if not isinstance(disabled_chats, set):
             return
@@ -638,15 +635,15 @@ class GatewayRunner:
         self,
         old_session_id: str,
     ):
-        """Prompt the agent to save memories/skills before context is lost.
+        """提示代理在上下文丢失前保存内存/技能。
 
-        Synchronous worker — meant to be called via run_in_executor from
-        an async context so it doesn't block the event loop.
+        同步工作器 — 旨在从异步上下文中通过 run_in_executor 调用，
+        以便它不会阻塞事件循环。
         """
-        # Skip cron sessions — they run headless with no meaningful user
-        # conversation to extract memories from.
+        # 跳过 cron 会话 — 它们无头运行，没有有意义的用户
+        # 对话来提取记忆。
         if old_session_id and old_session_id.startswith("cron_"):
-            logger.debug("Skipping memory flush for cron session: %s", old_session_id)
+            logger.debug("跳过 cron 会话的内存刷新: %s", old_session_id)
             return
 
         try:
@@ -659,9 +656,9 @@ class GatewayRunner:
             if not runtime_kwargs.get("api_key"):
                 return
 
-            # Resolve model from config — AIAgent's default is OpenRouter-
-            # formatted ("anthropic/claude-opus-4.6") which fails when the
-            # active provider is openai-codex.
+            # 从配置解析模型 — AIAgent 的默认值是 OpenRouter-
+            # 格式的 ("anthropic/claude-opus-4.6")，当
+            # 活动提供商是 openai-codex 时会失败。
             model = _resolve_gateway_model()
 
             tmp_agent = AIAgent(
@@ -669,24 +666,24 @@ class GatewayRunner:
                 model=model,
                 max_iterations=8,
                 quiet_mode=True,
-                skip_memory=True,  # Flush agent — no memory provider
+                skip_memory=True,  # 刷新代理 — 无内存提供者
                 enabled_toolsets=["memory", "skills"],
                 session_id=old_session_id,
             )
-            # Fully silence the flush agent — quiet_mode only suppresses init
-            # messages; tool call output still leaks to the terminal through
-            # _safe_print → _print_fn.  Set a no-op to prevent that.
+            # 完全静默刷新代理 — quiet_mode 仅抑制初始化
+            # 消息；工具调用输出仍通过
+            # _safe_print → _print_fn 泄漏到终端。设置为无操作以防止。
             tmp_agent._print_fn = lambda *a, **kw: None
 
-            # Build conversation history from transcript
+            # 从 transcript 构建对话历史
             msgs = [
                 {"role": m.get("role"), "content": m.get("content")}
                 for m in history
                 if m.get("role") in ("user", "assistant") and m.get("content")
             ]
 
-            # Read live memory state from disk so the flush agent can see
-            # what's already saved and avoid overwriting newer entries.
+            # 从磁盘读取实时内存状态，以便刷新代理可以查看
+            # 已保存的内容并避免覆盖较新的条目。
             _current_memory = ""
             try:
                 from tools.memory_tool import get_memory_dir
@@ -699,11 +696,11 @@ class GatewayRunner:
                     if fpath.exists():
                         content = fpath.read_text(encoding="utf-8").strip()
                         if content:
-                            _current_memory += f"\n\n## Current {label}:\n{content}"
+                            _current_memory += f"\n\n## 当前 {label}:\n{content}"
             except Exception:
-                pass  # Non-fatal — flush still works, just without the guard
+                pass  # 非致命 — 刷新仍然有效，只是没有防护
 
-            # Give the agent a real turn to think about what to save
+            # 给代理一个真正的轮次来思考要保存什么
             flush_prompt = (
                 "[System: This session is about to be automatically reset due to "
                 "inactivity or a scheduled daily reset. The conversation context "
@@ -736,15 +733,15 @@ class GatewayRunner:
                 user_message=flush_prompt,
                 conversation_history=msgs,
             )
-            logger.info("Pre-reset memory flush completed for session %s", old_session_id)
+            logger.info("会话 %s 的重置前内存刷新已完成", old_session_id)
         except Exception as e:
-            logger.debug("Pre-reset memory flush failed for session %s: %s", old_session_id, e)
+            logger.debug("会话 %s 的重置前内存刷新失败：%s", old_session_id, e)
 
     async def _async_flush_memories(
         self,
         old_session_id: str,
     ):
-        """Run the sync memory flush in a thread pool so it won't block the event loop."""
+        """在线程池中运行同步内存刷新，以便不会阻塞事件循环。"""
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(
             None,
@@ -765,7 +762,7 @@ class GatewayRunner:
         return self._exit_reason
 
     def _session_key_for_source(self, source: SessionSource) -> str:
-        """Resolve the current session key for a source, honoring gateway config when available."""
+        """解析源的当前会话键，在可用时尊重 gateway 配置。"""
         if hasattr(self, "session_store") and self.session_store is not None:
             try:
                 session_key = self.session_store._generate_session_key(source)
@@ -796,16 +793,16 @@ class GatewayRunner:
         return resolve_turn_route(user_message, getattr(self, "_smart_model_routing", {}), primary)
 
     async def _handle_adapter_fatal_error(self, adapter: BasePlatformAdapter) -> None:
-        """React to an adapter failure after startup.
+        """在启动后对适配器失败做出反应。
 
-        If the error is retryable (e.g. network blip, DNS failure), queue the
-        platform for background reconnection instead of giving up permanently.
+        如果错误可重试（如网络故障、DNS 失败），则将
+        平台排队等待后台重连，而不是永久放弃。
         """
         logger.error(
-            "Fatal %s adapter error (%s): %s",
+            "%s 适配器致命错误（%s）：%s",
             adapter.platform.value,
-            adapter.fatal_error_code or "unknown",
-            adapter.fatal_error_message or "unknown error",
+            adapter.fatal_error_code or "未知",
+            adapter.fatal_error_message or "未知错误",
         )
 
         existing = self.adapters.get(adapter.platform)
@@ -816,7 +813,7 @@ class GatewayRunner:
                 self.adapters.pop(adapter.platform, None)
                 self.delivery_router.adapters = self.adapters
 
-        # Queue retryable failures for background reconnection
+        # 如果错误可重试，则排队等待后台重连
         if adapter.fatal_error_retryable:
             platform_config = self.config.platforms.get(adapter.platform)
             if platform_config and adapter.platform not in self._failed_platforms:
@@ -826,33 +823,33 @@ class GatewayRunner:
                     "next_retry": time.monotonic() + 30,
                 }
                 logger.info(
-                    "%s queued for background reconnection",
+                    "%s 已排队等待后台重连",
                     adapter.platform.value,
                 )
 
         if not self.adapters and not self._failed_platforms:
-            self._exit_reason = adapter.fatal_error_message or "All messaging adapters disconnected"
+            self._exit_reason = adapter.fatal_error_message or "所有消息适配器已断开连接"
             if adapter.fatal_error_retryable:
                 self._exit_with_failure = True
-                logger.error("No connected messaging platforms remain. Shutting down gateway for service restart.")
+                logger.error("没有剩余的已连接消息平台。关闭 gateway 以便服务重启。")
             else:
-                logger.error("No connected messaging platforms remain. Shutting down gateway cleanly.")
+                logger.error("没有剩余的已连接消息平台。干净地关闭 gateway。")
             await self.stop()
         elif not self.adapters and self._failed_platforms:
-            # All platforms are down and queued for background reconnection.
-            # If the error is retryable, exit with failure so systemd Restart=on-failure
-            # can restart the process. Otherwise stay alive and keep retrying in background.
+            # 所有平台都已离线并排队等待后台重连。
+            # 如果错误可重试，则以失败状态退出，以便 systemd Restart=on-failure
+            # 可以重启进程。否则保持运行并在后台持续重试。
             if adapter.fatal_error_retryable:
-                self._exit_reason = adapter.fatal_error_message or "All messaging platforms failed with retryable errors"
+                self._exit_reason = adapter.fatal_error_message or "所有消息平台因可重试错误失败"
                 self._exit_with_failure = True
                 logger.error(
-                    "All messaging platforms failed with retryable errors. "
-                    "Shutting down gateway for service restart (systemd will retry)."
+                    "所有消息平台因可重试错误失败。"
+                    "关闭 gateway 以便服务重启（systemd 将重试）。"
                 )
                 await self.stop()
             else:
                 logger.warning(
-                    "No connected messaging platforms remain, but %d platform(s) queued for reconnection",
+                    "没有剩余的已连接消息平台，但有 %d 个平台排队等待重连",
                     len(self._failed_platforms),
                 )
 
@@ -863,11 +860,11 @@ class GatewayRunner:
     
     @staticmethod
     def _load_prefill_messages() -> List[Dict[str, Any]]:
-        """Load ephemeral prefill messages from config or env var.
+        """从配置或环境变量加载临时填充消息。
         
-        Checks KCLAW_PREFILL_MESSAGES_FILE env var first, then falls back to
-        the prefill_messages_file key in ~/.kclaw/config.yaml.
-        Relative paths are resolved from ~/.kclaw/.
+        首先检查 KCLAW_PREFILL_MESSAGES_FILE 环境变量，然后回退到
+        ~/.kclaw/config.yaml 中的 prefill_messages_file 键。
+        相对路径从 ~/.kclaw/ 解析。
         """
         import json as _json
         file_path = os.getenv("KCLAW_PREFILL_MESSAGES_FILE", "")
@@ -887,25 +884,25 @@ class GatewayRunner:
         if not path.is_absolute():
             path = _kclaw_home / path
         if not path.exists():
-            logger.warning("Prefill messages file not found: %s", path)
+            logger.warning("未找到预填充消息文件: %s", path)
             return []
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = _json.load(f)
             if not isinstance(data, list):
-                logger.warning("Prefill messages file must contain a JSON array: %s", path)
+                logger.warning("预填充消息文件必须包含 JSON 数组: %s", path)
                 return []
             return data
         except Exception as e:
-            logger.warning("Failed to load prefill messages from %s: %s", path, e)
+            logger.warning("从 %s 加载预填充消息失败: %s", path, e)
             return []
 
     @staticmethod
     def _load_ephemeral_system_prompt() -> str:
-        """Load ephemeral system prompt from config or env var.
+        """从配置或环境变量加载临时系统提示词。
         
-        Checks KCLAW_EPHEMERAL_SYSTEM_PROMPT env var first, then falls back to
-        agent.system_prompt in ~/.kclaw/config.yaml.
+        首先检查 KCLAW_EPHEMERAL_SYSTEM_PROMPT 环境变量，然后回退到
+        agent.system_prompt in ~/.kclaw/config.yaml。
         """
         prompt = os.getenv("KCLAW_EPHEMERAL_SYSTEM_PROMPT", "")
         if prompt:
@@ -923,11 +920,10 @@ class GatewayRunner:
 
     @staticmethod
     def _load_reasoning_config() -> dict | None:
-        """Load reasoning effort from config.yaml.
+        """从 config.yaml 加载推理强度配置。
 
-        Reads agent.reasoning_effort from config.yaml. Valid: "xhigh",
-        "high", "medium", "low", "minimal", "none". Returns None to use
-        default (medium).
+        从 config.yaml 读取 agent.reasoning_effort。有效值: "xhigh"、
+        "high"、"medium"、"low"、"minimal"、"none"。返回 None 则使用默认值 (medium)。
         """
         from kclaw_constants import parse_reasoning_effort
         effort = ""
@@ -942,12 +938,12 @@ class GatewayRunner:
             pass
         result = parse_reasoning_effort(effort)
         if effort and effort.strip() and result is None:
-            logger.warning("Unknown reasoning_effort '%s', using default (medium)", effort)
+            logger.warning("未知的 reasoning_effort '%s'，使用默认值 (medium)", effort)
         return result
 
     @staticmethod
     def _load_show_reasoning() -> bool:
-        """Load show_reasoning toggle from config.yaml display section."""
+        """从 config.yaml 的 display 部分加载 show_reasoning 开关。"""
         try:
             import yaml as _y
             cfg_path = _kclaw_home / "config.yaml"
@@ -961,13 +957,13 @@ class GatewayRunner:
 
     @staticmethod
     def _load_background_notifications_mode() -> str:
-        """Load background process notification mode from config or env var.
+        """从配置或环境变量加载后台进程通知模式。
 
-        Modes:
-          - ``all``    — push running-output updates *and* the final message (default)
-          - ``result`` — only the final completion message (regardless of exit code)
-          - ``error``  — only the final message when exit code is non-zero
-          - ``off``    — no watcher messages at all
+        模式:
+          - ``all``    — 推送运行输出更新 *以及* 最终消息 (默认)
+          - ``result`` — 仅最终完成消息 (无论退出码如何)
+          - ``error``  — 仅在退出码非零时的最终消息
+          - ``off``    — 完全不显示观察者消息
         """
         mode = os.getenv("KCLAW_BACKGROUND_NOTIFICATIONS", "")
         if not mode:
@@ -988,7 +984,7 @@ class GatewayRunner:
         valid = {"all", "result", "error", "off"}
         if mode not in valid:
             logger.warning(
-                "Unknown background_process_notifications '%s', defaulting to 'all'",
+                "未知的 background_process_notifications '%s'，默认为 'all'",
                 mode,
             )
             return "all"
@@ -996,7 +992,7 @@ class GatewayRunner:
 
     @staticmethod
     def _load_provider_routing() -> dict:
-        """Load OpenRouter provider routing preferences from config.yaml."""
+        """从 config.yaml 加载 OpenRouter 提供商路由偏好。"""
         try:
             import yaml as _y
             cfg_path = _kclaw_home / "config.yaml"
@@ -1010,11 +1006,10 @@ class GatewayRunner:
 
     @staticmethod
     def _load_fallback_model() -> list | dict | None:
-        """Load fallback provider chain from config.yaml.
+        """从 config.yaml 加载备用提供商链。
 
-        Returns a list of provider dicts (``fallback_providers``), a single
-        dict (legacy ``fallback_model``), or None if not configured.
-        AIAgent.__init__ normalizes both formats into a chain.
+        返回提供商字典列表 (``fallback_providers``)、单个字典 (旧版 ``fallback_model``)，
+        或 None 如果未配置。AIAgent.__init__ 会将两种格式规范化为链式结构。
         """
         try:
             import yaml as _y
@@ -1031,7 +1026,7 @@ class GatewayRunner:
 
     @staticmethod
     def _load_smart_model_routing() -> dict:
-        """Load optional smart cheap-vs-strong model routing config."""
+        """加载可选的智能廉价/强模型路由配置。"""
         try:
             import yaml as _y
             cfg_path = _kclaw_home / "config.yaml"
@@ -1045,17 +1040,17 @@ class GatewayRunner:
 
     async def start(self) -> bool:
         """
-        Start the gateway and all configured platform adapters.
+        启动网关并连接所有已配置的平台适配器。
         
-        Returns True if at least one adapter connected successfully.
+        如果至少一个适配器成功连接则返回 True。
         """
-        logger.info("Starting KClaw Gateway...")
-        logger.info("Session storage: %s", self.config.sessions_dir)
+        logger.info("正在启动 KClaw 网关...")
+        logger.info("会话存储: %s", self.config.sessions_dir)
         try:
             from kclaw_cli.profiles import get_active_profile_name
             _profile = get_active_profile_name()
             if _profile and _profile != "default":
-                logger.info("Active profile: %s", _profile)
+                logger.info("活动配置: %s", _profile)
         except Exception:
             pass
         try:
@@ -1064,7 +1059,7 @@ class GatewayRunner:
         except Exception:
             pass
         
-        # Warn if no user allowlists are configured and open access is not opted in
+        # 如果没有配置用户白名单且未选择开放访问则发出警告
         _any_allowlist = any(
             os.getenv(v)
             for v in ("TELEGRAM_ALLOWED_USERS", "DISCORD_ALLOWED_USERS",
@@ -1091,29 +1086,29 @@ class GatewayRunner:
         )
         if not _any_allowlist and not _allow_all:
             logger.warning(
-                "No user allowlists configured. All unauthorized users will be denied. "
-                "Set GATEWAY_ALLOW_ALL_USERS=true in ~/.kclaw/.env to allow open access, "
-                "or configure platform allowlists (e.g., TELEGRAM_ALLOWED_USERS=your_id)."
+                "未配置用户白名单。所有未授权用户将被拒绝。"
+                "在 ~/.kclaw/.env 中设置 GATEWAY_ALLOW_ALL_USERS=true 以允许开放访问，"
+                "或配置平台白名单（例如，TELEGRAM_ALLOWED_USERS=your_id）。"
             )
-        
-        # Discover and load event hooks
+                
+        # 发现并加载事件钩子
         self.hooks.discover_and_load()
         
-        # Recover background processes from checkpoint (crash recovery)
+        # 从检查点恢复后台进程 (崩溃恢复)
         try:
             from tools.process_registry import process_registry
             recovered = process_registry.recover_from_checkpoint()
             if recovered:
-                logger.info("Recovered %s background process(es) from previous run", recovered)
+                logger.info("从上次运行中恢复了 %s 个后台进程", recovered)
         except Exception as e:
-            logger.warning("Process checkpoint recovery: %s", e)
+            logger.warning("进程检查点恢复: %s", e)
         
         connected_count = 0
         enabled_platform_count = 0
         startup_nonretryable_errors: list[str] = []
         startup_retryable_errors: list[str] = []
         
-        # Initialize and connect each configured platform
+        # 初始化并连接每个已配置的平台
         for platform, platform_config in self.config.platforms.items():
             if not platform_config.enabled:
                 continue
@@ -1121,25 +1116,25 @@ class GatewayRunner:
             
             adapter = self._create_adapter(platform, platform_config)
             if not adapter:
-                logger.warning("No adapter available for %s", platform.value)
+                logger.warning("%s 没有可用的适配器", platform.value)
                 continue
             
-            # Set up message + fatal error handlers
+            # 设置消息和致命错误处理器
             adapter.set_message_handler(self._handle_message)
             adapter.set_fatal_error_handler(self._handle_adapter_fatal_error)
             adapter.set_session_store(self.session_store)
             
-            # Try to connect
-            logger.info("Connecting to %s...", platform.value)
+            # 尝试连接
+            logger.info("正在连接到 %s...", platform.value)
             try:
                 success = await adapter.connect()
                 if success:
                     self.adapters[platform] = adapter
                     self._sync_voice_mode_state_to_adapter(adapter)
                     connected_count += 1
-                    logger.info("✓ %s connected", platform.value)
+                    logger.info("✓ %s 已连接", platform.value)
                 else:
-                    logger.warning("✗ %s failed to connect", platform.value)
+                    logger.warning("✗ %s 连接失败", platform.value)
                     if adapter.has_fatal_error:
                         target = (
                             startup_retryable_errors
@@ -1149,7 +1144,7 @@ class GatewayRunner:
                         target.append(
                             f"{platform.value}: {adapter.fatal_error_message}"
                         )
-                        # Queue for reconnection if the error is retryable
+                        # 如果错误可重试，则排队等待重连
                         if adapter.fatal_error_retryable:
                             self._failed_platforms[platform] = {
                                 "config": platform_config,
@@ -1158,18 +1153,18 @@ class GatewayRunner:
                             }
                     else:
                         startup_retryable_errors.append(
-                            f"{platform.value}: failed to connect"
+                            f"{platform.value}: 连接失败"
                         )
-                        # No fatal error info means likely a transient issue — queue for retry
+                        # 没有致命错误信息意味着可能是临时问题 — 排队等待重试
                         self._failed_platforms[platform] = {
                             "config": platform_config,
                             "attempts": 1,
                             "next_retry": time.monotonic() + 30,
                         }
             except Exception as e:
-                logger.error("✗ %s error: %s", platform.value, e)
+                logger.error("✗ %s 错误: %s", platform.value, e)
                 startup_retryable_errors.append(f"{platform.value}: {e}")
-                # Unexpected exceptions are typically transient — queue for retry
+                # 意外异常通常是临时的 — 排队等待重试
                 self._failed_platforms[platform] = {
                     "config": platform_config,
                     "attempts": 1,
@@ -1179,7 +1174,7 @@ class GatewayRunner:
         if connected_count == 0:
             if startup_nonretryable_errors:
                 reason = "; ".join(startup_nonretryable_errors)
-                logger.error("Gateway hit a non-retryable startup conflict: %s", reason)
+                logger.error("网关遇到不可重试的启动冲突: %s", reason)
                 try:
                     from gateway.status import write_runtime_status
                     write_runtime_status(gateway_state="startup_failed", exit_reason=reason)
@@ -1188,18 +1183,18 @@ class GatewayRunner:
                 self._request_clean_exit(reason)
                 return True
             if enabled_platform_count > 0:
-                reason = "; ".join(startup_retryable_errors) or "all configured messaging platforms failed to connect"
-                logger.error("Gateway failed to connect any configured messaging platform: %s", reason)
+                reason = "; ".join(startup_retryable_errors) or "所有已配置的消息平台都连接失败"
+                logger.error("网关未能连接任何已配置的消息平台: %s", reason)
                 try:
                     from gateway.status import write_runtime_status
                     write_runtime_status(gateway_state="startup_failed", exit_reason=reason)
                 except Exception:
                     pass
                 return False
-            logger.warning("No messaging platforms enabled.")
-            logger.info("Gateway will continue running for cron job execution.")
+            logger.warning("未启用任何消息平台。")
+            logger.info("网关将继续运行以执行定时任务。")
         
-        # Update delivery router with adapters
+        # 更新传递路由器的适配器
         self.delivery_router.adapters = self.adapters
         
         self._running = True
@@ -1209,28 +1204,28 @@ class GatewayRunner:
         except Exception:
             pass
         
-        # Emit gateway:startup hook
+        # 触发 gateway:startup 钩子
         hook_count = len(self.hooks.loaded_hooks)
         if hook_count:
-            logger.info("%s hook(s) loaded", hook_count)
+            logger.info("已加载 %s 个钩子", hook_count)
         await self.hooks.emit("gateway:startup", {
             "platforms": [p.value for p in self.adapters.keys()],
         })
         
         if connected_count > 0:
-            logger.info("Gateway running with %s platform(s)", connected_count)
+            logger.info("网关运行中，使用 %s 个平台", connected_count)
         
-        # Build initial channel directory for send_message name resolution
+        # 构建初始渠道目录以解析 send_message 名称
         try:
             from gateway.channel_directory import build_channel_directory
             directory = build_channel_directory(self.adapters)
             ch_count = sum(len(chs) for chs in directory.get("platforms", {}).values())
-            logger.info("Channel directory built: %d target(s)", ch_count)
+            logger.info("渠道目录已构建: %d 个目标", ch_count)
         except Exception as e:
-            logger.warning("Channel directory build failed: %s", e)
+            logger.warning("渠道目录构建失败: %s", e)
         
-        # Check if we're restarting after a /update command. If the update is
-        # still running, keep watching so we notify once it actually finishes.
+        # 检查我们是否正在重启 /update 命令后的状态。如果更新仍在运行，
+        # 继续监视以便在更新实际完成后通知。
         notified = await self._send_update_notification()
         if not notified and any(
             path.exists()
@@ -1241,49 +1236,48 @@ class GatewayRunner:
         ):
             self._schedule_update_notification_watch()
 
-        # Drain any recovered process watchers (from crash recovery checkpoint)
+        # 排出所有已恢复的进程观察者 (来自崩溃恢复检查点)
         try:
             from tools.process_registry import process_registry
             while process_registry.pending_watchers:
                 watcher = process_registry.pending_watchers.pop(0)
                 asyncio.create_task(self._run_process_watcher(watcher))
-                logger.info("Resumed watcher for recovered process %s", watcher.get("session_id"))
+                logger.info("恢复了对进程 %s 的观察", watcher.get("session_id"))
         except Exception as e:
-            logger.error("Recovered watcher setup error: %s", e)
+            logger.error("恢复的观察者设置错误: %s", e)
 
-        # Start background session expiry watcher for proactive memory flushing
+        # 启动后台会话过期观察者以主动刷新内存
         asyncio.create_task(self._session_expiry_watcher())
 
-        # Start background reconnection watcher for platforms that failed at startup
+        # 启动后台重连观察者以重连启动时失败的平台
         if self._failed_platforms:
             logger.info(
-                "Starting reconnection watcher for %d failed platform(s): %s",
+                "为 %d 个失败平台启动重连观察者: %s",
                 len(self._failed_platforms),
                 ", ".join(p.value for p in self._failed_platforms),
             )
         asyncio.create_task(self._platform_reconnect_watcher())
 
-        logger.info("Press Ctrl+C to stop")
+        logger.info("按 Ctrl+C 停止")
         
         return True
     
     async def _session_expiry_watcher(self, interval: int = 300):
-        """Background task that proactively flushes memories for expired sessions.
+        """后台任务，主动刷新已过期会话的内存。
         
-        Runs every `interval` seconds (default 5 min).  For each session that
-        has expired according to its reset policy, flushes memories in a thread
-        pool and marks the session so it won't be flushed again.
+        每隔 `interval` 秒运行一次 (默认 5 分钟)。对于每个根据其重置策略
+        已过期的会话，在线程池中刷新内存并标记会话以防止再次被刷新。
 
-        This means memories are already saved by the time the user sends their
-        next message, so there's no blocking delay.
+        这意味着在用户发送下一条消息时内存已经保存，
+        因此没有阻塞延迟。
         """
-        await asyncio.sleep(60)  # initial delay — let the gateway fully start
-        _flush_failures: dict[str, int] = {}  # session_id -> consecutive failure count
+        await asyncio.sleep(60)  # 初始延迟 — 让网关完全启动
+        _flush_failures: dict[str, int] = {}  # session_id -> 连续失败次数
         _MAX_FLUSH_RETRIES = 3
         while self._running:
             try:
                 self.session_store._ensure_loaded()
-                # Collect expired sessions first, then log a single summary.
+                # 首先收集已过期的会话，然后记录单个摘要。
                 _expired_entries = []
                 for key, entry in list(self.session_store._entries.items()):
                     if entry.memory_flushed:
@@ -1293,8 +1287,8 @@ class GatewayRunner:
                     _expired_entries.append((key, entry))
 
                 if _expired_entries:
-                    # Extract platform names from session keys for a compact summary.
-                    # Keys look like "agent:main:telegram:dm:12345" — platform is field [2].
+                    # 从会话键中提取平台名称以生成紧凑摘要。
+                    # 键格式如 "agent:main:telegram:dm:12345" — 平台是字段 [2]。
                     _platforms: dict[str, int] = {}
                     for _k, _e in _expired_entries:
                         _parts = _k.split(":")
@@ -1304,14 +1298,14 @@ class GatewayRunner:
                         f"{p}:{c}" for p, c in sorted(_platforms.items())
                     )
                     logger.info(
-                        "Session expiry: %d sessions to flush (%s)",
+                        "会话过期: %d 个会话待刷新 (%s)",
                         len(_expired_entries), _plat_summary,
                     )
 
                 for key, entry in _expired_entries:
                     try:
                         await self._async_flush_memories(entry.session_id)
-                        # Shut down memory provider on the cached agent
+                        # 关闭缓存代理上的内存提供者
                         cached_agent = self._running_agents.get(key)
                         if cached_agent and cached_agent is not _AGENT_PENDING_SENTINEL:
                             try:
@@ -1319,13 +1313,13 @@ class GatewayRunner:
                                     cached_agent.shutdown_memory_provider()
                             except Exception:
                                 pass
-                        # Mark as flushed and persist to disk so the flag
-                        # survives gateway restarts.
+                        # 标记为已刷新并持久化到磁盘，以便标志
+                        # 在网关重启后仍然有效。
                         with self.session_store._lock:
                             entry.memory_flushed = True
                             self.session_store._save()
                         logger.debug(
-                            "Memory flush completed for session %s",
+                            "会话 %s 的内存刷新已完成",
                             entry.session_id,
                         )
                         _flush_failures.pop(entry.session_id, None)
@@ -1334,8 +1328,8 @@ class GatewayRunner:
                         _flush_failures[entry.session_id] = failures
                         if failures >= _MAX_FLUSH_RETRIES:
                             logger.warning(
-                                "Memory flush gave up after %d attempts for %s: %s. "
-                                "Marking as flushed to prevent infinite retry loop.",
+                                "%d 次尝试后放弃刷新 %s 的内存: %s。"
+                                "标记为已刷新以防止无限重试循环。",
                                 failures, entry.session_id, e,
                             )
                             with self.session_store._lock:
@@ -1344,7 +1338,7 @@ class GatewayRunner:
                             _flush_failures.pop(entry.session_id, None)
                         else:
                             logger.debug(
-                                "Memory flush failed (%d/%d) for %s: %s",
+                                "%s 的内存刷新失败 (%d/%d): %s",
                                 failures, _MAX_FLUSH_RETRIES, entry.session_id, e,
                             )
 
@@ -1355,35 +1349,34 @@ class GatewayRunner:
                     _failed = len(_expired_entries) - _flushed
                     if _failed:
                         logger.info(
-                            "Session expiry done: %d flushed, %d pending retry",
+                            "会话过期完成: %d 个已刷新, %d 个待重试",
                             _flushed, _failed,
                         )
                     else:
                         logger.info(
-                            "Session expiry done: %d flushed", _flushed,
+                            "会话过期完成: %d 个已刷新", _flushed,
                         )
             except Exception as e:
-                logger.debug("Session expiry watcher error: %s", e)
-            # Sleep in small increments so we can stop quickly
+                logger.debug("会话过期观察者错误: %s", e)
+            # 睡眠递增以便快速停止
             for _ in range(interval):
                 if not self._running:
                     break
                 await asyncio.sleep(1)
 
     async def _platform_reconnect_watcher(self) -> None:
-        """Background task that periodically retries connecting failed platforms.
+        """后台任务，定期重试连接失败的平台。
 
-        Uses exponential backoff: 30s → 60s → 120s → 240s → 300s (cap).
-        Stops retrying a platform after 20 failed attempts or if the error
-        is non-retryable (e.g. bad auth token).
+        使用指数退避: 30秒 → 60秒 → 120秒 → 240秒 → 300秒 (上限)。
+        在 20 次失败尝试后或错误不可重试 (如认证令牌错误) 时停止重试该平台。
         """
         _MAX_ATTEMPTS = 20
         _BACKOFF_CAP = 300  # 5 minutes max between retries
 
-        await asyncio.sleep(10)  # initial delay — let startup finish
+        await asyncio.sleep(10)  # 初始延迟 — 让启动完成
         while self._running:
             if not self._failed_platforms:
-                # Nothing to reconnect — sleep and check again
+                # 没有需要重连的任务 — 睡眠并再次检查
                 for _ in range(30):
                     if not self._running:
                         return
@@ -1400,7 +1393,7 @@ class GatewayRunner:
 
                 if info["attempts"] >= _MAX_ATTEMPTS:
                     logger.warning(
-                        "Giving up reconnecting %s after %d attempts",
+                        "%d 次尝试后放弃重连 %s",
                         platform.value, info["attempts"],
                     )
                     del self._failed_platforms[platform]
@@ -1409,7 +1402,7 @@ class GatewayRunner:
                 platform_config = info["config"]
                 attempt = info["attempts"] + 1
                 logger.info(
-                    "Reconnecting %s (attempt %d/%d)...",
+                    "正在重连 %s (尝试 %d/%d)...",
                     platform.value, attempt, _MAX_ATTEMPTS,
                 )
 
@@ -1417,7 +1410,7 @@ class GatewayRunner:
                     adapter = self._create_adapter(platform, platform_config)
                     if not adapter:
                         logger.warning(
-                            "Reconnect %s: adapter creation returned None, removing from retry queue",
+                            "重连 %s: 适配器创建返回 None，从重试队列中移除",
                             platform.value,
                         )
                         del self._failed_platforms[platform]
@@ -1433,19 +1426,19 @@ class GatewayRunner:
                         self._sync_voice_mode_state_to_adapter(adapter)
                         self.delivery_router.adapters = self.adapters
                         del self._failed_platforms[platform]
-                        logger.info("✓ %s reconnected successfully", platform.value)
+                        logger.info("✓ %s 重连成功", platform.value)
 
-                        # Rebuild channel directory with the new adapter
+                        # 使用新适配器重建渠道目录
                         try:
                             from gateway.channel_directory import build_channel_directory
                             build_channel_directory(self.adapters)
                         except Exception:
                             pass
                     else:
-                        # Check if the failure is non-retryable
+                        # 检查失败是否不可重试
                         if adapter.has_fatal_error and not adapter.fatal_error_retryable:
                             logger.warning(
-                                "Reconnect %s: non-retryable error (%s), removing from retry queue",
+                                "重连 %s: 不可重试错误 (%s)，从重试队列中移除",
                                 platform.value, adapter.fatal_error_message,
                             )
                             del self._failed_platforms[platform]
@@ -1454,7 +1447,7 @@ class GatewayRunner:
                             info["attempts"] = attempt
                             info["next_retry"] = time.monotonic() + backoff
                             logger.info(
-                                "Reconnect %s failed, next retry in %ds",
+                                "重连 %s 失败，%d 秒后重试",
                                 platform.value, backoff,
                             )
                 except Exception as e:
@@ -1462,30 +1455,30 @@ class GatewayRunner:
                     info["attempts"] = attempt
                     info["next_retry"] = time.monotonic() + backoff
                     logger.warning(
-                        "Reconnect %s error: %s, next retry in %ds",
+                        "重连 %s 错误: %s，%d 秒后重试",
                         platform.value, e, backoff,
                     )
 
-            # Check every 10 seconds for platforms that need reconnection
+            # 每 10 秒检查一次需要重连的平台
             for _ in range(10):
                 if not self._running:
                     return
                 await asyncio.sleep(1)
 
     async def stop(self) -> None:
-        """Stop the gateway and disconnect all adapters."""
-        logger.info("Stopping gateway...")
+        """停止网关并断开所有适配器。"""
+        logger.info("正在停止网关...")
         self._running = False
 
         for session_key, agent in list(self._running_agents.items()):
             if agent is _AGENT_PENDING_SENTINEL:
                 continue
             try:
-                agent.interrupt("Gateway shutting down")
-                logger.debug("Interrupted running agent for session %s during shutdown", session_key[:20])
+                agent.interrupt("网关正在关闭")
+                logger.debug("关闭期间中断会话 %s 的运行代理", session_key[:20])
             except Exception as e:
-                logger.debug("Failed interrupting agent during shutdown: %s", e)
-            # Fire plugin on_session_finalize hook before memory shutdown
+                logger.debug("关闭期间中断代理失败: %s", e)
+            # 在内存关闭前触发插件 on_session_finalize 钩子
             try:
                 from kclaw_cli.plugins import invoke_hook as _invoke_hook
                 _invoke_hook("on_session_finalize",
@@ -1493,7 +1486,7 @@ class GatewayRunner:
                              platform="gateway")
             except Exception:
                 pass
-            # Shut down memory provider at actual session boundary
+            # 在实际会话边界关闭内存提供者
             try:
                 if hasattr(agent, 'shutdown_memory_provider'):
                     agent.shutdown_memory_provider()
@@ -1504,14 +1497,14 @@ class GatewayRunner:
             try:
                 await adapter.cancel_background_tasks()
             except Exception as e:
-                logger.debug("✗ %s background-task cancel error: %s", platform.value, e)
+                logger.debug("✗ %s 后台任务取消错误: %s", platform.value, e)
             try:
                 await adapter.disconnect()
-                logger.info("✓ %s disconnected", platform.value)
+                logger.info("✓ %s 已断开", platform.value)
             except Exception as e:
-                logger.error("✗ %s disconnect error: %s", platform.value, e)
+                logger.error("✗ %s 断开错误: %s", platform.value, e)
 
-        # Cancel any pending background tasks
+        # 取消所有待处理的后台任务
         for _task in list(self._background_tasks):
             _task.cancel()
         self._background_tasks.clear()
@@ -1529,10 +1522,10 @@ class GatewayRunner:
         except Exception:
             pass
         
-        logger.info("Gateway stopped")
+        logger.info("网关已停止")
     
     async def wait_for_shutdown(self) -> None:
-        """Wait for shutdown signal."""
+        """等待关闭信号。"""
         await self._shutdown_event.wait()
     
     def _create_adapter(
@@ -1540,7 +1533,7 @@ class GatewayRunner:
         platform: Platform, 
         config: Any
     ) -> Optional[BasePlatformAdapter]:
-        """Create the appropriate adapter for a platform."""
+        """为平台创建相应的适配器。"""
         if hasattr(config, "extra") and isinstance(config.extra, dict):
             config.extra.setdefault(
                 "group_sessions_per_user",
@@ -1554,114 +1547,114 @@ class GatewayRunner:
         if platform == Platform.TELEGRAM:
             from gateway.platforms.telegram import TelegramAdapter, check_telegram_requirements
             if not check_telegram_requirements():
-                logger.warning("Telegram: python-telegram-bot not installed")
+                logger.warning("Telegram: python-telegram-bot 未安装")
                 return None
             return TelegramAdapter(config)
         
         elif platform == Platform.DISCORD:
             from gateway.platforms.discord import DiscordAdapter, check_discord_requirements
             if not check_discord_requirements():
-                logger.warning("Discord: discord.py not installed")
+                logger.warning("Discord: discord.py 未安装")
                 return None
             return DiscordAdapter(config)
         
         elif platform == Platform.WHATSAPP:
             from gateway.platforms.whatsapp import WhatsAppAdapter, check_whatsapp_requirements
             if not check_whatsapp_requirements():
-                logger.warning("WhatsApp: Node.js not installed or bridge not configured")
+                logger.warning("WhatsApp: Node.js 未安装或桥接未配置")
                 return None
             return WhatsAppAdapter(config)
         
         elif platform == Platform.SLACK:
             from gateway.platforms.slack import SlackAdapter, check_slack_requirements
             if not check_slack_requirements():
-                logger.warning("Slack: slack-bolt not installed. Run: pip install 'kclaw[slack]'")
+                logger.warning("Slack: slack-bolt 未安装。运行: pip install 'kclaw[slack]'")
                 return None
             return SlackAdapter(config)
 
         elif platform == Platform.SIGNAL:
             from gateway.platforms.signal import SignalAdapter, check_signal_requirements
             if not check_signal_requirements():
-                logger.warning("Signal: SIGNAL_HTTP_URL or SIGNAL_ACCOUNT not configured")
+                logger.warning("Signal: SIGNAL_HTTP_URL 或 SIGNAL_ACCOUNT 未配置")
                 return None
             return SignalAdapter(config)
 
         elif platform == Platform.HOMEASSISTANT:
             from gateway.platforms.homeassistant import HomeAssistantAdapter, check_ha_requirements
             if not check_ha_requirements():
-                logger.warning("HomeAssistant: aiohttp not installed or HASS_TOKEN not set")
+                logger.warning("HomeAssistant: aiohttp 未安装或 HASS_TOKEN 未设置")
                 return None
             return HomeAssistantAdapter(config)
 
         elif platform == Platform.EMAIL:
             from gateway.platforms.email import EmailAdapter, check_email_requirements
             if not check_email_requirements():
-                logger.warning("Email: EMAIL_ADDRESS, EMAIL_PASSWORD, EMAIL_IMAP_HOST, or EMAIL_SMTP_HOST not set")
+                logger.warning("Email: EMAIL_ADDRESS、EMAIL_PASSWORD、EMAIL_IMAP_HOST 或 EMAIL_SMTP_HOST 未设置")
                 return None
             return EmailAdapter(config)
 
         elif platform == Platform.SMS:
             from gateway.platforms.sms import SmsAdapter, check_sms_requirements
             if not check_sms_requirements():
-                logger.warning("SMS: aiohttp not installed or TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN not set")
+                logger.warning("SMS: aiohttp 未安装或 TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN 未设置")
                 return None
             return SmsAdapter(config)
 
         elif platform == Platform.DINGTALK:
             from gateway.platforms.dingtalk import DingTalkAdapter, check_dingtalk_requirements
             if not check_dingtalk_requirements():
-                logger.warning("DingTalk: dingtalk-stream not installed or DINGTALK_CLIENT_ID/SECRET not set")
+                logger.warning("DingTalk: dingtalk-stream 未安装或 DINGTALK_CLIENT_ID/SECRET 未设置")
                 return None
             return DingTalkAdapter(config)
 
         elif platform == Platform.FEISHU:
             from gateway.platforms.feishu import FeishuAdapter, check_feishu_requirements
             if not check_feishu_requirements():
-                logger.warning("Feishu: lark-oapi not installed or FEISHU_APP_ID/SECRET not set")
+                logger.warning("Feishu: lark-oapi 未安装或 FEISHU_APP_ID/SECRET 未设置")
                 return None
             return FeishuAdapter(config)
 
         elif platform == Platform.WECOM:
             from gateway.platforms.wecom import WeComAdapter, check_wecom_requirements
             if not check_wecom_requirements():
-                logger.warning("WeCom: aiohttp not installed or WECOM_BOT_ID/SECRET not set")
+                logger.warning("WeCom: aiohttp 未安装或 WECOM_BOT_ID/SECRET 未设置")
                 return None
             return WeComAdapter(config)
 
         elif platform == Platform.MATTERMOST:
             from gateway.platforms.mattermost import MattermostAdapter, check_mattermost_requirements
             if not check_mattermost_requirements():
-                logger.warning("Mattermost: MATTERMOST_TOKEN or MATTERMOST_URL not set, or aiohttp missing")
+                logger.warning("Mattermost: MATTERMOST_TOKEN 或 MATTERMOST_URL 未设置，或缺少 aiohttp")
                 return None
             return MattermostAdapter(config)
 
         elif platform == Platform.MATRIX:
             from gateway.platforms.matrix import MatrixAdapter, check_matrix_requirements
             if not check_matrix_requirements():
-                logger.warning("Matrix: matrix-nio not installed or credentials not set. Run: pip install 'matrix-nio[e2e]'")
+                logger.warning("Matrix: matrix-nio 未安装或凭据未设置。运行: pip install 'matrix-nio[e2e]'")
                 return None
             return MatrixAdapter(config)
 
         elif platform == Platform.API_SERVER:
             from gateway.platforms.api_server import APIServerAdapter, check_api_server_requirements
             if not check_api_server_requirements():
-                logger.warning("API Server: aiohttp not installed")
+                logger.warning("API Server: aiohttp 未安装")
                 return None
             return APIServerAdapter(config)
 
         elif platform == Platform.WEBHOOK:
             from gateway.platforms.webhook import WebhookAdapter, check_webhook_requirements
             if not check_webhook_requirements():
-                logger.warning("Webhook: aiohttp not installed")
+                logger.warning("Webhook: aiohttp 未安装")
                 return None
             adapter = WebhookAdapter(config)
-            adapter.gateway_runner = self  # For cross-platform delivery
+            adapter.gateway_runner = self  # 用于跨平台传递
             return adapter
 
         elif platform == Platform.BLUEBUBBLES:
             from gateway.platforms.bluebubbles import BlueBubblesAdapter, check_bluebubbles_requirements
             if not check_bluebubbles_requirements():
-                logger.warning("BlueBubbles: aiohttp/httpx missing or BLUEBUBBLES_SERVER_URL/BLUEBUBBLES_PASSWORD not configured")
+                logger.warning("BlueBubbles: 缺少 aiohttp/httpx 或 BLUEBUBBLES_SERVER_URL/BLUEBUBBLES_PASSWORD 未配置")
                 return None
             return BlueBubblesAdapter(config)
 
@@ -1669,20 +1662,20 @@ class GatewayRunner:
     
     def _is_user_authorized(self, source: SessionSource) -> bool:
         """
-        Check if a user is authorized to use the bot.
+        检查用户是否有权使用机器人。
         
-        Checks in order:
-        1. Per-platform allow-all flag (e.g., DISCORD_ALLOW_ALL_USERS=true)
-        2. Environment variable allowlists (TELEGRAM_ALLOWED_USERS, etc.)
-        3. DM pairing approved list
-        4. Global allow-all (GATEWAY_ALLOW_ALL_USERS=true)
-        5. Default: deny
+        按顺序检查:
+        1. 每个平台的全部允许标志 (例如 DISCORD_ALLOW_ALL_USERS=true)
+        2. 环境变量白名单 (TELEGRAM_ALLOWED_USERS 等)
+        3. 私信配对批准列表
+        4. 全局全部允许 (GATEWAY_ALLOW_ALL_USERS=true)
+        5. 默认: 拒绝
         """
-        # Home Assistant events are system-generated (state changes), not
-        # user-initiated messages.  The HASS_TOKEN already authenticates the
-        # connection, so HA events are always authorized.
-        # Webhook events are authenticated via HMAC signature validation in
-        # the adapter itself — no user allowlist applies.
+        # Home Assistant 事件是由系统生成 (状态变更)，不是
+        # 用户发起的消息。HASS_TOKEN 已经验证了连接，
+        # 所以 HA 事件始终已授权。
+        # Webhook 事件通过适配器中的 HMAC 签名验证进行认证 — 
+        # 不适用于用户白名单。
         if source.platform in (Platform.HOMEASSISTANT, Platform.WEBHOOK):
             return True
 
@@ -1721,33 +1714,33 @@ class GatewayRunner:
             Platform.BLUEBUBBLES: "BLUEBUBBLES_ALLOW_ALL_USERS",
         }
 
-        # Per-platform allow-all flag (e.g., DISCORD_ALLOW_ALL_USERS=true)
+        # 每个平台的 allow-all 标志（例如 DISCORD_ALLOW_ALL_USERS=true）
         platform_allow_all_var = platform_allow_all_map.get(source.platform, "")
         if platform_allow_all_var and os.getenv(platform_allow_all_var, "").lower() in ("true", "1", "yes"):
             return True
 
-        # Check pairing store (always checked, regardless of allowlists)
+        # 检查配对存储 (始终检查，无论白名单如何)
         platform_name = source.platform.value if source.platform else ""
         if self.pairing_store.is_approved(platform_name, user_id):
             return True
 
-        # Check platform-specific and global allowlists
+        # 检查平台特定和全局允许列表
         platform_allowlist = os.getenv(platform_env_map.get(source.platform, ""), "").strip()
         global_allowlist = os.getenv("GATEWAY_ALLOWED_USERS", "").strip()
 
         if not platform_allowlist and not global_allowlist:
-            # No allowlists configured -- check global allow-all flag
+            # 没有配置允许列表 -- 检查全局允许所有标志
             return os.getenv("GATEWAY_ALLOW_ALL_USERS", "").lower() in ("true", "1", "yes")
 
-        # Check if user is in any allowlist
+        # 检查用户是否在任何允许列表中
         allowed_ids = set()
         if platform_allowlist:
             allowed_ids.update(uid.strip() for uid in platform_allowlist.split(",") if uid.strip())
         if global_allowlist:
             allowed_ids.update(uid.strip() for uid in global_allowlist.split(",") if uid.strip())
 
-        # "*" in any allowlist means allow everyone (consistent with
-        # SIGNAL_GROUP_ALLOWED_USERS precedent)
+        # "*" 在任何白名单中表示允许所有人 (与
+        # SIGNAL_GROUP_ALLOWED_USERS 惯例一致)
         if "*" in allowed_ids:
             return True
 
@@ -1755,7 +1748,7 @@ class GatewayRunner:
         if "@" in user_id:
             check_ids.add(user_id.split("@")[0])
 
-        # WhatsApp: resolve phone↔LID aliases from bridge session mapping files
+        # WhatsApp: 从桥接会话映射文件中解析电话↔LID 别名
         if source.platform == Platform.WHATSAPP:
             normalized_allowed_ids = set()
             for allowed_id in allowed_ids:
@@ -1771,7 +1764,7 @@ class GatewayRunner:
         return bool(check_ids & allowed_ids)
 
     def _get_unauthorized_dm_behavior(self, platform: Optional[Platform]) -> str:
-        """Return how unauthorized DMs should be handled for a platform."""
+        """返回平台对未授权私信的处理方式。"""
         config = getattr(self, "config", None)
         if config and hasattr(config, "get_unauthorized_dm_behavior"):
             return config.get_unauthorized_dm_behavior(platform)
@@ -1779,31 +1772,30 @@ class GatewayRunner:
     
     async def _handle_message(self, event: MessageEvent) -> Optional[str]:
         """
-        Handle an incoming message from any platform.
+        处理来自任何平台的消息。
         
-        This is the core message processing pipeline:
-        1. Check user authorization
-        2. Check for commands (/new, /reset, etc.)
-        3. Check for running agent and interrupt if needed
-        4. Get or create session
-        5. Build context for agent
-        6. Run agent conversation
-        7. Return response
+        这是核心消息处理管道:
+        1. 检查用户授权
+        2. 检查命令 (/new、/reset 等)
+        3. 检查正在运行的代理并在需要时中断
+        4. 获取或创建会话
+        5. 为代理构建上下文
+        6. 运行代理会话
+        7. 返回响应
         """
         source = event.source
 
-        # Internal events (e.g. background-process completion notifications)
-        # are system-generated and must skip user authorization.
+        # 内部事件 (如后台进程完成通知) 是系统生成的，
+        # 必须跳过用户授权检查。
         if getattr(event, "internal", False):
             pass
         elif not self._is_user_authorized(source):
-            logger.warning("Unauthorized user: %s (%s) on %s", source.user_id, source.user_name, source.platform.value)
-            # In DMs: offer pairing code. In groups: silently ignore.
+            logger.warning("未授权用户: %s (%s) 在 %s 上", source.user_id, source.user_name, source.platform.value)
+            # 在私信中: 提供配对码。在群组中: 静默忽略。
             if source.chat_type == "dm" and self._get_unauthorized_dm_behavior(source.platform) == "pair":
                 platform_name = source.platform.value if source.platform else "unknown"
-                # Rate-limit ALL pairing responses (code or rejection) to
-                # prevent spamming the user with repeated messages when
-                # multiple DMs arrive in quick succession.
+                # 对所有配对响应 (码或拒绝) 进行速率限制，
+                # 以防止在多个私信快速到达时向用户重复发送消息。
                 if self.pairing_store._is_rate_limited(platform_name, source.user_id):
                     return None
                 code = self.pairing_store.generate_code(
@@ -1814,9 +1806,9 @@ class GatewayRunner:
                     if adapter:
                         await adapter.send(
                             source.chat_id,
-                            f"Hi~ I don't recognize you yet!\n\n"
-                            f"Here's your pairing code: `{code}`\n\n"
-                            f"Ask the bot owner to run:\n"
+                            f"嗨~ 我还不认识你！\n\n"
+                            f"这是你的配对码: `{code}`\n\n"
+                            f"请让机器人所有者运行:\n"
                             f"`kclaw pairing approve {platform_name} {code}`"
                         )
                 else:
@@ -1824,22 +1816,22 @@ class GatewayRunner:
                     if adapter:
                         await adapter.send(
                             source.chat_id,
-                            "Too many pairing requests right now~ "
-                            "Please try again later!"
+                            "现在请求过多~ "
+                            "请稍后重试！"
                         )
-                    # Record rate limit so subsequent messages are silently ignored
+                    # 记录速率限制，以便后续消息被静默忽略
                     self.pairing_store._record_rate_limit(platform_name, source.user_id)
             return None
         
-        # Intercept messages that are responses to a pending /update prompt.
-        # The update process (detached) wrote .update_prompt.json; the watcher
-        # forwarded it to the user; now the user's reply goes back via
-        # .update_response so the update process can continue.
+        # 拦截对待处理 /update 提示的响应消息。
+        # 更新进程 (分离) 写了 .update_prompt.json; 观察者
+        # 将其转发给用户; 现在用户的回复通过
+        # .update_response 返回，以便更新进程继续。
         _quick_key = self._session_key_for_source(source)
         _update_prompts = getattr(self, "_update_prompt_pending", {})
         if _update_prompts.get(_quick_key):
             raw = (event.text or "").strip()
-            # Accept /approve and /deny as shorthand for yes/no
+            # 接受 /approve 和 /deny 作为是/否的简写
             cmd = event.get_command()
             if cmd in ("approve", "yes"):
                 response_text = "y"
@@ -1854,35 +1846,35 @@ class GatewayRunner:
                     tmp.write_text(response_text)
                     tmp.replace(response_path)
                 except OSError as e:
-                    logger.warning("Failed to write update response: %s", e)
-                    return f"✗ Failed to send response to update process: {e}"
+                    logger.warning("写入更新响应失败: %s", e)
+                    return f"✗ 向更新进程发送响应失败: {e}"
                 _update_prompts.pop(_quick_key, None)
                 label = response_text if len(response_text) <= 20 else response_text[:20] + "…"
-                return f"✓ Sent `{label}` to the update process."
+                return f"✓ 已发送 `{label}` 到更新进程。"
 
-        # PRIORITY handling when an agent is already running for this session.
-        # Default behavior is to interrupt immediately so user text/stop messages
-        # are handled with minimal latency.
+        # 当此会话已有代理运行时进行优先级处理。
+        # 默认行为是立即中断，以便用户文本/停止消息
+        # 以最小延迟处理。
         #
-        # Special case: Telegram/photo bursts often arrive as multiple near-
-        # simultaneous updates. Do NOT interrupt for photo-only follow-ups here;
-        # let the adapter-level batching/queueing logic absorb them.
+        # 特殊情况: Telegram/照片突发通常作为多个几乎
+        # 同时的更新到达。不要在这里中断纯照片的后续;
+        # 让适配器级别的批处理/队列逻辑吸收它们。
 
-        # Staleness eviction: detect leaked locks from hung/crashed handlers.
-        # With inactivity-based timeout, active tasks can run for hours, so
-        # wall-clock age alone isn't sufficient.  Evict only when the agent
-        # has been *idle* beyond the inactivity threshold (or when the agent
-        # object has no activity tracker and wall-clock age is extreme).
+        # 陈旧性驱逐: 检测挂起/崩溃处理器的泄漏锁。
+        # 由于基于不活动的超时，活动任务可以运行数小时，
+        # 因此仅靠墙上时钟年龄是不够的。仅当代理
+        # 在不活动阈值之外处于*空闲*时才驱逐 (或者当代理
+        # 对象没有活动跟踪器且墙上时钟年龄极端时)。
         _raw_stale_timeout = float(os.getenv("KCLAW_AGENT_TIMEOUT", 1800))
         _stale_ts = self._running_agents_ts.get(_quick_key, 0)
         if _quick_key in self._running_agents and _stale_ts:
             _stale_age = time.time() - _stale_ts
             _stale_agent = self._running_agents.get(_quick_key)
-            # Never evict the pending sentinel — it was just placed moments
-            # ago during the async setup phase before the real agent is
-            # created.  Sentinels have no get_activity_summary(), so the
-            # idle check below would always evaluate to inf >= timeout and
-            # immediately evict them, racing with the setup path.
+            # 永不驱逐待处理哨兵 — 它是在真实代理
+            # 创建之前的异步设置阶段刚刚放置的。哨兵没有
+            # get_activity_summary()，因此下面的空闲检查
+            # 总是评估为 inf >= timeout 并立即驱逐它们，
+            # 与设置路径竞争。
             _stale_idle = float("inf")  # assume idle if we can't check
             _stale_detail = ""
             if _stale_agent and hasattr(_stale_agent, "get_activity_summary"):
@@ -1896,9 +1888,9 @@ class GatewayRunner:
                     )
                 except Exception:
                     pass
-            # Evict if: agent is idle beyond timeout, OR wall-clock age is
-            # extreme (10x timeout or 2h, whichever is larger — catches
-            # cases where the agent object was garbage-collected).
+            # 如果代理空闲超过超时，或者墙上时钟年龄极端
+            # (10倍超时或2小时，以较大者为准 — 捕获
+            # 代理对象被垃圾回收的情况)，则驱逐。
             _wall_ttl = max(_raw_stale_timeout * 10, 7200) if _raw_stale_timeout > 0 else float("inf")
             _should_evict = (
                 _stale_agent is not _AGENT_PENDING_SENTINEL
@@ -1909,8 +1901,8 @@ class GatewayRunner:
             )
             if _should_evict:
                 logger.warning(
-                    "Evicting stale _running_agents entry for %s "
-                    "(age: %.0fs, idle: %.0fs, timeout: %.0fs)%s",
+                    "驱逐会话 %s 的过时 _running_agents 条目 "
+                    "(年龄: %.0f秒, 空闲: %.0f秒, 超时: %.0f秒)%s",
                     _quick_key[:30], _stale_age, _stale_idle,
                     _raw_stale_timeout, _stale_detail,
                 )
@@ -1921,57 +1913,56 @@ class GatewayRunner:
             if event.get_command() == "status":
                 return await self._handle_status_command(event)
 
-            # Resolve the command once for all early-intercept checks below.
+            # 解析命令一次以供下面的所有早期拦截检查使用。
             from kclaw_cli.commands import resolve_command as _resolve_cmd_inner
             _evt_cmd = event.get_command()
             _cmd_def_inner = _resolve_cmd_inner(_evt_cmd) if _evt_cmd else None
 
-            # /stop must hard-kill the session when an agent is running.
-            # A soft interrupt (agent.interrupt()) doesn't help when the agent
-            # is truly hung — the executor thread is blocked and never checks
-            # _interrupt_requested.  Force-clean _running_agents so the session
-            # is unlocked and subsequent messages are processed normally.
+            # /stop 必须在代理运行时强制终止会话。
+            # 当代理真正挂起时，软中断 (agent.interrupt()) 没有帮助 — 
+            # 执行器线程被阻塞，从不检查 _interrupt_requested。
+            # 强制清理 _running_agents 以便会话
+            # 解锁，后续消息可以正常处理。
             if _cmd_def_inner and _cmd_def_inner.name == "stop":
                 running_agent = self._running_agents.get(_quick_key)
                 if running_agent and running_agent is not _AGENT_PENDING_SENTINEL:
-                    running_agent.interrupt("Stop requested")
-                # Force-clean: remove the session lock regardless of agent state
+                    running_agent.interrupt("停止请求")
+                # 强制清理: 无论代理状态如何都移除会话锁
                 adapter = self.adapters.get(source.platform)
                 if adapter and hasattr(adapter, 'get_pending_message'):
-                    adapter.get_pending_message(_quick_key)  # consume and discard
+                    adapter.get_pending_message(_quick_key)  # 消费并丢弃
                 self._pending_messages.pop(_quick_key, None)
                 if _quick_key in self._running_agents:
                     del self._running_agents[_quick_key]
-                logger.info("HARD STOP for session %s — session lock released", _quick_key[:20])
-                return "⚡ Force-stopped. The session is unlocked — you can send a new message."
+                logger.info("会话 %s 强制停止 — 会话锁已释放", _quick_key[:20])
+                return "⚡ 已强制停止。会话已解锁 — 你可以发送新消息。"
 
-            # /reset and /new must bypass the running-agent guard so they
-            # actually dispatch as commands instead of being queued as user
-            # text (which would be fed back to the agent with the same
-            # broken history — #2170).  Interrupt the agent first, then
-            # clear the adapter's pending queue so the stale "/reset" text
-            # doesn't get re-processed as a user message after the
-            # interrupt completes.
+            # /reset 和 /new 必须绕过运行中代理守卫，以便它们
+            # 实际作为命令分派，而不是被队列化为用户
+            # 文本 (这会导致相同的损坏历史被反馈给代理 — #2170)。
+            # 首先中断代理，然后清除适配器的待处理
+            # 队列，以便陈旧的 "/reset" 文本
+            # 在中断完成后不会作为用户消息重新处理。
             if _cmd_def_inner and _cmd_def_inner.name == "new":
                 running_agent = self._running_agents.get(_quick_key)
                 if running_agent and running_agent is not _AGENT_PENDING_SENTINEL:
-                    running_agent.interrupt("Session reset requested")
-                # Clear any pending messages so the old text doesn't replay
+                    running_agent.interrupt("会话重置请求")
+                # 清除任何待处理的消息，以便旧文本不会重放
                 adapter = self.adapters.get(source.platform)
                 if adapter and hasattr(adapter, 'get_pending_message'):
-                    adapter.get_pending_message(_quick_key)  # consume and discard
+                    adapter.get_pending_message(_quick_key)  # 消费并丢弃
                 self._pending_messages.pop(_quick_key, None)
-                # Clean up the running agent entry so the reset handler
-                # doesn't think an agent is still active.
+                # 清理运行中的代理条目，以便重置处理器
+                # 不认为代理仍然处于活动状态。
                 if _quick_key in self._running_agents:
                     del self._running_agents[_quick_key]
                 return await self._handle_reset_command(event)
 
-            # /queue <prompt> — queue without interrupting
+            # /queue <prompt> — 不中断地排队
             if event.get_command() in ("queue", "q"):
                 queued_text = event.get_command_args().strip()
                 if not queued_text:
-                    return "Usage: /queue <prompt>"
+                    return "用法: /queue <提示词>"
                 adapter = self.adapters.get(source.platform)
                 if adapter:
                     from gateway.platforms.base import MessageEvent as _ME, MessageType as _MT
@@ -1982,26 +1973,26 @@ class GatewayRunner:
                         message_id=event.message_id,
                     )
                     adapter._pending_messages[_quick_key] = queued_event
-                return "Queued for the next turn."
+                return "已排队等待下一轮。"
 
-            # /model must not be used while the agent is running.
+            # /model 在代理运行时不能使用。
             if _cmd_def_inner and _cmd_def_inner.name == "model":
-                return "Agent is running — wait or /stop first, then switch models."
+                return "代理正在运行 — 请等待或先 /stop，然后再切换模型。"
 
-            # /approve and /deny must bypass the running-agent interrupt path.
-            # The agent thread is blocked on a threading.Event inside
-            # tools/approval.py — sending an interrupt won't unblock it.
-            # Route directly to the approval handler so the event is signalled.
+            # /approve 和 /deny 必须绕过运行中代理的中断路径。
+            # 代理线程在 tools/approval.py 中的 threading.Event 内阻塞 — 
+            # 发送中断无法解除阻塞。
+            # 直接路由到审批处理器，以便事件被通知。
             if _cmd_def_inner and _cmd_def_inner.name in ("approve", "deny"):
                 if _cmd_def_inner.name == "approve":
                     return await self._handle_approve_command(event)
                 return await self._handle_deny_command(event)
 
             if event.message_type == MessageType.PHOTO:
-                logger.debug("PRIORITY photo follow-up for session %s — queueing without interrupt", _quick_key[:20])
+                logger.debug("会话 %s 的优先级照片后续 — 无需中断地排队", _quick_key[:20])
                 adapter = self.adapters.get(source.platform)
                 if adapter:
-                    # Reuse adapter queue semantics so photo bursts merge cleanly.
+                    # 重用适配器队列语义，以便照片突发能干净地合并。
                     if _quick_key in adapter._pending_messages:
                         existing = adapter._pending_messages[_quick_key]
                         if getattr(existing, "message_type", None) == MessageType.PHOTO:
@@ -2017,20 +2008,19 @@ class GatewayRunner:
 
             running_agent = self._running_agents.get(_quick_key)
             if running_agent is _AGENT_PENDING_SENTINEL:
-                # Agent is being set up but not ready yet.
+                # 代理正在设置但尚未准备就绪。
                 if event.get_command() == "stop":
-                    # Force-clean the sentinel so the session is unlocked.
+                    # 强制清理哨兵，以便会话被解锁。
                     if _quick_key in self._running_agents:
                         del self._running_agents[_quick_key]
-                    logger.info("HARD STOP (pending) for session %s — sentinel cleared", _quick_key[:20])
-                    return "⚡ Force-stopped. The agent was still starting — session unlocked."
-                # Queue the message so it will be picked up after the
-                # agent starts.
+                    logger.info("会话 %s 强制停止 (待处理) — 哨兵已清除", _quick_key[:20])
+                    return "⚡ 已强制停止。代理仍在启动中 — 会话已解锁。"
+                # 将消息排队，以便在代理启动后被拾取。
                 adapter = self.adapters.get(source.platform)
                 if adapter:
                     adapter._pending_messages[_quick_key] = event
                 return None
-            logger.debug("PRIORITY interrupt for session %s", _quick_key[:20])
+            logger.debug("会话 %s 的优先级中断", _quick_key[:20])
             running_agent.interrupt(event.text)
             if _quick_key in self._pending_messages:
                 self._pending_messages[_quick_key] += "\n" + event.text
@@ -2038,12 +2028,12 @@ class GatewayRunner:
                 self._pending_messages[_quick_key] = event.text
             return None
 
-        # Check for commands
+        # 检查命令
         command = event.get_command()
         
-        # Emit command:* hook for any recognized slash command.
-        # GATEWAY_KNOWN_COMMANDS is derived from the central COMMAND_REGISTRY
-        # in kclaw_cli/commands.py — no hardcoded set to maintain here.
+        # 为任何已识别的斜杠命令触发 command:* 钩子。
+        # GATEWAY_KNOWN_COMMANDS 来自 kclaw_cli/commands.py 中的
+        # 中心 COMMAND_REGISTRY — 此处没有硬编码集合需要维护。
         from kclaw_cli.commands import GATEWAY_KNOWN_COMMANDS, resolve_command as _resolve_cmd
         if command and command in GATEWAY_KNOWN_COMMANDS:
             await self.hooks.emit(f"command:{command}", {
@@ -2053,7 +2043,7 @@ class GatewayRunner:
                 "args": event.get_command_args().strip(),
             })
 
-        # Resolve aliases to canonical name so dispatch only checks canonicals.
+        # 解析别名到规范名称，以便分派仅检查规范名称。
         _cmd_def = _resolve_cmd(command) if command else None
         canonical = _cmd_def.name if _cmd_def else command
 
@@ -2109,11 +2099,11 @@ class GatewayRunner:
                     ),
                 )
                 if not event.text:
-                    return "Failed to load the bundled /plan skill."
+                    return "无法加载绑定的 /plan 技能。"
                 canonical = None
             except Exception as e:
-                logger.exception("Failed to prepare /plan command")
-                return f"Failed to enter plan mode: {e}"
+                logger.exception("准备 /plan 命令失败")
+                return f"进入计划模式失败: {e}"
         
         if canonical == "retry":
             return await self._handle_retry_command(event)
@@ -2166,7 +2156,7 @@ class GatewayRunner:
         if canonical == "voice":
             return await self._handle_voice_command(event)
 
-        # User-defined quick commands (bypass agent loop, no LLM call)
+        # 用户定义的快速命令 (绕过代理循环，无 LLM 调用)
         if command:
             if isinstance(self.config, dict):
                 quick_commands = self.config.get("quick_commands", {}) or {}
@@ -2187,13 +2177,13 @@ class GatewayRunner:
                             )
                             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
                             output = (stdout or stderr).decode().strip()
-                            return output if output else "Command returned no output."
+                            return output if output else "命令无输出。"
                         except asyncio.TimeoutError:
-                            return "Quick command timed out (30s)."
+                            return "快速命令超时 (30秒)。"
                         except Exception as e:
-                            return f"Quick command error: {e}"
+                            return f"快速命令错误: {e}"
                     else:
-                        return f"Quick command '/{command}' has no command defined."
+                        return f"快速命令 '/{command}' 未定义命令。"
                 elif qcmd.get("type") == "alias":
                     target = qcmd.get("target", "").strip()
                     if target:
@@ -2202,19 +2192,19 @@ class GatewayRunner:
                         user_args = event.get_command_args().strip()
                         event.text = f"{target} {user_args}".strip()
                         command = target_command
-                        # Fall through to normal command dispatch below
+                        # 继续下面的正常命令分派
                     else:
-                        return f"Quick command '/{command}' has no target defined."
+                        return f"快速命令 '/{command}' 未定义目标。"
                 else:
-                    return f"Quick command '/{command}' has unsupported type (supported: 'exec', 'alias')."
+                    return f"快速命令 '/{command}' 不支持的类型 (支持: 'exec', 'alias')。"
 
-        # Plugin-registered slash commands
+        # 插件注册的斜杠命令
         if command:
             try:
                 from kclaw_cli.plugins import get_plugin_command_handler
-                # Normalize underscores to hyphens so Telegram's underscored
-                # autocomplete form matches plugin commands registered with
-                # hyphens. See kclaw_cli/commands.py:_build_telegram_menu.
+                # 将下划线规范化为连字符，以便 Telegram 带下划线的
+                # 自动补全表单与用连字符注册的插件命令匹配。
+                # 参见 kclaw_cli/commands.py:_build_telegram_menu。
                 plugin_handler = get_plugin_command_handler(command.replace("_", "-"))
                 if plugin_handler:
                     user_args = event.get_command_args().strip()
@@ -2224,12 +2214,12 @@ class GatewayRunner:
                         result = await result
                     return str(result) if result else None
             except Exception as e:
-                logger.debug("Plugin command dispatch failed (non-fatal): %s", e)
+                logger.debug("插件命令分派失败 (非致命): %s", e)
 
-        # Skill slash commands: /skill-name loads the skill and sends to agent.
-        # resolve_skill_command_key() handles the Telegram underscore/hyphen
-        # round-trip so /claude_code from Telegram autocomplete still resolves
-        # to the claude-code skill.
+        # 技能斜杠命令: /skill-name 加载技能并发送给代理。
+        # resolve_skill_command_key() 处理 Telegram 下划线/连字符
+        # 往返，以便 Telegram 自动补全的 /claude_code 仍能解析
+        # 到 claude-code 技能。
         if command:
             try:
                 from agent.skill_commands import (
@@ -2240,18 +2230,18 @@ class GatewayRunner:
                 skill_cmds = get_skill_commands()
                 cmd_key = resolve_skill_command_key(command)
                 if cmd_key is not None:
-                    # Check per-platform disabled status before executing.
-                    # get_skill_commands() only applies the *global* disabled
-                    # list at scan time; per-platform overrides need checking
-                    # here because the cache is process-global across platforms.
+                    # 在执行前检查每个平台的禁用状态。
+                    # get_skill_commands() 只在扫描时应用*全局*禁用
+                    # 列表; 需要在此处检查每个平台的覆盖，因为缓存
+                    # 在平台间是进程全局的。
                     _skill_name = skill_cmds[cmd_key].get("name", "")
                     _plat = source.platform.value if source.platform else None
                     if _plat and _skill_name:
                         from agent.skill_utils import get_disabled_skill_names as _get_plat_disabled
                         if _skill_name in _get_plat_disabled(platform=_plat):
                             return (
-                                f"The **{_skill_name}** skill is disabled for {_plat}.\n"
-                                f"Enable it with: `kclaw skills config`"
+                                f"**{_skill_name}** 技能在 {_plat} 上已禁用。\n"
+                                f"使用以下命令启用: `kclaw skills config`"
                             )
                     user_instruction = event.get_command_args().strip()
                     msg = build_skill_invocation_message(
@@ -2259,78 +2249,77 @@ class GatewayRunner:
                     )
                     if msg:
                         event.text = msg
-                        # Fall through to normal message processing with skill content
+                        # 继续使用技能内容进行正常消息处理
                 else:
-                    # Not an active skill — check if it's a known-but-disabled or
-                    # uninstalled skill and give actionable guidance.
+                    # 不是活动技能 — 检查是否是已知但禁用的或
+                    # 未安装的技能，并提供可操作的指导。
                     _unavail_msg = _check_unavailable_skill(command)
                     if _unavail_msg:
                         return _unavail_msg
-                    # Genuinely unrecognized /command: not a built-in, not a
-                    # plugin, not a skill, not a known-inactive skill. Warn
-                    # the user instead of silently forwarding it to the LLM
-                    # as free text (which leads to silent-failure behavior
-                    # like the model inventing a delegate_task call).
-                    # Normalize to hyphenated form before checking known
-                    # built-ins (command may be an alias target set by the
-                    # quick-command block above, so _cmd_def can be stale).
+                    # 真正无法识别的 /command: 不是内置的，不是
+                    # 插件的，不是技能的，不是已知非活动技能的。
+                    # 警告用户而不是静默转发给 LLM
+                    # 作为自由文本 (这会导致静默失败行为，
+                    # 如模型编造 delegate_task 调用)。
+                    # 在检查已知内置命令之前规范化
+                    # 为连字符形式 (命令可能是上面
+                    # 快速命令块中设置的别名目标，因此 _cmd_def 可能已过时)。
                     if command.replace("_", "-") not in GATEWAY_KNOWN_COMMANDS:
                         logger.warning(
-                            "Unrecognized slash command /%s from %s — "
-                            "replying with unknown-command notice",
+                            "来自 %s 的无法识别的斜杠命令 /%s — "
+                            "回复未知命令通知",
                             command,
                             source.platform.value if source.platform else "?",
                         )
                         return (
-                            f"Unknown command `/{command}`. "
-                            f"Type /commands to see what's available, "
-                            f"or resend without the leading slash to send "
-                            f"as a regular message."
+                            f"未知命令 `/{command}`。"
+                            f"输入 /commands 查看可用命令，"
+                            f"或重新发送时不带前导斜杠作为普通消息发送。"
                         )
             except Exception as e:
-                logger.debug("Skill command check failed (non-fatal): %s", e)
+                logger.debug("技能命令检查失败 (非致命): %s", e)
         
-        # Pending exec approvals are handled by /approve and /deny commands above.
-        # No bare text matching — "yes" in normal conversation must not trigger
-        # execution of a dangerous command.
+        # 待处理的执行审批由上面的 /approve 和 /deny 命令处理。
+        # 不进行裸文本匹配 — 普通会话中的 "yes" 不得触发
+        # 危险命令的执行。
 
-        # ── Claim this session before any await ───────────────────────
-        # Between here and _run_agent registering the real AIAgent, there
-        # are numerous await points (hooks, vision enrichment, STT,
-        # session hygiene compression).  Without this sentinel a second
-        # message arriving during any of those yields would pass the
-        # "already running" guard and spin up a duplicate agent for the
-        # same session — corrupting the transcript.
+        # ── 在任何 await 之前声明此会话 ───────────────────────
+        # 在这里和 _run_agent 注册真实 AIAgent 之间，
+        # 有很多 await 点 (钩子、视觉增强、STT、
+        # 会话卫生压缩)。没有这个哨兵，第二个在任何一个
+        # 这些 yield 期间到达的消息会通过
+        # "已在运行" 守卫并为同一会话启动重复代理 — 
+        # 损坏会话记录。
         self._running_agents[_quick_key] = _AGENT_PENDING_SENTINEL
         self._running_agents_ts[_quick_key] = time.time()
 
         try:
             return await self._handle_message_with_agent(event, source, _quick_key)
         finally:
-            # If _run_agent replaced the sentinel with a real agent and
-            # then cleaned it up, this is a no-op.  If we exited early
-            # (exception, command fallthrough, etc.) the sentinel must
-            # not linger or the session would be permanently locked out.
+            # 如果 _run_agent 用真实代理替换了哨兵并
+            # 随后清理了它，这是一个空操作。如果提前退出
+            # (异常、命令贯穿等) 哨兵必须
+            # 不能停留，否则会话将被永久锁定。
             if self._running_agents.get(_quick_key) is _AGENT_PENDING_SENTINEL:
                 del self._running_agents[_quick_key]
             self._running_agents_ts.pop(_quick_key, None)
 
     async def _handle_message_with_agent(self, event, source, _quick_key: str):
-        """Inner handler that runs under the _running_agents sentinel guard."""
+        """在 _running_agents 哨兵守卫下运行的内部处理器。"""
         _msg_start_time = time.time()
         _platform_name = source.platform.value if hasattr(source.platform, "value") else str(source.platform)
         _msg_preview = (event.text or "")[:80].replace("\n", " ")
         logger.info(
-            "inbound message: platform=%s user=%s chat=%s msg=%r",
+            "入站消息: platform=%s user=%s chat=%s msg=%r",
             _platform_name, source.user_name or source.user_id or "unknown",
             source.chat_id or "unknown", _msg_preview,
         )
 
-        # Get or create session
+        # 获取或创建会话
         session_entry = self.session_store.get_or_create_session(source)
         session_key = session_entry.session_key
         
-        # Emit session:start for new or auto-reset sessions
+        # 为新会话或自动重置会话触发 session:start
         _is_new_session = (
             session_entry.created_at == session_entry.updated_at
             or getattr(session_entry, "was_auto_reset", False)
@@ -2343,13 +2332,13 @@ class GatewayRunner:
                 "session_key": session_key,
             })
         
-        # Build session context
+        # 构建会话上下文
         context = build_session_context(source, self.config, session_entry)
         
-        # Set environment variables for tools
+        # 为工具设置环境变量
         self._set_session_env(context)
         
-        # Read privacy.redact_pii from config (re-read per message)
+        # 从配置读取 privacy.redact_pii (每条消息重新读取)
         _redact_pii = False
         try:
             import yaml as _pii_yaml
@@ -2359,23 +2348,23 @@ class GatewayRunner:
         except Exception:
             pass
 
-        # Build the context prompt to inject
+        # 构建要注入的上下文提示词
         context_prompt = build_session_context_prompt(context, redact_pii=_redact_pii)
         
-        # If the previous session expired and was auto-reset, prepend a notice
-        # so the agent knows this is a fresh conversation (not an intentional /reset).
+        # 如果上一个会话过期并被自动重置，在前面添加一条通知，
+        # 以便代理知道这是一个新的对话 (而不是故意的 /reset)。
         if getattr(session_entry, 'was_auto_reset', False):
             reset_reason = getattr(session_entry, 'auto_reset_reason', None) or 'idle'
             if reset_reason == "daily":
-                context_note = "[System note: The user's session was automatically reset by the daily schedule. This is a fresh conversation with no prior context.]"
+                context_note = "[系统提示: 用户的会话已被每日计划自动重置。这是一次新的对话，没有先前的上下文。]"
             else:
-                context_note = "[System note: The user's previous session expired due to inactivity. This is a fresh conversation with no prior context.]"
+                context_note = "[系统提示: 用户的先前会话因不活动而过期。这是一次新的对话，没有先前的上下文。]"
             context_prompt = context_note + "\n\n" + context_prompt
 
-            # Send a user-facing notification explaining the reset, unless:
-            # - notifications are disabled in config
-            # - the platform is excluded (e.g. api_server, webhook)
-            # - the expired session had no activity (nothing was cleared)
+            # 发送面向用户的消息解释重置，除非:
+            # - 通知在配置中被禁用
+            # - 平台被排除 (例如 api_server, webhook)
+            # - 过期会话没有活动 (没有内容被清除)
             try:
                 policy = self.session_store.config.get_reset_policy(
                     platform=source.platform,
@@ -2392,17 +2381,17 @@ class GatewayRunner:
                     adapter = self.adapters.get(source.platform)
                     if adapter:
                         if reset_reason == "daily":
-                            reason_text = f"daily schedule at {policy.at_hour}:00"
+                            reason_text = f"每日计划在 {policy.at_hour}:00"
                         else:
                             hours = policy.idle_minutes // 60
                             mins = policy.idle_minutes % 60
-                            duration = f"{hours}h" if not mins else f"{hours}h {mins}m" if hours else f"{mins}m"
-                            reason_text = f"inactive for {duration}"
+                            duration = f"{hours}小时" if not mins else f"{hours}小时 {mins}分钟" if hours else f"{mins}分钟"
+                            reason_text = f"不活动 {duration}"
                         notice = (
-                            f"◐ Session automatically reset ({reason_text}). "
-                            f"Conversation history cleared.\n"
-                            f"Use /resume to browse and restore a previous session.\n"
-                            f"Adjust reset timing in config.yaml under session_reset."
+                            f"◐ 会话已自动重置 ({reason_text})。"
+                            f"对话历史已清除。\n"
+                            f"使用 /resume 浏览并恢复先前的会话。\n"
+                            f"在 config.yaml 的 session_reset 下调整重置时间。"
                         )
                         try:
                             session_info = self._format_session_info()
@@ -2415,14 +2404,14 @@ class GatewayRunner:
                             metadata=getattr(event, 'metadata', None),
                         )
             except Exception as e:
-                logger.debug("Auto-reset notification failed (non-fatal): %s", e)
+                logger.debug("自动重置通知失败 (非致命): %s", e)
 
             session_entry.was_auto_reset = False
             session_entry.auto_reset_reason = None
 
-        # Auto-load skill for DM topic bindings (e.g., Telegram Private Chat Topics)
-        # Only inject on NEW sessions — for ongoing conversations the skill content
-        # is already in the conversation history from the first message.
+        # 为私信话题绑定自动加载技能 (例如 Telegram 私信话题)
+        # 仅在新会话时注入 — 对于正在进行的对话，技能内容
+        # 已从第一条消息包含在对话历史中。
         if _is_new_session and getattr(event, "auto_skill", None):
             try:
                 from agent.skill_commands import _load_skill_payload, _build_skill_message
@@ -2431,8 +2420,8 @@ class GatewayRunner:
                 if _loaded:
                     _loaded_skill, _skill_dir, _display_name = _loaded
                     _activation_note = (
-                        f'[SYSTEM: This conversation is in a topic with the "{_display_name}" skill '
-                        f"auto-loaded. Follow its instructions for the duration of this session.]"
+                        f'[系统: 此对话在具有 "{_display_name}" 技能的话题中，'
+                        f"已自动加载。在本次会话期间请遵循其说明。]"
                     )
                     _skill_msg = _build_skill_message(
                         _loaded_skill, _skill_dir, _activation_note,
@@ -2441,34 +2430,33 @@ class GatewayRunner:
                     if _skill_msg:
                         event.text = _skill_msg
                         logger.info(
-                            "[Gateway] Auto-loaded skill '%s' for DM topic session %s",
+                            "[网关] 为私信话题会话 %s 自动加载技能 '%s'",
                             _skill_name, session_key,
                         )
                 else:
                     logger.warning(
-                        "[Gateway] DM topic skill '%s' not found in available skills",
+                        "[网关] 在可用技能中未找到私信话题技能 '%s'",
                         _skill_name,
                     )
             except Exception as e:
-                logger.warning("[Gateway] Failed to auto-load topic skill '%s': %s", event.auto_skill, e)
+                logger.warning("[网关] 自动加载话题技能 '%s' 失败: %s", event.auto_skill, e)
 
-        # Load conversation history from transcript
+        # 从会话记录加载对话历史
         history = self.session_store.load_transcript(session_entry.session_id)
         
         # -----------------------------------------------------------------
-        # Session hygiene: auto-compress pathologically large transcripts
+        # 会话卫生：自动压缩病理级庞大的对话记录
         #
-        # Long-lived gateway sessions can accumulate enough history that
-        # every new message rehydrates an oversized transcript, causing
-        # repeated truncation/context failures.  Detect this early and
-        # compress proactively — before the agent even starts.  (#628)
+        # 长期运行的网关会话可能积累足够多的历史记录，导致每条新消息
+        # 都会重新加载一个过大的对话记录，从而引发重复的截断/上下文
+        # 失败。在代理启动之前及早检测并主动压缩。(#628)
         #
-        # Token source priority:
-        # 1. Actual API-reported prompt_tokens from the last turn
-        #    (stored in session_entry.last_prompt_tokens)
-        # 2. Rough char-based estimate (str(msg)//4). Overestimates
-        #    by 30-50% on code/JSON-heavy sessions, but that just
-        #    means hygiene fires a bit early — safe and harmless.
+        # Token 来源优先级：
+        # 1. 上轮 API 实际报告的 prompt_tokens
+        #    (存储在 session_entry.last_prompt_tokens)
+        # 2. 粗略的基于字符的估算 (str(msg)//4)。对于代码/JSON
+        #    密集型会话会高估 30-50%，但这只是意味着卫生机制会
+        #    提前触发 —— 安全且无害。
         # -----------------------------------------------------------------
         if history and len(history) >= 4:
             from agent.model_metadata import (
@@ -2476,14 +2464,13 @@ class GatewayRunner:
                 get_model_context_length,
             )
 
-            # Read model + compression config from config.yaml.
-            # NOTE: hygiene threshold is intentionally HIGHER than the agent's
-            # own compressor (0.85 vs 0.50).  Hygiene is a safety net for
-            # sessions that grew too large between turns — it fires pre-agent
-            # to prevent API failures.  The agent's own compressor handles
-            # normal context management during its tool loop with accurate
-            # real token counts.  Having hygiene at 0.50 caused premature
-            # compression on every turn in long gateway sessions.
+            # 从 config.yaml 读取模型和压缩配置。
+            # 注意：卫生阈值特意设置得比代理自身的压缩器更高
+            # (0.85 对比 0.50)。卫生机制是为轮次之间增长过大的会话
+            # 设置的安全网 —— 它在代理运行前触发以防止 API 失败。
+            # 代理自身的压缩器在其工具循环中使用精确的实时 token 计数
+            # 处理正常的上下文管理。将卫生阈值设为 0.50 导致在
+            # 长期网关会话中每轮都过早触发压缩。
             _hyg_model = "anthropic/claude-sonnet-4.6"
             _hyg_threshold_pct = 0.85
             _hyg_compression_enabled = True
@@ -2498,34 +2485,34 @@ class GatewayRunner:
                     with open(_hyg_cfg_path, encoding="utf-8") as _hyg_f:
                         _hyg_data = _hyg_yaml.safe_load(_hyg_f) or {}
 
-                    # Resolve model name (same logic as run_sync)
+                    # 解析模型名称（与 run_sync 相同的逻辑）
                     _model_cfg = _hyg_data.get("model", {})
                     if isinstance(_model_cfg, str):
                         _hyg_model = _model_cfg
                     elif isinstance(_model_cfg, dict):
                         _hyg_model = _model_cfg.get("default") or _model_cfg.get("model") or _hyg_model
-                        # Read explicit context_length override from model config
-                        # (same as run_agent.py lines 995-1005)
+                        # 从模型配置读取显式的 context_length 覆盖
+                        # (与 run_agent.py lines 995-1005 相同)
                         _raw_ctx = _model_cfg.get("context_length")
                         if _raw_ctx is not None:
                             try:
                                 _hyg_config_context_length = int(_raw_ctx)
                             except (TypeError, ValueError):
                                 pass
-                        # Read provider for accurate context detection
+                        # 读取提供商以进行准确的上下文检测
                         _hyg_provider = _model_cfg.get("provider") or None
                         _hyg_base_url = _model_cfg.get("base_url") or None
 
-                    # Read compression settings — only use enabled flag.
-                    # The threshold is intentionally separate from the agent's
-                    # compression.threshold (hygiene runs higher).
+                    # 读取压缩设置 — 仅使用 enabled 标志。
+                    # 阈值有意与代理的 compression.threshold 分离
+                    # (卫生运行时更高)。
                     _comp_cfg = _hyg_data.get("compression", {})
                     if isinstance(_comp_cfg, dict):
                         _hyg_compression_enabled = str(
                             _comp_cfg.get("enabled", True)
                         ).lower() in ("true", "1", "yes")
 
-                # Resolve provider/base_url from runtime if not in config
+                # 如果配置中没有提供商/base_url，则从运行时解析
                 if not _hyg_provider or not _hyg_base_url:
                     try:
                         _hyg_runtime = _resolve_runtime_agent_kwargs()
@@ -2535,9 +2522,9 @@ class GatewayRunner:
                     except Exception:
                         pass
 
-                # Check custom_providers per-model context_length
-                # (same fallback as run_agent.py lines 1171-1189).
-                # Must run after runtime resolution so _hyg_base_url is set.
+                # 检查 custom_providers 每模型 context_length
+                # (与 run_agent.py lines 1171-1189 相同的回退)。
+                # 必须在运行时解析后运行，以便设置 _hyg_base_url。
                 if _hyg_config_context_length is None and _hyg_base_url:
                     try:
                         _hyg_custom_providers = _hyg_data.get("custom_providers")
@@ -2575,8 +2562,8 @@ class GatewayRunner:
 
                 _msg_count = len(history)
 
-                # Prefer actual API-reported tokens from the last turn
-                # (stored in session entry) over the rough char-based estimate.
+                # 优先使用上轮实际 API 报告的 tokens
+                # (存储在会话条目中)，而非粗略的基于字符的估算。
                 _stored_tokens = session_entry.last_prompt_tokens
                 if _stored_tokens > 0:
                     _approx_tokens = _stored_tokens
@@ -2584,20 +2571,18 @@ class GatewayRunner:
                 else:
                     _approx_tokens = estimate_messages_tokens_rough(history)
                     _token_source = "estimated"
-                    # Note: rough estimates overestimate by 30-50% for code/JSON-heavy
-                    # sessions, but that just means hygiene fires a bit early — which
-                    # is safe and harmless.  The 85% threshold already provides ample
-                    # headroom (agent's own compressor runs at 50%).  A previous 1.4x
-                    # multiplier tried to compensate by inflating the threshold, but
-                    # 85% * 1.4 = 119% of context — which exceeds the model's limit
-                    # and prevented hygiene from ever firing for ~200K models (GLM-5).
+                    # 注意：粗略估算对于代码/JSON 密集型会话会高估 30-50%，
+                    # 但这只是意味着卫生会稍微提前触发 — 这是安全且无害的。
+                    # 85% 阈值已经提供了充足的缓冲空间（代理自身的压缩器在 50% 运行）。
+                    # 之前尝试的 1.4 倍系数试图通过膨胀阈值来补偿，
+                    # 但 85% * 1.4 = 119% 的上下文 — 超过了模型的限制，
+                    # 并阻止了卫生对 ~200K 模型（GLM-5）触发。
 
-                # Hard safety valve: force compression if message count is
-                # extreme, regardless of token estimates.  This breaks the
-                # death spiral where API disconnects prevent token data
-                # collection, which prevents compression, which causes more
-                # disconnects.  400 messages is well above normal sessions
-                # but catches runaway growth before it becomes unrecoverable.
+                # 硬安全阀：如果消息数量极端则强制压缩，
+                # 无论 token 估算如何。这打破了死亡螺旋，
+                # 其中 API 断开阻止 token 数据收集，
+                # 这阻止了压缩，导致更多断开。400 条消息远超
+                # 正常会话，但会在失控增长变得不可恢复之前捕获它。
                 # (#2153)
                 _HARD_MSG_LIMIT = 400
                 _needs_compress = (
@@ -2607,8 +2592,8 @@ class GatewayRunner:
 
                 if _needs_compress:
                     logger.info(
-                        "Session hygiene: %s messages, ~%s tokens (%s) — auto-compressing "
-                        "(threshold: %s%% of %s = %s tokens)",
+                        "会话卫生: %s 条消息，~%s tokens (%s) — 自动压缩 "
+                        "(阈值: %s%% of %s = %s tokens)",
                         _msg_count, f"{_approx_tokens:,}", _token_source,
                         int(_hyg_threshold_pct * 100),
                         f"{_hyg_context_length:,}",
@@ -2661,7 +2646,7 @@ class GatewayRunner:
                                 self.session_store.rewrite_transcript(
                                     session_entry.session_id, _compressed
                                 )
-                                # Reset stored token count — transcript was rewritten
+                                # 重置存储的令牌计数 — 转录本已被重写
                                 session_entry.last_prompt_tokens = 0
                                 history = _compressed
                                 _new_count = len(_compressed)
@@ -2670,7 +2655,7 @@ class GatewayRunner:
                                 )
 
                                 logger.info(
-                                    "Session hygiene: compressed %s → %s msgs, "
+                                    "会话卫生: 压缩 %s → %s 条消息，"
                                     "~%s → ~%s tokens",
                                     _msg_count, _new_count,
                                     f"{_approx_tokens:,}", f"{_new_tokens:,}",
@@ -2678,26 +2663,25 @@ class GatewayRunner:
 
                                 if _new_tokens >= _warn_token_threshold:
                                     logger.warning(
-                                        "Session hygiene: still ~%s tokens after "
-                                        "compression",
+                                        "会话卫生: 压缩后仍有 ~%s tokens",
                                         f"{_new_tokens:,}",
                                     )
 
                     except Exception as e:
                         logger.warning(
-                            "Session hygiene auto-compress failed: %s", e
+                            "会话卫生自动压缩失败: %s", e
                         )
 
-        # First-message onboarding -- only on the very first interaction ever
+        # 首次消息引导 — 仅在第一次交互时
         if not history and not self.session_store.has_any_sessions():
             context_prompt += (
-                "\n\n[System note: This is the user's very first message ever. "
-                "Briefly introduce yourself and mention that /help shows available commands. "
-                "Keep the introduction concise -- one or two sentences max.]"
+                "\n\n[系统提示: 这是用户的第一条消息。"
+                "简要介绍一下自己，并提及 /help 可查看可用命令。"
+                "介绍要简洁 — 最多一两句话。]"
             )
         
-        # One-time prompt if no home channel is set for this platform
-        # Skip for webhooks - they deliver directly to configured targets (github_comment, etc.)
+        # 如果没有为此平台设置主频道则一次性提示
+        # 跳过 webhooks - 它们直接投递到配置的目标 (github_comment 等)
         if not history and source.platform and source.platform != Platform.LOCAL and source.platform != Platform.WEBHOOK:
             platform_name = source.platform.value
             env_key = f"{platform_name.upper()}_HOME_CHANNEL"
@@ -2706,17 +2690,16 @@ class GatewayRunner:
                 if adapter:
                     await adapter.send(
                         source.chat_id,
-                        f"📬 No home channel is set for {platform_name.title()}. "
-                        f"A home channel is where KClaw delivers cron job results "
-                        f"and cross-platform messages.\n\n"
-                        f"Type /sethome to make this chat your home channel, "
-                        f"or ignore to skip."
+                        f"📬 尚未为 {platform_name.title()} 设置主频道。"
+                        f"主频道是 KClaw 投递 cron 作业结果"
+                        f"和跨平台消息的地方。\n\n"
+                        f"输入 /sethome 将此聊天室设为主频道，"
+                        f"或忽略跳过。"
                     )
         
         # -----------------------------------------------------------------
-        # Voice channel awareness — inject current voice channel state
-        # into context so the agent knows who is in the channel and who
-        # is speaking, without needing a separate tool call.
+        # 语音频道感知 — 将当前语音频道状态注入上下文，
+        # 以便代理知道谁在频道中谁在说话，无需单独的工具调用。
         # -----------------------------------------------------------------
         if source.platform == Platform.DISCORD:
             adapter = self.adapters.get(Platform.DISCORD)
@@ -2727,26 +2710,25 @@ class GatewayRunner:
                     context_prompt += f"\n\n{vc_context}"
 
         # -----------------------------------------------------------------
-        # Auto-analyze images sent by the user
+        # 自动分析用户发送的图片
         #
-        # If the user attached image(s), we run the vision tool eagerly so
-        # the conversation model always receives a text description.  The
-        # local file path is also included so the model can re-examine the
-        # image later with a more targeted question via vision_analyze.
+        # 如果用户附加了图片，我们急切地运行视觉工具，
+        # 以便对话模型始终接收文本描述。还包括本地文件路径，
+        # 以便模型稍后可以通过 vision_analyze 更精准地重新检查图片。
         #
-        # We filter to image paths only (by media_type) so that non-image
-        # attachments (documents, audio, etc.) are not sent to the vision
-        # tool even when they appear in the same message.
+        # 我们仅过滤图片路径（按 media_type），
+        # 以便非图片附件（文档、音频等）在同一条消息中出现时
+        # 不会发送到视觉工具。
         # -----------------------------------------------------------------
         message_text = event.text or ""
 
         # -----------------------------------------------------------------
-        # Sender attribution for shared thread sessions.
+        # 共享线程会话的发件人归属。
         #
-        # When multiple users share a single thread session (the default for
-        # threads), prefix each message with [sender name] so the agent can
-        # tell participants apart.  Skip for DMs (single-user by nature) and
-        # when per-user thread isolation is explicitly enabled.
+        # 当多个用户共享单个线程会话（线程的默认设置）时，
+        # 在每条消息前添加 [发送者名称]，以便代理区分参与者。
+        # 跳过私信（本质上是单一用户）和
+        # 当明确启用每用户线程隔离时。
         # -----------------------------------------------------------------
         _is_shared_thread = (
             source.chat_type != "dm"
@@ -2759,7 +2741,8 @@ class GatewayRunner:
         if event.media_urls:
             image_paths = []
             for i, path in enumerate(event.media_urls):
-                # Check media_types if available; otherwise infer from message type
+                # 检查 media_types 是否可用；否则从消息类型推断
+                # 检查 media_types 是否可用；否则从消息类型推断
                 mtype = event.media_types[i] if i < len(event.media_types) else ""
                 is_image = (
                     mtype.startswith("image/")
@@ -2773,7 +2756,7 @@ class GatewayRunner:
                 )
         
         # -----------------------------------------------------------------
-        # Auto-transcribe voice/audio messages sent by the user
+        # 自动转录用户发送的语音/音频消息
         # -----------------------------------------------------------------
         if event.media_urls:
             audio_paths = []
@@ -2789,13 +2772,13 @@ class GatewayRunner:
                 message_text = await self._enrich_message_with_transcription(
                     message_text, audio_paths
                 )
-                # If STT failed, send a direct message to the user so they
-                # know voice isn't configured — don't rely on the agent to
-                # relay the error clearly.
+                # 如果 STT 失败，直接发送消息给用户，
+                # 以便他们知道语音未配置 — 不要依赖代理来
+                # 清楚地转发错误。
                 _stt_fail_markers = (
-                    "No STT provider",
-                    "STT is disabled",
-                    "can't listen",
+                    "没有 STT 提供商",
+                    "STT 已禁用",
+                    "无法收听",
                     "VOICE_TOOLS_OPENAI_KEY",
                 )
                 if any(m in message_text for m in _stt_fail_markers):
@@ -2804,16 +2787,16 @@ class GatewayRunner:
                     if _stt_adapter:
                         try:
                             _stt_msg = (
-                                "🎤 I received your voice message but can't transcribe it — "
-                                "no speech-to-text provider is configured.\n\n"
-                                "To enable voice: install faster-whisper "
-                                "(`pip install faster-whisper` in the KClaw venv) "
-                                "and set `stt.enabled: true` in config.yaml, "
-                                "then /restart the gateway."
+                                "🎤 我收到了你的语音消息，但无法转录 — "
+                                "没有配置语音转文本提供商。\n\n"
+                                "要启用语音：安装 faster-whisper "
+                                "(`pip install faster-whisper` 在 KClaw venv 中) "
+                                "并在 config.yaml 中设置 `stt.enabled: true`，"
+                                "然后 /restart 网关。"
                             )
-                            # Point to setup skill if it's installed
+                            # 如果安装了设置技能则指向设置说明
                             if self._has_setup_skill():
-                                _stt_msg += "\n\nFor full setup instructions, type: `/skill kclaw-setup`"
+                                _stt_msg += "\n\n要查看完整设置说明，请输入: `/skill kclaw-setup`"
                             await _stt_adapter.send(
                                 source.chat_id, _stt_msg,
                                 metadata=_stt_meta,
@@ -2822,14 +2805,14 @@ class GatewayRunner:
                             pass
 
         # -----------------------------------------------------------------
-        # Enrich document messages with context notes for the agent
+        # 为代理富化文档消息的上下文注释
         # -----------------------------------------------------------------
         if event.media_urls and event.message_type == MessageType.DOCUMENT:
             import mimetypes as _mimetypes
             _TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".log", ".json", ".xml", ".yaml", ".yml", ".toml", ".ini", ".cfg"}
             for i, path in enumerate(event.media_urls):
                 mtype = event.media_types[i] if i < len(event.media_types) else ""
-                # Fall back to extension-based detection when MIME type is unreliable.
+                # 当 MIME 类型不可靠时回退到基于扩展名的检测。
                 if mtype in ("", "application/octet-stream"):
                     import os as _os2
                     _ext = _os2.path.splitext(path)[1].lower()
@@ -2841,36 +2824,36 @@ class GatewayRunner:
                             mtype = guessed
                 if not mtype.startswith(("application/", "text/")):
                     continue
-                # Extract display filename by stripping the doc_{uuid12}_ prefix
+                # 通过剥离 doc_{uuid12}_ 前缀来提取显示文件名
                 import os as _os
                 basename = _os.path.basename(path)
-                # Format: doc_<12hex>_<original_filename>
+                # 格式: doc_<12hex>_<原始文件名>
                 parts = basename.split("_", 2)
                 display_name = parts[2] if len(parts) >= 3 else basename
-                # Sanitize to prevent prompt injection via filenames
+                # 清理以防止通过文件名进行提示词注入
                 import re as _re
                 display_name = _re.sub(r'[^\w.\- ]', '_', display_name)
 
                 if mtype.startswith("text/"):
                     context_note = (
-                        f"[The user sent a text document: '{display_name}'. "
-                        f"Its content has been included below. "
-                        f"The file is also saved at: {path}]"
+                        f"[用户发送了一个文本文档: '{display_name}'。"
+                        f"其内容已包含在下方。"
+                        f"文件也保存在: {path}]"
                     )
                 else:
                     context_note = (
-                        f"[The user sent a document: '{display_name}'. "
-                        f"The file is saved at: {path}. "
-                        f"Ask the user what they'd like you to do with it.]"
+                        f"[用户发送了一个文档: '{display_name}'。"
+                        f"文件保存在: {path}。"
+                        f"询问用户他们想用此文件做什么。]"
                     )
                 message_text = f"{context_note}\n\n{message_text}"
 
         # -----------------------------------------------------------------
-        # Inject reply context when user replies to a message not in history.
-        # Telegram (and other platforms) let users reply to specific messages,
-        # but if the quoted message is from a previous session, cron delivery,
-        # or background task, the agent has no context about what's being
-        # referenced. Prepend the quoted text so the agent understands. (#1594)
+        # 当用户回复不在历史记录中的消息时注入回复上下文。
+        # Telegram（和其他平台）让用户回复特定消息，
+        # 但如果引用消息来自之前的会话、cron 投递或后台任务，
+        # 代理没有关于引用内容的上下文。
+        # 预置引用文本以便代理理解。 (#1594)
         # -----------------------------------------------------------------
         if getattr(event, 'reply_to_text', None) and event.reply_to_message_id:
             reply_snippet = event.reply_to_text[:500]
@@ -2880,10 +2863,10 @@ class GatewayRunner:
                 if msg.get("role") in ("assistant", "user", "tool")
             )
             if not found_in_history:
-                message_text = f'[Replying to: "{reply_snippet}"]\n\n{message_text}'
+                message_text = f'[回复: "{reply_snippet}"]\n\n{message_text}'
 
         try:
-            # Emit agent:start hook
+            # 触发 agent:start 钩子
             hook_ctx = {
                 "platform": source.platform.value if source.platform else "",
                 "user_id": source.user_id,
@@ -2892,7 +2875,7 @@ class GatewayRunner:
             }
             await self.hooks.emit("agent:start", hook_ctx)
 
-            # Expand @ context references (@file:, @folder:, @diff, etc.)
+            # 展开 @ 上下文引用（@file:、@folder:、@diff 等）
             if "@" in message_text:
                 try:
                     from agent.context_references import preprocess_context_references_async
@@ -2908,15 +2891,15 @@ class GatewayRunner:
                         if _adapter:
                             await _adapter.send(
                                 source.chat_id,
-                                "\n".join(_ctx_result.warnings) or "Context injection refused.",
+                                "\n".join(_ctx_result.warnings) or "上下文注入被拒绝。"
                             )
                         return
                     if _ctx_result.expanded:
                         message_text = _ctx_result.message
                 except Exception as exc:
-                    logger.debug("@ context reference expansion failed: %s", exc)
+                    logger.debug("@ 上下文引用展开失败: %s", exc)
 
-            # Run the agent
+            # 运行代理
             agent_result = await self._run_agent(
                 message=message_text,
                 context_prompt=context_prompt,
@@ -2927,7 +2910,7 @@ class GatewayRunner:
                 event_message_id=event.message_id,
             )
 
-            # Stop persistent typing indicator now that the agent is done
+            # 停止持久打字指示器，因为代理已完成
             try:
                 _typing_adapter = self.adapters.get(source.platform)
                 if _typing_adapter and hasattr(_typing_adapter, "stop_typing"):
@@ -2937,23 +2920,21 @@ class GatewayRunner:
 
             response = agent_result.get("final_response") or ""
             agent_messages = agent_result.get("messages", [])
-            _response_time = time.time() - _msg_start_time
-            _api_calls = agent_result.get("api_calls", 0)
-            _resp_len = len(response)
+            _response_time, _api_calls, _resp_len = time.time() - _msg_start_time, agent_result.get("api_calls", 0), len(response)
             logger.info(
-                "response ready: platform=%s chat=%s time=%.1fs api_calls=%d response=%d chars",
+                "响应就绪: platform=%s chat=%s time=%.1fs api_calls=%d response=%d 字符",
                 _platform_name, source.chat_id or "unknown",
                 _response_time, _api_calls, _resp_len,
             )
 
-            # Surface error details when the agent failed silently (final_response=None)
+            # 当代理静默失败时显示错误详情（final_response=None）
             if not response and agent_result.get("failed"):
-                error_detail = agent_result.get("error", "unknown error")
+                error_detail = agent_result.get("error", "未知错误")
                 error_str = str(error_detail).lower()
 
-                # Detect context-overflow failures and give specific guidance.
-                # Generic 400 "Error" from Anthropic with large sessions is the
-                # most common cause of this (#1630).
+                # 检测上下文溢出失败并给出具体指导。
+                # 当会话较大时，来自 Anthropic 的通用 400 "Error" 是
+                # 最常见的原因（#1630）。
                 _is_ctx_fail = any(p in error_str for p in (
                     "context", "token", "too large", "too long",
                     "exceed", "payload",
@@ -2964,26 +2945,26 @@ class GatewayRunner:
 
                 if _is_ctx_fail:
                     response = (
-                        "⚠️ Session too large for the model's context window.\n"
-                        "Use /compact to compress the conversation, or "
-                        "/reset to start fresh."
+                        "⚠️ 会话上下文超出了模型的限制范围。\n"
+                        "使用 /compact 压缩对话，或 "
+                        "/reset 重新开始。"
                     )
                 else:
                     response = (
-                        f"The request failed: {str(error_detail)[:300]}\n"
-                        "Try again or use /reset to start a fresh session."
+                        f"请求失败: {str(error_detail)[:300]}\n"
+                        "请重试或使用 /reset 重新开始会话。"
                     )
 
-            # If the agent's session_id changed during compression, update
-            # session_entry so transcript writes below go to the right session.
+            # 如果代理的 session_id 在压缩期间发生变化，
+            # 更新 session_entry 以便下面的转录写入正确的会话。
             if agent_result.get("session_id") and agent_result["session_id"] != session_entry.session_id:
                 session_entry.session_id = agent_result["session_id"]
 
-            # Prepend reasoning/thinking if display is enabled
+            # 在显示时添加 reasoning/thinking
             if getattr(self, "_show_reasoning", False) and response:
                 last_reasoning = agent_result.get("last_reasoning")
                 if last_reasoning:
-                    # Collapse long reasoning to keep messages readable
+                    # 折叠长推理以保持消息可读
                     lines = last_reasoning.strip().splitlines()
                     if len(lines) > 15:
                         display_reasoning = "\n".join(lines[:15])
@@ -2992,55 +2973,56 @@ class GatewayRunner:
                         display_reasoning = last_reasoning.strip()
                     response = f"💭 **Reasoning:**\n```\n{display_reasoning}\n```\n\n{response}"
 
-            # Emit agent:end hook
+            # 触发 agent:end 钩子
             await self.hooks.emit("agent:end", {
                 **hook_ctx,
                 "response": (response or "")[:500],
             })
             
-            # Check for pending process watchers (check_interval on background processes)
+            # 检查待处理的进程观察者（后台进程的 check_interval）
             try:
                 from tools.process_registry import process_registry
                 while process_registry.pending_watchers:
                     watcher = process_registry.pending_watchers.pop(0)
                     asyncio.create_task(self._run_process_watcher(watcher))
             except Exception as e:
-                logger.error("Process watcher setup error: %s", e)
+                logger.error("进程观察者设置错误: %s", e)
 
-            # NOTE: Dangerous command approvals are now handled inline by the
-            # blocking gateway approval mechanism in tools/approval.py.  The agent
-            # thread blocks until the user responds with /approve or /deny, so by
-            # the time we reach here the approval has already been resolved.  The
-            # old post-loop pop_pending + approval_hint code was removed in favour
-            # of the blocking approach that mirrors CLI's synchronous input().
+            # 注意：危险命令审批现在由 tools/approval.py 中的
+            # 阻塞式 gateway 审批机制内联处理。代理
+            # 线程会阻塞，直到用户响应 /approve 或 /deny，
+            # 因此当我们到达这里时审批已经解决。
+            # 旧的循环后 pop_pending + approval_hint 代码被删除，
+            # 转而使用镜像 CLI 同步 input() 的阻塞方法。
             
-            # Save the full conversation to the transcript, including tool calls.
-            # This preserves the complete agent loop (tool_calls, tool results,
-            # intermediate reasoning) so sessions can be resumed with full context
-            # and transcripts are useful for debugging and training data.
+            # 保存完整的对话到记录中，包括工具调用。
+            # 保存完整的对话到记录中，包括工具调用。
+            # 这保留了完整的代理循环（工具调用、工具结果、
+            # 中间推理），以便可以恢复具有完整上下文的会话，
+            # 记录对调试和训练数据有用。
             #
-            # IMPORTANT: When the agent failed before producing any response
-            # (e.g. context-overflow 400), do NOT persist the user's message.
-            # Persisting it would make the session even larger, causing the
-            # same failure on the next attempt — an infinite loop. (#1630)
+            # 重要提示：当代理在产生任何响应之前失败时
+            # （例如上下文溢出 400），不要保存用户的消息。
+            # 保存它会使会话更大，导致下一次尝试出现
+            # 相同的失败 — 形成无限循环。 (#1630)
             agent_failed_early = (
                 agent_result.get("failed")
                 and not agent_result.get("final_response")
             )
             if agent_failed_early:
                 logger.info(
-                    "Skipping transcript persistence for failed request in "
-                    "session %s to prevent session growth loop.",
+                    "跳过失败请求的记录持久化 "
+                    "在会话 %s 中以防止会话增长循环。",
                     session_entry.session_id,
                 )
 
             ts = datetime.now().isoformat()
             
-            # If this is a fresh session (no history), write the full tool
-            # definitions as the first entry so the transcript is self-describing
-            # -- the same list of dicts sent as tools=[...] in the API request.
+            # 如果是新会话（无历史），将完整的工具定义
+            # 写入第一条记录，以便记录是自描述的
+            # — 与 API 请求中发送的 tools=[...] 相同的字典列表。
             if agent_failed_early:
-                pass  # Skip all transcript writes — don't grow a broken session
+                pass  # 跳过所有记录写入 — 不要增长损坏的会话
             elif not history:
                 tool_defs = agent_result.get("tools", [])
                 self.session_store.append_to_transcript(
@@ -3054,15 +3036,14 @@ class GatewayRunner:
                     }
                 )
             
-            # Find only the NEW messages from this turn (skip history we loaded).
-            # Use the filtered history length (history_offset) that was actually
-            # passed to the agent, not len(history) which includes session_meta
-            # entries that were stripped before the agent saw them.
+            # 只查找本轮的新消息（跳过我们加载的历史）。
+            # 使用实际传递给代理的过滤后的历史长度（history_offset），
+            # 而不是 len(history)，后者包括在代理看到之前被剥离的 session_meta 条目。
             if not agent_failed_early:
                 history_len = agent_result.get("history_offset", len(history))
                 new_messages = agent_messages[history_len:] if len(agent_messages) > history_len else []
                 
-                # If no new messages found (edge case), fall back to simple user/assistant
+                # 如果没有找到新消息（边缘情况），回退到简单的 user/assistant
                 if not new_messages:
                     self.session_store.append_to_transcript(
                         session_entry.session_id,
@@ -3074,41 +3055,38 @@ class GatewayRunner:
                             {"role": "assistant", "content": response, "timestamp": ts}
                         )
                 else:
-                    # The agent already persisted these messages to SQLite via
-                    # _flush_messages_to_session_db(), so skip the DB write here
-                    # to prevent the duplicate-write bug (#860).  We still write
-                    # to JSONL for backward compatibility and as a backup.
+                    # 代理已经通过 _flush_messages_to_session_db() 将这些消息持久化到 SQLite，
+                    # 所以在这里跳过数据库写入以防止重复写入 bug (#860)。
+                    # 我们仍然写入 JSONL 以保持向后兼容性并作为备份。
                     agent_persisted = self._session_db is not None
                     for msg in new_messages:
-                        # Skip system messages (they're rebuilt each run)
+                        # 跳过系统消息（每次运行时都会重建）
                         if msg.get("role") == "system":
                             continue
-                        # Add timestamp to each message for debugging
+                        # 为每条消息添加时间戳以便调试
                         entry = {**msg, "timestamp": ts}
                         self.session_store.append_to_transcript(
                             session_entry.session_id, entry,
                             skip_db=agent_persisted,
                         )
             
-            # Token counts and model are now persisted by the agent directly.
-            # Keep only last_prompt_tokens here for context-window tracking and
-            # compression decisions.
+            # 令牌计数和模型现在由代理直接持久化。
+            # 只在这里保留 last_prompt_tokens 用于上下文窗口跟踪和
+            # 压缩决策。
             self.session_store.update_session(
                 session_entry.session_key,
                 last_prompt_tokens=agent_result.get("last_prompt_tokens", 0),
             )
 
-            # Auto voice reply: send TTS audio before the text response
+            # 自动语音回复：在文本响应之前发送 TTS 音频
             _already_sent = bool(agent_result.get("already_sent"))
             if self._should_send_voice_reply(event, response, agent_messages, already_sent=_already_sent):
                 await self._send_voice_reply(event, response)
 
-            # If streaming already delivered the response, extract and
-            # deliver any MEDIA: files before returning None.  Streaming
-            # sends raw text chunks that include MEDIA: tags — the normal
-            # post-processing in _process_message_background is skipped
-            # when already_sent is True, so media files would never be
-            # delivered without this.
+            # 如果流式传输已经传递了响应，在返回 None 之前提取并
+            # 传递任何 MEDIA: 文件。流式传输发送包含 MEDIA: 标签的原始文本块 — 
+            # 当 already_sent 为 True 时，会跳过 _process_message_background 中的正常
+            # 后处理，因此没有这个媒体文件将永远不会被传递。
             if agent_result.get("already_sent"):
                 if response:
                     _media_adapter = self.adapters.get(source.platform)
@@ -3121,23 +3099,23 @@ class GatewayRunner:
             return response
             
         except Exception as e:
-            # Stop typing indicator on error too
+            # 错误时也停止打字指示器
             try:
                 _err_adapter = self.adapters.get(source.platform)
                 if _err_adapter and hasattr(_err_adapter, "stop_typing"):
                     await _err_adapter.stop_typing(source.chat_id)
             except Exception:
                 pass
-            logger.exception("Agent error in session %s", session_key)
+            logger.exception("会话 %s 中的代理错误", session_key)
             error_type = type(e).__name__
-            error_detail = str(e)[:300] if str(e) else "no details available"
+            error_detail = str(e)[:300] if str(e) else "无详细信息"
             status_hint = ""
             status_code = getattr(e, "status_code", None)
             _hist_len = len(history) if 'history' in locals() else 0
             if status_code == 401:
-                status_hint = " Check your API key or run `claude /login` to refresh OAuth credentials."
+                status_hint = " 请检查您的 API 密钥或运行 `kclaw /login` 刷新 OAuth 凭据。"
             elif status_code == 429:
-                # Check if this is a plan usage limit (resets on a schedule) vs a transient rate limit
+                # 检查这是计划使用限制（按计划重置）还是临时速率限制
                 _err_body = getattr(e, "response", None)
                 _err_json = {}
                 try:
@@ -3150,41 +3128,40 @@ class GatewayRunner:
                     if _resets_in and _resets_in > 0:
                         import math
                         _hours = math.ceil(_resets_in / 3600)
-                        status_hint = f" Your plan's usage limit has been reached. It resets in ~{_hours}h."
+                        status_hint = f" 您的计划使用限制已达到。约 {_hours} 小时后重置。"
                     else:
-                        status_hint = " Your plan's usage limit has been reached. Please wait until it resets."
+                        status_hint = " 您的计划使用限制已达到。请等待重置。"
                 else:
-                    status_hint = " You are being rate-limited. Please wait a moment and try again."
+                    status_hint = " 您正在被限速。请稍等并重试。"
             elif status_code == 529:
-                status_hint = " The API is temporarily overloaded. Please try again shortly."
+                status_hint = " API 暂时过载。请稍后重试。"
             elif status_code in (400, 500):
-                # 400 with a large session is context overflow.
-                # 500 with a large session often means the payload is too large
-                # for the API to process — treat it the same way.
+                # 大会话的 400 是上下文溢出。
+                # 大会话的 500 通常意味着负载对
+                # API 处理来说太大 — 以相同方式处理。
                 if _hist_len > 50:
                     return (
-                        "⚠️ Session too large for the model's context window.\n"
-                        "Use /compact to compress the conversation, or "
-                        "/reset to start fresh."
+                        "⚠️ 会话上下文超出了模型的限制范围。\n"
+                        "使用 /compact 压缩对话，或 "
+                        "/reset 重新开始。"
                     )
                 elif status_code == 400:
-                    status_hint = " The request was rejected by the API."
+                    status_hint = " 请求被 API 拒绝。"
             return (
-                f"Sorry, I encountered an error ({error_type}).\n"
+                f"抱歉，遇到错误 ({error_type})。\n"
                 f"{error_detail}\n"
                 f"{status_hint}"
-                "Try again or use /reset to start a fresh session."
+                "请重试或使用 /reset 重新开始会话。"
             )
         finally:
-            # Clear session env
+            # 清除会话环境
             self._clear_session_env()
     
     def _format_session_info(self) -> str:
-        """Resolve current model config and return a formatted info block.
+        """解析当前模型配置并返回格式化的信息块。
 
-        Surfaces model, provider, context length, and endpoint so gateway
-        users can immediately see if context detection went wrong (e.g.
-        local models falling to the 128K default).
+        显示模型、提供商、上下文长度和端点，以便网关用户可以立即看到
+        上下文检测是否出错（例如，本地模型回退到 128K 默认值）。
         """
         from agent.model_metadata import get_model_context_length, DEFAULT_FALLBACK_CONTEXT
 
@@ -3213,7 +3190,7 @@ class GatewayRunner:
         except Exception:
             pass
 
-        # Resolve runtime credentials for probing
+        # 解析运行时凭证以进行探测
         try:
             runtime = _resolve_runtime_agent_kwargs()
             provider = provider or runtime.get("provider")
@@ -3230,15 +3207,15 @@ class GatewayRunner:
             provider=provider or "",
         )
 
-        # Format context source hint
+        # 格式化上下文来源提示
         if config_context_length is not None:
-            ctx_source = "config"
+            ctx_source = "配置"
         elif context_length == DEFAULT_FALLBACK_CONTEXT:
-            ctx_source = "default — set model.context_length in config to override"
+            ctx_source = "默认值 — 在 config 中设置 model.context_length 以覆盖"
         else:
-            ctx_source = "detected"
+            ctx_source = "已检测"
 
-        # Format context length for display
+        # 格式化上下文长度以便显示
         if context_length >= 1_000_000:
             ctx_display = f"{context_length / 1_000_000:.1f}M"
         elif context_length >= 1_000:
@@ -3247,26 +3224,26 @@ class GatewayRunner:
             ctx_display = str(context_length)
 
         lines = [
-            f"◆ Model: `{model}`",
-            f"◆ Provider: {provider or 'openrouter'}",
-            f"◆ Context: {ctx_display} tokens ({ctx_source})",
+            f"◆ 模型: `{model}`",
+            f"◆ 提供商: {provider or 'openrouter'}",
+            f"◆ 上下文: {ctx_display} tokens ({ctx_source})",
         ]
 
-        # Show endpoint for local/custom setups
+        # 为本地/自定义设置显示端点
         if base_url and ("localhost" in base_url or "127.0.0.1" in base_url or "0.0.0.0" in base_url):
-            lines.append(f"◆ Endpoint: {base_url}")
+            lines.append(f"◆ 端点: {base_url}")
 
         return "\n".join(lines)
 
     async def _handle_reset_command(self, event: MessageEvent) -> str:
-        """Handle /new or /reset command."""
+        """处理 /new 或 /reset 命令。"""
         source = event.source
-        
-        # Get existing session key
+
+        # 获取现有会话键
         session_key = self._session_key_for_source(source)
-        
-        # Flush memories in the background (fire-and-forget) so the user
-        # gets the "Session reset!" response immediately.
+
+        # 在后台刷新记忆（触发后忘记），以便用户
+        # 立即收到 "会话已重置！" 响应。
         try:
             old_entry = self.session_store._entries.get(session_key)
             if old_entry:
@@ -3276,9 +3253,9 @@ class GatewayRunner:
                 self._background_tasks.add(_flush_task)
                 _flush_task.add_done_callback(self._background_tasks.discard)
         except Exception as e:
-            logger.debug("Gateway memory flush on reset failed: %s", e)
+            logger.debug("网关重置时的记忆刷新失败: %s", e)
         self._evict_cached_agent(session_key)
-        
+
         try:
             from tools.env_passthrough import clear_env_passthrough
             clear_env_passthrough()
@@ -3291,14 +3268,14 @@ class GatewayRunner:
         except Exception:
             pass
 
-        # Reset the session
+        # 重置会话
         new_entry = self.session_store.reset_session(session_key)
 
-        # Clear any session-scoped model override so the next agent picks up
-        # the configured default instead of the previously switched model.
+        # 清除任何会话范围的模型覆盖，以便下一个代理
+        # 拾取配置的默认值而不是之前切换的模型。
         self._session_model_overrides.pop(session_key, None)
 
-        # Fire plugin on_session_finalize hook (session boundary)
+        # 触发插件 on_session_finalize 钩子（会话边界）
         try:
             from kclaw_cli.plugins import invoke_hook as _invoke_hook
             _old_sid = old_entry.session_id if old_entry else None
@@ -3307,34 +3284,34 @@ class GatewayRunner:
         except Exception:
             pass
 
-        # Emit session:end hook (session is ending)
+        # 触发 session:end 钩子（会话正在结束）
         await self.hooks.emit("session:end", {
             "platform": source.platform.value if source.platform else "",
             "user_id": source.user_id,
             "session_key": session_key,
         })
 
-        # Emit session:reset hook
+        # 触发 session:reset 钩子
         await self.hooks.emit("session:reset", {
             "platform": source.platform.value if source.platform else "",
             "user_id": source.user_id,
             "session_key": session_key,
         })
 
-        # Resolve session config info to surface to the user
+        # 解析会话配置信息以便向用户显示
         try:
             session_info = self._format_session_info()
         except Exception:
             session_info = ""
 
         if new_entry:
-            header = "✨ Session reset! Starting fresh."
+            header = "✨ 会话已重置！重新开始。"
         else:
-            # No existing session, just create one
+            # 没有现有会话，只需创建一个
             new_entry = self.session_store.get_or_create_session(source, force_new=True)
-            header = "✨ New session started!"
+            header = "✨ 新会话已开始！"
 
-        # Fire plugin on_session_reset hook (new session guaranteed to exist)
+        # 触发插件 on_session_reset 钩子（保证新会话存在）
         try:
             from kclaw_cli.plugins import invoke_hook as _invoke_hook
             _new_sid = new_entry.session_id if new_entry else None
@@ -3348,15 +3325,15 @@ class GatewayRunner:
         return header
     
     async def _handle_profile_command(self, event: MessageEvent) -> str:
-        """Handle /profile — show active profile name and home directory."""
+        """处理 /profile — 显示活动配置名称和主目录。"""
         from kclaw_constants import get_kclaw_home, display_kclaw_home
         from pathlib import Path
 
         home = get_kclaw_home()
         display = display_kclaw_home()
 
-        # Detect profile name from KCLAW_HOME path
-        # Profile paths look like: ~/.kclaw/profiles/<name>
+        # 从 KCLAW_HOME 路径检测配置名称
+        # 配置路径格式: ~/.kclaw/profiles/<name>
         profiles_parent = Path.home() / ".kclaw" / "profiles"
         try:
             rel = home.relative_to(profiles_parent)
@@ -3366,25 +3343,25 @@ class GatewayRunner:
 
         if profile_name:
             lines = [
-                f"👤 **Profile:** `{profile_name}`",
-                f"📂 **Home:** `{display}`",
+                f"👤 **配置:** `{profile_name}`",
+                f"📂 **主目录:** `{display}`",
             ]
         else:
             lines = [
-                "👤 **Profile:** default",
-                f"📂 **Home:** `{display}`",
+                "👤 **配置:** 默认",
+                f"📂 **主目录:** `{display}`",
             ]
 
         return "\n".join(lines)
 
     async def _handle_status_command(self, event: MessageEvent) -> str:
-        """Handle /status command."""
+        """处理 /status 命令。"""
         source = event.source
         session_entry = self.session_store.get_or_create_session(source)
 
         connected_platforms = [p.value for p in self.adapters.keys()]
 
-        # Check if there's an active agent
+        # 检查是否有活动代理
         session_key = session_entry.session_key
         is_running = session_key in self._running_agents
 
@@ -3396,77 +3373,77 @@ class GatewayRunner:
                 title = None
 
         lines = [
-            "📊 **KClaw Gateway Status**",
+            "📊 **KClaw 网关状态**",
             "",
-            f"**Session ID:** `{session_entry.session_id}`",
+            f"**会话 ID:** `{session_entry.session_id}`",
         ]
         if title:
-            lines.append(f"**Title:** {title}")
+            lines.append(f"**标题:** {title}")
         lines.extend([
-            f"**Created:** {session_entry.created_at.strftime('%Y-%m-%d %H:%M')}",
-            f"**Last Activity:** {session_entry.updated_at.strftime('%Y-%m-%d %H:%M')}",
+            f"**创建时间:** {session_entry.created_at.strftime('%Y-%m-%d %H:%M')}",
+            f"**最后活动:** {session_entry.updated_at.strftime('%Y-%m-%d %H:%M')}",
             f"**Tokens:** {session_entry.total_tokens:,}",
-            f"**Agent Running:** {'Yes ⚡' if is_running else 'No'}",
+            f"**代理运行中:** {'是 ⚡' if is_running else '否'}",
             "",
-            f"**Connected Platforms:** {', '.join(connected_platforms)}",
+            f"**已连接平台:** {', '.join(connected_platforms)}",
         ])
 
         return "\n".join(lines)
     
     async def _handle_stop_command(self, event: MessageEvent) -> str:
-        """Handle /stop command - interrupt a running agent.
+        """处理 /stop 命令 — 中断正在运行的代理。
 
-        When an agent is truly hung (blocked thread that never checks
-        _interrupt_requested), the early intercept in _handle_message()
-        handles /stop before this method is reached.  This handler fires
-        only through normal command dispatch (no running agent) or as a
-        fallback.  Force-clean the session lock in all cases for safety.
+        当代理真正挂起（阻塞线程从不检查
+        _interrupt_requested）时，_handle_message() 中的早期拦截
+        在此方法被调用之前处理 /stop。此处理程序仅通过
+        正常命令分发（无运行中的代理）或作为
+        后备触发。为安全起见，在所有情况下强制清理会话锁。
         """
         source = event.source
         session_entry = self.session_store.get_or_create_session(source)
         session_key = session_entry.session_key
-        
+
         agent = self._running_agents.get(session_key)
         if agent is _AGENT_PENDING_SENTINEL:
-            # Force-clean the sentinel so the session is unlocked.
+            # 强制清理哨兵以便会话被解锁。
             if session_key in self._running_agents:
                 del self._running_agents[session_key]
-            logger.info("HARD STOP (pending) for session %s — sentinel cleared", session_key[:20])
-            return "⚡ Force-stopped. The agent was still starting — session unlocked."
+            logger.info("强制停止（待处理）会话 %s — 哨兵已清除", session_key[:20])
+            return "⚡ 已强制停止。代理仍在启动中 — 会话已解锁。"
         if agent:
-            agent.interrupt("Stop requested")
-            # Force-clean the session lock so a truly hung agent doesn't
-            # keep it locked forever.
+            agent.interrupt("停止请求")
+            # 强制清理会话锁，以便真正挂起的代理不会
+            # 永远保持锁定。
             if session_key in self._running_agents:
                 del self._running_agents[session_key]
-            return "⚡ Force-stopped. The session is unlocked — you can send a new message."
+            return "⚡ 已强制停止。会话已解锁 — 你可以发送新消息。"
         else:
-            return "No active task to stop."
+            return "没有活动任务要停止。"
     
     async def _handle_help_command(self, event: MessageEvent) -> str:
-        """Handle /help command - list available commands."""
+        """处理 /help 命令 — 列出可用命令。"""
         from kclaw_cli.commands import gateway_help_lines
         lines = [
-            "📖 **KClaw Commands**\n",
+            "📖 **KClaw 命令**\n",
             *gateway_help_lines(),
         ]
         try:
             from agent.skill_commands import get_skill_commands
             skill_cmds = get_skill_commands()
             if skill_cmds:
-                lines.append(f"\n⚡ **Skill Commands** ({len(skill_cmds)} active):")
-                # Show first 10, then point to /commands for the rest
+                lines.append(f"\n⚡ **技能命令** ({len(skill_cmds)} 个活动):")
+                # 显示前 10 个，其余指向 /commands
                 sorted_cmds = sorted(skill_cmds)
                 for cmd in sorted_cmds[:10]:
                     lines.append(f"`{cmd}` — {skill_cmds[cmd]['description']}")
                 if len(sorted_cmds) > 10:
-                    lines.append(f"\n... and {len(sorted_cmds) - 10} more. Use `/commands` for the full paginated list.")
+                    lines.append(f"\n... 还有 {len(sorted_cmds) - 10} 个。使用 `/commands` 查看完整的分页列表。")
         except Exception:
             pass
         return "\n".join(lines)
 
     async def _handle_commands_command(self, event: MessageEvent) -> str:
-        """Handle /commands [page] - paginated list of all commands and skills."""
+        """处理 /commands [page] — 所有命令和技能的分页列表。"""
         from kclaw_cli.commands import gateway_help_lines
 
         raw_args = event.get_command_args().strip()
@@ -3474,26 +3451,26 @@ class GatewayRunner:
             try:
                 requested_page = int(raw_args)
             except ValueError:
-                return "Usage: `/commands [page]`"
+                return "用法: `/commands [page]`"
         else:
             requested_page = 1
 
-        # Build combined entry list: built-in commands + skill commands
+        # 构建组合条目列表：内置命令 + 技能命令
         entries = list(gateway_help_lines())
         try:
             from agent.skill_commands import get_skill_commands
             skill_cmds = get_skill_commands()
             if skill_cmds:
                 entries.append("")
-                entries.append("⚡ **Skill Commands**:")
+                entries.append("⚡ **技能命令**:")
                 for cmd in sorted(skill_cmds):
-                    desc = skill_cmds[cmd].get("description", "").strip() or "Skill command"
+                    desc = skill_cmds[cmd].get("description", "").strip() or "技能命令"
                     entries.append(f"`{cmd}` — {desc}")
         except Exception:
             pass
 
         if not entries:
-            return "No commands available."
+            return "没有可用的命令。"
 
         from gateway.config import Platform
         page_size = 15 if event.source.platform == Platform.TELEGRAM else 20
@@ -3503,30 +3480,30 @@ class GatewayRunner:
         page_entries = entries[start:start + page_size]
 
         lines = [
-            f"📚 **Commands** ({len(entries)} total, page {page}/{total_pages})",
+            f"📚 **命令** (共 {len(entries)} 个，第 {page}/{total_pages} 页)",
             "",
             *page_entries,
         ]
         if total_pages > 1:
             nav_parts = []
             if page > 1:
-                nav_parts.append(f"`/commands {page - 1}` ← prev")
+                nav_parts.append(f"`/commands {page - 1}` ← 上一页")
             if page < total_pages:
-                nav_parts.append(f"next → `/commands {page + 1}`")
+                nav_parts.append(f"下一页 → `/commands {page + 1}`")
             lines.extend(["", " | ".join(nav_parts)])
         if page != requested_page:
-            lines.append(f"_(Requested page {requested_page} was out of range, showing page {page}.)_")
+            lines.append(f"_(请求的页面 {requested_page} 超出了范围，显示第 {page} 页)_")
         return "\n".join(lines)
     
     async def _handle_model_command(self, event: MessageEvent) -> Optional[str]:
-        """Handle /model command — switch model for this session.
+        """处理 /model 命令 — 为此会话切换模型。
 
-        Supports:
-          /model                              — interactive picker (Telegram/Discord) or text list
-          /model <name>                       — switch for this session only
-          /model <name> --global              — switch and persist to config.yaml
-          /model <name> --provider <provider> — switch provider + model
-          /model --provider <provider>        — switch to provider, auto-detect model
+        支持:
+          /model                              — 交互式选择器 (Telegram/Discord) 或文本列表
+          /model <name>                       — 仅为此会话切换
+          /model <name> --global              — 切换并持久化到 config.yaml
+          /model <name> --provider <provider> — 切换提供商 + 模型
+          /model --provider <provider>        — 切换到提供商，自动检测模型
         """
         import yaml
         from kclaw_cli.model_switch import (
@@ -3537,10 +3514,10 @@ class GatewayRunner:
 
         raw_args = event.get_command_args().strip()
 
-        # Parse --provider and --global flags
+        # 解析 --provider 和 --global 标志
         model_input, explicit_provider, persist_global = parse_model_flags(raw_args)
 
-        # Read current model/provider from config
+        # 从配置读取当前模型/提供商
         current_model = ""
         current_provider = "openrouter"
         current_base_url = ""
@@ -3560,7 +3537,7 @@ class GatewayRunner:
         except Exception:
             pass
 
-        # Check for session override
+        # 检查会话覆盖
         source = event.source
         session_key = self._session_key_for_source(source)
         override = getattr(self, "_session_model_overrides", {}).get(session_key, {})
@@ -3570,9 +3547,9 @@ class GatewayRunner:
             current_base_url = override.get("base_url", current_base_url)
             current_api_key = override.get("api_key", current_api_key)
 
-        # No args: show interactive picker (Telegram/Discord) or text list
+        # 无参数：显示交互式选择器 (Telegram/Discord) 或文本列表
         if not model_input and not explicit_provider:
-            # Try interactive picker if the platform supports it
+            # 如果平台支持，尝试交互式选择器
             adapter = self.adapters.get(source.platform)
             has_picker = (
                 adapter is not None
@@ -3590,8 +3567,8 @@ class GatewayRunner:
                     providers = []
 
                 if providers:
-                    # Build a callback closure for when the user picks a model.
-                    # Captures self + locals needed for the switch logic.
+                    # 构建当用户选择模型时的回调闭包。
+                    # 捕获 self + 切换逻辑所需的局部变量。
                     _self = self
                     _session_key = session_key
                     _cur_model = current_model
@@ -3602,7 +3579,7 @@ class GatewayRunner:
                     async def _on_model_selected(
                         _chat_id: str, model_id: str, provider_slug: str
                     ) -> str:
-                        """Perform the model switch and return confirmation text."""
+                        """执行模型切换并返回确认文本。"""
                         result = _switch_model(
                             raw_input=model_id,
                             current_provider=_cur_provider,
@@ -3613,9 +3590,9 @@ class GatewayRunner:
                             explicit_provider=provider_slug,
                         )
                         if not result.success:
-                            return f"Error: {result.error_message}"
+                            return f"错误: {result.error_message}"
 
-                        # Update cached agent in-place
+                        # 就地更新缓存代理
                         cached_entry = None
                         _cache_lock = getattr(_self, "_agent_cache_lock", None)
                         _cache = getattr(_self, "_agent_cache", None)
@@ -3634,13 +3611,13 @@ class GatewayRunner:
                             except Exception as exc:
                                 logger.warning("Picker model switch failed for cached agent: %s", exc)
 
-                        # Store model note + session override
+                        # 存储模型注释 + 会话覆盖
                         if not hasattr(_self, "_pending_model_notes"):
                             _self._pending_model_notes = {}
                         _self._pending_model_notes[_session_key] = (
-                            f"[Note: model was just switched from {_cur_model} to {result.new_model} "
-                            f"via {result.provider_label or result.target_provider}. "
-                            f"Adjust your self-identification accordingly.]"
+                            f"[注意: 模型刚从 {_cur_model} 切换到 {result.new_model} "
+                            f"通过 {result.provider_label or result.target_provider}。 "
+                            f"请相应调整你的自我认知。]"
                         )
                         if not hasattr(_self, "_session_model_overrides"):
                             _self._session_model_overrides = {}
@@ -3652,20 +3629,20 @@ class GatewayRunner:
                             "api_mode": result.api_mode,
                         }
 
-                        # Build confirmation text
+                        # 构建确认文本
                         plabel = result.provider_label or result.target_provider
-                        lines = [f"Model switched to `{result.new_model}`"]
-                        lines.append(f"Provider: {plabel}")
+                        lines = [f"模型已切换到 `{result.new_model}`"]
+                        lines.append(f"提供商: {plabel}")
                         mi = result.model_info
                         if mi:
                             if mi.context_window:
-                                lines.append(f"Context: {mi.context_window:,} tokens")
+                                lines.append(f"上下文: {mi.context_window:,} tokens")
                             if mi.max_output:
-                                lines.append(f"Max output: {mi.max_output:,} tokens")
+                                lines.append(f"最大输出: {mi.max_output:,} tokens")
                             if mi.has_cost_data():
-                                lines.append(f"Cost: {mi.format_cost()}")
-                            lines.append(f"Capabilities: {mi.format_capabilities()}")
-                        lines.append("_(session only — use `/model <name> --global` to persist)_")
+                                lines.append(f"费用: {mi.format_cost()}")
+                            lines.append(f"能力: {mi.format_capabilities()}")
+                        lines.append("_(仅会话 — 使用 `/model <name> --global` 持久化)_")
                         return "\n".join(lines)
 
                     metadata = {"thread_id": source.thread_id} if source.thread_id else None
@@ -3679,11 +3656,11 @@ class GatewayRunner:
                         metadata=metadata,
                     )
                     if result.success:
-                        return None  # Picker sent — adapter handles the response
+                        return None  # 选择器已发送 — 适配器处理响应
 
-            # Fallback: text list (for platforms without picker or if picker failed)
+            # 后备：文本列表（适用于不支持选择器的平台或选择器失败时）
             provider_label = get_label(current_provider)
-            lines = [f"Current: `{current_model or 'unknown'}` on {provider_label}", ""]
+            lines = [f"当前: `{current_model or '未知'}` 于 {provider_label}", ""]
 
             try:
                 providers = list_authenticated_providers(
@@ -3692,11 +3669,11 @@ class GatewayRunner:
                     max_models=5,
                 )
                 for p in providers:
-                    tag = " (current)" if p["is_current"] else ""
+                    tag = " (当前)" if p["is_current"] else ""
                     lines.append(f"**{p['name']}** `--provider {p['slug']}`{tag}:")
                     if p["models"]:
                         model_strs = ", ".join(f"`{m}`" for m in p["models"])
-                        extra = f" (+{p['total_models'] - len(p['models'])} more)" if p["total_models"] > len(p["models"]) else ""
+                        extra = f" (+{p['total_models'] - len(p['models'])} 更多)" if p["total_models"] > len(p["models"]) else ""
                         lines.append(f"  {model_strs}{extra}")
                     elif p.get("api_url"):
                         lines.append(f"  `{p['api_url']}`")
@@ -3704,12 +3681,12 @@ class GatewayRunner:
             except Exception:
                 pass
 
-            lines.append("`/model <name>` — switch model")
-            lines.append("`/model <name> --provider <slug>` — switch provider")
-            lines.append("`/model <name> --global` — persist")
+            lines.append("`/model <name>` — 切换模型")
+            lines.append("`/model <name> --provider <slug>` — 切换提供商")
+            lines.append("`/model <name> --global` — 持久化")
             return "\n".join(lines)
 
-        # Perform the switch
+        # 执行切换
         result = _switch_model(
             raw_input=model_input,
             current_provider=current_provider,
@@ -3721,9 +3698,9 @@ class GatewayRunner:
         )
 
         if not result.success:
-            return f"Error: {result.error_message}"
+            return f"错误: {result.error_message}"
 
-        # If there's a cached agent, update it in-place
+        # 如果有缓存代理，就地更新它
         cached_entry = None
         _cache_lock = getattr(self, "_agent_cache_lock", None)
         _cache = getattr(self, "_agent_cache", None)
@@ -3741,19 +3718,19 @@ class GatewayRunner:
                     api_mode=result.api_mode,
                 )
             except Exception as exc:
-                logger.warning("In-place model switch failed for cached agent: %s", exc)
+                logger.warning("为缓存代理就地切换模型失败: %s", exc)
 
-        # Store a note to prepend to the next user message so the model
-        # knows about the switch (avoids system messages mid-history).
+        # 存储注释以便下一个用户消息能感知切换
+        # (避免在历史中间出现系统消息)。
         if not hasattr(self, "_pending_model_notes"):
             self._pending_model_notes = {}
         self._pending_model_notes[session_key] = (
-            f"[Note: model was just switched from {current_model} to {result.new_model} "
-            f"via {result.provider_label or result.target_provider}. "
-            f"Adjust your self-identification accordingly.]"
+            f"[注意: 模型刚从 {current_model} 切换到 {result.new_model} "
+            f"通过 {result.provider_label or result.target_provider}。 "
+            f"请相应调整你的自我认知。]"
         )
 
-        # Store session override so next agent creation uses the new model
+        # 存储会话覆盖以便下一个代理创建使用新模型
         if not hasattr(self, "_session_model_overrides"):
             self._session_model_overrides = {}
         self._session_model_overrides[session_key] = {
@@ -3764,7 +3741,7 @@ class GatewayRunner:
             "api_mode": result.api_mode,
         }
 
-        # Persist to config if --global
+        # 如果指定了 --global 则持久化到配置
         if persist_global:
             try:
                 if config_path.exists():
@@ -3780,23 +3757,23 @@ class GatewayRunner:
                 from kclaw_cli.config import save_config
                 save_config(cfg)
             except Exception as e:
-                logger.warning("Failed to persist model switch: %s", e)
+                logger.warning("持久化模型切换失败: %s", e)
 
-        # Build confirmation message with full metadata
+        # 构建带有完整元数据的确认消息
         provider_label = result.provider_label or result.target_provider
-        lines = [f"Model switched to `{result.new_model}`"]
-        lines.append(f"Provider: {provider_label}")
+        lines = [f"模型已切换到 `{result.new_model}`"]
+        lines.append(f"提供商: {provider_label}")
 
-        # Rich metadata from models.dev
+        # 来自 models.dev 的丰富元数据
         mi = result.model_info
         if mi:
             if mi.context_window:
-                lines.append(f"Context: {mi.context_window:,} tokens")
+                lines.append(f"上下文: {mi.context_window:,} tokens")
             if mi.max_output:
-                lines.append(f"Max output: {mi.max_output:,} tokens")
+                lines.append(f"最大输出: {mi.max_output:,} tokens")
             if mi.has_cost_data():
-                lines.append(f"Cost: {mi.format_cost()}")
-            lines.append(f"Capabilities: {mi.format_capabilities()}")
+                lines.append(f"费用: {mi.format_cost()}")
+            lines.append(f"能力: {mi.format_capabilities()}")
         else:
             try:
                 from agent.model_metadata import get_model_context_length
@@ -3806,30 +3783,30 @@ class GatewayRunner:
                     api_key=result.api_key or current_api_key,
                     provider=result.target_provider,
                 )
-                lines.append(f"Context: {ctx:,} tokens")
+                lines.append(f"上下文: {ctx:,} tokens")
             except Exception:
                 pass
 
-        # Cache notice
+        # 缓存通知
         cache_enabled = (
             ("openrouter" in (result.base_url or "").lower() and "claude" in result.new_model.lower())
             or result.api_mode == "anthropic_messages"
         )
         if cache_enabled:
-            lines.append("Prompt caching: enabled")
+            lines.append("提示词缓存: 已启用")
 
         if result.warning_message:
-            lines.append(f"Warning: {result.warning_message}")
+            lines.append(f"警告: {result.warning_message}")
 
         if persist_global:
-            lines.append("Saved to config.yaml (`--global`)")
+            lines.append("已保存到 config.yaml (`--global`)")
         else:
-            lines.append("_(session only -- add `--global` to persist)_")
+            lines.append("_(仅会话 — 添加 `--global` 以持久化)_")
 
         return "\n".join(lines)
 
     async def _handle_provider_command(self, event: MessageEvent) -> str:
-        """Handle /provider command - show available providers."""
+        """处理 /provider 命令 - 显示可用的提供商。"""
         import yaml
         from kclaw_cli.models import (
             list_available_providers,
@@ -3837,7 +3814,7 @@ class GatewayRunner:
             _PROVIDER_LABELS,
         )
 
-        # Resolve current provider from config
+        # 从配置解析当前提供商
         current_provider = "openrouter"
         config_path = _kclaw_home / 'config.yaml'
         try:
@@ -3858,7 +3835,7 @@ class GatewayRunner:
             except Exception:
                 current_provider = "openrouter"
 
-        # Detect custom endpoint from config base_url
+        # 从配置 base_url 检测自定义端点
         if current_provider == "openrouter":
             _cfg_base = model_cfg.get("base_url", "") if isinstance(model_cfg, dict) else ""
             if _cfg_base and "openrouter.ai" not in _cfg_base:
@@ -3867,25 +3844,25 @@ class GatewayRunner:
         current_label = _PROVIDER_LABELS.get(current_provider, current_provider)
 
         lines = [
-            f"🔌 **Current provider:** {current_label} (`{current_provider}`)",
+            f"🔌 **当前提供商:** {current_label} (`{current_provider}`)",
             "",
-            "**Available providers:**",
+            "**可用的提供商:**",
         ]
 
         providers = list_available_providers()
         for p in providers:
-            marker = " ← active" if p["id"] == current_provider else ""
+            marker = " ← 活动" if p["id"] == current_provider else ""
             auth = "✅" if p["authenticated"] else "❌"
-            aliases = f"  _(also: {', '.join(p['aliases'])})_" if p["aliases"] else ""
+            aliases = f"  _(别名: {', '.join(p['aliases'])})_" if p["aliases"] else ""
             lines.append(f"{auth} `{p['id']}` — {p['label']}{aliases}{marker}")
 
         lines.append("")
-        lines.append("Switch: `/model provider:model-name`")
-        lines.append("Setup: `kclaw setup`")
+        lines.append("切换: `/model provider:模型名称`")
+        lines.append("设置: `kclaw setup`")
         return "\n".join(lines)
     
     async def _handle_personality_command(self, event: MessageEvent) -> str:
-        """Handle /personality command - list or set a personality."""
+        """处理 /personality 命令 - 列出或设置人格。"""
         import yaml
 
         args = event.get_command_args().strip().lower()
@@ -3904,27 +3881,27 @@ class GatewayRunner:
             personalities = {}
 
         if not personalities:
-            return "No personalities configured in `~/.kclaw/config.yaml`"
+            return "在 `~/.kclaw/config.yaml` 中没有配置人格"
 
         if not args:
-            lines = ["🎭 **Available Personalities**\n"]
-            lines.append("• `none` — (no personality overlay)")
+            lines = ["🎭 **可用的人格**\n"]
+            lines.append("• `none` — (无人格覆盖)")
             for name, prompt in personalities.items():
                 if isinstance(prompt, dict):
                     preview = prompt.get("description") or prompt.get("system_prompt", "")[:50]
                 else:
                     preview = prompt[:50] + "..." if len(prompt) > 50 else prompt
                 lines.append(f"• `{name}` — {preview}")
-            lines.append("\nUsage: `/personality <name>`")
+            lines.append("\n用法: `/personality <名称>`")
             return "\n".join(lines)
 
         def _resolve_prompt(value):
             if isinstance(value, dict):
                 parts = [value.get("system_prompt", "")]
                 if value.get("tone"):
-                    parts.append(f'Tone: {value["tone"]}')
+                    parts.append(f'语气: {value["tone"]}')
                 if value.get("style"):
-                    parts.append(f'Style: {value["style"]}')
+                    parts.append(f'风格: {value["style"]}')
                 return "\n".join(p for p in parts if p)
             return str(value)
 
@@ -3935,36 +3912,36 @@ class GatewayRunner:
                 config["agent"]["system_prompt"] = ""
                 atomic_yaml_write(config_path, config)
             except Exception as e:
-                return f"⚠️ Failed to save personality change: {e}"
+                return f"⚠️ 保存人格变更失败: {e}"
             self._ephemeral_system_prompt = ""
-            return "🎭 Personality cleared — using base agent behavior.\n_(takes effect on next message)_"
+            return "🎭 人格已清除 — 使用基础代理行为。\n_(在下条消息生效)_"
         elif args in personalities:
             new_prompt = _resolve_prompt(personalities[args])
 
-            # Write to config.yaml, same pattern as CLI save_config_value.
+            # 写入 config.yaml，与 CLI save_config_value 相同的模式。
             try:
                 if "agent" not in config or not isinstance(config.get("agent"), dict):
                     config["agent"] = {}
                 config["agent"]["system_prompt"] = new_prompt
                 atomic_yaml_write(config_path, config)
             except Exception as e:
-                return f"⚠️ Failed to save personality change: {e}"
+                return f"⚠️ 保存人格变更失败: {e}"
 
-            # Update in-memory so it takes effect on the very next message.
+            # 更新内存以便下一条消息立即生效。
             self._ephemeral_system_prompt = new_prompt
 
-            return f"🎭 Personality set to **{args}**\n_(takes effect on next message)_"
+            return f"🎭 人格已设置为 **{args}**\n_(在下条消息生效)_"
 
         available = "`none`, " + ", ".join(f"`{n}`" for n in personalities)
-        return f"Unknown personality: `{args}`\n\nAvailable: {available}"
+        return f"未知人格: `{args}`\n\n可用: {available}"
     
     async def _handle_retry_command(self, event: MessageEvent) -> str:
-        """Handle /retry command - re-send the last user message."""
+        """处理 /retry 命令 - 重新发送上一条用户消息。"""
         source = event.source
         session_entry = self.session_store.get_or_create_session(source)
         history = self.session_store.load_transcript(session_entry.session_id)
-        
-        # Find the last user message
+
+        # 查找上一条用户消息
         last_user_msg = None
         last_user_idx = None
         for i in range(len(history) - 1, -1, -1):
@@ -3972,62 +3949,62 @@ class GatewayRunner:
                 last_user_msg = history[i].get("content", "")
                 last_user_idx = i
                 break
-        
+
         if not last_user_msg:
-            return "No previous message to retry."
-        
-        # Truncate history to before the last user message and persist
+            return "没有上一条消息可重试。"
+
+        # 截断历史到上一条用户消息之前并持久化
         truncated = history[:last_user_idx]
         self.session_store.rewrite_transcript(session_entry.session_id, truncated)
-        # Reset stored token count — transcript was truncated
+        # 重置存储的 token 计数 — 历史已被截断
         session_entry.last_prompt_tokens = 0
-        
-        # Re-send by creating a fake text event with the old message
+
+        # 通过用旧消息创建假文本事件来重新发送
         retry_event = MessageEvent(
             text=last_user_msg,
             message_type=MessageType.TEXT,
             source=source,
             raw_message=event.raw_message,
         )
-        
-        # Let the normal message handler process it
+
+        # 让正常的消息处理器处理它
         return await self._handle_message(retry_event)
     
     async def _handle_undo_command(self, event: MessageEvent) -> str:
-        """Handle /undo command - remove the last user/assistant exchange."""
+        """处理 /undo 命令 - 移除最后一条用户/助手交换。"""
         source = event.source
         session_entry = self.session_store.get_or_create_session(source)
         history = self.session_store.load_transcript(session_entry.session_id)
-        
-        # Find the last user message and remove everything from it onward
+
+        # 查找最后一条用户消息并从它开始移除所有内容
         last_user_idx = None
         for i in range(len(history) - 1, -1, -1):
             if history[i].get("role") == "user":
                 last_user_idx = i
                 break
-        
+
         if last_user_idx is None:
-            return "Nothing to undo."
-        
+            return "没有可撤销的内容。"
+
         removed_msg = history[last_user_idx].get("content", "")
         removed_count = len(history) - last_user_idx
         self.session_store.rewrite_transcript(session_entry.session_id, history[:last_user_idx])
-        # Reset stored token count — transcript was truncated
+        # 重置存储的 token 计数 — 历史已被截断
         session_entry.last_prompt_tokens = 0
-        
+
         preview = removed_msg[:40] + "..." if len(removed_msg) > 40 else removed_msg
-        return f"↩️ Undid {removed_count} message(s).\nRemoved: \"{preview}\""
+        return f"↩️ 已撤销 {removed_count} 条消息。\n已移除: \"{preview}\""
     
     async def _handle_set_home_command(self, event: MessageEvent) -> str:
-        """Handle /sethome command -- set the current chat as the platform's home channel."""
+        """处理 /sethome 命令 -- 将当前聊天设置为平台的主频道。"""
         source = event.source
         platform_name = source.platform.value if source.platform else "unknown"
         chat_id = source.chat_id
         chat_name = source.chat_name or chat_id
-        
+
         env_key = f"{platform_name.upper()}_HOME_CHANNEL"
-        
-        # Save to config.yaml
+
+        # 保存到 config.yaml
         try:
             import yaml
             config_path = _kclaw_home / 'config.yaml'
@@ -4037,32 +4014,32 @@ class GatewayRunner:
                     user_config = yaml.safe_load(f) or {}
             user_config[env_key] = chat_id
             atomic_yaml_write(config_path, user_config)
-            # Also set in the current environment so it takes effect immediately
+            # 同时设置到当前环境以便立即生效
             os.environ[env_key] = str(chat_id)
         except Exception as e:
-            return f"Failed to save home channel: {e}"
-        
+            return f"保存主频道失败: {e}"
+
         return (
-            f"✅ Home channel set to **{chat_name}** (ID: {chat_id}).\n"
-            f"Cron jobs and cross-platform messages will be delivered here."
+            f"✅ 主频道已设置为 **{chat_name}** (ID: {chat_id})。\n"
+            f"定时任务和跨平台消息将投递到这里。"
         )
     
     @staticmethod
     def _get_guild_id(event: MessageEvent) -> Optional[int]:
-        """Extract Discord guild_id from the raw message object."""
+        """从原始消息对象中提取 Discord guild_id。"""
         raw = getattr(event, "raw_message", None)
         if raw is None:
             return None
-        # Slash command interaction
+        # 斜杠命令交互
         if hasattr(raw, "guild_id") and raw.guild_id:
             return int(raw.guild_id)
-        # Regular message
+        # 普通消息
         if hasattr(raw, "guild") and raw.guild:
             return raw.guild.id
         return None
 
     async def _handle_voice_command(self, event: MessageEvent) -> str:
-        """Handle /voice [on|off|tts|channel|leave|status] command."""
+        """处理 /voice [on|off|tts|channel|leave|status] 命令。"""
         args = event.get_command_args().strip().lower()
         chat_id = event.source.chat_id
 
@@ -4074,24 +4051,24 @@ class GatewayRunner:
             if adapter:
                 self._set_adapter_auto_tts_disabled(adapter, chat_id, disabled=False)
             return (
-                "Voice mode enabled.\n"
-                "I'll reply with voice when you send voice messages.\n"
-                "Use /voice tts to get voice replies for all messages."
+                "语音模式已启用。\n"
+                "当你发送语音消息时我会用语音回复。\n"
+                "使用 /voice tts 获取所有消息的语音回复。"
             )
         elif args in ("off", "disable"):
             self._voice_mode[chat_id] = "off"
             self._save_voice_modes()
             if adapter:
                 self._set_adapter_auto_tts_disabled(adapter, chat_id, disabled=True)
-            return "Voice mode disabled. Text-only replies."
+            return "语音模式已禁用。仅文字回复。"
         elif args == "tts":
             self._voice_mode[chat_id] = "all"
             self._save_voice_modes()
             if adapter:
                 self._set_adapter_auto_tts_disabled(adapter, chat_id, disabled=False)
             return (
-                "Auto-TTS enabled.\n"
-                "All replies will include a voice message."
+                "自动 TTS 已启用。\n"
+                "所有回复将包含语音消息。"
             )
         elif args in ("channel", "join"):
             return await self._handle_voice_channel_join(event)
@@ -4100,60 +4077,59 @@ class GatewayRunner:
         elif args == "status":
             mode = self._voice_mode.get(chat_id, "off")
             labels = {
-                "off": "Off (text only)",
-                "voice_only": "On (voice reply to voice messages)",
-                "all": "TTS (voice reply to all messages)",
+                "off": "关闭（仅文字）",
+                "voice_only": "开启（语音消息语音回复）",
+                "all": "TTS（所有消息语音回复）",
             }
-            # Append voice channel info if connected
+            # 如果已连接则附加语音频道信息
             adapter = self.adapters.get(event.source.platform)
             guild_id = self._get_guild_id(event)
             if guild_id and hasattr(adapter, "get_voice_channel_info"):
                 info = adapter.get_voice_channel_info(guild_id)
                 if info:
                     lines = [
-                        f"Voice mode: {labels.get(mode, mode)}",
-                        f"Voice channel: #{info['channel_name']}",
-                        f"Participants: {info['member_count']}",
+                        f"语音模式: {labels.get(mode, mode)}",
+                        f"语音频道: #{info['channel_name']}",
+                        f"参与者: {info['member_count']}",
                     ]
                     for m in info["members"]:
-                        status = " (speaking)" if m.get("is_speaking") else ""
+                        status = " (说话中)" if m.get("is_speaking") else ""
                         lines.append(f"  - {m['display_name']}{status}")
                     return "\n".join(lines)
-            return f"Voice mode: {labels.get(mode, mode)}"
+            return f"语音模式: {labels.get(mode, mode)}"
         else:
-            # Toggle: off → on, on/all → off
+            # 切换: off → on, on/all → off
             current = self._voice_mode.get(chat_id, "off")
             if current == "off":
                 self._voice_mode[chat_id] = "voice_only"
                 self._save_voice_modes()
                 if adapter:
                     self._set_adapter_auto_tts_disabled(adapter, chat_id, disabled=False)
-                return "Voice mode enabled."
+                return "语音模式已启用。"
             else:
                 self._voice_mode[chat_id] = "off"
                 self._save_voice_modes()
                 if adapter:
                     self._set_adapter_auto_tts_disabled(adapter, chat_id, disabled=True)
-                return "Voice mode disabled."
+                return "语音模式已禁用。"
 
     async def _handle_voice_channel_join(self, event: MessageEvent) -> str:
-        """Join the user's current Discord voice channel."""
+        """加入用户当前的 Discord 语音频道。"""
         adapter = self.adapters.get(event.source.platform)
         if not hasattr(adapter, "join_voice_channel"):
-            return "Voice channels are not supported on this platform."
+            return "此平台不支持语音频道。"
 
         guild_id = self._get_guild_id(event)
         if not guild_id:
-            return "This command only works in a Discord server."
+            return "此命令仅在 Discord 服务器中有效。"
 
         voice_channel = await adapter.get_user_voice_channel(
             guild_id, event.source.user_id
         )
         if not voice_channel:
-            return "You need to be in a voice channel first."
+            return "你需要先进入语音频道。"
 
-        # Wire callbacks BEFORE join so voice input arriving immediately
-        # after connection is not lost.
+        # 在连接之前连接回调，以便连接后立即到达的语音输入不会丢失。
         if hasattr(adapter, "_voice_input_callback"):
             adapter._voice_input_callback = self._handle_voice_channel_input
         if hasattr(adapter, "_on_voice_disconnect"):
@@ -4162,16 +4138,16 @@ class GatewayRunner:
         try:
             success = await adapter.join_voice_channel(voice_channel)
         except Exception as e:
-            logger.warning("Failed to join voice channel: %s", e)
+            logger.warning("加入语音频道失败: %s", e)
             adapter._voice_input_callback = None
             err_lower = str(e).lower()
             if "pynacl" in err_lower or "nacl" in err_lower or "davey" in err_lower:
                 return (
-                    "Voice dependencies are missing (PyNaCl / davey). "
-                    "Install or reinstall KClaw with the messaging extra, e.g. "
-                    "`pip install kclaw[messaging]`."
+                    "缺少语音依赖 (PyNaCl / davey)。 "
+                    "安装或重新安装带有消息功能的 KClaw，例如 "
+                    "`pip install kclaw[messaging]`。"
                 )
-            return f"Failed to join voice channel: {e}"
+            return f"加入语音频道失败: {e}"
 
         if success:
             adapter._voice_text_channels[guild_id] = int(event.source.chat_id)
@@ -4179,40 +4155,40 @@ class GatewayRunner:
             self._save_voice_modes()
             self._set_adapter_auto_tts_disabled(adapter, event.source.chat_id, disabled=False)
             return (
-                f"Joined voice channel **{voice_channel.name}**.\n"
-                f"I'll speak my replies and listen to you. Use /voice leave to disconnect."
+                f"已加入语音频道 **{voice_channel.name}**。\n"
+                f"我会用语音回复你并听你说话。使用 /voice leave 断开连接。"
             )
-        # Join failed — clear callback
+        # 加入失败 — 清除回调
         adapter._voice_input_callback = None
-        return "Failed to join voice channel. Check bot permissions (Connect + Speak)."
+        return "加入语音频道失败。请检查机器人权限（连接 + 说话）。"
 
     async def _handle_voice_channel_leave(self, event: MessageEvent) -> str:
-        """Leave the Discord voice channel."""
+        """离开 Discord 语音频道。"""
         adapter = self.adapters.get(event.source.platform)
         guild_id = self._get_guild_id(event)
 
         if not guild_id or not hasattr(adapter, "leave_voice_channel"):
-            return "Not in a voice channel."
+            return "不在语音频道中。"
 
         if not hasattr(adapter, "is_in_voice_channel") or not adapter.is_in_voice_channel(guild_id):
-            return "Not in a voice channel."
+            return "不在语音频道中。"
 
         try:
             await adapter.leave_voice_channel(guild_id)
         except Exception as e:
-            logger.warning("Error leaving voice channel: %s", e)
-        # Always clean up state even if leave raised an exception
+            logger.warning("离开语音频道错误: %s", e)
+        # 即使 leave 抛出异常也要始终清理状态
         self._voice_mode[event.source.chat_id] = "off"
         self._save_voice_modes()
         self._set_adapter_auto_tts_disabled(adapter, event.source.chat_id, disabled=True)
         if hasattr(adapter, "_voice_input_callback"):
             adapter._voice_input_callback = None
-        return "Left voice channel."
+        return "已离开语音频道。"
 
     def _handle_voice_timeout_cleanup(self, chat_id: str) -> None:
-        """Called by the adapter when a voice channel times out.
+        """当语音频道超时时由适配器调用。
 
-        Cleans up runner-side voice_mode state that the adapter cannot reach.
+        清理运行器端适配器无法触及的 voice_mode 状态。
         """
         self._voice_mode[chat_id] = "off"
         self._save_voice_modes()
@@ -4222,10 +4198,10 @@ class GatewayRunner:
     async def _handle_voice_channel_input(
         self, guild_id: int, user_id: int, transcript: str
     ):
-        """Handle transcribed voice from a user in a voice channel.
+        """处理语音频道中用户的转录语音。
 
-        Creates a synthetic MessageEvent and processes it through the
-        adapter's full message pipeline (session, typing, agent, TTS reply).
+        创建一个合成 MessageEvent 并通过适配器的完整消息管道
+        （会话、打字、代理、TTS 回复）处理。
         """
         adapter = self.adapters.get(Platform.DISCORD)
         if not adapter:
@@ -4235,7 +4211,7 @@ class GatewayRunner:
         if not text_ch_id:
             return
 
-        # Check authorization before processing voice input
+        # 处理语音输入前检查授权
         source = SessionSource(
             platform=Platform.DISCORD,
             chat_id=str(text_ch_id),
@@ -4244,21 +4220,21 @@ class GatewayRunner:
             chat_type="channel",
         )
         if not self._is_user_authorized(source):
-            logger.debug("Unauthorized voice input from user %d, ignoring", user_id)
+            logger.debug("未授权的用户 %d 语音输入，忽略", user_id)
             return
 
-        # Show transcript in text channel (after auth, with mention sanitization)
+        # 在文本频道中显示转录文本（在认证后，清理提及）
         try:
             channel = adapter._client.get_channel(text_ch_id)
             if channel:
                 safe_text = transcript[:2000].replace("@everyone", "@\u200beveryone").replace("@here", "@\u200bhere")
-                await channel.send(f"**[Voice]** <@{user_id}>: {safe_text}")
+                await channel.send(f"**[语音]** <@{user_id}>: {safe_text}")
         except Exception:
             pass
 
-        # Build a synthetic MessageEvent and feed through the normal pipeline
-        # Use SimpleNamespace as raw_message so _get_guild_id() can extract
-        # guild_id and _send_voice_reply() plays audio in the voice channel.
+        # 构建合成 MessageEvent 并通过正常管道处理
+        # 使用 SimpleNamespace 作为 raw_message，以便 _get_guild_id() 可以提取
+        # guild_id，_send_voice_reply() 在语音频道中播放音频。
         from types import SimpleNamespace
         event = MessageEvent(
             source=source,
@@ -4276,16 +4252,16 @@ class GatewayRunner:
         agent_messages: list,
         already_sent: bool = False,
     ) -> bool:
-        """Decide whether the runner should send a TTS voice reply.
+        """决定运行器是否应该发送 TTS 语音回复。
 
-        Returns False when:
-        - voice_mode is off for this chat
-        - response is empty or an error
-        - agent already called text_to_speech tool (dedup)
-        - voice input and base adapter auto-TTS already handled it (skip_double)
-          UNLESS streaming already consumed the response (already_sent=True),
-          in which case the base adapter won't have text for auto-TTS so the
-          runner must handle it.
+        在以下情况下返回 False:
+        - 此聊天的 voice_mode 关闭
+        - 响应为空或错误
+        - 代理已调用 text_to_speech 工具（去重）
+        - 语音输入和基础适配器自动 TTS 已处理（跳过双重）
+          除非流式传输已消费响应 (already_sent=True)，
+          在这种情况下基础适配器不会有自动 TTS 的文本，
+          所以运行器必须处理。
         """
         if not response or response.startswith("Error:"):
             return False
@@ -4301,7 +4277,7 @@ class GatewayRunner:
         if not should:
             return False
 
-        # Dedup: agent already called TTS tool
+        # 去重：代理已调用 TTS 工具
         has_agent_tts = any(
             msg.get("role") == "assistant"
             and any(
@@ -4313,18 +4289,18 @@ class GatewayRunner:
         if has_agent_tts:
             return False
 
-        # Dedup: base adapter auto-TTS already handles voice input
-        # (play_tts plays in VC when connected, so runner can skip).
-        # When streaming already delivered the text (already_sent=True),
-        # the base adapter will receive None and can't run auto-TTS,
-        # so the runner must take over.
+        # 去重：基础适配器自动 TTS 已处理语音输入
+        # (play_tts 在 VC 中播放时，运行器可以跳过)。
+        # 当流式传输已传递文本时 (already_sent=True)，
+        # 基础适配器将收到 None，无法运行自动 TTS，
+        # 所以运行器必须接管。
         if is_voice_input and not already_sent:
             return False
 
         return True
 
     async def _send_voice_reply(self, event: MessageEvent, text: str) -> None:
-        """Generate TTS audio and send as a voice message before the text reply."""
+        """在文本回复之前生成 TTS 音频并作为语音消息发送。"""
         import uuid as _uuid
         audio_path = None
         actual_path = None
@@ -4335,8 +4311,8 @@ class GatewayRunner:
             if not tts_text:
                 return
 
-            # Use .mp3 extension so edge-tts conversion to opus works correctly.
-            # The TTS tool may convert to .ogg — use file_path from result.
+            # 使用 .mp3 扩展名以便 edge-tts 正确转换为 opus。
+            # TTS 工具可能转换为 .ogg — 使用结果中的 file_path。
             audio_path = os.path.join(
                 tempfile.gettempdir(), "kclaw_voice",
                 f"tts_reply_{_uuid.uuid4().hex[:12]}.mp3",
@@ -4348,15 +4324,15 @@ class GatewayRunner:
             )
             result = json.loads(result_json)
 
-            # Use the actual file path from result (may differ after opus conversion)
+            # 使用结果中的实际文件路径（opus 转换后可能不同）
             actual_path = result.get("file_path", audio_path)
             if not result.get("success") or not os.path.isfile(actual_path):
-                logger.warning("Auto voice reply TTS failed: %s", result.get("error"))
+                logger.warning("自动语音回复 TTS 失败: %s", result.get("error"))
                 return
 
             adapter = self.adapters.get(event.source.platform)
 
-            # If connected to a voice channel, play there instead of sending a file
+            # 如果连接到语音频道，在那里播放而不是发送文件
             guild_id = self._get_guild_id(event)
             if (guild_id
                     and hasattr(adapter, "play_in_voice_channel")
@@ -4373,7 +4349,7 @@ class GatewayRunner:
                     send_kwargs["metadata"] = {"thread_id": event.source.thread_id}
                 await adapter.send_voice(**send_kwargs)
         except Exception as e:
-            logger.warning("Auto voice reply failed: %s", e, exc_info=True)
+            logger.warning("自动语音回复失败: %s", e, exc_info=True)
         finally:
             for p in {audio_path, actual_path} - {None}:
                 try:
@@ -4434,7 +4410,7 @@ class GatewayRunner:
                             metadata=_thread_meta,
                         )
                 except Exception as e:
-                    logger.warning("[%s] Post-stream media delivery failed: %s", adapter.name, e)
+                    logger.warning("[%s] 流后媒体传递失败：%s", adapter.name, e)
 
             for file_path in local_files:
                 try:
@@ -4452,16 +4428,16 @@ class GatewayRunner:
                             metadata=_thread_meta,
                         )
                 except Exception as e:
-                    logger.warning("[%s] Post-stream file delivery failed: %s", adapter.name, e)
+                    logger.warning("[%s] 流后文件传递失败：%s", adapter.name, e)
 
         except Exception as e:
-            logger.warning("Post-stream media extraction failed: %s", e)
+            logger.warning("流后媒体提取失败：%s", e)
 
     async def _handle_rollback_command(self, event: MessageEvent) -> str:
         """Handle /rollback command — list or restore filesystem checkpoints."""
         from tools.checkpoint_manager import CheckpointManager, format_checkpoint_list
 
-        # Read checkpoint config from config.yaml
+        # 从 config.yaml 读取检查点配置
         cp_cfg = {}
         try:
             import yaml as _y
@@ -4493,10 +4469,10 @@ class GatewayRunner:
             checkpoints = mgr.list_checkpoints(cwd)
             return format_checkpoint_list(checkpoints, cwd)
 
-        # Restore by number or hash
+        # 通过编号或哈希恢复
         checkpoints = mgr.list_checkpoints(cwd)
         if not checkpoints:
-            return f"No checkpoints found for {cwd}"
+            return f"未找到 {cwd} 的检查点"
 
         target_hash = None
         try:
@@ -4504,38 +4480,38 @@ class GatewayRunner:
             if 0 <= idx < len(checkpoints):
                 target_hash = checkpoints[idx]["hash"]
             else:
-                return f"Invalid checkpoint number. Use 1-{len(checkpoints)}."
+                return f"无效的检查点编号。使用 1-{len(checkpoints)}。"
         except ValueError:
             target_hash = arg
 
         result = mgr.restore(cwd, target_hash)
         if result["success"]:
             return (
-                f"✅ Restored to checkpoint {result['restored_to']}: {result['reason']}\n"
-                f"A pre-rollback snapshot was saved automatically."
+                f"✅ 已恢复到检查点 {result['restored_to']}: {result['reason']}\n"
+                f"自动保存了回滚前快照。"
             )
         return f"❌ {result['error']}"
 
     async def _handle_background_command(self, event: MessageEvent) -> str:
-        """Handle /background <prompt> — run a prompt in a separate background session.
+        """处理 /background <prompt> — 在单独的后台会话中运行提示词。
 
-        Spawns a new AIAgent in a background thread with its own session.
-        When it completes, sends the result back to the same chat without
-        modifying the active session's conversation history.
+        在后台线程中生成一个新的 AIAgent，有自己的会话。
+        当完成时，将结果发送回同一聊天而不修改
+        活动会话的对话历史。
         """
         prompt = event.get_command_args().strip()
         if not prompt:
             return (
-                "Usage: /background <prompt>\n"
-                "Example: /background Summarize the top HN stories today\n\n"
-                "Runs the prompt in a separate session. "
-                "You can keep chatting — the result will appear here when done."
+                "用法: /background <提示词>\n"
+                "示例: /background 总结今天的热门 HN 新闻\n\n"
+                "在单独的会话中运行提示词。 "
+                "你可以继续聊天 — 结果完成后会出现在这里。"
             )
 
         source = event.source
         task_id = f"bg_{datetime.now().strftime('%H%M%S')}_{os.urandom(3).hex()}"
 
-        # Fire-and-forget the background task
+        # 后台任务的触发即忘记模式
         _task = asyncio.create_task(
             self._run_background_task(prompt, source, task_id)
         )
@@ -4543,17 +4519,17 @@ class GatewayRunner:
         _task.add_done_callback(self._background_tasks.discard)
 
         preview = prompt[:60] + ("..." if len(prompt) > 60 else "")
-        return f'🔄 Background task started: "{preview}"\nTask ID: {task_id}\nYou can keep chatting — results will appear when done.'
+        return f'🔄 后台任务已开始: "{preview}"\n任务 ID: {task_id}\n你可以继续聊天 — 结果完成后会出现在这里。'
 
     async def _run_background_task(
         self, prompt: str, source: "SessionSource", task_id: str
     ) -> None:
-        """Execute a background agent task and deliver the result to the chat."""
+        """执行后台代理任务并将结果发送到聊天。"""
         from run_agent import AIAgent
 
         adapter = self.adapters.get(source.platform)
         if not adapter:
-            logger.warning("No adapter for platform %s in background task %s", source.platform, task_id)
+            logger.warning("后台任务 %s 没有平台 %s 的适配器", source.platform, task_id)
             return
 
         _thread_metadata = {"thread_id": source.thread_id} if source.thread_id else None
@@ -4563,7 +4539,7 @@ class GatewayRunner:
             if not runtime_kwargs.get("api_key"):
                 await adapter.send(
                     source.chat_id,
-                    f"❌ Background task {task_id} failed: no provider credentials configured.",
+                    f"❌ 后台任务 {task_id} 失败: 未配置提供商凭据。",
                     metadata=_thread_metadata,
                 )
                 return
@@ -4613,15 +4589,15 @@ class GatewayRunner:
 
             response = result.get("final_response", "") if result else ""
             if not response and result and result.get("error"):
-                response = f"Error: {result['error']}"
+                response = f"错误: {result['error']}"
 
-            # Extract media files from the response
+            # 从响应中提取媒体文件
             if response:
                 media_files, response = adapter.extract_media(response)
                 images, text_content = adapter.extract_images(response)
 
                 preview = prompt[:60] + ("..." if len(prompt) > 60 else "")
-                header = f'✅ Background task complete\nPrompt: "{preview}"\n\n'
+                header = f'✅ 后台任务完成\n提示词: "{preview}"\n\n'
 
                 if text_content:
                     await adapter.send(
@@ -4632,11 +4608,11 @@ class GatewayRunner:
                 elif not images and not media_files:
                     await adapter.send(
                         chat_id=source.chat_id,
-                        content=header + "(No response generated)",
+                        content=header + "(未生成响应)",
                         metadata=_thread_metadata,
                     )
 
-                # Send extracted images
+                # 发送提取的图片
                 for image_url, alt_text in (images or []):
                     try:
                         await adapter.send_image(
@@ -4647,7 +4623,7 @@ class GatewayRunner:
                     except Exception:
                         pass
 
-                # Send media files
+                # 发送媒体文件
                 for media_path in (media_files or []):
                     try:
                         await adapter.send_document(
@@ -4660,16 +4636,16 @@ class GatewayRunner:
                 preview = prompt[:60] + ("..." if len(prompt) > 60 else "")
                 await adapter.send(
                     chat_id=source.chat_id,
-                    content=f'✅ Background task complete\nPrompt: "{preview}"\n\n(No response generated)',
+                    content=f'✅ 后台任务完成\n提示词: "{preview}"\n\n(未生成响应)',
                     metadata=_thread_metadata,
                 )
 
         except Exception as e:
-            logger.exception("Background task %s failed", task_id)
+            logger.exception("后台任务 %s 失败", task_id)
             try:
                 await adapter.send(
                     chat_id=source.chat_id,
-                    content=f"❌ Background task {task_id} failed: {e}",
+                    content=f"❌ 后台任务 {task_id} 失败: {e}",
                     metadata=_thread_metadata,
                 )
             except Exception:
@@ -4680,18 +4656,18 @@ class GatewayRunner:
         question = event.get_command_args().strip()
         if not question:
             return (
-                "Usage: /btw <question>\n"
-                "Example: /btw what module owns session title sanitization?\n\n"
-                "Answers using session context. No tools, not persisted."
+                "用法: /btw <问题>\n"
+                "示例: /btw 哪个模块负责会话标题清理？\n\n"
+                "使用会话上下文回答。不使用工具，不会持久化。"
             )
 
         source = event.source
         session_key = self._session_key_for_source(source)
 
-        # Guard: one /btw at a time per session
+        # 保护：每个会话一次只能有一个 /btw
         existing = getattr(self, "_active_btw_tasks", {}).get(session_key)
         if existing and not existing.done():
-            return "A /btw is already running for this chat. Wait for it to finish."
+            return "此聊天已有一个 /btw 任务在运行，请等待完成。"
 
         if not hasattr(self, "_active_btw_tasks"):
             self._active_btw_tasks: dict = {}
@@ -4720,7 +4696,7 @@ class GatewayRunner:
 
         adapter = self.adapters.get(source.platform)
         if not adapter:
-            logger.warning("No adapter for platform %s in /btw task %s", source.platform, task_id)
+            logger.warning("/btw 任务 %s 没有平台 %s 的适配器", source.platform, task_id)
             return
 
         _thread_meta = {"thread_id": source.thread_id} if source.thread_id else None
@@ -4742,7 +4718,7 @@ class GatewayRunner:
             turn_route = self._resolve_turn_agent_config(question, model, runtime_kwargs)
             pr = self._provider_routing
 
-            # Snapshot history from running agent or stored transcript
+            # 从运行中的代理或存储的转录本获取历史快照
             running_agent = self._running_agents.get(session_key)
             if running_agent and running_agent is not _AGENT_PENDING_SENTINEL:
                 history_snapshot = list(getattr(running_agent, "_session_messages", []) or [])
@@ -4825,7 +4801,7 @@ class GatewayRunner:
                     pass
 
         except Exception as e:
-            logger.exception("/btw task %s failed", task_id)
+            logger.exception("/btw 任务 %s 失败", task_id)
             try:
                 await adapter.send(
                     chat_id=source.chat_id,
@@ -4838,11 +4814,11 @@ class GatewayRunner:
     async def _handle_reasoning_command(self, event: MessageEvent) -> str:
         """Handle /reasoning command — manage reasoning effort and display toggle.
 
-        Usage:
-            /reasoning              Show current effort level and display state
-            /reasoning <level>      Set reasoning effort (none, low, medium, high, xhigh)
-            /reasoning show|on      Show model reasoning in responses
-            /reasoning hide|off     Hide model reasoning from responses
+        用法：
+            /reasoning              显示当前推理强度和显示状态
+            /reasoning <level>      设置推理强度 (none, low, medium, high, xhigh)
+            /reasoning show|on      在响应中显示模型推理
+            /reasoning hide|off     在响应中隐藏模型推理
         """
         import yaml
 
@@ -4868,11 +4844,11 @@ class GatewayRunner:
                 atomic_yaml_write(config_path, user_config)
                 return True
             except Exception as e:
-                logger.error("Failed to save config key %s: %s", key_path, e)
+                logger.error("保存配置键 %s 失败：%s", key_path, e)
                 return False
 
         if not args:
-            # Show current state
+            # 显示当前状态
             rc = self._reasoning_config
             if rc is None:
                 level = "medium (default)"
@@ -4885,21 +4861,21 @@ class GatewayRunner:
                 "🧠 **Reasoning Settings**\n\n"
                 f"**Effort:** `{level}`\n"
                 f"**Display:** {display_state}\n\n"
-                "_Usage:_ `/reasoning <none|low|medium|high|xhigh|show|hide>`"
+                "_用法:_ `/reasoning <none|low|medium|high|xhigh|show|hide>`"
             )
 
-        # Display toggle
+        # 显示切换
         if args in ("show", "on"):
             self._show_reasoning = True
             _save_config_key("display.show_reasoning", True)
-            return "🧠 ✓ Reasoning display: **ON**\nModel thinking will be shown before each response."
+            return "🧠 ✓ 推理显示：**开启**\n模型思考过程将在每次响应前显示。"
 
         if args in ("hide", "off"):
             self._show_reasoning = False
             _save_config_key("display.show_reasoning", False)
-            return "🧠 ✓ Reasoning display: **OFF**"
+            return "🧠 ✓ 推理显示：**关闭**"
 
-        # Effort level change
+        # 工作量级别变化
         effort = args.strip()
         if effort == "none":
             parsed = {"enabled": False}
@@ -4907,33 +4883,33 @@ class GatewayRunner:
             parsed = {"enabled": True, "effort": effort}
         else:
             return (
-                f"⚠️ Unknown argument: `{effort}`\n\n"
-                "**Valid levels:** none, low, minimal, medium, high, xhigh\n"
-                "**Display:** show, hide"
+                f"⚠️ 未知参数：`{effort}`\n\n"
+                "**有效级别：** none, low, minimal, medium, high, xhigh\n"
+                "**显示选项：** show, hide"
             )
 
         self._reasoning_config = parsed
         if _save_config_key("agent.reasoning_effort", effort):
-            return f"🧠 ✓ Reasoning effort set to `{effort}` (saved to config)\n_(takes effect on next message)_"
+            return f"🧠 ✓ 推理强度设置为 `{effort}`（已保存到配置）\n_(下次消息生效)_"
         else:
-            return f"🧠 ✓ Reasoning effort set to `{effort}` (this session only)"
+            return f"🧠 ✓ 推理强度设置为 `{effort}`（仅限本次会话）"
 
     async def _handle_yolo_command(self, event: MessageEvent) -> str:
         """Handle /yolo — toggle dangerous command approval bypass."""
         current = bool(os.environ.get("KCLAW_YOLO_MODE"))
         if current:
             os.environ.pop("KCLAW_YOLO_MODE", None)
-            return "⚠️ YOLO mode **OFF** — dangerous commands will require approval."
+            return "⚠️ YOLO 模式 **关闭** — 危险命令将需要审批。"
         else:
             os.environ["KCLAW_YOLO_MODE"] = "1"
-            return "⚡ YOLO mode **ON** — all commands auto-approved. Use with caution."
+            return "⚡ YOLO 模式 **开启** — 所有命令自动批准。请谨慎使用。"
 
     async def _handle_verbose_command(self, event: MessageEvent) -> str:
         """Handle /verbose command — cycle tool progress display mode.
 
-        Gated by ``display.tool_progress_command`` in config.yaml (default off).
-        When enabled, cycles the tool progress mode through off → new → all →
-        verbose → off, same as the CLI.
+        由 config.yaml 中的 ``display.tool_progress_command`` 控制（默认关闭）。
+        开启后，工具进度模式循环切换：off → new → all → verbose → off，
+        与 CLI 相同。
         """
         import yaml
 
@@ -4951,18 +4927,18 @@ class GatewayRunner:
 
         if not gate_enabled:
             return (
-                "The `/verbose` command is not enabled for messaging platforms.\n\n"
-                "Enable it in `config.yaml`:\n```yaml\n"
+                "`/verbose` 命令未在消息平台启用。\n\n"
+                "在 `config.yaml` 中开启：\n```yaml\n"
                 "display:\n  tool_progress_command: true\n```"
             )
 
         # --- cycle mode -------------------------------------------------------
         cycle = ["off", "new", "all", "verbose"]
         descriptions = {
-            "off": "⚙️ Tool progress: **OFF** — no tool activity shown.",
-            "new": "⚙️ Tool progress: **NEW** — shown when tool changes (preview length: `display.tool_preview_length`, default 40).",
-            "all": "⚙️ Tool progress: **ALL** — every tool call shown (preview length: `display.tool_preview_length`, default 40).",
-            "verbose": "⚙️ Tool progress: **VERBOSE** — every tool call with full arguments.",
+            "off": "⚙️ 工具进度：**关闭** — 不显示工具活动。",
+            "new": "⚙️ 工具进度：**新工具** — 仅在工具切换时显示（预览长度：`display.tool_preview_length`，默认 40）。",
+            "all": "⚙️ 工具进度：**全部** — 显示每个工具调用（预览长度：`display.tool_preview_length`，默认 40）。",
+            "verbose": "⚙️ 工具进度：**详细** — 每个工具调用显示完整参数。",
         }
 
         raw_progress = user_config.get("display", {}).get("tool_progress", "all")
@@ -4978,16 +4954,16 @@ class GatewayRunner:
         idx = (cycle.index(current) + 1) % len(cycle)
         new_mode = cycle[idx]
 
-        # Save to config.yaml
+        # 保存到 config.yaml
         try:
             if "display" not in user_config or not isinstance(user_config.get("display"), dict):
                 user_config["display"] = {}
             user_config["display"]["tool_progress"] = new_mode
             atomic_yaml_write(config_path, user_config)
-            return f"{descriptions[new_mode]}\n_(saved to config — takes effect on next message)_"
+            return f"{descriptions[new_mode]}\n_(已保存到配置 — 下次消息生效)_"
         except Exception as e:
-            logger.warning("Failed to save tool_progress mode: %s", e)
-            return f"{descriptions[new_mode]}\n_(could not save to config: {e})_"
+            logger.warning("保存 tool_progress 模式失败：%s", e)
+            return f"{descriptions[new_mode]}\n_(无法保存到配置：{e})_"
 
     async def _handle_compress_command(self, event: MessageEvent) -> str:
         """Handle /compress command -- manually compress conversation context."""
@@ -4996,7 +4972,7 @@ class GatewayRunner:
         history = self.session_store.load_transcript(session_entry.session_id)
 
         if not history or len(history) < 4:
-            return "Not enough conversation to compress (need at least 4 messages)."
+            return "对话不足，无法压缩（需要至少 4 条消息）。"
 
         try:
             from run_agent import AIAgent
@@ -5004,9 +4980,9 @@ class GatewayRunner:
 
             runtime_kwargs = _resolve_runtime_agent_kwargs()
             if not runtime_kwargs.get("api_key"):
-                return "No provider configured -- cannot compress."
+                return "未配置提供商 — 无法压缩。"
 
-            # Resolve model from config (same reason as memory flush above).
+            # 从配置解析模型（与上面的内存刷新相同原因）。
             model = _resolve_gateway_model()
 
             msgs = [
@@ -5043,7 +5019,7 @@ class GatewayRunner:
                 self.session_store._save()
 
             self.session_store.rewrite_transcript(new_session_id, compressed)
-            # Reset stored token count — transcript changed, old value is stale
+            # 重置存储的令牌计数 — 转录本已更改，旧值已过时
             self.session_store.update_session(
                 session_entry.session_key, last_prompt_tokens=0
             )
@@ -5055,8 +5031,8 @@ class GatewayRunner:
                 f"~{approx_tokens:,} → ~{new_tokens:,} tokens"
             )
         except Exception as e:
-            logger.warning("Manual compress failed: %s", e)
-            return f"Compression failed: {e}"
+            logger.warning("手动压缩失败：%s", e)
+            return f"压缩失败：{e}"
 
     async def _handle_title_command(self, event: MessageEvent) -> str:
         """Handle /title command — set or show the current session's title."""
@@ -5065,13 +5041,13 @@ class GatewayRunner:
         session_id = session_entry.session_id
 
         if not self._session_db:
-            return "Session database not available."
+            return "会话数据库不可用。"
 
-        # Ensure session exists in SQLite DB (it may only exist in session_store
-        # if this is the first command in a new session)
+        # 确保会话在 SQLite 数据库中存在（如果这是新会话中的第一个命令，
+        # 它可能只存在于 session_store 中）
         existing_title = self._session_db.get_session_title(session_id)
         if existing_title is None:
-            # Session doesn't exist in DB yet — create it
+            # 会话在数据库中尚不存在 — 创建它
             try:
                 self._session_db.create_session(
                     session_id=session_id,
@@ -5079,44 +5055,44 @@ class GatewayRunner:
                     user_id=source.user_id,
                 )
             except Exception:
-                pass  # Session might already exist, ignore errors
+                pass  # 会话可能已存在，忽略错误
 
         title_arg = event.get_command_args().strip()
         if title_arg:
-            # Sanitize the title before setting
+            # 在设置前清理标题
             try:
                 sanitized = self._session_db.sanitize_title(title_arg)
             except ValueError as e:
                 return f"⚠️ {e}"
             if not sanitized:
-                return "⚠️ Title is empty after cleanup. Please use printable characters."
-            # Set the title
+                return "⚠️ 标题清理后为空。请使用可打印字符。"
+            # 设置标题
             try:
                 if self._session_db.set_session_title(session_id, sanitized):
-                    return f"✏️ Session title set: **{sanitized}**"
+                    return f"✏️ 会话标题已设置：**{sanitized}**"
                 else:
-                    return "Session not found in database."
+                    return "数据库中未找到该会话。"
             except ValueError as e:
                 return f"⚠️ {e}"
         else:
-            # Show the current title and session ID
+            # 显示当前标题和会话 ID
             title = self._session_db.get_session_title(session_id)
             if title:
-                return f"📌 Session: `{session_id}`\nTitle: **{title}**"
+                return f"📌 会话：`{session_id}`\n标题：**{title}**"
             else:
-                return f"📌 Session: `{session_id}`\nNo title set. Usage: `/title My Session Name`"
+                return f"📌 会话：`{session_id}`\n未设置标题。用法：`/title 我的会话名称`"
 
     async def _handle_resume_command(self, event: MessageEvent) -> str:
         """Handle /resume command — switch to a previously-named session."""
         if not self._session_db:
-            return "Session database not available."
+            return "会话数据库不可用。"
 
         source = event.source
         session_key = self._session_key_for_source(source)
         name = event.get_command_args().strip()
 
         if not name:
-            # List recent titled sessions for this user/platform
+            # 列出该用户/平台最近的已命名会话
             try:
                 user_source = source.platform.value if source.platform else None
                 sessions = self._session_db.list_sessions_rich(
@@ -5125,9 +5101,9 @@ class GatewayRunner:
                 titled = [s for s in sessions if s.get("title")]
                 if not titled:
                     return (
-                        "No named sessions found.\n"
-                        "Use `/title My Session` to name your current session, "
-                        "then `/resume My Session` to return to it later."
+                        "未找到已命名的会话。\n"
+                        "使用 `/title 我的会话` 为当前会话命名，"
+                        "然后 `/resume 我的会话` 可稍后返回。"
                     )
                 lines = ["📋 **Named Sessions**\n"]
                 for s in titled[:10]:
@@ -5135,26 +5111,26 @@ class GatewayRunner:
                     preview = s.get("preview", "")[:40]
                     preview_part = f" — _{preview}_" if preview else ""
                     lines.append(f"• **{title}**{preview_part}")
-                lines.append("\nUsage: `/resume <session name>`")
+                lines.append("\n用法：`/resume <会话名称>`")
                 return "\n".join(lines)
             except Exception as e:
-                logger.debug("Failed to list titled sessions: %s", e)
-                return f"Could not list sessions: {e}"
+                logger.debug("列出会话失败：%s", e)
+                return f"无法列出会话：{e}"
 
-        # Resolve the name to a session ID
+        # 将名称解析为会话 ID
         target_id = self._session_db.resolve_session_by_title(name)
         if not target_id:
             return (
-                f"No session found matching '**{name}**'.\n"
-                "Use `/resume` with no arguments to see available sessions."
+                f"未找到匹配 '**{name}**' 的会话。\n"
+                "使用不带参数的 `/resume` 可查看可用会话。"
             )
 
-        # Check if already on that session
+        # 检查是否已在该会话上
         current_entry = self.session_store.get_or_create_session(source)
         if current_entry.session_id == target_id:
-            return f"📌 Already on session **{name}**."
+            return f"📌 已在会话 **{name}** 中。"
 
-        # Flush memories for current session before switching
+        # 切换前刷新当前会话的内存
         try:
             _flush_task = asyncio.create_task(
                 self._async_flush_memories(current_entry.session_id)
@@ -5162,26 +5138,26 @@ class GatewayRunner:
             self._background_tasks.add(_flush_task)
             _flush_task.add_done_callback(self._background_tasks.discard)
         except Exception as e:
-            logger.debug("Memory flush on resume failed: %s", e)
+            logger.debug("恢复时内存刷新失败：%s", e)
 
-        # Clear any running agent for this session key
+        # 清除此会话密钥的任何运行中的代理
         if session_key in self._running_agents:
             del self._running_agents[session_key]
 
-        # Switch the session entry to point at the old session
+        # 将会话条目切换到旧会话
         new_entry = self.session_store.switch_session(session_key, target_id)
         if not new_entry:
-            return "Failed to switch session."
+            return "切换会话失败。"
 
-        # Get the title for confirmation
+        # 获取标题以进行确认
         title = self._session_db.get_session_title(target_id) or name
 
-        # Count messages for context
+        # 统计消息数以了解上下文
         history = self.session_store.load_transcript(target_id)
         msg_count = len([m for m in history if m.get("role") == "user"]) if history else 0
         msg_part = f" ({msg_count} message{'s' if msg_count != 1 else ''})" if msg_count else ""
 
-        return f"↻ Resumed session **{title}**{msg_part}. Conversation restored."
+        return f"↻ 已恢复会话 **{title}**{msg_part}。对话已恢复。"
 
     async def _handle_branch_command(self, event: MessageEvent) -> str:
         """Handle /branch [name] — fork the current session into a new independent copy.
@@ -5193,27 +5169,27 @@ class GatewayRunner:
         import uuid as _uuid
 
         if not self._session_db:
-            return "Session database not available."
+            return "会话数据库不可用。"
 
         source = event.source
         session_key = self._session_key_for_source(source)
 
-        # Load the current session and its transcript
+        # 加载当前会话及其转录本
         current_entry = self.session_store.get_or_create_session(source)
         history = self.session_store.load_transcript(current_entry.session_id)
         if not history:
-            return "No conversation to branch — send a message first."
+            return "没有对话可以分支 — 请先发送一条消息。"
 
         branch_name = event.get_command_args().strip()
 
-        # Generate the new session ID
+        # 生成新的会话 ID
         from datetime import datetime as _dt
         now = _dt.now()
         timestamp_str = now.strftime("%Y%m%d_%H%M%S")
         short_uuid = _uuid.uuid4().hex[:6]
         new_session_id = f"{timestamp_str}_{short_uuid}"
 
-        # Determine branch title
+        # 确定分支标题
         if branch_name:
             branch_title = branch_name
         else:
@@ -5223,7 +5199,7 @@ class GatewayRunner:
 
         parent_session_id = current_entry.session_id
 
-        # Create the new session with parent link
+        # 创建带有父链接的新会话
         try:
             self._session_db.create_session(
                 session_id=new_session_id,
@@ -5232,10 +5208,10 @@ class GatewayRunner:
                 parent_session_id=parent_session_id,
             )
         except Exception as e:
-            logger.error("Failed to create branch session: %s", e)
-            return f"Failed to create branch: {e}"
+            logger.error("创建分支会话失败：%s", e)
+            return f"创建分支失败：{e}"
 
-        # Copy conversation history to the new session
+        # 将对话历史复制到新会话
         for msg in history:
             try:
                 self._session_db.append_message(
@@ -5250,27 +5226,27 @@ class GatewayRunner:
             except Exception:
                 pass  # Best-effort copy
 
-        # Set title
+        # 设置标题
         try:
             self._session_db.set_session_title(new_session_id, branch_title)
         except Exception:
             pass
 
-        # Switch the session store entry to the new session
+        # 将会话存储条目切换到新会话
         new_entry = self.session_store.switch_session(session_key, new_session_id)
         if not new_entry:
-            return "Branch created but failed to switch to it."
+            return "分支已创建但切换失败。"
 
-        # Evict any cached agent for this session
+        # 驱逐此会话的任何缓存代理
         self._evict_cached_agent(session_key)
 
         msg_count = len([m for m in history if m.get("role") == "user"])
         return (
-            f"⑂ Branched to **{branch_title}**"
-            f" ({msg_count} message{'s' if msg_count != 1 else ''} copied)\n"
-            f"Original: `{parent_session_id}`\n"
-            f"Branch: `{new_session_id}`\n"
-            f"Use `/resume` to switch back to the original."
+            f"⑂ 已分支到 **{branch_title}**"
+            f" ({msg_count} 条消息已复制)\n"
+            f"原始会话：`{parent_session_id}`\n"
+            f"分支会话：`{new_session_id}`\n"
+            f"使用 `/resume` 可切换回原始会话。"
         )
 
     async def _handle_usage_command(self, event: MessageEvent) -> str:
@@ -5282,29 +5258,29 @@ class GatewayRunner:
         if agent and hasattr(agent, "session_total_tokens") and agent.session_api_calls > 0:
             lines = []
 
-            # Rate limits first (when available from provider headers)
+            # 首先是速率限制（当从提供商头信息可用时）
             rl_state = agent.get_rate_limit_state()
             if rl_state and rl_state.has_data:
                 from agent.rate_limit_tracker import format_rate_limit_compact
                 lines.append(f"⏱️ **Rate Limits:** {format_rate_limit_compact(rl_state)}")
                 lines.append("")
 
-            # Session token usage
-            lines.append("📊 **Session Token Usage**")
-            lines.append(f"Prompt (input): {agent.session_prompt_tokens:,}")
-            lines.append(f"Completion (output): {agent.session_completion_tokens:,}")
-            lines.append(f"Total: {agent.session_total_tokens:,}")
-            lines.append(f"API calls: {agent.session_api_calls}")
+            # 会话 Token 使用
+            lines.append("📊 **会话 Token 使用**")
+            lines.append(f"提示词（输入）：{agent.session_prompt_tokens:,}")
+            lines.append(f"补全（输出）：{agent.session_completion_tokens:,}")
+            lines.append(f"总计：{agent.session_total_tokens:,}")
+            lines.append(f"API 调用：{agent.session_api_calls}")
             ctx = agent.context_compressor
             if ctx.last_prompt_tokens:
                 pct = min(100, ctx.last_prompt_tokens / ctx.context_length * 100) if ctx.context_length else 0
-                lines.append(f"Context: {ctx.last_prompt_tokens:,} / {ctx.context_length:,} ({pct:.0f}%)")
+                lines.append(f"上下文：{ctx.last_prompt_tokens:,} / {ctx.context_length:,} ({pct:.0f}%)")
             if ctx.compression_count:
-                lines.append(f"Compressions: {ctx.compression_count}")
+                lines.append(f"压缩次数：{ctx.compression_count}")
 
             return "\n".join(lines)
 
-        # No running agent -- check session history for a rough count
+        # 无运行中的代理 — 检查会话历史以获取粗略计数
         session_entry = self.session_store.get_or_create_session(source)
         history = self.session_store.load_transcript(session_entry.session_id)
         if history:
@@ -5312,12 +5288,12 @@ class GatewayRunner:
             msgs = [m for m in history if m.get("role") in ("user", "assistant") and m.get("content")]
             approx = estimate_messages_tokens_rough(msgs)
             return (
-                f"📊 **Session Info**\n"
-                f"Messages: {len(msgs)}\n"
-                f"Estimated context: ~{approx:,} tokens\n"
-                f"_(Detailed usage available during active conversations)_"
+                f"📊 **会话信息**\n"
+                f"消息数：{len(msgs)}\n"
+                f"预估上下文：~{approx:,} tokens\n"
+                f"_(活动对话期间可查看详细使用信息)_"
             )
-        return "No usage data available for this session."
+        return "此会话没有可用使用数据。"
 
     async def _handle_insights_command(self, event: MessageEvent) -> str:
         """Handle /insights command -- show usage insights and analytics."""
@@ -5327,7 +5303,7 @@ class GatewayRunner:
         days = 30
         source = None
 
-        # Parse simple args: /insights 7  or  /insights --days 7
+        # 解析简单参数: /insights 7  或  /insights --days 7
         if args:
             parts = args.split()
             i = 0
@@ -5336,7 +5312,7 @@ class GatewayRunner:
                     try:
                         days = int(parts[i + 1])
                     except ValueError:
-                        return f"Invalid --days value: {parts[i + 1]}"
+                        return f"无效的 --days 值：{parts[i + 1]}"
                     i += 2
                 elif parts[i] == "--source" and i + 1 < len(parts):
                     source = parts[i + 1]
@@ -5363,8 +5339,8 @@ class GatewayRunner:
 
             return await loop.run_in_executor(None, _run_insights)
         except Exception as e:
-            logger.error("Insights command error: %s", e, exc_info=True)
-            return f"Error generating insights: {e}"
+            logger.error("Insights 命令错误：%s", e, exc_info=True)
+            return f"生成洞察时出错：{e}"
 
     async def _handle_reload_mcp_command(self, event: MessageEvent) -> str:
         """Handle /reload-mcp command -- disconnect and reconnect all MCP servers."""
@@ -5372,18 +5348,18 @@ class GatewayRunner:
         try:
             from tools.mcp_tool import shutdown_mcp_servers, discover_mcp_tools, _load_mcp_config, _servers, _lock
 
-            # Capture old server names before shutdown
+            # 在关闭前捕获旧服务器名称
             with _lock:
                 old_servers = set(_servers.keys())
 
-            # Read new config before shutting down, so we know what will be added/removed
-            # Shutdown existing connections
+            # 关闭前读取新配置，这样我们就知道将添加/删除什么
+                        # 关闭现有连接
             await loop.run_in_executor(None, shutdown_mcp_servers)
 
-            # Reconnect by discovering tools (reads config.yaml fresh)
+            # 通过发现工具重新连接（重新读取 config.yaml）
             new_tools = await loop.run_in_executor(None, discover_mcp_tools)
 
-            # Compute what changed
+            # 计算发生了什么变化
             with _lock:
                 connected_servers = set(_servers.keys())
 
@@ -5403,8 +5379,8 @@ class GatewayRunner:
             else:
                 lines.append(f"\n🔧 {len(new_tools)} tool(s) available from {len(connected_servers)} server(s)")
 
-            # Inject a message at the END of the session history so the
-            # model knows tools changed on its next turn.  Appended after
+            # 在会话历史末尾注入一条消息，以便
+            # 模型在下一轮知道工具已更改。在处理完所有内容后附加。
             # all existing messages to preserve prompt-cache for the prefix.
             change_parts = []
             if added:
@@ -5430,11 +5406,11 @@ class GatewayRunner:
             return "\n".join(lines)
 
         except Exception as e:
-            logger.warning("MCP reload failed: %s", e)
+            logger.warning("MCP 重新加载失败：%s", e)
             return f"❌ MCP reload failed: {e}"
 
     # ------------------------------------------------------------------
-    # /approve & /deny — explicit dangerous-command approval
+    # /approve & /deny — 显式危险命令审批
     # ------------------------------------------------------------------
 
     _APPROVAL_TIMEOUT_SECONDS = 300  # 5 minutes
@@ -5451,13 +5427,13 @@ class GatewayRunner:
         execute_code).  ``/approve`` resolves the oldest pending command;
         ``/approve all`` resolves every pending command at once.
 
-        Usage:
-            /approve              — approve oldest pending command once
-            /approve all          — approve ALL pending commands at once
-            /approve session      — approve oldest + remember for session
-            /approve all session  — approve all + remember for session
-            /approve always       — approve oldest + remember permanently
-            /approve all always   — approve all + remember permanently
+        用法：
+            /approve              — 批准最早的待处理命令一次
+            /approve all          — 一次批准所有待处理命令
+            /approve session      — 批准最早 + 记住本次会话
+            /approve all session  — 批准所有 + 记住本次会话
+            /approve always       — 批准最早 + 永久记住
+            /approve all always   — 批准所有 + 永久记住
         """
         source = event.source
         session_key = self._session_key_for_source(source)
@@ -5469,36 +5445,36 @@ class GatewayRunner:
         if not has_blocking_approval(session_key):
             if session_key in self._pending_approvals:
                 self._pending_approvals.pop(session_key)
-                return "⚠️ Approval expired (agent is no longer waiting). Ask the agent to try again."
-            return "No pending command to approve."
+                return "⚠️ 审批已过期（代理不再等待）。请让代理重试。"
+            return "没有待批准的命令。"
 
-        # Parse args: support "all", "all session", "all always", "session", "always"
+        # 解析参数: 支持 "all"、"all session"、"all always"、"session"、"always"
         args = event.get_command_args().strip().lower().split()
         resolve_all = "all" in args
         remaining = [a for a in args if a != "all"]
 
         if any(a in ("always", "permanent", "permanently") for a in remaining):
             choice = "always"
-            scope_msg = " (pattern approved permanently)"
+            scope_msg = "（永久批准此模式）"
         elif any(a in ("session", "ses") for a in remaining):
             choice = "session"
-            scope_msg = " (pattern approved for this session)"
+            scope_msg = "（批准此会话）"
         else:
             choice = "once"
             scope_msg = ""
 
         count = resolve_gateway_approval(session_key, choice, resolve_all=resolve_all)
         if not count:
-            return "No pending command to approve."
+            return "没有待批准的命令。"
 
-        # Resume typing indicator — agent is about to continue processing.
+        # 恢复打字指示器 — 代理即将继续处理。
         _adapter = self.adapters.get(source.platform)
         if _adapter:
             _adapter.resume_typing_for_chat(source.chat_id)
 
-        count_msg = f" ({count} commands)" if count > 1 else ""
-        logger.info("User approved %d dangerous command(s) via /approve%s", count, scope_msg)
-        return f"✅ Command{'s' if count > 1 else ''} approved{scope_msg}{count_msg}. The agent is resuming..."
+        count_msg = f" ({count} 个命令)" if count > 1 else ""
+        logger.info("用户通过 /approve 批准了 %d 个危险命令%s", count, scope_msg)
+        return f"✅ 命令{'s' if count > 1 else ''} 已批准{scope_msg}{count_msg}。代理正在恢复..."
 
     async def _handle_deny_command(self, event: MessageEvent) -> str:
         """Handle /deny command — reject pending dangerous command(s).
@@ -5518,27 +5494,27 @@ class GatewayRunner:
         if not has_blocking_approval(session_key):
             if session_key in self._pending_approvals:
                 self._pending_approvals.pop(session_key)
-                return "❌ Command denied (approval was stale)."
-            return "No pending command to deny."
+                return "❌ 命令已拒绝（审批已过期）。"
+            return "没有待拒绝的命令。"
 
         args = event.get_command_args().strip().lower()
         resolve_all = "all" in args
 
         count = resolve_gateway_approval(session_key, "deny", resolve_all=resolve_all)
         if not count:
-            return "No pending command to deny."
+            return "没有待拒绝的命令。"
 
-        # Resume typing indicator — agent continues (with BLOCKED result).
+        # 恢复打字指示器 — 代理继续（带有 BLOCKED 结果）。
         _adapter = self.adapters.get(source.platform)
         if _adapter:
             _adapter.resume_typing_for_chat(source.chat_id)
 
-        count_msg = f" ({count} commands)" if count > 1 else ""
-        logger.info("User denied %d dangerous command(s) via /deny", count)
-        return f"❌ Command{'s' if count > 1 else ''} denied{count_msg}."
+        count_msg = f" ({count} 个命令)" if count > 1 else ""
+        logger.info("用户通过 /deny 拒绝了 %d 个危险命令", count)
+        return f"❌ 命令{'s' if count > 1 else ''} 已拒绝{count_msg}。"
 
-    # Platforms where /update is allowed.  ACP, API server, and webhooks are
-    # programmatic interfaces that should not trigger system updates.
+    # 允许 /update 的平台。ACP、API 服务器和 webhooks 是
+    # 程序化接口，不应触发系统更新。
     _UPDATE_ALLOWED_PLATFORMS = frozenset({
         Platform.TELEGRAM, Platform.DISCORD, Platform.SLACK, Platform.WHATSAPP,
         Platform.SIGNAL, Platform.MATTERMOST, Platform.MATRIX,
@@ -5560,10 +5536,10 @@ class GatewayRunner:
         from datetime import datetime
         from kclaw_cli.config import is_managed, format_managed_message
 
-        # Block non-messaging platforms (API server, webhooks, ACP)
+        # 阻止非消息平台（API 服务器、webhooks、ACP）
         platform = event.source.platform
         if platform not in self._UPDATE_ALLOWED_PLATFORMS:
-            return "✗ /update is only available from messaging platforms. Run `kclaw update` from the terminal."
+            return "✗ /update 仅在消息平台可用。请在终端运行 `kclaw update`。"
 
         if is_managed():
             return f"✗ {format_managed_message('update KClaw Agent')}"
@@ -5572,15 +5548,15 @@ class GatewayRunner:
         git_dir = project_root / '.git'
 
         if not git_dir.exists():
-            return "✗ Not a git repository — cannot update."
+            return "✗ 不是 git 仓库 — 无法更新。"
 
         kclaw_cmd = _resolve_kclaw_bin()
         if not kclaw_cmd:
             return (
-                "✗ Could not locate the `kclaw` command. "
-                "KClaw is running, but the update command could not find the "
-                "executable on PATH or via the current Python interpreter. "
-                "Try running `kclaw update` manually in your terminal."
+                "✗ 无法定位 `kclaw` 命令。"
+                "KClaw 正在运行，但更新命令无法在 PATH "
+                "或当前 Python 解释器上找到可执行文件。"
+                "请尝试在终端中手动运行 `kclaw update`。"
             )
 
         pending_path = _kclaw_home / ".update_pending.json"
@@ -5599,14 +5575,14 @@ class GatewayRunner:
         _tmp_pending.replace(pending_path)
         exit_code_path.unlink(missing_ok=True)
 
-        # Spawn `kclaw update --gateway` detached so it survives gateway restart.
-        # --gateway enables file-based IPC for interactive prompts (stash
-        # restore, config migration) so the gateway can forward them to the
-        # user instead of silently skipping them.
-        # Use setsid for portable session detach (works under system services
-        # where systemd-run --user fails due to missing D-Bus session).
-        # PYTHONUNBUFFERED ensures output is flushed line-by-line so the
-        # gateway can stream it to the messenger in near-real-time.
+        # 生成 `kclaw update --gateway` 分离进程，以便在 gateway 重启后继续运行。
+        # --gateway 启用基于文件的 IPC 用于交互式提示（stash
+        # restore, config migration）以便 gateway 可以将它们转发给
+        # 用户而不是默默跳过它们。
+        # 使用 setsid 以实现可移植的会话分离（在系统服务下
+        # systemd-run --user 因缺少 D-Bus 会话而失败的地方也能工作）。
+        # PYTHONUNBUFFERED 确保输出逐行刷新，以便
+        # gateway 可以近实时地将其流式传输到消息程序。
         kclaw_cmd_str = " ".join(shlex.quote(part) for part in kclaw_cmd)
         update_cmd = (
             f"PYTHONUNBUFFERED=1 {kclaw_cmd_str} update --gateway"
@@ -5616,7 +5592,7 @@ class GatewayRunner:
         try:
             setsid_bin = shutil.which("setsid")
             if setsid_bin:
-                # Preferred: setsid creates a new session, fully detached
+                # 首选：setsid 创建新会话，完全分离
                 subprocess.Popen(
                     [setsid_bin, "bash", "-c", update_cmd],
                     stdout=subprocess.DEVNULL,
@@ -5624,7 +5600,7 @@ class GatewayRunner:
                     start_new_session=True,
                 )
             else:
-                # Fallback: start_new_session=True calls os.setsid() in child
+                # 回退：start_new_session=True 在子进程中调用 os.setsid()
                 subprocess.Popen(
                     ["bash", "-c", update_cmd],
                     stdout=subprocess.DEVNULL,
@@ -5634,10 +5610,10 @@ class GatewayRunner:
         except Exception as e:
             pending_path.unlink(missing_ok=True)
             exit_code_path.unlink(missing_ok=True)
-            return f"✗ Failed to start update: {e}"
+            return f"✗ 启动更新失败：{e}"
 
         self._schedule_update_notification_watch()
-        return "⚕ Starting KClaw update… I'll stream progress here."
+        return "⚕ 正在启动 KClaw 更新… 我将在这里实时推送进度。"
 
     def _schedule_update_notification_watch(self) -> None:
         """Ensure a background task is watching for update completion."""
@@ -5650,7 +5626,7 @@ class GatewayRunner:
                 self._watch_update_progress()
             )
         except RuntimeError:
-            logger.debug("Skipping update notification watcher: no running event loop")
+            logger.debug("跳过更新通知观察者：无运行中的事件循环")
 
     async def _watch_update_progress(
         self,
@@ -5678,7 +5654,7 @@ class GatewayRunner:
         loop = asyncio.get_running_loop()
         deadline = loop.time() + timeout
 
-        # Resolve the adapter and chat_id for sending messages
+        # 解析用于发送消息的适配器和 chat_id
         adapter = None
         chat_id = None
         session_key = None
@@ -5692,7 +5668,7 @@ class GatewayRunner:
                     if platform_str and chat_id:
                         platform = Platform(platform_str)
                         adapter = self.adapters.get(platform)
-                        # Fallback session key if not stored (old pending files)
+                        # 如果未存储则回退会话密钥（旧待处理文件）
                         if not session_key:
                             session_key = f"{platform_str}:{chat_id}"
                     break
@@ -5700,8 +5676,8 @@ class GatewayRunner:
                     pass
 
         if not adapter or not chat_id:
-            logger.warning("Update watcher: cannot resolve adapter/chat_id, falling back to completion-only")
-            # Fall back to old behavior: wait for exit code and send final notification
+            logger.warning("更新观察者：无法解析适配器/chat_id，回退到仅完成通知")
+            # 回退到旧行为：等待退出码并发送最终通知
             while (pending_path.exists() or claimed_path.exists()) and loop.time() < deadline:
                 if exit_code_path.exists():
                     await self._send_update_notification()
@@ -5725,25 +5701,25 @@ class GatewayRunner:
             if not buffer.strip():
                 buffer = ""
                 return
-            # Chunk to fit message limits (Telegram: 4096, others: generous)
+            # 分块以适应消息限制（Telegram: 4096，其他：从宽）
             clean = _strip_ansi(buffer).strip()
             buffer = ""
             last_stream_time = loop.time()
             if not clean:
                 return
-            # Split into chunks if too long
+            # 如果太长则分割成块
             max_chunk = 3500
             chunks = [clean[i:i + max_chunk] for i in range(0, len(clean), max_chunk)]
             for chunk in chunks:
                 try:
                     await adapter.send(chat_id, f"```\n{chunk}\n```")
                 except Exception as e:
-                    logger.debug("Update stream send failed: %s", e)
+                    logger.debug("更新流发送失败：%s", e)
 
         while loop.time() < deadline:
-            # Check for completion
+            # 检查是否完成
             if exit_code_path.exists():
-                # Read any remaining output
+                # 读取任何剩余输出
                 if output_path.exists():
                     try:
                         content = output_path.read_text()
@@ -5754,19 +5730,19 @@ class GatewayRunner:
                         pass
                 await _flush_buffer()
 
-                # Send final status
+                # 发送最终状态
                 try:
                     exit_code_raw = exit_code_path.read_text().strip() or "1"
                     exit_code = int(exit_code_raw)
                     if exit_code == 0:
-                        await adapter.send(chat_id, "✅ KClaw update finished.")
+                        await adapter.send(chat_id, "✅ KClaw 更新完成。")
                     else:
-                        await adapter.send(chat_id, "❌ KClaw update failed (exit code {}).".format(exit_code))
-                    logger.info("Update finished (exit=%s), notified %s", exit_code, session_key)
+                        await adapter.send(chat_id, "❌ KClaw 更新失败（退出码 {}）。".format(exit_code))
+                    logger.info("更新完成（退出码=%s），已通知 %s", exit_code, session_key)
                 except Exception as e:
-                    logger.warning("Update final notification failed: %s", e)
+                    logger.warning("更新最终通知失败：%s", e)
 
-                # Cleanup
+                # 清理
                 for p in (pending_path, claimed_path, output_path,
                           exit_code_path, prompt_path):
                     p.unlink(missing_ok=True)
@@ -5774,7 +5750,7 @@ class GatewayRunner:
                 self._update_prompt_pending.pop(session_key, None)
                 return
 
-            # Check for new output
+            # 检查新输出
             if output_path.exists():
                 try:
                     content = output_path.read_text()
@@ -5784,21 +5760,21 @@ class GatewayRunner:
                 except OSError:
                     pass
 
-            # Flush buffer periodically
+            # 定期刷新缓冲区
             if buffer.strip() and (loop.time() - last_stream_time) >= stream_interval:
                 await _flush_buffer()
 
-            # Check for prompts
+            # 检查提示
             if prompt_path.exists() and session_key:
                 try:
                     prompt_data = json.loads(prompt_path.read_text())
                     prompt_text = prompt_data.get("prompt", "")
                     default = prompt_data.get("default", "")
                     if prompt_text:
-                        # Flush any buffered output first so the user sees
-                        # context before the prompt
+                        # 首先刷新任何缓冲输出，以便用户在
+                        # 看到提示前先看到上下文
                         await _flush_buffer()
-                        # Try platform-native buttons first (Discord, Telegram)
+                        # 首先尝试平台原生按钮（Discord、Telegram）
                         sent_buttons = False
                         if getattr(type(adapter), "send_update_prompt", None) is not None:
                             try:
@@ -5810,7 +5786,7 @@ class GatewayRunner:
                                 )
                                 sent_buttons = True
                             except Exception as btn_err:
-                                logger.debug("Button-based update prompt failed: %s", btn_err)
+                                logger.debug("基于按钮的更新提示失败：%s", btn_err)
                         if not sent_buttons:
                             default_hint = f" (default: {default})" if default else ""
                             await adapter.send(
@@ -5821,19 +5797,19 @@ class GatewayRunner:
                                 f"or type your answer directly."
                             )
                         self._update_prompt_pending[session_key] = True
-                        logger.info("Forwarded update prompt to %s: %s", session_key, prompt_text[:80])
+                        logger.info("转发更新提示到 %s: %s", session_key, prompt_text[:80])
                 except (json.JSONDecodeError, OSError) as e:
-                    logger.debug("Failed to read update prompt: %s", e)
+                    logger.debug("读取更新提示失败：%s", e)
 
             await asyncio.sleep(poll_interval)
 
-        # Timeout
+        # 超时
         if not exit_code_path.exists():
-            logger.warning("Update watcher timed out after %.0fs", timeout)
+            logger.warning("更新观察者在 %.0fs 后超时", timeout)
             exit_code_path.write_text("124")
             await _flush_buffer()
             try:
-                await adapter.send(chat_id, "❌ KClaw update timed out after 30 minutes.")
+                await adapter.send(chat_id, "❌ KClaw 更新在 30 分钟后超时。")
             except Exception:
                 pass
             for p in (pending_path, claimed_path, output_path,
@@ -5880,7 +5856,7 @@ class GatewayRunner:
             chat_id = pending.get("chat_id")
 
             if not exit_code_path.exists():
-                logger.info("Update notification deferred: update still running")
+                logger.info("更新通知延迟：更新仍在运行")
                 cleanup = False
                 active_pending_path = pending_path
                 claimed_path.replace(pending_path)
@@ -5889,30 +5865,30 @@ class GatewayRunner:
             exit_code_raw = exit_code_path.read_text().strip() or "1"
             exit_code = int(exit_code_raw)
 
-            # Read the captured update output
+            # 读取捕获的更新输出
             output = ""
             if output_path.exists():
                 output = output_path.read_text()
 
-            # Resolve adapter
+            # 解析适配器
             platform = Platform(platform_str)
             adapter = self.adapters.get(platform)
 
             if adapter and chat_id:
-                # Strip ANSI escape codes for clean display
+                # 剥离 ANSI 转义码以进行干净显示
                 output = _re.sub(r'\x1b\[[0-9;]*m', '', output).strip()
                 if output:
                     if len(output) > 3500:
                         output = "…" + output[-3500:]
                     if exit_code == 0:
-                        msg = f"✅ KClaw update finished.\n\n```\n{output}\n```"
+                        msg = f"✅ KClaw 更新完成。\n\n```\n{output}\n```"
                     else:
-                        msg = f"❌ KClaw update failed.\n\n```\n{output}\n```"
+                        msg = f"❌ KClaw 更新失败。\n\n```\n{output}\n```"
                 else:
                     if exit_code == 0:
-                        msg = "✅ KClaw update finished successfully."
+                        msg = "✅ KClaw 更新成功完成。"
                     else:
-                        msg = "❌ KClaw update failed. Check the gateway logs or run `kclaw update` manually for details."
+                        msg = "❌ KClaw 更新失败。请查看 gateway 日志或手动运行 `kclaw update` 获取详情。"
                 await adapter.send(chat_id, msg)
                 logger.info(
                     "Sent post-update notification to %s:%s (exit=%s)",
@@ -5921,7 +5897,7 @@ class GatewayRunner:
                     exit_code,
                 )
         except Exception as e:
-            logger.warning("Post-update notification failed: %s", e)
+            logger.warning("更新后通知失败：%s", e)
         finally:
             if cleanup:
                 active_pending_path.unlink(missing_ok=True)
@@ -5979,7 +5955,7 @@ class GatewayRunner:
         enriched_parts = []
         for path in image_paths:
             try:
-                logger.debug("Auto-analyzing user image: %s", path)
+                logger.debug("自动分析用户图片：%s", path)
                 result_json = await vision_analyze_tool(
                     image_url=path,
                     user_prompt=analysis_prompt,
@@ -5999,14 +5975,14 @@ class GatewayRunner:
                         f"with vision_analyze using image_url: {path}]"
                     )
             except Exception as e:
-                logger.error("Vision auto-analysis error: %s", e)
+                logger.error("视觉自动分析错误：%s", e)
                 enriched_parts.append(
                     f"[The user sent an image but something went wrong when I "
                     f"tried to look at it~ You can try examining it yourself "
                     f"with vision_analyze using image_url: {path}]"
                 )
 
-        # Combine: vision descriptions first, then the user's original text
+        # 合并：先视觉描述，然后是用户的原始文本
         if enriched_parts:
             prefix = "\n\n".join(enriched_parts)
             if user_text:
@@ -6050,7 +6026,7 @@ class GatewayRunner:
         enriched_parts = []
         for path in audio_paths:
             try:
-                logger.debug("Transcribing user voice: %s", path)
+                logger.debug("转录用户语音：%s", path)
                 result = await asyncio.to_thread(transcribe_audio, path, model=stt_model)
                 if result["success"]:
                     transcript = result["transcript"]
@@ -6084,7 +6060,7 @@ class GatewayRunner:
                             f"transcribing it~ ({error})]"
                         )
             except Exception as e:
-                logger.error("Transcription error: %s", e)
+                logger.error("转录错误：%s", e)
                 enriched_parts.append(
                     "[The user sent a voice message but something went wrong "
                     "when I tried to listen to it~ Let them know!]"
@@ -6092,8 +6068,8 @@ class GatewayRunner:
 
         if enriched_parts:
             prefix = "\n\n".join(enriched_parts)
-            # Strip the empty-content placeholder from the Discord adapter
-            # when we successfully transcribed the audio — it's redundant.
+            # 当我们成功转录音频时，从 Discord 适配器中剥离空的占位符
+            # 这是多余的。
             _placeholder = "(The user sent a message with no text content)"
             if user_text and user_text.strip() == _placeholder:
                 return prefix
@@ -6126,18 +6102,18 @@ class GatewayRunner:
         agent_notify = watcher.get("notify_on_complete", False)
         notify_mode = self._load_background_notifications_mode()
 
-        logger.debug("Process watcher started: %s (every %ss, notify=%s, agent_notify=%s)",
+        logger.debug("进程观察者已启动：%s (每 %ss, notify=%s, agent_notify=%s)",
                       session_id, interval, notify_mode, agent_notify)
 
         if notify_mode == "off" and not agent_notify:
-            # Still wait for the process to exit so we can log it, but don't
+            # 仍然等待进程退出以便我们记录它，但不
             # push any messages to the user.
             while True:
                 await asyncio.sleep(interval)
                 session = process_registry.get(session_id)
                 if session is None or session.exited:
                     break
-            logger.debug("Process watcher ended (silent): %s", session_id)
+            logger.debug("进程观察者已结束（静默）：%s", session_id)
             return
 
         last_output_len = 0
@@ -6191,11 +6167,11 @@ class GatewayRunner:
                             )
                             await adapter.handle_message(synth_event)
                         except Exception as e:
-                            logger.error("Agent notify injection error: %s", e)
+                            logger.error("代理通知注入错误：%s", e)
                     break
 
-                # --- Normal text-only notification ---
-                # Decide whether to notify based on mode
+                # --- 普通纯文本通知 ---
+                # 根据模式决定是否通知
                 should_notify = (
                     notify_mode in ("all", "result")
                     or (notify_mode == "error" and session.exit_code not in (0, None))
@@ -6216,12 +6192,12 @@ class GatewayRunner:
                             send_meta = {"thread_id": thread_id} if thread_id else None
                             await adapter.send(chat_id, message_text, metadata=send_meta)
                         except Exception as e:
-                            logger.error("Watcher delivery error: %s", e)
+                            logger.error("观察者传递错误：%s", e)
                 break
 
             elif has_new_output and notify_mode == "all" and not agent_notify:
-                # New output available -- deliver status update (only in "all" mode)
-                # Skip periodic updates for agent_notify watchers (they only care about completion)
+                # 有新输出可用 — 传递状态更新（仅在 "all" 模式下）
+                # 跳过 agent_notify 观察者的定期更新（它们只关心完成）
                 new_output = session.output_buffer[-500:] if session.output_buffer else ""
                 message_text = (
                     f"[Background process {session_id} is still running~ "
@@ -6237,11 +6213,11 @@ class GatewayRunner:
                         send_meta = {"thread_id": thread_id} if thread_id else None
                         await adapter.send(chat_id, message_text, metadata=send_meta)
                     except Exception as e:
-                        logger.error("Watcher delivery error: %s", e)
+                        logger.error("观察者传递错误：%s", e)
 
-        logger.debug("Process watcher ended: %s", session_id)
+        logger.debug("进程观察者已结束：%s", session_id)
 
-    _MAX_INTERRUPT_DEPTH = 3  # Cap recursive interrupt handling (#816)
+    _MAX_INTERRUPT_DEPTH = 3  # 限制递归中断处理（#816）
 
     @staticmethod
     def _agent_config_signature(
@@ -6250,16 +6226,15 @@ class GatewayRunner:
         enabled_toolsets: list,
         ephemeral_prompt: str,
     ) -> str:
-        """Compute a stable string key from agent config values.
+        """从代理配置值计算稳定的字符串键。
 
-        When this signature changes between messages, the cached AIAgent is
-        discarded and rebuilt.  When it stays the same, the cached agent is
-        reused — preserving the frozen system prompt and tool schemas for
-        prompt cache hits.
+        当此签名在消息之间发生变化时，缓存的 AIAgent 将被
+        丢弃并重新构建。当它保持不变时，缓存的代理将被
+        复用 — 为提示词缓存命中保留冻结的系统提示和工具模式。
         """
         import hashlib, json as _j
 
-        # Fingerprint the FULL credential string instead of using a short
+        # 使用完整凭证字符串的指纹而不是短
         # prefix. OAuth/JWT-style tokens frequently share a common prefix
         # (e.g. "eyJhbGci"), which can cause false cache hits across auth
         # switches if only the first few characters are considered.
@@ -6274,8 +6249,8 @@ class GatewayRunner:
                 runtime.get("provider", ""),
                 runtime.get("api_mode", ""),
                 sorted(enabled_toolsets) if enabled_toolsets else [],
-                # reasoning_config excluded — it's set per-message on the
-                # cached agent and doesn't affect system prompt or tools.
+                # reasoning_config 已排除 — 它是每条消息在缓存的代理上设置的，
+                # 不影响系统提示或工具。
                 ephemeral_prompt or "",
             ],
             sort_keys=True,
@@ -6302,16 +6277,16 @@ class GatewayRunner:
         event_message_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Run the agent with the given message and context.
+        使用给定的消息和上下文运行代理。
         
-        Returns the full result dict from run_conversation, including:
-          - "final_response": str (the text to send back)
-          - "messages": list (full conversation including tool calls)
+        返回 run_conversation 的完整结果字典，包括：
+          - "final_response": str（要发回的文本）
+          - "messages": list（包含工具调用的完整对话）
           - "api_calls": int
           - "completed": bool
         
-        This is run in a thread pool to not block the event loop.
-        Supports interruption via new messages.
+        在线程池中运行以避免阻塞事件循环。
+        支持通过新消息进行中断。
         """
         from run_agent import AIAgent
         import queue
@@ -6322,7 +6297,7 @@ class GatewayRunner:
         from kclaw_cli.tools_config import _get_platform_tools
         enabled_toolsets = sorted(_get_platform_tools(user_config, platform_key))
 
-        # Apply tool preview length config (0 = no limit)
+        # 应用工具预览长度配置（0 = 无限制）
         try:
             from agent.display import set_tool_preview_max_len
             _tpl = user_config.get("display", {}).get("tool_preview_length", 0)
@@ -6330,13 +6305,13 @@ class GatewayRunner:
         except Exception:
             pass
 
-        # Tool progress mode from config.yaml: "all", "new", "verbose", "off"
-        # Falls back to env vars for backward compatibility.
+        # 工具进度模式来自 config.yaml: "all"、"new"、"verbose"、"off"
+                    # 为向后兼容回退到环境变量。
         # YAML 1.1 parses bare `off` as boolean False — normalise before
         # the `or` chain so it doesn't silently fall through to "all".
         #
-        # Per-platform overrides (display.tool_progress_overrides) take
-        # priority over the global setting — e.g. Signal users can set
+        # 每个平台的覆盖（display.tool_progress_overrides）优先于
+        # 全局设置 — 例如 Signal 用户可以设置
         # tool_progress to "off" while keeping Telegram on "all".
         _display_cfg = user_config.get("display", {})
         _overrides = _display_cfg.get("tool_progress_overrides", {})
@@ -6350,23 +6325,23 @@ class GatewayRunner:
             or os.getenv("KCLAW_TOOL_PROGRESS_MODE")
             or "all"
         )
-        # Disable tool progress for webhooks - they don't support message editing,
-        # so each progress line would be sent as a separate message.
+        # 为 webhooks 禁用工具进度 - 它们不支持消息编辑，
+        # 因此每个进度行将作为单独的消息发送。
         from gateway.config import Platform
         tool_progress_enabled = progress_mode != "off" and source.platform != Platform.WEBHOOK
         
-        # Queue for progress messages (thread-safe)
+        # 进度消息队列（线程安全）
         progress_queue = queue.Queue() if tool_progress_enabled else None
-        last_tool = [None]  # Mutable container for tracking in closure
-        last_progress_msg = [None]  # Track last message for dedup
-        repeat_count = [0]  # How many times the same message repeated
+        last_tool = [None]  # 用于在闭包中跟踪的可变容器
+        last_progress_msg = [None]  # 跟踪最后一条消息用于去重
+        repeat_count = [0]  # 同一消息重复次数
         
         def progress_callback(event_type: str, tool_name: str = None, preview: str = None, args: dict = None, **kwargs):
             """Callback invoked by agent on tool lifecycle events."""
             if not progress_queue:
                 return
 
-            # Only act on tool.started events (ignore tool.completed, reasoning.available, etc.)
+            # 仅处理 tool.started 事件（忽略 tool.completed、reasoning.available 等）
             if event_type not in ("tool.started",):
                 return
 
@@ -6375,11 +6350,11 @@ class GatewayRunner:
                 return
             last_tool[0] = tool_name
             
-            # Build progress message with primary argument preview
+            # 使用主参数预览构建进度消息
             from agent.display import get_tool_emoji
             emoji = get_tool_emoji(tool_name, default="⚙️")
             
-            # Verbose mode: show detailed arguments, respects tool_preview_length
+            # 详细模式：显示详细参数，遵守 tool_preview_length
             if progress_mode == "verbose":
                 if args:
                     from agent.display import get_tool_preview_max_len
@@ -6410,13 +6385,12 @@ class GatewayRunner:
             else:
                 msg = f"{emoji} {tool_name}..."
             
-            # Dedup: collapse consecutive identical progress messages.
-            # Common with execute_code where models iterate with the same
-            # code (same boilerplate imports → identical previews).
+            # 去重：折叠连续相同的进度消息。
+            # 这在使用 execute_code 时很常见，因为模型会使用相同的
+            # 代码迭代（相同的样板导入 → 相同的预览）。
             if msg == last_progress_msg[0]:
                 repeat_count[0] += 1
-                # Update the last line in progress_lines with a counter
-                # via a special "dedup" queue message.
+                # 通过特殊的 "dedup" 队列消息更新 progress_lines 的最后一行
                 progress_queue.put(("__dedup__", msg, repeat_count[0]))
                 return
             last_progress_msg[0] = msg
@@ -6424,11 +6398,11 @@ class GatewayRunner:
             
             progress_queue.put(msg)
         
-        # Background task to send progress messages
-        # Accumulates tool lines into a single message that gets edited.
+        # 后台任务发送进度消息
+        # 将工具行累积到一条可编辑的消息中。
         #
-        # Threading metadata is platform-specific:
-        # - Slack DM threading needs event_message_id fallback (reply thread)
+        # 线程元数据是平台特定的：
+        # - Slack DM 线程需要 event_message_id 回退（回复线程）
         # - Telegram uses message_thread_id only for forum topics; passing a
         #   normal DM/group message id as thread_id causes send failures
         # - Other platforms should use explicit source.thread_id only
@@ -6446,7 +6420,7 @@ class GatewayRunner:
             if not adapter:
                 return
 
-            # Skip tool progress for platforms that don't support message
+            # 跳过不支持消息
             # editing (e.g. iMessage/BlueBubbles) — each progress update
             # would become a separate message bubble, which is noisy.
             from gateway.platforms.base import BasePlatformAdapter as _BaseAdapter
@@ -6458,17 +6432,17 @@ class GatewayRunner:
                         break
                 return
 
-            progress_lines = []      # Accumulated tool lines
+            progress_lines = []      # 累积的工具行
             progress_msg_id = None   # ID of the progress message to edit
-            can_edit = True          # False once an edit fails (platform doesn't support it)
-            _last_edit_ts = 0.0      # Throttle edits to avoid Telegram flood control
-            _PROGRESS_EDIT_INTERVAL = 1.5  # Minimum seconds between edits
+            can_edit = True          # 一旦编辑失败则为 False（平台不支持）
+            _last_edit_ts = 0.0      # 节流编辑以避免 Telegram 限流
+            _PROGRESS_EDIT_INTERVAL = 1.5  # 编辑之间的最小秒数
 
             while True:
                 try:
                     raw = progress_queue.get_nowait()
 
-                    # Handle dedup messages: update last line with repeat counter
+                    # 处理去重消息：用重复计数器更新最后一行
                     if isinstance(raw, tuple) and len(raw) == 3 and raw[0] == "__dedup__":
                         _, base_msg, count = raw
                         if progress_lines:
@@ -6478,21 +6452,21 @@ class GatewayRunner:
                         msg = raw
                         progress_lines.append(msg)
 
-                    # Throttle edits: batch rapid tool updates into fewer
+                    # 节流编辑：将快速工具更新批量到更少
                     # API calls to avoid hitting Telegram flood control.
                     # (grammY auto-retry pattern: proactively rate-limit
                     # instead of reacting to 429s.)
                     _now = time.monotonic()
                     _remaining = _PROGRESS_EDIT_INTERVAL - (_now - _last_edit_ts)
                     if _remaining > 0:
-                        # Wait out the throttle interval, then loop back to
-                        # drain any additional queued messages before sending
+                        # 等待节流间隔，然后循环回来在发送前
+                        # 排出任何其他排队的消息
                         # a single batched edit.
                         await asyncio.sleep(_remaining)
                         continue
 
                     if can_edit and progress_msg_id is not None:
-                        # Try to edit the existing progress message
+                        # 尝试编辑现有进度消息
                         full_text = "\n".join(progress_lines)
                         result = await adapter.edit_message(
                             chat_id=source.chat_id,
@@ -6502,7 +6476,7 @@ class GatewayRunner:
                         if not result.success:
                             _err = (getattr(result, "error", "") or "").lower()
                             if "flood" in _err or "retry after" in _err:
-                                # Flood control hit — disable further edits,
+                                # 遇到限流 — 禁用进一步编辑，
                                 # switch to sending new messages only for
                                 # important updates.  Don't block 23s.
                                 logger.info(
@@ -6513,25 +6487,25 @@ class GatewayRunner:
                             await adapter.send(chat_id=source.chat_id, content=msg, metadata=_progress_metadata)
                     else:
                         if can_edit:
-                            # First tool: send all accumulated text as new message
+                            # 第一个工具：将所有累积文本作为新消息发送
                             full_text = "\n".join(progress_lines)
                             result = await adapter.send(chat_id=source.chat_id, content=full_text, metadata=_progress_metadata)
                         else:
-                            # Editing unsupported: send just this line
+                            # 不支持编辑：仅发送这一行
                             result = await adapter.send(chat_id=source.chat_id, content=msg, metadata=_progress_metadata)
                         if result.success and result.message_id:
                             progress_msg_id = result.message_id
 
                     _last_edit_ts = time.monotonic()
 
-                    # Restore typing indicator
+                    # 恢复打字指示器
                     await asyncio.sleep(0.3)
                     await adapter.send_typing(source.chat_id, metadata=_progress_metadata)
 
                 except queue.Empty:
                     await asyncio.sleep(0.3)
                 except asyncio.CancelledError:
-                    # Drain remaining queued messages
+                    # 排出剩余排队的消息
                     while not progress_queue.empty():
                         try:
                             raw = progress_queue.get_nowait()
@@ -6543,7 +6517,7 @@ class GatewayRunner:
                                 progress_lines.append(raw)
                         except Exception:
                             break
-                    # Final edit with all remaining tools (only if editing works)
+                    # 最终编辑所有剩余工具（仅在编辑有效时）
                     if can_edit and progress_lines and progress_msg_id:
                         full_text = "\n".join(progress_lines)
                         try:
@@ -6556,16 +6530,16 @@ class GatewayRunner:
                             pass
                     return
                 except Exception as e:
-                    logger.error("Progress message error: %s", e)
+                    logger.error("进度消息错误：%s", e)
                     await asyncio.sleep(1)
         
-        # We need to share the agent instance for interrupt support
-        agent_holder = [None]  # Mutable container for the agent instance
-        result_holder = [None]  # Mutable container for the result
-        tools_holder = [None]   # Mutable container for the tool definitions
-        stream_consumer_holder = [None]  # Mutable container for stream consumer
+        # 我们需要共享代理实例以支持中断
+        agent_holder = [None]  # 代理实例的可变容器
+        result_holder = [None]  # 结果的可变容器
+        tools_holder = [None]   # 工具定义的可变容器
+        stream_consumer_holder = [None]  # 流消费者的可变容器
         
-        # Bridge sync step_callback → async hooks.emit for agent:step events
+        # 桥接 sync step_callback → async hooks.emit 用于 agent:step 事件
         _loop_for_step = asyncio.get_event_loop()
         _hooks_ref = self.hooks
 
@@ -6592,9 +6566,9 @@ class GatewayRunner:
                     _loop_for_step,
                 )
             except Exception as _e:
-                logger.debug("agent:step hook error: %s", _e)
+                logger.debug("agent:step 钩子错误：%s", _e)
 
-        # Bridge sync status_callback → async adapter.send for context pressure
+        # 桥接 sync status_callback → async adapter.send 用于上下文压力
         _status_adapter = self.adapters.get(source.platform)
         _status_chat_id = source.chat_id
         _status_thread_metadata = {"thread_id": _progress_thread_id} if _progress_thread_id else None
@@ -6612,10 +6586,10 @@ class GatewayRunner:
                     _loop_for_step,
                 )
             except Exception as _e:
-                logger.debug("status_callback error (%s): %s", event_type, _e)
+                logger.debug("status_callback 错误 (%s): %s", event_type, _e)
 
         def run_sync():
-            # The conditional re-assignment of `message` further below
+            # 下面的条件重新赋值 `message`
             # (prepending model-switch notes) makes Python treat it as a
             # local variable in the entire function.  `nonlocal` lets us
             # read *and* reassign the outer `_run_agent` parameter without
@@ -6623,24 +6597,24 @@ class GatewayRunner:
             # `_resolve_turn_agent_config(message, …)`.
             nonlocal message
 
-            # Pass session_key to process registry via env var so background
-            # processes can be mapped back to this gateway session
+            # 通过环境变量传递 session_key 到进程注册表，以便后台
+            # 进程可以映射回此 gateway 会话
             os.environ["KCLAW_SESSION_KEY"] = session_key or ""
 
-            # Read from env var or use default (same as CLI)
+            # 从环境变量读取或使用默认值（与 CLI 相同）
             max_iterations = int(os.getenv("KCLAW_MAX_ITERATIONS", "90"))
             
-            # Map platform enum to the platform hint key the agent understands.
-            # Platform.LOCAL ("local") maps to "cli"; others pass through as-is.
+            # 将平台枚举映射到代理理解的平台提示键。
+            # Platform.LOCAL ("local") 映射到 "cli"；其他按原样传递。
             platform_key = "cli" if source.platform == Platform.LOCAL else source.platform.value
             
-            # Combine platform context with user-configured ephemeral system prompt
+            # 将平台上下文与用户配置的临时系统提示合并
             combined_ephemeral = context_prompt or ""
             if self._ephemeral_system_prompt:
                 combined_ephemeral = (combined_ephemeral + "\n\n" + self._ephemeral_system_prompt).strip()
 
-            # Re-read .env and config for fresh credentials (gateway is long-lived,
-            # keys may change without restart).
+            # 重新读取 .env 和配置以获取新凭证（gateway 生命周期长，
+            # 密钥可能在不重启的情况下更改）。
             try:
                 load_dotenv(_env_path, override=True, encoding="utf-8")
             except UnicodeDecodeError:
@@ -6663,7 +6637,7 @@ class GatewayRunner:
             pr = self._provider_routing
             reasoning_config = self._load_reasoning_config()
             self._reasoning_config = reasoning_config
-            # Set up streaming consumer if enabled
+            # 如果启用则设置流消费者
             _stream_consumer = None
             _stream_delta_cb = None
             _scfg = getattr(getattr(self, 'config', None), 'streaming', None)
@@ -6694,8 +6668,8 @@ class GatewayRunner:
 
             turn_route = self._resolve_turn_agent_config(message, model, runtime_kwargs)
 
-            # Check agent cache — reuse the AIAgent from the previous message
-            # in this session to preserve the frozen system prompt and tool
+            # 检查代理缓存 — 重用上一条消息中的 AIAgent
+            # 以保留冻结的系统提示和工具。
             # schemas for prompt cache hits.
             _sig = self._agent_config_signature(
                 turn_route["model"],
@@ -6714,7 +6688,7 @@ class GatewayRunner:
                         logger.debug("Reusing cached agent for session %s", session_key)
 
             if agent is None:
-                # Config changed or first message — create fresh agent
+                # 配置已更改或第一条消息 — 创建新代理
                 agent = AIAgent(
                     model=turn_route["model"],
                     **turn_route["runtime"],
@@ -6742,7 +6716,7 @@ class GatewayRunner:
                         _cache[session_key] = (agent, _sig)
                 logger.debug("Created new agent for session %s (sig=%s)", session_key, _sig)
 
-            # Per-message state — callbacks and reasoning config change every
+            # 每条消息状态 — 回调和推理配置每次
             # turn and must not be baked into the cached agent constructor.
             agent.tool_progress_callback = progress_callback if tool_progress_enabled else None
             agent.step_callback = _step_callback_sync if _hooks_ref.loaded_hooks else None
@@ -6750,7 +6724,7 @@ class GatewayRunner:
             agent.status_callback = _status_callback_sync
             agent.reasoning_config = reasoning_config
 
-            # Background review delivery — send "💾 Memory updated" etc. to user
+            # 后台审查交付 — 向用户发送 "💾 Memory updated" 等
             def _bg_review_send(message: str) -> None:
                 if not _status_adapter:
                     return
@@ -6768,14 +6742,14 @@ class GatewayRunner:
 
             agent.background_review_callback = _bg_review_send
 
-            # Store agent reference for interrupt support
+            # 存储代理引用以支持中断
             agent_holder[0] = agent
-            # Capture the full tool definitions for transcript logging
+            # 捕获完整工具定义以用于转录日志
             tools_holder[0] = agent.tools if hasattr(agent, 'tools') else None
             
-            # Convert history to agent format.
-            # Two cases:
-            #   1. Normal path (from transcript): simple {role, content, timestamp} dicts
+            # 将历史转换为代理格式。
+            # 两种情况：
+            #   1. 正常路径（来自转录本）：简单的 {role, content, timestamp} 字典
             #      - Strip timestamps, keep role+content
             #   2. Interrupt path (from agent result["messages"]): full agent messages
             #      that may include tool_calls, tool_call_id, reasoning, etc.
@@ -6787,16 +6761,16 @@ class GatewayRunner:
                 if not role:
                     continue
                 
-                # Skip metadata entries (tool definitions, session info)
-                # -- these are for transcript logging, not for the LLM
+                # 跳过元数据条目（工具定义、会话信息）
+                # — 这些用于转录日志，不是给 LLM 的
                 if role in ("session_meta",):
                     continue
                 
-                # Skip system messages -- the agent rebuilds its own system prompt
+                # 跳过系统消息 — 代理重建自己的系统提示
                 if role == "system":
                     continue
                 
-                # Rich agent messages (tool_calls, tool results) must be passed
+                # 富代理消息（tool_calls、工具结果）必须完整传递
                 # through intact so the API sees valid assistant→tool sequences
                 has_tool_calls = "tool_calls" in msg
                 has_tool_call_id = "tool_call_id" in msg
@@ -6806,18 +6780,18 @@ class GatewayRunner:
                     clean_msg = {k: v for k, v in msg.items() if k != "timestamp"}
                     agent_history.append(clean_msg)
                 else:
-                    # Simple text message - just need role and content
+                    # 简单文本消息 - 只需要 role 和 content
                     content = msg.get("content")
                     if content:
-                        # Tag cross-platform mirror messages so the agent knows their origin
+                        # 标记跨平台镜像消息，以便代理知道其来源
                         if msg.get("mirror"):
                             mirror_src = msg.get("mirror_source", "another session")
                             content = f"[Delivered from {mirror_src}] {content}"
                         entry = {"role": role, "content": content}
-                        # Preserve reasoning fields on assistant messages so
+                        # 保留助手消息上的推理字段，以便
                         # multi-turn reasoning context survives session reload.
-                        # The agent's _build_api_kwargs converts these to the
-                        # provider-specific format (reasoning_content, etc.).
+                        # 代理的 _build_api_kwargs 将这些转换为
+                        # 提供商特定格式（reasoning_content 等）。
                         if role == "assistant":
                             for _rkey in ("reasoning", "reasoning_details",
                                           "codex_reasoning_items"):
@@ -6826,8 +6800,8 @@ class GatewayRunner:
                                     entry[_rkey] = _rval
                         agent_history.append(entry)
             
-            # Collect MEDIA paths already in history so we can exclude them
-            # from the current turn's extraction. This is compression-safe:
+            # 收集历史中已有的 MEDIA 路径，以便我们可以在当前轮次中排除它们。
+            # 这对压缩是安全的：
             # even if the message list shrinks, we know which paths are old.
             _history_media_paths: set = set()
             for _hm in agent_history:
@@ -6839,10 +6813,9 @@ class GatewayRunner:
                             if _p:
                                 _history_media_paths.add(_p)
             
-            # Register per-session gateway approval callback so dangerous
-            # command approval blocks the agent thread (mirrors CLI input()).
-            # The callback bridges sync→async to send the approval request
-            # to the user immediately.
+            # 注册每个会话的 gateway 审批回调，以便危险
+            # 命令审批阻塞代理线程（镜像 CLI input()）。
+            # 回调桥接 sync→async 以立即向用户发送审批请求。
             from tools.approval import (
                 register_gateway_notify,
                 reset_current_session_key,
@@ -6858,21 +6831,20 @@ class GatewayRunner:
                 UX.  Otherwise fall back to a plain text message with
                 ``/approve`` instructions.
                 """
-                # Pause the typing indicator while the agent waits for
-                # user approval.  Critical for Slack's Assistant API where
-                # assistant_threads_setStatus disables the compose box — the
-                # user literally cannot type /approve while "is thinking..."
-                # is active.  The approval message send auto-clears the Slack
-                # status; pausing prevents _keep_typing from re-setting it.
-                # Typing resumes in _handle_approve_command/_handle_deny_command.
+                # 在代理等待时暂停打字指示器
+                # 用户审批。对 Slack 的 Assistant API 至关重要，
+                # assistant_threads_setStatus 禁用组合框 — 用户在 "thinking..."
+                # 活跃时无法输入 /approve。审批消息发送会自动清除 Slack
+                # 状态；暂停可防止 _keep_typing 重新设置它。
+                # 打字在 _handle_approve_command/_handle_deny_command 中恢复。
                 _status_adapter.pause_typing_for_chat(_status_chat_id)
 
                 cmd = approval_data.get("command", "")
                 desc = approval_data.get("description", "dangerous command")
 
-                # Prefer button-based approval when the adapter supports it.
-                # Check the *class* for the method, not the instance — avoids
-                # false positives from MagicMock auto-attribute creation in tests.
+                # 首选基于按钮的审批（当适配器支持时）。
+                # 检查*类*的方法，而不是实例 — 避免
+                # 测试中 MagicMock 自动属性创建导致的误报。
                 if getattr(type(_status_adapter), "send_exec_approval", None) is not None:
                     try:
                         asyncio.run_coroutine_threadsafe(
@@ -6888,10 +6860,10 @@ class GatewayRunner:
                         return
                     except Exception as _e:
                         logger.warning(
-                            "Button-based approval failed, falling back to text: %s", _e
+                            "基于按钮的审批失败，回退到文本：%s", _e
                         )
 
-                # Fallback: plain text approval prompt
+                # 回退：纯文本审批提示
                 cmd_preview = cmd[:200] + "..." if len(cmd) > 200 else cmd
                 msg = (
                     f"⚠️ **Dangerous command requires approval:**\n"
@@ -6912,7 +6884,7 @@ class GatewayRunner:
                 except Exception as _e:
                     logger.error("Failed to send approval request: %s", _e)
 
-            # Prepend pending model switch note so the model knows about the switch
+            # 预先追加待处理的模型切换说明，以便模型知道切换
             _pending_notes = getattr(self, '_pending_model_notes', {})
             _msn = _pending_notes.pop(session_key, None) if session_key else None
             if _msn:
@@ -6928,14 +6900,14 @@ class GatewayRunner:
                 reset_current_session_key(_approval_session_token)
             result_holder[0] = result
 
-            # Signal the stream consumer that the agent is done
+            # 向流消费者发出信号，表明代理已完成
             if _stream_consumer is not None:
                 _stream_consumer.finish()
             
-            # Return final response, or a message if something went wrong
+            # 返回最终响应，或在出错时返回消息
             final_response = result.get("final_response")
 
-            # Extract actual token counts from the agent instance used for this run
+            # 从用于此运行的代理实例中提取实际令牌计数
             _last_prompt_toks = 0
             _input_toks = 0
             _output_toks = 0
@@ -6960,16 +6932,14 @@ class GatewayRunner:
                     "model": _resolved_model,
                 }
             
-            # Scan tool results for MEDIA:<path> tags that need to be delivered
-            # as native audio/file attachments.  The TTS tool embeds MEDIA: tags
-            # in its JSON response, but the model's final text reply usually
-            # doesn't include them.  We collect unique tags from tool results and
-            # append any that aren't already present in the final response, so the
-            # adapter's extract_media() can find and deliver the files exactly once.
+            # 扫描工具结果中需要作为原生音频/文件附件传递的
+            # MEDIA:<path> 标签。TTS 工具在其 JSON 响应中嵌入 MEDIA: 标签，
+            # 但模型的最终文本回复通常不包含它们。我们从工具结果中收集唯一标签，
+            # 并追加任何不在最终响应中的标签，以便
+            # 适配器的 extract_media() 可以精确找到并传递文件一次。
             #
-            # Uses path-based deduplication against _history_media_paths (collected
-            # before run_conversation) instead of index slicing. This is safe even
-            # when context compression shrinks the message list. (Fixes #160)
+            # 使用基于路径的去重（针对运行前收集的 _history_media_paths）
+            # 而不是索引切片。即使在上下文压缩缩小消息列表后这也是安全的。（修复 #160）
             if "MEDIA:" not in final_response:
                 media_tags = []
                 has_voice_directive = False
@@ -6995,10 +6965,10 @@ class GatewayRunner:
                         unique_tags.insert(0, "[[audio_as_voice]]")
                     final_response = final_response + "\n" + "\n".join(unique_tags)
             
-            # Sync session_id: the agent may have created a new session during
-            # mid-run context compression (_compress_context splits sessions).
-            # If so, update the session store entry so the NEXT message loads
-            # the compressed transcript, not the stale pre-compression one.
+            # 同步 session_id：代理可能在运行期间创建了新会话
+            # （mid-run context compression，即 _compress_context 分割会话）。
+            # 如果是这样，更新会话存储条目，以便下一条消息加载
+            # 压缩后的转录本，而不是过时的压缩前版本。
             agent = agent_holder[0]
             _session_was_split = False
             if agent and session_key and hasattr(agent, 'session_id') and agent.session_id != session_id:
@@ -7014,14 +6984,13 @@ class GatewayRunner:
 
             effective_session_id = getattr(agent, 'session_id', session_id) if agent else session_id
 
-            # When compression created a new session, the messages list was
-            # shortened.  Using the original history offset would produce an
-            # empty new_messages slice, causing the gateway to write only a
-            # user/assistant pair — losing the compressed summary and tail.
-            # Reset to 0 so the gateway writes ALL compressed messages.
+            # 当压缩创建新会话时，消息列表已
+            # 缩短。使用原始历史偏移量会产生空的 new_messages 切片，
+            # 导致 gateway 只写入一对 user/assistant — 丢失压缩摘要和尾部。
+            # 重置为 0，以便 gateway 写入所有压缩消息。
             _effective_history_offset = 0 if _session_was_split else len(agent_history)
 
-            # Auto-generate session title after first exchange (non-blocking)
+            # 在第一次交换后自动生成会话标题（非阻塞）
             if final_response and self._session_db:
                 try:
                     from agent.title_generator import maybe_auto_title
@@ -7050,18 +7019,18 @@ class GatewayRunner:
                 "session_id": effective_session_id,
             }
         
-        # Start progress message sender if enabled
+        # 如果启用则启动进度消息发送器
         progress_task = None
         if tool_progress_enabled:
             progress_task = asyncio.create_task(send_progress_messages())
 
-        # Start stream consumer task — polls for consumer creation since it
-        # happens inside run_sync (thread pool) after the agent is constructed.
+        # 启动流消费者任务 — 轮询消费者创建，因为它
+        # 在代理构造后在 run_sync（线程池）中发生。
         stream_task = None
 
         async def _start_stream_consumer():
             """Wait for the stream consumer to be created, then run it."""
-            for _ in range(200):  # Up to 10s wait
+            for _ in range(200):  # 最多等待 10s
                 if stream_consumer_holder[0] is not None:
                     await stream_consumer_holder[0].run()
                     return
@@ -7069,10 +7038,10 @@ class GatewayRunner:
 
         stream_task = asyncio.create_task(_start_stream_consumer())
         
-        # Track this agent as running for this session (for interrupt support)
-        # We do this in a callback after the agent is created
+        # 跟踪此会话的运行代理（用于中断支持）
+        # 我们在代理创建后的回调中执行此操作
         async def track_agent():
-            # Wait for agent to be created
+            # 等待代理创建
             while agent_holder[0] is None:
                 await asyncio.sleep(0.05)
             if session_key:
@@ -7080,17 +7049,17 @@ class GatewayRunner:
         
         tracking_task = asyncio.create_task(track_agent())
         
-        # Monitor for interrupts from the adapter (new messages arriving)
+        # 监控来自适配器的中断（新消息到达）
         async def monitor_for_interrupt():
             adapter = self.adapters.get(source.platform)
             if not adapter or not session_key:
                 return
             
             while True:
-                await asyncio.sleep(0.2)  # Check every 200ms
-                # Check if adapter has a pending interrupt for this session.
-                # Must use session_key (build_session_key output) — NOT
-                # source.chat_id — because the adapter stores interrupt events
+                await asyncio.sleep(0.2)  # 每 200ms 检查一次
+                # 检查适配器是否有此会话的待处理中断。
+                # 必须使用 session_key（build_session_key 输出）— 而不是
+                # source.chat_id — 因为适配器存储中断事件
                 # under the full session key.
                 if hasattr(adapter, 'has_pending_interrupt') and adapter.has_pending_interrupt(session_key):
                     agent = agent_holder[0]
@@ -7103,8 +7072,8 @@ class GatewayRunner:
         
         interrupt_monitor = asyncio.create_task(monitor_for_interrupt())
 
-        # Periodic "still working" notifications for long-running tasks.
-        # Fires every 10 minutes so the user knows the agent hasn't died.
+        # 长时间运行任务的定期 "仍在工作" 通知。
+        # 每 10 分钟触发一次，以便用户知道代理没有死亡。
         _NOTIFY_INTERVAL = 600  # 10 minutes
         _notify_start = time.time()
 
@@ -7115,7 +7084,7 @@ class GatewayRunner:
             while True:
                 await asyncio.sleep(_NOTIFY_INTERVAL)
                 _elapsed_mins = int((time.time() - _notify_start) // 60)
-                # Include agent activity context if available.
+                # 如果可用则包含代理活动上下文。
                 _agent_ref = agent_holder[0]
                 _status_detail = ""
                 if _agent_ref and hasattr(_agent_ref, "get_activity_summary"):
@@ -7141,15 +7110,14 @@ class GatewayRunner:
         _notify_task = asyncio.create_task(_notify_long_running())
 
         try:
-            # Run in thread pool to not block.  Use an *inactivity*-based
-            # timeout instead of a wall-clock limit: the agent can run for
-            # hours if it's actively calling tools / receiving stream tokens,
-            # but a hung API call or stuck tool with no activity for the
-            # configured duration is caught and killed.  (#4815)
+            # 在线程池中运行以不阻塞。使用基于*不活动*的超时，
+            # 而不是挂钟限制：如果代理在积极调用工具/接收流令牌，
+            # 它可以运行数小时，但如果 API 调用挂起或工具卡住且在
+            # 配置的时间内没有活动，则会被捕获并终止。（#4815）
             #
-            # Config: agent.gateway_timeout in config.yaml, or
-            # KCLAW_AGENT_TIMEOUT env var (env var takes precedence).
-            # Default 1800s (30 min inactivity).  0 = unlimited.
+            # 配置：agent.gateway_timeout 在 config.yaml 中，或
+            # KCLAW_AGENT_TIMEOUT 环境变量（环境变量优先）。
+            # 默认 1800s（30 分钟不活动）。0 = 无限制。
             _agent_timeout_raw = float(os.getenv("KCLAW_AGENT_TIMEOUT", 1800))
             _agent_timeout = _agent_timeout_raw if _agent_timeout_raw > 0 else None
             _agent_warning_raw = float(os.getenv("KCLAW_AGENT_TIMEOUT_WARNING", 900))
@@ -7164,10 +7132,10 @@ class GatewayRunner:
             _POLL_INTERVAL = 5.0
 
             if _agent_timeout is None:
-                # Unlimited — just await the result.
+                # 无限制 — 只需等待结果。
                 response = await _executor_task
             else:
-                # Poll loop: check the agent's built-in activity tracker
+                # 轮询循环：检查代理的内置活动跟踪器
                 # (updated by _touch_activity() on every tool call, API
                 # call, and stream delta) every few seconds.
                 response = None
@@ -7178,7 +7146,7 @@ class GatewayRunner:
                     if done:
                         response = _executor_task.result()
                         break
-                    # Agent still running — check inactivity.
+                    # 代理仍在运行 — 检查不活动。
                     _agent_ref = agent_holder[0]
                     _idle_secs = 0.0
                     if _agent_ref and hasattr(_agent_ref, "get_activity_summary"):
@@ -7187,7 +7155,7 @@ class GatewayRunner:
                             _idle_secs = _act.get("seconds_since_activity", 0.0)
                         except Exception:
                             pass
-                    # Staged warning: fire once before escalating to full timeout.
+                    # 分阶段警告：在升级到完整超时前触发一次。
                     if (not _warning_fired and _agent_warning is not None
                             and _idle_secs >= _agent_warning):
                         _warning_fired = True
@@ -7211,7 +7179,7 @@ class GatewayRunner:
                         break
 
             if _inactivity_timeout:
-                # Build a diagnostic summary from the agent's activity tracker.
+                # 从代理的活动跟踪器构建诊断摘要。
                 _timed_out_agent = agent_holder[0]
                 _activity = {}
                 if _timed_out_agent and hasattr(_timed_out_agent, "get_activity_summary"):
@@ -7227,41 +7195,41 @@ class GatewayRunner:
                 _iter_max = _activity.get("max_iterations", 0)
 
                 logger.error(
-                    "Agent idle for %.0fs (timeout %.0fs) in session %s "
+                    "代理空闲 %.0fs（超时 %.0fs）会话 %s "
                     "| last_activity=%s | iteration=%s/%s | tool=%s",
                     _secs_ago, _agent_timeout, session_key,
                     _last_desc, _iter_n, _iter_max,
                     _cur_tool or "none",
                 )
 
-                # Interrupt the agent if it's still running so the thread
+                # 如果代理仍在运行则中断它，
                 # pool worker is freed.
                 if _timed_out_agent and hasattr(_timed_out_agent, "interrupt"):
                     _timed_out_agent.interrupt("Execution timed out (inactivity)")
 
                 _timeout_mins = int(_agent_timeout // 60) or 1
 
-                # Construct a user-facing message with diagnostic context.
+                # 构建带有诊断上下文面向用户的消息。
                 _diag_lines = [
-                    f"⏱️ Agent inactive for {_timeout_mins} min — no tool calls "
-                    f"or API responses."
+                    f"⏱️ 代理已无活动 {_timeout_mins} 分钟 — 没有工具调用 "
+                    f"或 API 响应。"
                 ]
                 if _cur_tool:
                     _diag_lines.append(
-                        f"The agent appears stuck on tool `{_cur_tool}` "
-                        f"({_secs_ago:.0f}s since last activity, "
-                        f"iteration {_iter_n}/{_iter_max})."
+                        f"代理似乎卡在工具 `{_cur_tool}` 上 "
+                        f"（距离上次活动 {_secs_ago:.0f} 秒，"
+                        f"迭代 {_iter_n}/{_iter_max}）。"
                     )
                 else:
                     _diag_lines.append(
-                        f"Last activity: {_last_desc} ({_secs_ago:.0f}s ago, "
-                        f"iteration {_iter_n}/{_iter_max}). "
-                        "The agent may have been waiting on an API response."
+                        f"上次活动：{_last_desc}（{_secs_ago:.0f} 秒前，"
+                        f"迭代 {_iter_n}/{_iter_max}）。"
+                        "代理可能一直在等待 API 响应。"
                     )
                 _diag_lines.append(
-                    "To increase the limit, set agent.gateway_timeout in config.yaml "
-                    "(value in seconds, 0 = no limit) and restart the gateway.\n"
-                    "Try again, or use /reset to start fresh."
+                    "如需增加限制，请在 config.yaml 中设置 agent.gateway_timeout "
+                    "（值以秒为单位，0 = 无限制）然后重启 gateway。\n"
+                    "重试，或使用 /reset 重新开始。"
                 )
 
                 response = {
@@ -7273,7 +7241,7 @@ class GatewayRunner:
                     "failed": True,
                 }
 
-            # Track fallback model state: if the agent switched to a
+            # 跟踪回退模型状态：如果代理在此运行期间切换到
             # fallback model during this run, persist it so /model shows
             # the actually-active model instead of the config default.
             _agent = agent_holder[0]
@@ -7282,20 +7250,20 @@ class GatewayRunner:
                 if _agent.model != _cfg_model:
                     self._effective_model = _agent.model
                     self._effective_provider = getattr(_agent, 'provider', None)
-                    # Fallback activated — evict cached agent so the next
+                    # 回退已激活 — 驱逐缓存的代理，以便下一条
                     # message starts fresh and retries the primary model.
                     self._evict_cached_agent(session_key)
                 else:
-                    # Primary model worked — clear any stale fallback state
+                    # 主模型工作 — 清除任何过时的回退状态
                     self._effective_model = None
                     self._effective_provider = None
 
-            # Check if we were interrupted OR have a queued message (/queue).
+            # 检查我们是否被中断或有排队的消息（/queue）。
             result = result_holder[0]
             adapter = self.adapters.get(source.platform)
             
-            # Get pending message from adapter.
-            # Use session_key (not source.chat_id) to match adapter's storage keys.
+            # 从适配器获取待处理消息。
+            # 使用 session_key（而不是 source.chat_id）来匹配适配器的存储键。
             pending = None
             if result and adapter and session_key:
                 if result.get("interrupted"):
@@ -7307,7 +7275,7 @@ class GatewayRunner:
                     if pending:
                         logger.debug("Processing queued message after agent completion: '%s...'", pending[:40])
             
-            # Safety net: if the pending text is a slash command (e.g. "/stop",
+            # 安全网：如果待处理文本是斜杠命令（例如 "/stop"、
             # "/new"), discard it — commands should never be passed to the agent
             # as user input.  The primary fix is in base.py (commands bypass the
             # active-session guard), but this catches edge cases where command
@@ -7331,21 +7299,21 @@ class GatewayRunner:
             if pending:
                 logger.debug("Processing pending message: '%s...'", pending[:40])
                 
-                # Clear the adapter's interrupt event so the next _run_agent call
-                # doesn't immediately re-trigger the interrupt before the new agent
+                # 清除适配器的中断事件，
+                # 以便下一个 _run_agent 调用不会在新代理准备好前立即重新触发中断
                 # even makes its first API call (this was causing an infinite loop).
                 if adapter and hasattr(adapter, '_active_sessions') and session_key and session_key in adapter._active_sessions:
                     adapter._active_sessions[session_key].clear()
                 
-                # Cap recursion depth to prevent resource exhaustion when the
-                # user sends multiple messages while the agent keeps failing. (#816)
+                # 限制递归深度以防止当用户在代理持续失败时发送多条消息
+                # 导致资源耗尽。（#816）
                 if _interrupt_depth >= self._MAX_INTERRUPT_DEPTH:
                     logger.warning(
                         "Interrupt recursion depth %d reached for session %s — "
                         "queueing message instead of recursing.",
                         _interrupt_depth, session_key,
                     )
-                    # Queue the pending message for normal processing on next turn
+                    # 将待处理消息排队，以便在下一轮正常处理
                     adapter = self.adapters.get(source.platform)
                     if adapter and hasattr(adapter, 'queue_message'):
                         adapter.queue_message(session_key, pending)
@@ -7353,9 +7321,9 @@ class GatewayRunner:
 
                 was_interrupted = result.get("interrupted")
                 if not was_interrupted:
-                    # Queued message after normal completion — deliver the first
+                    # 正常完成后排队消息 — 在处理排队后续之前
                     # response before processing the queued follow-up.
-                    # Skip if streaming already delivered it.
+                    # 如果流式传输已传递则跳过。
                     _sc = stream_consumer_holder[0]
                     _already_streamed = _sc and getattr(_sc, "already_sent", False)
                     first_response = result.get("final_response", "")
@@ -7369,7 +7337,7 @@ class GatewayRunner:
                 # interrupted." is just noise; the user already knows they sent a
                 # new message).
 
-                # Process the pending message with updated history
+                # 使用更新后的历史处理待处理消息
                 updated_history = result.get("messages", history)
                 return await self._run_agent(
                     message=pending,
@@ -7381,13 +7349,13 @@ class GatewayRunner:
                     _interrupt_depth=_interrupt_depth + 1,
                 )
         finally:
-            # Stop progress sender, interrupt monitor, and notification task
+            # 停止进度发送器、中断监视器和通知任务
             if progress_task:
                 progress_task.cancel()
             interrupt_monitor.cancel()
             _notify_task.cancel()
 
-            # Wait for stream consumer to finish its final edit
+            # 等待流消费者完成其最终编辑
             if stream_task:
                 try:
                     await asyncio.wait_for(stream_task, timeout=5.0)
@@ -7398,14 +7366,14 @@ class GatewayRunner:
                     except asyncio.CancelledError:
                         pass
             
-            # Clean up tracking
+            # 清理跟踪
             tracking_task.cancel()
             if session_key and session_key in self._running_agents:
                 del self._running_agents[session_key]
             if session_key:
                 self._running_agents_ts.pop(session_key, None)
             
-            # Wait for cancelled tasks
+            # 等待已取消的任务
             for task in [progress_task, interrupt_monitor, tracking_task, _notify_task]:
                 if task:
                     try:
@@ -7413,7 +7381,7 @@ class GatewayRunner:
                     except asyncio.CancelledError:
                         pass
 
-        # If streaming already delivered the response, mark it so the
+        # 如果流式传输已传递响应，则标记它，
         # caller's send() is skipped (avoiding duplicate messages).
         _sc = stream_consumer_holder[0]
         if _sc and _sc.already_sent and isinstance(response, dict):
@@ -7424,16 +7392,16 @@ class GatewayRunner:
 
 def _start_cron_ticker(stop_event: threading.Event, adapters=None, loop=None, interval: int = 60):
     """
-    Background thread that ticks the cron scheduler at a regular interval.
-    
-    Runs inside the gateway process so cronjobs fire automatically without
-    needing a separate `kclaw cron daemon` or system cron entry.
+    定期触发 cron 调度器的心跳线程。
 
-    When ``adapters`` and ``loop`` are provided, passes them through to the
-    cron delivery path so live adapters can be used for E2EE rooms.
+    在 gateway 进程内运行，因此 cron 作业可以自动触发，
+    无需单独的 `kclaw cron daemon` 或系统 cron 条目。
 
-    Also refreshes the channel directory every 5 minutes and prunes the
-    image/audio/document cache once per hour.
+    当提供了 ``adapters`` 和 ``loop`` 时，会将它们传递到
+    cron 投递路径，以便可以为 E2EE 房间使用实时适配器。
+
+    还会每 5 分钟刷新一次频道目录，
+    每小时清理一次图片/音频/文档缓存。
     """
     from cron.scheduler import tick as cron_tick
     from gateway.platforms.base import cleanup_image_cache, cleanup_document_cache
@@ -7456,45 +7424,44 @@ def _start_cron_ticker(stop_event: threading.Event, adapters=None, loop=None, in
                 from gateway.channel_directory import build_channel_directory
                 build_channel_directory(adapters)
             except Exception as e:
-                logger.debug("Channel directory refresh error: %s", e)
+                logger.debug("渠道目录刷新错误：%s", e)
 
         if tick_count % IMAGE_CACHE_EVERY == 0:
             try:
                 removed = cleanup_image_cache(max_age_hours=24)
                 if removed:
-                    logger.info("Image cache cleanup: removed %d stale file(s)", removed)
+                    logger.info("图片缓存清理：删除了 %d 个过期文件", removed)
             except Exception as e:
-                logger.debug("Image cache cleanup error: %s", e)
+                logger.debug("图片缓存清理错误：%s", e)
             try:
                 removed = cleanup_document_cache(max_age_hours=24)
                 if removed:
-                    logger.info("Document cache cleanup: removed %d stale file(s)", removed)
+                    logger.info("文档缓存清理：删除了 %d 个过期文件", removed)
             except Exception as e:
-                logger.debug("Document cache cleanup error: %s", e)
+                logger.debug("文档缓存清理错误：%s", e)
 
         stop_event.wait(timeout=interval)
-    logger.info("Cron ticker stopped")
+    logger.info("Cron ticker 已停止")
 
 
 async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = False, verbosity: Optional[int] = 0) -> bool:
     """
-    Start the gateway and run until interrupted.
-    
-    This is the main entry point for running the gateway.
-    Returns True if the gateway ran successfully, False if it failed to start.
-    A False return causes a non-zero exit code so systemd can auto-restart.
-    
-    Args:
-        config: Optional gateway configuration override.
-        replace: If True, kill any existing gateway instance before starting.
-                 Useful for systemd services to avoid restart-loop deadlocks
-                 when the previous process hasn't fully exited yet.
+    启动 gateway 并运行直到被中断。
+
+    这是运行 gateway 的主入口点。
+    如果 gateway 成功运行则返回 True，启动失败则返回 False。
+    返回 False 会导致非零退出码，以便 systemd 可以自动重启。
+
+    参数：
+        config: 可选 gateway 配置覆盖。
+        replace: 如果为 True，则在启动前终止任何现有的 gateway 实例。
+                 对于 systemd 服务很有用，可以避免在前一个进程尚未完全退出时的重启循环死锁。
     """
-    # ── Duplicate-instance guard ──────────────────────────────────────
-    # Prevent two gateways from running under the same KCLAW_HOME.
-    # The PID file is scoped to KCLAW_HOME, so future multi-profile
-    # setups (each profile using a distinct KCLAW_HOME) will naturally
-    # allow concurrent instances without tripping this guard.
+    # ── 重复实例保护 ──────────────────────────────────────
+    # 防止两个 gateway 在同一 KCLAW_HOME 下运行。
+    # PID 文件的作用域是 KCLAW_HOME，因此未来的多 profile
+    # 设置（每个 profile 使用不同的 KCLAW_HOME）将自然
+    # 允许并发实例而不会触发此保护。
     import time as _time
     from gateway.status import get_running_pid, remove_pid_file
     existing_pid = get_running_pid()
@@ -7507,24 +7474,24 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
             try:
                 os.kill(existing_pid, signal.SIGTERM)
             except ProcessLookupError:
-                pass  # Already gone
+                pass  # 进程已消失
             except PermissionError:
                 logger.error(
-                    "Permission denied killing PID %d. Cannot replace.",
+                    "权限不足，无法终止 PID %d。无法替换。",
                     existing_pid,
                 )
                 return False
-            # Wait up to 10 seconds for the old process to exit
+            # 等待最多 10 秒让旧进程退出
             for _ in range(20):
                 try:
                     os.kill(existing_pid, 0)
                     _time.sleep(0.5)
                 except (ProcessLookupError, PermissionError):
-                    break  # Process is gone
+                    break  # 进程已消失
             else:
-                # Still alive after 10s — force kill
+                # 10 秒后仍存活 — 强制终止
                 logger.warning(
-                    "Old gateway (PID %d) did not exit after SIGTERM, sending SIGKILL.",
+                    "旧 gateway（PID %d）在 SIGTERM 后仍未退出，发送 SIGKILL。",
                     existing_pid,
                 )
                 try:
@@ -7533,9 +7500,9 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
                 except (ProcessLookupError, PermissionError):
                     pass
             remove_pid_file()
-            # Also release all scoped locks left by the old process.
-            # Stopped (Ctrl+Z) processes don't release locks on exit,
-            # leaving stale lock files that block the new gateway from starting.
+            # 同时释放旧进程留下的所有作用域锁。
+            # 停止的（Ctrl+Z）进程在退出时不释放锁，
+            # 这会留下过时的锁文件，阻止新 gateway 启动。
             try:
                 from gateway.status import release_all_scoped_locks
                 _released = release_all_scoped_locks()
@@ -7546,32 +7513,32 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
         else:
             kclaw_home = str(get_kclaw_home())
             logger.error(
-                "Another gateway instance is already running (PID %d, KCLAW_HOME=%s). "
-                "Use 'kclaw gateway restart' to replace it, or 'kclaw gateway stop' first.",
+                "另一个 gateway 实例已在运行（PID %d, KCLAW_HOME=%s）。"
+                "使用 'kclaw gateway restart' 替换它，或先 'kclaw gateway stop'。",
                 existing_pid, kclaw_home,
             )
             print(
-                f"\n❌ Gateway already running (PID {existing_pid}).\n"
-                f"   Use 'kclaw gateway restart' to replace it,\n"
-                f"   or 'kclaw gateway stop' to kill it first.\n"
-                f"   Or use 'kclaw gateway run --replace' to auto-replace.\n"
+                f"\n❌ Gateway 已在运行（PID {existing_pid}）。\n"
+                f"   使用 'kclaw gateway restart' 替换它，\n"
+                f"   或先 'kclaw gateway stop' 停止它。\n"
+                f"   或使用 'kclaw gateway run --replace' 自动替换。\n"
             )
             return False
 
-    # Sync bundled skills on gateway start (fast -- skips unchanged)
+    # 同步捆绑的技能在 gateway 启动时（快速 — 跳过未更改的）
     try:
         from tools.skills_sync import sync_skills
         sync_skills(quiet=True)
     except Exception:
         pass
 
-    # Centralized logging — agent.log (INFO+) and errors.log (WARNING+).
-    # Idempotent, so repeated calls from AIAgent.__init__ won't duplicate.
+    # 集中日志 — agent.log（INFO+）和 errors.log（WARNING+）。
+    # 幂等的，所以从 AIAgent.__init__ 的重复调用不会重复。
     from kclaw_logging import setup_logging
     log_dir = setup_logging(kclaw_home=_kclaw_home, mode="gateway")
 
-    # Gateway-specific rotating log — captures all gateway-level messages
-    # (session management, platform adapters, slash commands, etc.).
+    # Gateway 专用轮转日志 — 捕获所有 gateway 级别的消息
+    # （会话管理、平台适配器、斜杠命令等）。
     from agent.redact import RedactingFormatter
     from kclaw_logging import _add_rotating_handler
     _add_rotating_handler(
@@ -7583,24 +7550,24 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
         formatter=RedactingFormatter('%(asctime)s %(levelname)s %(name)s: %(message)s'),
     )
 
-    # Optional stderr handler — level driven by -v/-q flags on the CLI.
-    # verbosity=None (-q/--quiet): no stderr output
-    # verbosity=0    (default):    WARNING and above
-    # verbosity=1    (-v):         INFO and above
-    # verbosity=2+   (-vv/-vvv):   DEBUG
+    # 可选 stderr 处理器 — 级别由 CLI 上的 -v/-q 标志驱动。
+    # verbosity=None (-q/--quiet): 无 stderr 输出
+    # verbosity=0    (默认): WARNING 及以上
+    # verbosity=1    (-v): INFO 及以上
+    # verbosity=2+   (-vv/-vvv): DEBUG
     if verbosity is not None:
         _stderr_level = {0: logging.WARNING, 1: logging.INFO}.get(verbosity, logging.DEBUG)
         _stderr_handler = logging.StreamHandler()
         _stderr_handler.setLevel(_stderr_level)
         _stderr_handler.setFormatter(RedactingFormatter('%(levelname)s %(name)s: %(message)s'))
         logging.getLogger().addHandler(_stderr_handler)
-        # Lower root logger level if needed so DEBUG records can reach the handler
+        # 降低根日志级别（如果需要）以便 DEBUG 记录可以到达处理器
         if _stderr_level < logging.getLogger().level:
             logging.getLogger().setLevel(_stderr_level)
 
     runner = GatewayRunner(config)
     
-    # Set up signal handlers
+    # 设置信号处理器
     def signal_handler():
         asyncio.create_task(runner.stop())
     
@@ -7611,23 +7578,23 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
         except NotImplementedError:
             pass
     
-    # Start the gateway
+    # 启动 gateway
     success = await runner.start()
     if not success:
         return False
     if runner.should_exit_cleanly:
         if runner.exit_reason:
-            logger.error("Gateway exiting cleanly: %s", runner.exit_reason)
+            logger.error("Gateway 正在干净退出：%s", runner.exit_reason)
         return True
     
-    # Write PID file so CLI can detect gateway is running
+    # 编写 PID 文件以便 CLI 可以检测 gateway 是否正在运行
     import atexit
     from gateway.status import write_pid_file, remove_pid_file
     write_pid_file()
     atexit.register(remove_pid_file)
     
-    # Start background cron ticker so scheduled jobs fire automatically.
-    # Pass the event loop so cron delivery can use live adapters (E2EE support).
+    # 启动后台 cron 心跳，以便定时作业可以自动触发。
+    # 传递事件循环，以便 cron 投递可以使用实时适配器（E2EE 支持）。
     cron_stop = threading.Event()
     cron_thread = threading.Thread(
         target=_start_cron_ticker,
@@ -7638,19 +7605,19 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     )
     cron_thread.start()
     
-    # Wait for shutdown
+    # 等待关闭
     await runner.wait_for_shutdown()
 
     if runner.should_exit_with_failure:
         if runner.exit_reason:
-            logger.error("Gateway exiting with failure: %s", runner.exit_reason)
+            logger.error("Gateway 因故障退出：%s", runner.exit_reason)
         return False
     
-    # Stop cron ticker cleanly
+    # 干净地停止 cron 心跳
     cron_stop.set()
     cron_thread.join(timeout=5)
 
-    # Close MCP server connections
+    # 关闭 MCP 服务器连接
     try:
         from tools.mcp_tool import shutdown_mcp_servers
         shutdown_mcp_servers()
@@ -7661,7 +7628,7 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
 
 
 def main():
-    """CLI entry point for the gateway."""
+    """Gateway 的 CLI 入口点。"""
     import argparse
     
     parser = argparse.ArgumentParser(description="KClaw Gateway - Multi-platform messaging")
@@ -7677,8 +7644,8 @@ def main():
             data = json.load(f)
             config = GatewayConfig.from_dict(data)
     
-    # Run the gateway - exit with code 1 if no platforms connected,
-    # so systemd Restart=on-failure will retry on transient errors (e.g. DNS)
+    # 运行 gateway — 如果没有平台连接则退出代码为 1，
+    # 以便 systemd Restart=on-failure 可以重试临时错误（如 DNS）
     success = asyncio.run(start_gateway(config))
     if not success:
         sys.exit(1)

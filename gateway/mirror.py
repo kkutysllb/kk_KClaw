@@ -1,12 +1,12 @@
 """
-Session mirroring for cross-platform message delivery.
+用于跨平台消息传递的会话镜像。
 
-When a message is sent to a platform (via send_message or cron delivery),
-this module appends a "delivery-mirror" record to the target session's
-transcript so the receiving-side agent has context about what was sent.
+当通过 send_message 或 cron 传递向平台发送消息时，
+此模块会向目标会话的记录中追加 "delivery-mirror" 条目，
+以便接收方代理了解发送的内容。
 
-Standalone -- works from CLI, cron, and gateway contexts without needing
-the full SessionStore machinery.
+独立运行 — 可从 CLI、cron 和网关上下文使用，
+无需完整的 SessionStore 机制。
 """
 
 import json
@@ -30,13 +30,13 @@ def mirror_to_session(
     thread_id: Optional[str] = None,
 ) -> bool:
     """
-    Append a delivery-mirror message to the target session's transcript.
+    向目标会话的记录追加传递镜像消息。
 
-    Finds the gateway session that matches the given platform + chat_id,
-    then writes a mirror entry to both the JSONL transcript and SQLite DB.
+    找到与给定 platform + chat_id 匹配的网关会话，
+    然后将镜像条目写入 JSONL 记录和 SQLite DB。
 
-    Returns True if mirrored successfully, False if no matching session or error.
-    All errors are caught -- this is never fatal.
+    如果镜像成功则返回 True，如果没有匹配的会话或出错则返回 False。
+    所有错误都被捕获 — 这永远不会致命。
     """
     try:
         session_id = _find_session_id(platform, str(chat_id), thread_id=thread_id)
@@ -65,11 +65,11 @@ def mirror_to_session(
 
 def _find_session_id(platform: str, chat_id: str, thread_id: Optional[str] = None) -> Optional[str]:
     """
-    Find the active session_id for a platform + chat_id pair.
+    查找 platform + chat_id 对的活跃 session_id。
 
-    Scans sessions.json entries and matches where origin.chat_id == chat_id
-    on the right platform.  DM session keys don't embed the chat_id
-    (e.g. "agent:main:telegram:dm"), so we check the origin dict.
+    扫描 sessions.json 条目并匹配 origin.chat_id == chat_id
+    在正确的平台上。私信会话键不嵌入 chat_id
+    （例如 "agent:main:telegram:dm"），因此我们检查 origin 字典。
     """
     if not _SESSIONS_INDEX.exists():
         return None
@@ -105,7 +105,7 @@ def _find_session_id(platform: str, chat_id: str, thread_id: Optional[str] = Non
 
 
 def _append_to_jsonl(session_id: str, message: dict) -> None:
-    """Append a message to the JSONL transcript file."""
+    """将消息追加到 JSONL 记录文件。"""
     transcript_path = _SESSIONS_DIR / f"{session_id}.jsonl"
     try:
         with open(transcript_path, "a", encoding="utf-8") as f:
@@ -115,7 +115,7 @@ def _append_to_jsonl(session_id: str, message: dict) -> None:
 
 
 def _append_to_sqlite(session_id: str, message: dict) -> None:
-    """Append a message to the SQLite session database."""
+    """将消息追加到 SQLite 会话数据库。"""
     db = None
     try:
         from kclaw_state import SessionDB

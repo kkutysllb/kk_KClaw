@@ -1,20 +1,20 @@
-"""Built-in boot-md hook — run ~/.kclaw/BOOT.md on gateway startup.
+"""内置的 boot-md 钩子 — 在网关启动时运行 ~/.kclaw/BOOT.md。
 
-This hook is always registered. It silently skips if no BOOT.md exists.
-To activate, create ``~/.kclaw/BOOT.md`` with instructions for the
-agent to execute on every gateway restart.
+此钩子始终注册。如果不存在 BOOT.md，则静默跳过。
+要激活，请在 ``~/.kclaw/BOOT.md`` 中创建指令，供代理
+在每次网关重启时执行。
 
-Example BOOT.md::
+BOOT.md 示例::
 
-    # Startup Checklist
+    # 启动检查清单
 
-    1. Check if any cron jobs failed overnight
-    2. Send a status update to Discord #general
-    3. If there are errors in /opt/app/deploy.log, summarize them
+    1. 检查昨夜是否有 cron 作业失败
+    2. 发送状态更新到 Discord #general
+    3. 如果 /opt/app/deploy.log 中有错误，总结它们
 
-The agent runs in a background thread so it doesn't block gateway
-startup. If nothing needs attention, it replies with [SILENT] to
-suppress delivery.
+代理在后台线程中运行，因此不会阻塞网关
+启动。如果不需要注意，代理会回复 [SILENT]
+以取消传递。
 """
 
 import logging
@@ -30,22 +30,21 @@ BOOT_FILE = KCLAW_HOME / "BOOT.md"
 
 
 def _build_boot_prompt(content: str) -> str:
-    """Wrap BOOT.md content in a system-level instruction."""
+    """将 BOOT.md 内容包装在系统级指令中。"""
     return (
-        "You are running a startup boot checklist. Follow the BOOT.md "
-        "instructions below exactly.\n\n"
+        "你正在运行启动检查清单。请严格按照以下 BOOT.md "
+        "指令执行。\n\n"
         "---\n"
         f"{content}\n"
         "---\n\n"
-        "Execute each instruction. If you need to send a message to a "
-        "platform, use the send_message tool.\n"
-        "If nothing needs attention and there is nothing to report, "
-        "reply with ONLY: [SILENT]"
+        "执行每条指令。如果需要向平台发送消息，请使用 send_message 工具。\n"
+        "如果不需要注意且没有什么要报告的，"
+        "请仅回复: [SILENT]"
     )
 
 
 def _run_boot_agent(content: str) -> None:
-    """Spawn a one-shot agent session to execute the boot instructions."""
+    """生成一次性代理会话来执行启动指令。"""
     try:
         from run_agent import AIAgent
 
@@ -59,15 +58,15 @@ def _run_boot_agent(content: str) -> None:
         result = agent.run_conversation(prompt)
         response = result.get("final_response", "")
         if response and "[SILENT]" not in response:
-            logger.info("boot-md completed: %s", response[:200])
+            logger.info("boot-md 完成: %s", response[:200])
         else:
-            logger.info("boot-md completed (nothing to report)")
+            logger.info("boot-md 完成（无需报告）")
     except Exception as e:
-        logger.error("boot-md agent failed: %s", e)
+        logger.error("boot-md 代理失败: %s", e)
 
 
 async def handle(event_type: str, context: dict) -> None:
-    """Gateway startup handler — run BOOT.md if it exists."""
+    """网关启动处理器 — 如果 BOOT.md 存在则运行。"""
     if not BOOT_FILE.exists():
         return
 
@@ -75,9 +74,9 @@ async def handle(event_type: str, context: dict) -> None:
     if not content:
         return
 
-    logger.info("Running BOOT.md (%d chars)", len(content))
+    logger.info("正在运行 BOOT.md (%d 个字符)", len(content))
 
-    # Run in a background thread so we don't block gateway startup.
+    # 在后台线程中运行，这样不会阻塞网关启动。
     thread = threading.Thread(
         target=_run_boot_agent,
         args=(content,),

@@ -1,9 +1,9 @@
 """
-Channel directory -- cached map of reachable channels/contacts per platform.
+渠道目录 — 每个平台可到达渠道/联系人的缓存映射。
 
-Built on gateway startup, refreshed periodically (every 5 min), and saved to
-~/.kclaw/channel_directory.json.  The send_message tool reads this file for
-action="list" and for resolving human-friendly channel names to numeric IDs.
+在网关启动时构建，定期刷新（每5分钟），并保存到
+~/.kclaw/channel_directory.json。send_message 工具读取此文件
+用于 action="list" 和将人类友好的渠道名称解析为数字 ID。
 """
 
 import json
@@ -24,7 +24,7 @@ def _normalize_channel_query(value: str) -> str:
 
 
 def _channel_target_name(platform_name: str, channel: Dict[str, Any]) -> str:
-    """Return the human-facing target label shown to users for a channel entry."""
+    """返回向用户显示的渠道条目的人类可读目标标签。"""
     name = channel["name"]
     if platform_name == "discord" and channel.get("guild"):
         return f"#{name}"
@@ -59,9 +59,9 @@ def _session_entry_name(origin: Dict[str, Any]) -> str:
 
 def build_channel_directory(adapters: Dict[Any, Any]) -> Dict[str, Any]:
     """
-    Build a channel directory from connected platform adapters and session data.
+    从已连接的平台适配器和会话数据构建渠道目录。
 
-    Returns the directory dict and writes it to DIRECTORY_PATH.
+    返回目录字典并将其写入 DIRECTORY_PATH。
     """
     from gateway.config import Platform
 
@@ -95,7 +95,7 @@ def build_channel_directory(adapters: Dict[Any, Any]) -> Dict[str, Any]:
 
 
 def _build_discord(adapter) -> List[Dict[str, str]]:
-    """Enumerate all text channels the Discord bot can see."""
+    """枚举 Discord 机器人可以看到的所有文本频道。"""
     channels = []
     client = getattr(adapter, "_client", None)
     if not client:
@@ -123,8 +123,8 @@ def _build_discord(adapter) -> List[Dict[str, str]]:
 
 
 def _build_slack(adapter) -> List[Dict[str, str]]:
-    """List Slack channels the bot has joined."""
-    # Slack adapter may expose a web client
+    """列出机器人已加入的 Slack 频道。"""
+    # Slack 适配器可能暴露一个 web 客户端
     client = getattr(adapter, "_app", None) or getattr(adapter, "_client", None)
     if not client:
         return _build_from_sessions("slack")
@@ -140,7 +140,7 @@ def _build_slack(adapter) -> List[Dict[str, str]]:
 
 
 def _build_from_sessions(platform_name: str) -> List[Dict[str, str]]:
-    """Pull known channels/contacts from sessions.json origin data."""
+    """从 sessions.json origin 数据中获取已知的渠道/联系人。"""
     sessions_path = get_kclaw_home() / "sessions" / "sessions.json"
     if not sessions_path.exists():
         return []
@@ -176,7 +176,7 @@ def _build_from_sessions(platform_name: str) -> List[Dict[str, str]]:
 # ---------------------------------------------------------------------------
 
 def load_directory() -> Dict[str, Any]:
-    """Load the cached channel directory from disk."""
+    """从磁盘加载缓存的渠道目录。"""
     if not DIRECTORY_PATH.exists():
         return {"updated_at": None, "platforms": {}}
     try:
@@ -188,11 +188,11 @@ def load_directory() -> Dict[str, Any]:
 
 def resolve_channel_name(platform_name: str, name: str) -> Optional[str]:
     """
-    Resolve a human-friendly channel name to a numeric ID.
+    将人类友好的渠道名称解析为数字 ID。
 
-    Matching strategy (case-insensitive, first match wins):
+    匹配策略（不区分大小写，首个匹配优先）：
     - Discord: "bot-home", "#bot-home", "GuildName/bot-home"
-    - Telegram: display name or group name
+    - Telegram: 显示名称或群组名称
     - Slack: "engineering", "#engineering"
     """
     directory = load_directory()
@@ -226,14 +226,14 @@ def resolve_channel_name(platform_name: str, name: str) -> Optional[str]:
 
 
 def format_directory_for_display() -> str:
-    """Format the channel directory as a human-readable list for the model."""
+    """将渠道目录格式化为供模型使用的人类可读列表。"""
     directory = load_directory()
     platforms = directory.get("platforms", {})
 
     if not any(platforms.values()):
-        return "No messaging platforms connected or no channels discovered yet."
+        return "尚未连接消息平台或尚未发现渠道。"
 
-    lines = ["Available messaging targets:\n"]
+    lines = ["可用的消息目标:\n"]
 
     for plat_name, channels in sorted(platforms.items()):
         if not channels:
@@ -255,7 +255,7 @@ def format_directory_for_display() -> str:
                 for ch in sorted(guild_channels, key=lambda c: c["name"]):
                     lines.append(f"  discord:{_channel_target_name(plat_name, ch)}")
             if dms:
-                lines.append("Discord (DMs):")
+                lines.append("Discord (私信):")
                 for ch in dms:
                     lines.append(f"  discord:{_channel_target_name(plat_name, ch)}")
             lines.append("")
@@ -265,7 +265,7 @@ def format_directory_for_display() -> str:
                 lines.append(f"  {plat_name}:{_channel_target_name(plat_name, ch)}")
             lines.append("")
 
-    lines.append('Use these as the "target" parameter when sending.')
-    lines.append('Bare platform name (e.g. "telegram") sends to home channel.')
+    lines.append('发送时请使用这些作为 "target" 参数。')
+    lines.append('仅使用平台名称（例如 "telegram"）将发送到主页渠道。')
 
     return "\n".join(lines)

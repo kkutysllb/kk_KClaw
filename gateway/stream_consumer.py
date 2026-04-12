@@ -1,16 +1,16 @@
-"""Gateway streaming consumer — bridges sync agent callbacks to async platform delivery.
+"""Gateway 流式消费者 — 将同步代理回调桥接到异步平台传递。
 
-The agent fires stream_delta_callback(text) synchronously from its worker thread.
-GatewayStreamConsumer:
-  1. Receives deltas via on_delta() (thread-safe, sync)
-  2. Queues them to an asyncio task via queue.Queue
-  3. The async run() task buffers, rate-limits, and progressively edits
-     a single message on the target platform
+代理从其工作线程同步触发 stream_delta_callback(text)。
+GatewayStreamConsumer：
+  1. 通过 on_delta() 接收增量（线程安全，同步）
+  2. 通过 queue.Queue 将它们排队到 asyncio 任务
+  3. 异步 run() 任务缓冲、限速，并逐步编辑
+     目标平台上的单条消息
 
-Design: Uses the edit transport (send initial message, then editMessageText).
-This is universally supported across Telegram, Discord, and Slack.
+设计：使用编辑传输（发送初始消息，然后 editMessageText）。
+这在 Telegram、Discord 和 Slack 上得到普遍支持。
 
-Credit: jobless0x (#774, #1312), OutThisLife (#798), clicksingh (#697).
+致谢：jobless0x (#774, #1312)、OutThisLife (#798)、clicksingh (#697)。
 """
 
 from __future__ import annotations
@@ -25,35 +25,35 @@ from typing import Any, Optional
 
 logger = logging.getLogger("gateway.stream_consumer")
 
-# Sentinel to signal the stream is complete
+# 哨兵，表示流已完成
 _DONE = object()
 
-# Sentinel to signal a tool boundary — finalize current message and start a
-# new one so that subsequent text appears below tool progress messages.
+# 哨兵，表示工具边界 — 完成当前消息并开始新消息，
+# 以便后续文本出现在工具进度消息下方。
 _NEW_SEGMENT = object()
 
 
 @dataclass
 class StreamConsumerConfig:
-    """Runtime config for a single stream consumer instance."""
+    """单个流消费者实例的运行时配置。"""
     edit_interval: float = 0.3
     buffer_threshold: int = 40
     cursor: str = " ▉"
 
 
 class GatewayStreamConsumer:
-    """Async consumer that progressively edits a platform message with streamed tokens.
+    """异步消费者，使用流式标记逐步编辑平台消息。
 
-    Usage::
+    用法::
 
         consumer = GatewayStreamConsumer(adapter, chat_id, config, metadata=metadata)
-        # Pass consumer.on_delta as stream_delta_callback to AIAgent
+        # 将 consumer.on_delta 作为 stream_delta_callback 传递给 AIAgent
         agent = AIAgent(..., stream_delta_callback=consumer.on_delta)
-        # Start the consumer as an asyncio task
+        # 将消费者作为 asyncio 任务启动
         task = asyncio.create_task(consumer.run())
-        # ... run agent in thread pool ...
-        consumer.finish()  # signal completion
-        await task         # wait for final edit
+        # ... 在线程池中运行代理 ...
+        consumer.finish()  # 信号完成
+        await task         # 等待最终编辑
     """
 
     def __init__(
@@ -71,24 +71,24 @@ class GatewayStreamConsumer:
         self._accumulated = ""
         self._message_id: Optional[str] = None
         self._already_sent = False
-        self._edit_supported = True  # Disabled on first edit failure (Signal/Email/HA)
+        self._edit_supported = True  # 在首次编辑失败时禁用（Signal/Email/HA）
         self._last_edit_time = 0.0
-        self._last_sent_text = ""   # Track last-sent text to skip redundant edits
+        self._last_sent_text = ""   # 跟踪最后发送的文本以跳过冗余编辑
         self._fallback_final_send = False
         self._fallback_prefix = ""
 
     @property
     def already_sent(self) -> bool:
-        """True if at least one message was sent/edited — signals the base
-        adapter to skip re-sending the final response."""
+        """如果至少发送/编辑了一条消息则返回 True — 向基础适配器发出信号
+        跳过重新发送最终响应。"""
         return self._already_sent
 
     def on_delta(self, text: str) -> None:
-        """Thread-safe callback — called from the agent's worker thread.
+        """线程安全回调 — 从代理的工作线程调用。
 
-        When *text* is ``None``, signals a tool boundary: the current message
-        is finalized and subsequent text will be sent as a new message so it
-        appears below any tool-progress messages the gateway sent in between.
+        当 *text* 是 ``None`` 时，表示工具边界：当前消息
+        被最终确定，后续文本将作为新消息发送，
+        以便出现在网关在中间发送的任何工具进度消息下方。
         """
         if text:
             self._queue.put(text)
@@ -96,18 +96,18 @@ class GatewayStreamConsumer:
             self._queue.put(_NEW_SEGMENT)
 
     def finish(self) -> None:
-        """Signal that the stream is complete."""
+        """信号流已完成。"""
         self._queue.put(_DONE)
 
     async def run(self) -> None:
-        """Async task that drains the queue and edits the platform message."""
-        # Platform message length limit — leave room for cursor + formatting
+        """耗尽队列并编辑平台消息的异步任务。"""
+        # 平台消息长度限制 — 为光标和格式化留出空间
         _raw_limit = getattr(self.adapter, "MAX_MESSAGE_LENGTH", 4096)
         _safe_limit = max(500, _raw_limit - len(self.cfg.cursor) - 100)
 
         try:
             while True:
-                # Drain all available items from the queue
+                # 耗尽队列中所有可用项
                 got_done = False
                 got_segment_break = False
                 while True:
@@ -123,7 +123,7 @@ class GatewayStreamConsumer:
                     except queue.Empty:
                         break
 
-                # Decide whether to flush an edit
+                # 决定是否刷新编辑
                 now = time.monotonic()
                 elapsed = now - self._last_edit_time
                 should_edit = (
@@ -135,8 +135,8 @@ class GatewayStreamConsumer:
                 )
 
                 if should_edit and self._accumulated:
-                    # Split overflow: if accumulated text exceeds the platform
-                    # limit, finalize the current message and start a new one.
+                    # 分割溢出：如果累积文本超过平台
+                    # 限制，最终确定当前消息并开始新消息。
                     while (
                         len(self._accumulated) > _safe_limit
                         and self._message_id is not None
@@ -148,10 +148,10 @@ class GatewayStreamConsumer:
                         chunk = self._accumulated[:split_at]
                         await self._send_or_edit(chunk)
                         if self._fallback_final_send:
-                            # Edit failed while attempting to split an oversized
-                            # message. Keep the full accumulated text intact so
-                            # the fallback final-send path can deliver the
-                            # remaining continuation without dropping content.
+                            # 在尝试分割过大消息时编辑失败。
+                            # 保持完整的累积文本完整，
+                            # 以便回退最终发送路径可以投递
+                            # 剩余的继续内容而不丢失内容。
                             break
                         self._accumulated = self._accumulated[split_at:].lstrip("\n")
                         self._message_id = None
@@ -165,10 +165,10 @@ class GatewayStreamConsumer:
                     self._last_edit_time = time.monotonic()
 
                 if got_done:
-                    # Final edit without cursor. If progressive editing failed
-                    # mid-stream, send a single continuation/fallback message
-                    # here instead of letting the base gateway path send the
-                    # full response again.
+                    # 最终编辑（无光标）。如果渐进编辑
+                    # 在中途失败，发送一个单独的继续/回退消息
+                    # 这里，而不是让基础网关路径再次发送
+                    # 完整响应。
                     if self._accumulated:
                         if self._fallback_final_send:
                             await self._send_fallback_final(self._accumulated)
@@ -178,10 +178,10 @@ class GatewayStreamConsumer:
                             await self._send_or_edit(self._accumulated)
                     return
 
-                # Tool boundary: the should_edit block above already flushed
-                # accumulated text without a cursor.  Reset state so the next
-                # text chunk creates a fresh message below any tool-progress
-                # messages the gateway sent in between.
+                # 工具边界：should_edit 块已经在没有光标的情况下刷新了
+                # 累积文本。重置状态，以便下一个
+                # 文本块在网关在中间发送的工具进度
+                # 消息下方创建新消息。
                 if got_segment_break:
                     self._message_id = None
                     self._accumulated = ""
@@ -189,52 +189,50 @@ class GatewayStreamConsumer:
                     self._fallback_final_send = False
                     self._fallback_prefix = ""
 
-                await asyncio.sleep(0.05)  # Small yield to not busy-loop
+                await asyncio.sleep(0.05)  # 小让步以避免忙循环
 
         except asyncio.CancelledError:
-            # Best-effort final edit on cancellation
+            # 取消时最佳努力最终编辑
             if self._accumulated and self._message_id:
                 try:
                     await self._send_or_edit(self._accumulated)
                 except Exception:
                     pass
         except Exception as e:
-            logger.error("Stream consumer error: %s", e)
+            logger.error("流消费者错误: %s", e)
 
-    # Pattern to strip MEDIA:<path> tags (including optional surrounding quotes).
-    # Matches the simple cleanup regex used by the non-streaming path in
-    # gateway/platforms/base.py for post-processing.
+    # 用于剥离 MEDIA:<path> 标签（包括可选的周围引号）的模式。
+    # 与 gateway/platforms/base.py 中非流式路径使用的简单清理正则表达式匹配。
     _MEDIA_RE = re.compile(r'''[`"']?MEDIA:\s*\S+[`"']?''')
 
     @staticmethod
     def _clean_for_display(text: str) -> str:
-        """Strip MEDIA: directives and internal markers from text before display.
+        """在显示前从文本中剥离 MEDIA: 指令和内部标记。
 
-        The streaming path delivers raw text chunks that may include
-        ``MEDIA:<path>`` tags and ``[[audio_as_voice]]`` directives meant for
-        the platform adapter's post-processing.  The actual media files are
-        delivered separately via ``_deliver_media_from_response()`` after the
-        stream finishes — we just need to hide the raw directives from the
-        user.
+        流式路径传递可能包含
+        ``MEDIA:<path>`` 标签和 ``[[audio_as_voice]]`` 指令的原始文本块，
+        这些是为平台适配器的后处理准备的。
+        实际的媒体文件在流结束后通过 ``_deliver_media_from_response()``
+        单独传递 — 我们只需要从用户那里隐藏原始指令。
         """
         if "MEDIA:" not in text and "[[audio_as_voice]]" not in text:
             return text
         cleaned = text.replace("[[audio_as_voice]]", "")
         cleaned = GatewayStreamConsumer._MEDIA_RE.sub("", cleaned)
-        # Collapse excessive blank lines left behind by removed tags
+        # 折叠移除标签后遗留的过多空行
         cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
-        # Strip trailing whitespace/newlines but preserve leading content
+        # 剥离尾随空白/换行但保留前导内容
         return cleaned.rstrip()
 
     def _visible_prefix(self) -> str:
-        """Return the visible text already shown in the streamed message."""
+        """返回流式消息中已显示的可见文本。"""
         prefix = self._last_sent_text or ""
         if self.cfg.cursor and prefix.endswith(self.cfg.cursor):
             prefix = prefix[:-len(self.cfg.cursor)]
         return self._clean_for_display(prefix)
 
     def _continuation_text(self, final_text: str) -> str:
-        """Return only the part of final_text the user has not already seen."""
+        """返回用户尚未看到的 final_text 部分。"""
         prefix = self._fallback_prefix or self._visible_prefix()
         if prefix and final_text.startswith(prefix):
             return final_text[len(prefix):].lstrip()
@@ -242,7 +240,7 @@ class GatewayStreamConsumer:
 
     @staticmethod
     def _split_text_chunks(text: str, limit: int) -> list[str]:
-        """Split text into reasonably sized chunks for fallback sends."""
+        """将文本分割成合理大小的块以供回退发送使用。"""
         if len(text) <= limit:
             return [text]
         chunks: list[str] = []
@@ -258,12 +256,12 @@ class GatewayStreamConsumer:
         return chunks
 
     async def _send_fallback_final(self, text: str) -> None:
-        """Send the final continuation after streaming edits stop working."""
+        """在流式编辑停止工作后发送最终继续。"""
         final_text = self._clean_for_display(text)
         continuation = self._continuation_text(final_text)
         self._fallback_final_send = False
         if not continuation.strip():
-            # Nothing new to send — the visible partial already matches final text.
+            # 没有新内容可发送 — 可见的部分已经匹配最终文本。
             self._already_sent = True
             return
 
@@ -282,16 +280,16 @@ class GatewayStreamConsumer:
             )
             if not result.success:
                 if sent_any_chunk:
-                    # Some continuation text already reached the user. Suppress
-                    # the base gateway final-send path so we don't resend the
-                    # full response and create another duplicate.
+                    # 一些继续内容已经到达用户。抑制
+                    # 基础网关最终发送路径，这样我们就不会重新发送
+                    # 完整响应并创建另一个重复。
                     self._already_sent = True
                     self._message_id = last_message_id
                     self._last_sent_text = last_successful_chunk
                     self._fallback_prefix = ""
                     return
-                # No fallback chunk reached the user — allow the normal gateway
-                # final-send path to try one more time.
+                # 没有回退块到达用户 — 允许正常的网关
+                # 最终发送路径再试一次。
                 self._already_sent = False
                 self._message_id = None
                 self._last_sent_text = ""
@@ -307,20 +305,20 @@ class GatewayStreamConsumer:
         self._fallback_prefix = ""
 
     async def _send_or_edit(self, text: str) -> None:
-        """Send or edit the streaming message."""
-        # Strip MEDIA: directives so they don't appear as visible text.
-        # Media files are delivered as native attachments after the stream
-        # finishes (via _deliver_media_from_response in gateway/run.py).
+        """发送或编辑流式消息。"""
+        # 剥离 MEDIA: 指令，以免它们显示为可见文本。
+        # 媒体文件在流结束后作为原生附件传递
+        #（通过 gateway/run.py 中的 _deliver_media_from_response）。
         text = self._clean_for_display(text)
         if not text.strip():
             return
         try:
             if self._message_id is not None:
                 if self._edit_supported:
-                    # Skip if text is identical to what we last sent
+                    # 如果文本与我们上次发送的相同则跳过
                     if text == self._last_sent_text:
                         return
-                    # Edit existing message
+                    # 编辑现有消息
                     result = await self.adapter.edit_message(
                         chat_id=self.chat_id,
                         message_id=self._message_id,
@@ -330,20 +328,20 @@ class GatewayStreamConsumer:
                         self._already_sent = True
                         self._last_sent_text = text
                     else:
-                        # If an edit fails mid-stream (especially Telegram flood control),
-                        # stop progressive edits and send only the missing tail once the
-                        # final response is available.
-                        logger.debug("Edit failed, disabling streaming for this adapter")
+                        # 如果在流中间编辑失败（尤其是 Telegram 限流），
+                        # 停止渐进编辑，仅在
+                        # 最终响应可用时发送缺失的尾部。
+                        logger.debug("编辑失败，为此适配器禁用流式传输")
                         self._fallback_prefix = self._visible_prefix()
                         self._fallback_final_send = True
                         self._edit_supported = False
                         self._already_sent = True
                 else:
-                    # Editing not supported — skip intermediate updates.
-                    # The final response will be sent by the fallback path.
+                    # 不支持编辑 — 跳过中间更新。
+                    # 最终响应将由回退路径发送。
                     pass
             else:
-                # First message — send new
+                # 第一条消息 — 发送新的
                 result = await self.adapter.send(
                     chat_id=self.chat_id,
                     content=text,
@@ -354,18 +352,18 @@ class GatewayStreamConsumer:
                     self._already_sent = True
                     self._last_sent_text = text
                 elif result.success:
-                    # Platform accepted the message but returned no message_id
-                    # (e.g. Signal).  Can't edit without an ID — switch to
-                    # fallback mode: suppress intermediate deltas, send only
-                    # the missing tail once the final response is ready.
+                    # 平台接受了消息但没有返回 message_id
+                    #（例如 Signal）。没有 ID 无法编辑 — 切换到
+                    # 回退模式：抑制中间增量，仅在
+                    # 最终响应准备好后发送缺失的尾部。
                     self._already_sent = True
                     self._edit_supported = False
                     self._fallback_prefix = self._clean_for_display(text)
                     self._fallback_final_send = True
-                    # Sentinel prevents re-entering this branch on every delta
+                    # 哨兵防止在此分支上重新进入每个增量
                     self._message_id = "__no_edit__"
                 else:
-                    # Initial send failed — disable streaming for this session
+                    # 初始发送失败 — 为此会话禁用流式传输
                     self._edit_supported = False
         except Exception as e:
-            logger.error("Stream send/edit error: %s", e)
+            logger.error("流发送/编辑错误: %s", e)

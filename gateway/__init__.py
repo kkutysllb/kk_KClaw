@@ -1,12 +1,12 @@
 """
-KClaw Gateway - Multi-platform messaging integration.
+KClaw Gateway - 多平台消息集成。
 
-This module provides a unified gateway for connecting the KClaw agent
-to various messaging platforms (Telegram, Discord, WhatsApp) with:
-- Session management (persistent conversations with reset policies)
-- Dynamic context injection (agent knows where messages come from)
-- Delivery routing (cron job outputs to appropriate channels)
-- Platform-specific toolsets (different capabilities per platform)
+本模块提供统一的网关，用于将 KClaw 代理
+连接到各种消息平台（Telegram、Discord、WhatsApp）：
+- 会话管理（带重置策略的持久化对话）
+- 动态上下文注入（代理知道消息来自哪里）
+- 传递路由（cron 作业输出到适当的渠道）
+- 平台特定工具集（每个平台不同的功能）
 """
 
 from .config import GatewayConfig, PlatformConfig, HomeChannel, load_gateway_config

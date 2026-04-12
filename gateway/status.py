@@ -1,14 +1,13 @@
 """
-Gateway runtime status helpers.
+Gateway 运行时状态助手。
 
-Provides PID-file based detection of whether the gateway daemon is running,
-used by send_message's check_fn to gate availability in the CLI.
+提供基于 PID 文件的检测，用于判断 gateway 守护进程是否正在运行，
+供 send_message 的 check_fn 用于在 CLI 中控制可用性。
 
-The PID file lives at ``{KCLAW_HOME}/gateway.pid``.  KCLAW_HOME defaults to
-``~/.kclaw`` but can be overridden via the environment variable.  This means
-separate KCLAW_HOME directories naturally get separate PID files — a property
-that will be useful when we add named profiles (multiple agents running
-concurrently under distinct configurations).
+PID 文件位于 ``{KCLAW_HOME}/gateway.pid``。KCLAW_HOME 默认为
+``~/.kclaw``，但可以通过环境变量覆盖。这意味着
+不同的 KCLAW_HOME 目录自然会有不同的 PID 文件 — 这在添加命名 profiles
+（多个代理在独立配置下并发运行）时会有用。
 """
 
 import hashlib
@@ -26,18 +25,18 @@ _LOCKS_DIRNAME = "gateway-locks"
 
 
 def _get_pid_path() -> Path:
-    """Return the path to the gateway PID file, respecting KCLAW_HOME."""
+    """返回 gateway PID 文件的路径，遵循 KCLAW_HOME。"""
     home = get_kclaw_home()
     return home / "gateway.pid"
 
 
 def _get_runtime_status_path() -> Path:
-    """Return the persisted runtime health/status file path."""
+    """返回持久化的运行时健康/状态文件路径。"""
     return _get_pid_path().with_name(_RUNTIME_STATUS_FILE)
 
 
 def _get_lock_dir() -> Path:
-    """Return the machine-local directory for token-scoped gateway locks."""
+    """返回机器本地的令牌作用域 gateway 锁目录。"""
     override = os.getenv("KCLAW_GATEWAY_LOCK_DIR")
     if override:
         return Path(override)
@@ -46,29 +45,32 @@ def _get_lock_dir() -> Path:
 
 
 def _utc_now_iso() -> str:
+    """返回当前 UTC 时间（ISO 格式）。"""
     return datetime.now(timezone.utc).isoformat()
 
 
 def _scope_hash(identity: str) -> str:
+    """计算标识的哈希值用于锁文件名。"""
     return hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
 
 
 def _get_scope_lock_path(scope: str, identity: str) -> Path:
+    """返回给定作用域和标识的锁文件路径。"""
     return _get_lock_dir() / f"{scope}-{_scope_hash(identity)}.lock"
 
 
 def _get_process_start_time(pid: int) -> Optional[int]:
-    """Return the kernel start time for a process when available."""
+    """在可用时返回进程的 kernel 启动时间。"""
     stat_path = Path(f"/proc/{pid}/stat")
     try:
-        # Field 22 in /proc/<pid>/stat is process start time (clock ticks).
+        # /proc/<pid>/stat 中的第 22 个字段是进程启动时间（时钟滴答）。
         return int(stat_path.read_text().split()[21])
     except (FileNotFoundError, IndexError, PermissionError, ValueError, OSError):
         return None
 
 
 def _read_process_cmdline(pid: int) -> Optional[str]:
-    """Return the process command line as a space-separated string."""
+    """返回进程命令行作为空格分隔的字符串。"""
     cmdline_path = Path(f"/proc/{pid}/cmdline")
     try:
         raw = cmdline_path.read_bytes()
@@ -81,7 +83,7 @@ def _read_process_cmdline(pid: int) -> Optional[str]:
 
 
 def _looks_like_gateway_process(pid: int) -> bool:
-    """Return True when the live PID still looks like the KClaw gateway."""
+    """当活动 PID 仍然看起来像 KClaw gateway 时返回 True。"""
     cmdline = _read_process_cmdline(pid)
     if not cmdline:
         return False
@@ -96,7 +98,7 @@ def _looks_like_gateway_process(pid: int) -> bool:
 
 
 def _record_looks_like_gateway(record: dict[str, Any]) -> bool:
-    """Validate gateway identity from PID-file metadata when cmdline is unavailable."""
+    """当 cmdline 不可用时，从 PID 文件元数据验证 gateway 身份。"""
     if record.get("kind") != _GATEWAY_KIND:
         return False
 
@@ -180,7 +182,7 @@ def _read_pid_record() -> Optional[dict]:
 
 
 def write_pid_file() -> None:
-    """Write the current process PID and metadata to the gateway PID file."""
+    """将当前进程 PID 和元数据写入 gateway PID 文件。"""
     _write_json_file(_get_pid_path(), _build_pid_record())
 
 
@@ -193,7 +195,7 @@ def write_runtime_status(
     error_code: Optional[str] = None,
     error_message: Optional[str] = None,
 ) -> None:
-    """Persist gateway runtime health information for diagnostics/status."""
+    """持久化 gateway 运行时健康信息以供诊断/状态使用。"""
     path = _get_runtime_status_path()
     payload = _read_json_file(path) or _build_runtime_status_record()
     payload.setdefault("platforms", {})
@@ -222,12 +224,12 @@ def write_runtime_status(
 
 
 def read_runtime_status() -> Optional[dict[str, Any]]:
-    """Read the persisted gateway runtime health/status information."""
+    """读取持久化的 gateway 运行时健康/状态信息。"""
     return _read_json_file(_get_runtime_status_path())
 
 
 def remove_pid_file() -> None:
-    """Remove the gateway PID file if it exists."""
+    """如果存在则删除 gateway PID 文件。"""
     try:
         _get_pid_path().unlink(missing_ok=True)
     except Exception:
@@ -235,10 +237,10 @@ def remove_pid_file() -> None:
 
 
 def acquire_scoped_lock(scope: str, identity: str, metadata: Optional[dict[str, Any]] = None) -> tuple[bool, Optional[dict[str, Any]]]:
-    """Acquire a machine-local lock keyed by scope + identity.
+    """获取由 scope + identity 键控的机器本地锁。
 
-    Used to prevent multiple local gateways from using the same external identity
-    at once (e.g. the same Telegram bot token across different KCLAW_HOME dirs).
+    用于防止多个本地 gateway 同时使用相同的外部身份
+    （例如跨不同 KCLAW_HOME 目录使用相同的 Telegram bot 令牌）。
     """
     lock_path = _get_scope_lock_path(scope, identity)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -275,9 +277,9 @@ def acquire_scoped_lock(scope: str, identity: str, metadata: Optional[dict[str, 
                     and current_start != existing.get("start_time")
                 ):
                     stale = True
-                # Check if process is stopped (Ctrl+Z / SIGTSTP) — stopped
-                # processes still respond to os.kill(pid, 0) but are not
-                # actually running. Treat them as stale so --replace works.
+                # 检查进程是否已停止（Ctrl+Z / SIGTSTP）— 停止的
+                # 进程仍然响应 os.kill(pid, 0) 但实际未运行。
+                # 将它们视为过期，以便 --replace 正常工作。
                 if not stale:
                     try:
                         _proc_status = Path(f"/proc/{existing_pid}/status")
@@ -315,7 +317,7 @@ def acquire_scoped_lock(scope: str, identity: str, metadata: Optional[dict[str, 
 
 
 def release_scoped_lock(scope: str, identity: str) -> None:
-    """Release a previously-acquired scope lock when owned by this process."""
+    """在拥有此锁时释放之前获取的作用域锁。"""
     lock_path = _get_scope_lock_path(scope, identity)
     existing = _read_json_file(lock_path)
     if not existing:
@@ -331,11 +333,11 @@ def release_scoped_lock(scope: str, identity: str) -> None:
 
 
 def release_all_scoped_locks() -> int:
-    """Remove all scoped lock files in the lock directory.
+    """删除锁目录中的所有作用域锁文件。
 
-    Called during --replace to clean up stale locks left by stopped/killed
-    gateway processes that did not release their locks gracefully.
-    Returns the number of lock files removed.
+    在 --replace 期间调用，以清理被停止/杀死且未正常释放锁的
+    gateway 进程留下的过期锁。
+    返回删除的锁文件数。
     """
     lock_dir = _get_lock_dir()
     removed = 0
@@ -350,10 +352,10 @@ def release_all_scoped_locks() -> int:
 
 
 def get_running_pid() -> Optional[int]:
-    """Return the PID of a running gateway instance, or ``None``.
+    """返回运行中 gateway 实例的 PID，或 ``None``。
 
-    Checks the PID file and verifies the process is actually alive.
-    Cleans up stale PID files automatically.
+    检查 PID 文件并验证进程是否实际存活。
+    自动清理过期的 PID 文件。
     """
     record = _read_pid_record()
     if not record:
@@ -387,5 +389,5 @@ def get_running_pid() -> Optional[int]:
 
 
 def is_gateway_running() -> bool:
-    """Check if the gateway daemon is currently running."""
+    """检查 gateway 守护进程当前是否正在运行。"""
     return get_running_pid() is not None

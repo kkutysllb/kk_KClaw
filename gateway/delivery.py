@@ -1,11 +1,11 @@
 """
-Delivery routing for cron job outputs and agent responses.
+Cron 作业输出和代理响应的传递路由。
 
-Routes messages to the appropriate destination based on:
-- Explicit targets (e.g., "telegram:123456789")
-- Platform home channels (e.g., "telegram" → home channel)
-- Origin (back to where the job was created)
-- Local (always saved to files)
+根据以下内容将消息路由到适当的目的地：
+- 显式目标（例如 "telegram:123456789"）
+- 平台主页渠道（例如 "telegram" → 主页渠道）
+- 来源（返回到创建作业的地方）
+- 本地（始终保存到文件）
 """
 
 import logging
@@ -28,30 +28,30 @@ from .session import SessionSource
 @dataclass
 class DeliveryTarget:
     """
-    A single delivery target.
+    单个传递目标。
     
-    Represents where a message should be sent:
-    - "origin" → back to source
-    - "local" → save to local files
-    - "telegram" → Telegram home channel
-    - "telegram:123456" → specific Telegram chat
+    表示消息应该发送到哪里：
+    - "origin" → 返回来源
+    - "local" → 保存到本地文件
+    - "telegram" → Telegram 主页渠道
+    - "telegram:123456" → 特定 Telegram 聊天
     """
     platform: Platform
-    chat_id: Optional[str] = None  # None means use home channel
+    chat_id: Optional[str] = None  # None 表示使用主页渠道
     thread_id: Optional[str] = None
     is_origin: bool = False
-    is_explicit: bool = False  # True if chat_id was explicitly specified
+    is_explicit: bool = False  # True 表示 chat_id 是显式指定的
     
     @classmethod
     def parse(cls, target: str, origin: Optional[SessionSource] = None) -> "DeliveryTarget":
         """
-        Parse a delivery target string.
+        解析传递目标字符串。
         
-        Formats:
-        - "origin" → back to source
-        - "local" → local files only
-        - "telegram" → Telegram home channel
-        - "telegram:123456" → specific Telegram chat
+        格式：
+        - "origin" → 返回来源
+        - "local" → 仅本地文件
+        - "telegram" → Telegram 主页渠道
+        - "telegram:123456" → 特定 Telegram 聊天
         """
         target = target.strip().lower()
         
@@ -92,7 +92,7 @@ class DeliveryTarget:
             return cls(platform=Platform.LOCAL)
     
     def to_string(self) -> str:
-        """Convert back to string format."""
+        """转换回字符串格式。"""
         if self.is_origin:
             return "origin"
         if self.platform == Platform.LOCAL:
@@ -106,19 +106,19 @@ class DeliveryTarget:
 
 class DeliveryRouter:
     """
-    Routes messages to appropriate destinations.
+    将消息路由到适当的目的地。
     
-    Handles the logic of resolving delivery targets and dispatching
-    messages to the right platform adapters.
+    处理将传递目标解析并分派
+    消息到正确平台适配器的逻辑。
     """
     
     def __init__(self, config: GatewayConfig, adapters: Dict[Platform, Any] = None):
         """
-        Initialize the delivery router.
+        初始化传递路由器。
         
-        Args:
-            config: Gateway configuration
-            adapters: Dict mapping platforms to their adapter instances
+        参数：
+            config: 网关配置
+            adapters: 将平台映射到其适配器实例的字典
         """
         self.config = config
         self.adapters = adapters or {}
@@ -130,14 +130,14 @@ class DeliveryRouter:
         origin: Optional[SessionSource] = None
     ) -> List[DeliveryTarget]:
         """
-        Resolve delivery specification to concrete targets.
+        将传递规范解析为具体目标。
         
-        Args:
-            deliver: Delivery spec - "origin", "telegram", ["local", "discord"], etc.
-            origin: The source where the request originated (for "origin" target)
+        参数：
+            deliver: 传递规范 - "origin", "telegram", ["local", "discord"] 等
+            origin: 请求来源的来源（用于 "origin" 目标）
         
-        Returns:
-            List of resolved delivery targets
+        返回：
+            已解析的传递目标列表
         """
         if isinstance(deliver, str):
             deliver = [deliver]
@@ -180,17 +180,17 @@ class DeliveryRouter:
         metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Deliver content to all specified targets.
+        将内容传递到所有指定目标。
         
-        Args:
-            content: The message/output to deliver
-            targets: List of delivery targets
-            job_id: Optional job ID (for cron jobs)
-            job_name: Optional job name
-            metadata: Additional metadata to include
+        参数：
+            content: 要传递的消息/输出
+            targets: 传递目标列表
+            job_id: 可选的作业 ID（用于 cron 作业）
+            job_name: 可选的作业名称
+            metadata: 要包含的其他元数据
         
-        Returns:
-            Dict with delivery results per target
+        返回：
+            每个目标的传递结果字典
         """
         results = {}
         
@@ -220,7 +220,7 @@ class DeliveryRouter:
         job_name: Optional[str],
         metadata: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Save content to local files."""
+        """将内容保存到本地文件。"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         if job_id:
@@ -260,7 +260,7 @@ class DeliveryRouter:
         }
     
     def _save_full_output(self, content: str, job_id: str) -> Path:
-        """Save full cron output to disk and return the file path."""
+        """将完整的 cron 输出保存到磁盘并返回文件路径。"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         out_dir = get_kclaw_home() / "cron" / "output"
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -274,7 +274,7 @@ class DeliveryRouter:
         content: str,
         metadata: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Deliver content to a messaging platform."""
+        """将内容传递到消息平台。"""
         adapter = self.adapters.get(target.platform)
         
         if not adapter:
@@ -305,9 +305,9 @@ def parse_deliver_spec(
     default: str = "origin"
 ) -> Union[str, List[str]]:
     """
-    Normalize a delivery specification.
+    规范化传递规范。
     
-    If None or empty, returns the default.
+    如果为 None 或空，则返回默认值。
     """
     if not deliver:
         return default
