@@ -1,12 +1,12 @@
 """
-Unified tool configuration for KClaw Agent.
+KClaw Agent 的统一工具配置。
 
-`kclaw tools` and `kclaw setup tools` both enter this module.
-Select a platform → toggle toolsets on/off → for newly enabled tools
-that need API keys, run through provider-aware configuration.
+kclaw tools 和 kclaw setup tools 都进入此模块。
+选择平台 -> 切换工具集开/关 -> 对于需要 API 密钥的新启用工具，
+运行提供者感知的配置。
 
-Saves per-platform tool configuration to ~/.kclaw/config.yaml under
-the `platform_toolsets` key.
+将每个平台的工具配置保存到 ~/.kclaw/config.yaml 的
+platform_toolsets 键下。
 """
 
 import json as _json

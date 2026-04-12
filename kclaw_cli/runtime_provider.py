@@ -1,4 +1,4 @@
-"""Shared runtime provider resolution for CLI, gateway, cron, and helpers."""
+"""CLI、gateway、cron 和辅助工具的共享运行时提供者解析。"""
 
 from __future__ import annotations
 

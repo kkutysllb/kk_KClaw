@@ -1,14 +1,14 @@
-"""Shared ANSI color utilities for KClaw CLI modules."""
+"""KClaw CLI 模块共享的 ANSI 颜色工具。"""
 
 import os
 import sys
 
 
 def should_use_color() -> bool:
-    """Return True when colored output is appropriate.
+    """判断是否应该使用彩色输出。
 
-    Respects the NO_COLOR environment variable (https://no-color.org/)
-    and TERM=dumb, in addition to the existing TTY check.
+    遵循 NO_COLOR 环境变量（https://no-color.org/）
+    和 TERM=dumb，并结合现有的 TTY 检查。
     """
     if os.environ.get("NO_COLOR") is not None:
         return False
@@ -32,7 +32,7 @@ class Colors:
 
 
 def color(text: str, *codes) -> str:
-    """Apply color codes to text (only when color output is appropriate)."""
+    """为文本应用颜色代码（仅在适合彩色输出时）。"""
     if not should_use_color():
         return text
     return "".join(codes) + text + Colors.RESET

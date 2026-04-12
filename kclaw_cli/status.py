@@ -1,7 +1,7 @@
 """
-Status command for kclaw CLI.
+kclaw CLI 的状态命令。
 
-Shows the status of all KClaw Agent components.
+显示所有 KClaw Agent 组件的状态。
 """
 
 import os
@@ -26,22 +26,22 @@ def check_mark(ok: bool) -> str:
     return color("✗", Colors.RED)
 
 def redact_key(key: str) -> str:
-    """Redact an API key for display."""
+    """对要显示的 API 密钥进行脱敏处理。"""
     if not key:
-        return "(not set)"
+        return "(未设置)"
     if len(key) < 12:
         return "***"
     return key[:4] + "..." + key[-4:]
 
 
 def _format_iso_timestamp(value) -> str:
-    """Format ISO timestamps for status output, converting to local timezone."""
+    """格式化 ISO 时间戳以显示状态，转换为本地时区。"""
     if not value or not isinstance(value, str):
-        return "(unknown)"
+        return "(未知)"
     from datetime import datetime, timezone
     text = value.strip()
     if not text:
-        return "(unknown)"
+        return "(未知)"
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
     try:
@@ -54,7 +54,7 @@ def _format_iso_timestamp(value) -> str:
 
 
 def _configured_model_label(config: dict) -> str:
-    """Return the configured default model from config.yaml."""
+    """从 config.yaml 返回配置的默认模型。"""
     model_cfg = config.get("model")
     if isinstance(model_cfg, dict):
         model = (model_cfg.get("default") or model_cfg.get("name") or "").strip()
@@ -62,11 +62,11 @@ def _configured_model_label(config: dict) -> str:
         model = model_cfg.strip()
     else:
         model = ""
-    return model or "(not set)"
+    return model or "(未设置)"
 
 
 def _effective_provider_label() -> str:
-    """Return the provider label matching current CLI runtime resolution."""
+    """返回匹配当前 CLI 运行时解析的提供者标签。"""
     requested = resolve_requested_provider()
     try:
         effective = resolve_provider(requested)
@@ -80,7 +80,7 @@ def _effective_provider_label() -> str:
 
 
 def show_status(args):
-    """Show status of all KClaw Agent components."""
+    """显示所有 KClaw Agent 组件的状态。"""
     show_all = getattr(args, 'all', False)
     deep = getattr(args, 'deep', False)
     
@@ -90,15 +90,15 @@ def show_status(args):
     print(color("└─────────────────────────────────────────────────────────┘", Colors.CYAN))
     
     # =========================================================================
-    # Environment
+    # 环境
     # =========================================================================
     print()
-    print(color("◆ Environment", Colors.CYAN, Colors.BOLD))
+    print(color("◆ 环境", Colors.CYAN, Colors.BOLD))
     print(f"  Project:      {PROJECT_ROOT}")
     print(f"  Python:       {sys.version.split()[0]}")
     
     env_path = get_env_path()
-    print(f"  .env file:    {check_mark(env_path.exists())} {'exists' if env_path.exists() else 'not found'}")
+    print(f"  .env 文件:    {check_mark(env_path.exists())} {'存在' if env_path.exists() else '未找到'}")
 
     try:
         config = load_config()
@@ -109,10 +109,10 @@ def show_status(args):
     print(f"  Provider:     {_effective_provider_label()}")
     
     # =========================================================================
-    # API Keys
+    # API 密钥
     # =========================================================================
     print()
-    print(color("◆ API Keys", Colors.CYAN, Colors.BOLD))
+    print(color("◆ API 密钥", Colors.CYAN, Colors.BOLD))
     
     keys = {
         "OpenRouter": "OPENROUTER_API_KEY",
@@ -123,8 +123,8 @@ def show_status(args):
         "MiniMax-CN": "MINIMAX_CN_API_KEY",
         "Firecrawl": "FIRECRAWL_API_KEY",
         "Tavily": "TAVILY_API_KEY",
-        "Browser Use": "BROWSER_USE_API_KEY",  # Optional — local browser works without this
-        "Browserbase": "BROWSERBASE_API_KEY",  # Optional — direct credentials only
+        "Browser Use": "BROWSER_USE_API_KEY",  # 可选 — 无此密钥本地浏览器仍可工作
+        "Browserbase": "BROWSERBASE_API_KEY",  # 可选 — 仅直接凭据
         "FAL": "FAL_KEY",
         "Tinker": "TINKER_API_KEY",
         "WandB": "WANDB_API_KEY",
@@ -147,10 +147,10 @@ def show_status(args):
     print(f"  {'Anthropic':<12}  {check_mark(bool(anthropic_value))} {anthropic_display}")
 
     # =========================================================================
-    # Auth Providers (OAuth)
+    # 认证提供者 (OAuth)
     # =========================================================================
     print()
-    print(color("◆ Auth Providers", Colors.CYAN, Colors.BOLD))
+    print(color("◆ 认证提供者", Colors.CYAN, Colors.BOLD))
 
     try:
         from kclaw_cli.auth import get_nous_auth_status, get_codex_auth_status, get_qwen_auth_status
@@ -165,13 +165,13 @@ def show_status(args):
     nous_logged_in = bool(nous_status.get("logged_in"))
     print(
         f"  {'Nous Portal':<12}  {check_mark(nous_logged_in)} "
-        f"{'logged in' if nous_logged_in else 'not logged in (run: kclaw model)'}"
+        f"{'已登录' if nous_logged_in else '未登录 (运行: kclaw model)'}"
     )
     if nous_logged_in:
         portal_url = nous_status.get("portal_base_url") or "(unknown)"
         access_exp = _format_iso_timestamp(nous_status.get("access_expires_at"))
         key_exp = _format_iso_timestamp(nous_status.get("agent_key_expires_at"))
-        refresh_label = "yes" if nous_status.get("has_refresh_token") else "no"
+        refresh_label = "是" if nous_status.get("has_refresh_token") else "否"
         print(f"    Portal URL: {portal_url}")
         print(f"    Access exp: {access_exp}")
         print(f"    Key exp:    {key_exp}")
@@ -180,7 +180,7 @@ def show_status(args):
     codex_logged_in = bool(codex_status.get("logged_in"))
     print(
         f"  {'OpenAI Codex':<12}  {check_mark(codex_logged_in)} "
-        f"{'logged in' if codex_logged_in else 'not logged in (run: kclaw model)'}"
+        f"{'已登录' if codex_logged_in else '未登录 (运行: kclaw model)'}"
     )
     codex_auth_file = codex_status.get("auth_store")
     if codex_auth_file:
@@ -194,7 +194,7 @@ def show_status(args):
     qwen_logged_in = bool(qwen_status.get("logged_in"))
     print(
         f"  {'Qwen OAuth':<12}  {check_mark(qwen_logged_in)} "
-        f"{'logged in' if qwen_logged_in else 'not logged in (run: qwen auth qwen-oauth)'}"
+        f"{'已登录' if qwen_logged_in else '未登录 (运行: qwen auth qwen-oauth)'}"
     )
     qwen_auth_file = qwen_status.get("auth_file")
     if qwen_auth_file:
@@ -207,35 +207,35 @@ def show_status(args):
         print(f"    Error:      {qwen_status.get('error')}")
 
     # =========================================================================
-    # Nous Subscription Features
+    # Nous 订阅功能
     # =========================================================================
     if managed_nous_tools_enabled():
         features = get_nous_subscription_features(config)
         print()
-        print(color("◆ Nous Subscription Features", Colors.CYAN, Colors.BOLD))
+        print(color("◆ Nous 订阅功能", Colors.CYAN, Colors.BOLD))
         if not features.nous_auth_present:
-            print("  Nous Portal   ✗ not logged in")
+            print("  Nous Portal   ✗ 未登录")
         else:
-            print("  Nous Portal   ✓ managed tools available")
+            print("  Nous Portal   ✓ 托管工具可用")
         for feature in features.items():
             if feature.managed_by_nous:
-                state = "active via Nous subscription"
+                state = "通过 Nous 订阅激活"
             elif feature.active:
-                current = feature.current_provider or "configured provider"
-                state = f"active via {current}"
+                current = feature.current_provider or "已配置的提供者"
+                state = f"通过 {current} 激活"
             elif feature.included_by_default and features.nous_auth_present:
-                state = "included by subscription, not currently selected"
+                state = "订阅包含，未选择"
             elif feature.key == "modal" and features.nous_auth_present:
-                state = "available via subscription (optional)"
+                state = "可通过订阅获得（可选）"
             else:
-                state = "not configured"
+                state = "未配置"
             print(f"  {feature.label:<15} {check_mark(feature.available or feature.active or feature.managed_by_nous)} {state}")
 
     # =========================================================================
-    # API-Key Providers
+    # API 密钥提供者
     # =========================================================================
     print()
-    print(color("◆ API-Key Providers", Colors.CYAN, Colors.BOLD))
+    print(color("◆ API 密钥提供者", Colors.CYAN, Colors.BOLD))
 
     apikey_providers = {
         "Z.AI / GLM":       ("GLM_API_KEY", "ZAI_API_KEY", "Z_AI_API_KEY"),

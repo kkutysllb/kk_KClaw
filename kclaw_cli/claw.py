@@ -1,11 +1,11 @@
-"""kclaw claw — OpenClaw migration commands.
+"""kclaw claw — OpenClaw 迁移命令。
 
-Usage:
-    kclaw claw migrate              # Interactive migration from ~/.openclaw
-    kclaw claw migrate --dry-run    # Preview what would be migrated
-    kclaw claw migrate --preset full --overwrite  # Full migration, overwrite conflicts
-    kclaw claw cleanup              # Archive leftover OpenClaw directories
-    kclaw claw cleanup --dry-run    # Preview what would be archived
+用法：
+    kclaw claw migrate              # 从 ~/.openclaw 交互式迁移
+    kclaw claw migrate --dry-run    # 预览将要迁移的内容
+    kclaw claw migrate --preset full --overwrite  # 完整迁移，覆盖冲突
+    kclaw claw cleanup              # 归档剩余的 OpenClaw 目录
+    kclaw claw cleanup --dry-run    # 预览将要归档的内容
 """
 
 import importlib.util

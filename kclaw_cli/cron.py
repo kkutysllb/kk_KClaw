@@ -1,8 +1,8 @@
 """
-Cron subcommand for kclaw CLI.
+kclaw CLI 的 cron 子命令。
 
-Handles standalone cron management commands like list, create, edit,
-pause/resume/run/remove, status, and tick.
+处理独立的 cron 管理命令，如 list、create、edit、
+pause/resume/run/remove、status 和 tick。
 """
 
 import json
@@ -39,19 +39,19 @@ def _cron_api(**kwargs):
 
 
 def cron_list(show_all: bool = False):
-    """List all scheduled jobs."""
+    """列出所有计划任务。"""
     from cron.jobs import list_jobs
 
     jobs = list_jobs(include_disabled=show_all)
 
     if not jobs:
-        print(color("No scheduled jobs.", Colors.DIM))
-        print(color("Create one with 'kclaw cron create ...' or the /cron command in chat.", Colors.DIM))
+        print(color("没有计划任务。", Colors.DIM))
+        print(color("使用 'kclaw cron create ...' 或聊天中的 /cron 命令创建一个。", Colors.DIM))
         return
 
     print()
     print(color("┌─────────────────────────────────────────────────────────────────────────┐", Colors.CYAN))
-    print(color("│                         Scheduled Jobs                                  │", Colors.CYAN))
+    print(color("│                         计划任务                                  │", Colors.CYAN))
     print(color("└─────────────────────────────────────────────────────────────────────────┘", Colors.CYAN))
     print()
 
@@ -112,20 +112,20 @@ def cron_list(show_all: bool = False):
 
     from kclaw_cli.gateway import find_gateway_pids
     if not find_gateway_pids():
-        print(color("  ⚠  Gateway is not running — jobs won't fire automatically.", Colors.YELLOW))
-        print(color("     Start it with: kclaw gateway install", Colors.DIM))
-        print(color("                    sudo kclaw gateway install --system  # Linux servers", Colors.DIM))
+        print(color("  ⚠  网关未运行 — 任务不会自动触发。", Colors.YELLOW))
+        print(color("     使用以下命令启动: kclaw gateway install", Colors.DIM))
+        print(color("                    sudo kclaw gateway install --system  # Linux 服务器", Colors.DIM))
         print()
 
 
 def cron_tick():
-    """Run due jobs once and exit."""
+    """运行一次到期的任务并退出。"""
     from cron.scheduler import tick
     tick(verbose=True)
 
 
 def cron_status():
-    """Show cron execution status."""
+    """显示 cron 执行状态。"""
     from cron.jobs import list_jobs
     from kclaw_cli.gateway import find_gateway_pids
 
@@ -133,26 +133,26 @@ def cron_status():
 
     pids = find_gateway_pids()
     if pids:
-        print(color("✓ Gateway is running — cron jobs will fire automatically", Colors.GREEN))
+        print(color("✓ 网关正在运行 — cron 任务将自动触发", Colors.GREEN))
         print(f"  PID: {', '.join(map(str, pids))}")
     else:
-        print(color("✗ Gateway is not running — cron jobs will NOT fire", Colors.RED))
+        print(color("✗ 网关未运行 — cron 任务不会触发", Colors.RED))
         print()
-        print("  To enable automatic execution:")
-        print("    kclaw gateway install    # Install as a user service")
-        print("    sudo kclaw gateway install --system  # Linux servers: boot-time system service")
-        print("    kclaw gateway            # Or run in foreground")
+        print("  启用自动执行：")
+        print("    kclaw gateway install    # 安装为用户服务")
+        print("    sudo kclaw gateway install --system  # Linux 服务器：开机自启系统服务")
+        print("    kclaw gateway            # 或在前台运行")
 
     print()
 
     jobs = list_jobs(include_disabled=False)
     if jobs:
         next_runs = [j.get("next_run_at") for j in jobs if j.get("next_run_at")]
-        print(f"  {len(jobs)} active job(s)")
+        print(f"  {len(jobs)} 个活跃任务")
         if next_runs:
-            print(f"  Next run: {min(next_runs)}")
+            print(f"  下次运行: {min(next_runs)}")
     else:
-        print("  No active jobs")
+        print("  没有活跃任务")
 
     print()
 
@@ -170,9 +170,9 @@ def cron_create(args):
         script=getattr(args, "script", None),
     )
     if not result.get("success"):
-        print(color(f"Failed to create job: {result.get('error', 'unknown error')}", Colors.RED))
+        print(color(f"创建任务失败: {result.get('error', '未知错误')}", Colors.RED))
         return 1
-    print(color(f"Created job: {result['job_id']}", Colors.GREEN))
+    print(color(f"已创建任务: {result['job_id']}", Colors.GREEN))
     print(f"  Name: {result['name']}")
     print(f"  Schedule: {result['schedule']}")
     if result.get("skills"):
@@ -220,11 +220,11 @@ def cron_edit(args):
         script=getattr(args, "script", None),
     )
     if not result.get("success"):
-        print(color(f"Failed to update job: {result.get('error', 'unknown error')}", Colors.RED))
+        print(color(f"更新任务失败: {result.get('error', '未知错误')}", Colors.RED))
         return 1
 
     updated = result["job"]
-    print(color(f"Updated job: {updated['job_id']}", Colors.GREEN))
+    print(color(f"已更新任务: {updated['job_id']}", Colors.GREEN))
     print(f"  Name: {updated['name']}")
     print(f"  Schedule: {updated['schedule']}")
     if updated.get("skills"):
@@ -239,19 +239,19 @@ def cron_edit(args):
 def _job_action(action: str, job_id: str, success_verb: str) -> int:
     result = _cron_api(action=action, job_id=job_id)
     if not result.get("success"):
-        print(color(f"Failed to {action} job: {result.get('error', 'unknown error')}", Colors.RED))
+        print(color(f"{action} 任务失败: {result.get('error', '未知错误')}", Colors.RED))
         return 1
     job = result.get("job") or result.get("removed_job") or {}
     print(color(f"{success_verb} job: {job.get('name', job_id)} ({job_id})", Colors.GREEN))
     if action in {"resume", "run"} and result.get("job", {}).get("next_run_at"):
         print(f"  Next run: {result['job']['next_run_at']}")
     if action == "run":
-        print("  It will run on the next scheduler tick.")
+        print("  将在下次调度器 tick 时运行。")
     return 0
 
 
 def cron_command(args):
-    """Handle cron subcommands."""
+    """处理 cron 子命令。"""
     subcmd = getattr(args, 'cron_command', None)
 
     if subcmd is None or subcmd == "list":
@@ -285,6 +285,6 @@ def cron_command(args):
     if subcmd in {"remove", "rm", "delete"}:
         return _job_action("remove", args.job_id, "Removed")
 
-    print(f"Unknown cron command: {subcmd}")
-    print("Usage: kclaw cron [list|create|edit|pause|resume|run|remove|status|tick]")
+    print(f"未知 cron 命令: {subcmd}")
+    print("用法: kclaw cron [list|create|edit|pause|resume|run|remove|status|tick]")
     sys.exit(1)

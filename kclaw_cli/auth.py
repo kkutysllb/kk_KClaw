@@ -1,16 +1,16 @@
 """
-Multi-provider authentication system for KClaw Agent.
+KClaw Agent 的多提供者身份验证系统。
 
-Supports OAuth device code flows (Nous Portal, future: OpenAI Codex) and
-traditional API key providers (OpenRouter, custom endpoints). Auth state
-is persisted in ~/.kclaw/auth.json with cross-process file locking.
+支持 OAuth 设备代码流程（Nous Portal，未来：OpenAI Codex）和
+传统 API 密钥提供者（OpenRouter、自定义端点）。Auth 状态
+保存在 ~/.kclaw/auth.json 中，带有跨进程文件锁定。
 
-Architecture:
-- ProviderConfig registry defines known OAuth providers
-- Auth store (auth.json) holds per-provider credential state
-- resolve_provider() picks the active provider via priority chain
-- resolve_*_runtime_credentials() handles token refresh and key minting
-- logout_command() is the CLI entry point for clearing auth
+架构：
+- ProviderConfig 注册表定义已知的 OAuth 提供者
+- Auth 存储（auth.json）保存每个提供者的凭据状态
+- resolve_provider() 通过优先级链选择活动提供者
+- resolve_*_runtime_credentials() 处理令牌刷新和密钥铸造
+- logout_command() 是用于清除 auth 的 CLI 入口点
 """
 
 from __future__ import annotations

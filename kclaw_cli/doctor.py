@@ -1,7 +1,7 @@
 """
-Doctor command for kclaw CLI.
+kclaw CLI 的 doctor 命令。
 
-Diagnoses issues with KClaw Agent setup.
+诊断 KClaw Agent 设置问题。
 """
 
 import os

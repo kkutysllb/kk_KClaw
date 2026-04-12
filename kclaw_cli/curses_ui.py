@@ -1,8 +1,8 @@
-"""Shared curses-based UI components for KClaw CLI.
+"""KClaw CLI 共享的基于 curses 的 UI 组件。
 
-Used by `kclaw tools` and `kclaw skills` for interactive checklists.
-Provides a curses multi-select with keyboard navigation, plus a
-text-based numbered fallback for terminals without curses support.
+供 `kclaw tools` 和 `kclaw skills` 使用，用于交互式清单选择。
+提供 curses 多选键盘导航功能，以及
+针对不支持 curses 的终端的基于文本的编号回退方案。
 """
 import sys
 from typing import Callable, List, Optional, Set
@@ -18,22 +18,22 @@ def curses_checklist(
     cancel_returns: Set[int] | None = None,
     status_fn: Optional[Callable[[Set[int]], str]] = None,
 ) -> Set[int]:
-    """Curses multi-select checklist. Returns set of selected indices.
+    """Curses 多选清单。返回已选择的索引集合。
 
-    Args:
-        title: Header line displayed above the checklist.
-        items: Display labels for each row.
-        selected: Indices that start checked (pre-selected).
-        cancel_returns: Returned on ESC/q. Defaults to the original *selected*.
-        status_fn: Optional callback ``f(chosen_indices) -> str`` whose return
-            value is rendered on the bottom row of the terminal.  Use this for
-            live aggregate info (e.g. estimated token counts).
+    参数:
+        title: 显示在清单顶部的标题行。
+        items: 每行的显示标签。
+        selected: 初始勾选的索引（预选择）。
+        cancel_returns: ESC/q 时返回的值。默认为原始 *selected*。
+        status_fn: 可选回调函数 ``f(chosen_indices) -> str``，
+            返回值渲染在终端底行。适用于实时聚合信息
+            （例如预估 token 数量）。
     """
     if cancel_returns is None:
         cancel_returns = set(selected)
 
-    # Safety: curses and input() both hang or spin when stdin is not a
-    # terminal (e.g. subprocess pipe).  Return defaults immediately.
+    # 安全检查：当 stdin 不是终端时（例如子进程管道），
+    # curses 和 input() 都会挂起或空转。立即返回默认值。
     if not sys.stdin.isatty():
         return cancel_returns
 
@@ -57,7 +57,7 @@ def curses_checklist(
                 stdscr.clear()
                 max_y, max_x = stdscr.getmaxyx()
 
-                # Reserve bottom row for status bar when status_fn provided
+                # 当提供 status_fn 时，保留底行作为状态栏
                 footer_rows = 1 if status_fn else 0
 
                 # Header
@@ -68,7 +68,7 @@ def curses_checklist(
                     stdscr.addnstr(0, 0, title, max_x - 1, hattr)
                     stdscr.addnstr(
                         1, 0,
-                        "  ↑↓ navigate  SPACE toggle  ENTER confirm  ESC cancel",
+                        "  ↑↓ 导航  空格 切换  回车 确认  ESC 取消",
                         max_x - 1, curses.A_DIM,
                     )
                 except curses.error:
@@ -100,12 +100,12 @@ def curses_checklist(
                     except curses.error:
                         pass
 
-                # Status bar (bottom row, right-aligned)
+                # 状态栏（底行，右对齐）
                 if status_fn:
                     try:
                         status_text = status_fn(chosen)
                         if status_text:
-                            # Right-align on the bottom row
+                            # 右对齐到底行
                             sx = max(0, max_x - len(status_text) - 1)
                             sattr = curses.A_DIM
                             if curses.has_colors():
@@ -144,10 +144,10 @@ def _numbered_fallback(
     cancel_returns: Set[int],
     status_fn: Optional[Callable[[Set[int]], str]] = None,
 ) -> Set[int]:
-    """Text-based toggle fallback for terminals without curses."""
+    """针对不支持 curses 的终端的基于文本的切换回退。"""
     chosen = set(selected)
     print(color(f"\n  {title}", Colors.YELLOW))
-    print(color("  Toggle by number, Enter to confirm.\n", Colors.DIM))
+    print(color("  按编号切换，回车确认。\n", Colors.DIM))
 
     while True:
         for i, label in enumerate(items):
@@ -159,7 +159,7 @@ def _numbered_fallback(
                 print(color(f"\n  {status_text}", Colors.DIM))
         print()
         try:
-            val = input(color("  Toggle # (or Enter to confirm): ", Colors.DIM)).strip()
+            val = input(color("  输入编号切换（或回车确认）: ", Colors.DIM)).strip()
             if not val:
                 break
             idx = int(val) - 1

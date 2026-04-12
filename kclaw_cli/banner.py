@@ -1,6 +1,6 @@
-"""Welcome banner, ASCII art, skills summary, and update check for the CLI.
+"""CLI 的欢迎横幅、ASCII 艺术、技能摘要和更新检查。
 
-Pure display functions with no KClawCLI state dependency.
+纯显示函数，无 KClawCLI 状态依赖。
 """
 
 import json

@@ -1,20 +1,19 @@
 """
-Single source of truth for provider identity in KClaw Agent.
+KClaw Agent 中提供者身份的唯一真实来源。
 
-Two data sources, merged at runtime:
+两个数据源，在运行时合并：
 
-1. **models.dev catalog** — 109+ providers with base URLs, env vars, display
-   names, and full model metadata (context, cost, capabilities).  This is
-   the primary database.
+1. **models.dev 目录** — 109+ 提供者，包含 base URL、环境变量、显示
+   名称和完整模型元数据（上下文、成本、能力）。这是主要数据库。
 
-2. **KClaw overlays** — transport type, auth patterns, aggregator flags,
-   and additional env vars that models.dev doesn't track.  Small dict,
-   maintained here.
+2. **KClaw 覆盖层** — 传输类型、认证模式、聚合器标志，
+   以及 models.dev 不追踪的额外环境变量。小字典，
+   在此处维护。
 
-3. **User config** (``providers:`` section in config.yaml) — user-defined
-   endpoints and overrides.  Merged on top of everything else.
+3. **用户配置**（``providers:`` 部分在 config.yaml）— 用户定义的
+   端点和覆盖。在所有内容之上合并。
 
-Other modules import from this file.  No parallel registries.
+其他模块从此文件导入。没有并行注册表。
 """
 
 from __future__ import annotations
@@ -26,12 +25,12 @@ from typing import Any, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 
-# -- KClaw overlay ----------------------------------------------------------
-# KClaw-specific metadata that models.dev doesn't provide.
+# -- KClaw 覆盖层 ----------------------------------------------------------
+# models.dev 未提供的 KClaw 特定元数据。
 
 @dataclass(frozen=True)
 class KClawOverlay:
-    """KClaw-specific provider metadata layered on top of models.dev."""
+    """在 models.dev 基础上层的 KClaw 特定提供者元数据。"""
 
     transport: str = "openai_chat"        # openai_chat | anthropic_messages | codex_responses
     is_aggregator: bool = False

@@ -1,10 +1,10 @@
-"""``kclaw plugins`` CLI subcommand — install, update, remove, and list plugins.
+"""kclaw plugins CLI 子命令 — 安装、更新、移除和列出插件。
 
-Plugins are installed from Git repositories into ``~/.kclaw/plugins/``.
-Supports full URLs and ``owner/repo`` shorthand (resolves to GitHub).
+插件从 Git 仓库安装到 ~/.kclaw/plugins/。
+支持完整 URL 和 owner/repo 简写形式（解析到 GitHub）。
 
-After install, if the plugin ships an ``after-install.md`` file it is
-rendered with Rich Markdown.  Otherwise a default confirmation is shown.
+安装后，如果插件附带 after-install.md 文件，会使用 Rich Markdown
+渲染。否则显示默认确认。
 """
 
 from __future__ import annotations
@@ -20,100 +20,99 @@ from kclaw_constants import get_kclaw_home
 
 logger = logging.getLogger(__name__)
 
-# Minimum manifest version this installer understands.
-# Plugins may declare ``manifest_version: 1`` in plugin.yaml;
-# future breaking changes to the manifest schema bump this.
+# 支持的清单版本。
+# 插件可在 plugin.yaml 中声明 manifest_version: 1；
+# 未来对清单模式的破坏性更改会增加此版本号。
 _SUPPORTED_MANIFEST_VERSION = 1
 
 
 def _plugins_dir() -> Path:
-    """Return the user plugins directory, creating it if needed."""
+    """返回用户插件目录，如不存在则创建。"""
     plugins = get_kclaw_home() / "plugins"
     plugins.mkdir(parents=True, exist_ok=True)
     return plugins
 
 
 def _sanitize_plugin_name(name: str, plugins_dir: Path) -> Path:
-    """Validate a plugin name and return the safe target path inside *plugins_dir*.
+    """验证插件名称并返回 plugins_dir 内的安全目标路径。
 
-    Raises ``ValueError`` if the name contains path-traversal sequences or would
-    resolve outside the plugins directory.
+    如果名称包含路径遍历序列或将在插件目录外解析，
+    则抛出 ValueError。
     """
     if not name:
-        raise ValueError("Plugin name must not be empty.")
+        raise ValueError("插件名称不能为空。")
 
     if name in (".", ".."):
         raise ValueError(
-            f"Invalid plugin name '{name}': must not reference the plugins directory itself."
+            f"无效的插件名称 '{name}'：不能引用插件目录本身。"
         )
 
-    # Reject obvious traversal characters
+    # 拒绝明显的遍历字符
     for bad in ("/", "\\", ".."):
         if bad in name:
-            raise ValueError(f"Invalid plugin name '{name}': must not contain '{bad}'.")
+            raise ValueError(f"无效的插件名称 '{name}'：不能包含 '{bad}'。")
 
     target = (plugins_dir / name).resolve()
     plugins_resolved = plugins_dir.resolve()
 
     if target == plugins_resolved:
         raise ValueError(
-            f"Invalid plugin name '{name}': resolves to the plugins directory itself."
+            f"无效的插件名称 '{name}'：解析为插件目录本身。"
         )
 
     try:
         target.relative_to(plugins_resolved)
     except ValueError:
         raise ValueError(
-            f"Invalid plugin name '{name}': resolves outside the plugins directory."
+            f"无效的插件名称 '{name}'：解析到插件目录外。"
         )
 
     return target
 
 
 def _resolve_git_url(identifier: str) -> str:
-    """Turn an identifier into a cloneable Git URL.
+    """将标识符转换为可克隆的 Git URL。
 
-    Accepted formats:
-    - Full URL: https://github.com/owner/repo.git
-    - Full URL: git@github.com:owner/repo.git
-    - Full URL: ssh://git@github.com/owner/repo.git
-    - Shorthand: owner/repo  →  https://github.com/owner/repo.git
+    接受的格式：
+    - 完整 URL: https://github.com/owner/repo.git
+    - 完整 URL: git@github.com:owner/repo.git
+    - 完整 URL: ssh://git@github.com/owner/repo.git
+    - 简写: owner/repo  →  https://github.com/owner/repo.git
 
-    NOTE: ``http://`` and ``file://`` schemes are accepted but will trigger a
-    security warning at install time.
+    注意：接受 http:// 和 file:// 方案，但在安装时会触发安全警告。
     """
-    # Already a URL
+    # 已是 URL
     if identifier.startswith(("https://", "http://", "git@", "ssh://", "file://")):
         return identifier
 
-    # owner/repo shorthand
+    # owner/repo 简写
     parts = identifier.strip("/").split("/")
     if len(parts) == 2:
         owner, repo = parts
         return f"https://github.com/{owner}/{repo}.git"
 
     raise ValueError(
-        f"Invalid plugin identifier: '{identifier}'. "
-        "Use a Git URL or owner/repo shorthand."
+        f"无效的插件标识符：'{identifier}'。"
+        "请使用 Git URL 或 owner/repo 简写。"
     )
 
 
 def _repo_name_from_url(url: str) -> str:
-    """Extract the repo name from a Git URL for the plugin directory name."""
-    # Strip trailing .git and slashes
+    """从 Git URL 中提取仓库名称作为插件目录名称。"""
+    # 去除末尾的 .git 和斜杠
     name = url.rstrip("/")
     if name.endswith(".git"):
         name = name[:-4]
-    # Get last path component
+    # 获取最后一个路径组件
     name = name.rsplit("/", 1)[-1]
-    # Handle ssh-style urls: git@github.com:owner/repo
+    # 处理 SSH 风格 URL: git@github.com:owner/repo
     if ":" in name:
         name = name.rsplit(":", 1)[-1].rsplit("/", 1)[-1]
     return name
 
 
 def _read_manifest(plugin_dir: Path) -> dict:
-    """Read plugin.yaml and return the parsed dict, or empty dict."""
+    """读取 plugin.yaml 并返回解析后的字典，如不存在则返回空字典。"""
     manifest_file = plugin_dir / "plugin.yaml"
     if not manifest_file.exists():
         return {}
@@ -128,45 +127,45 @@ def _read_manifest(plugin_dir: Path) -> dict:
 
 
 def _copy_example_files(plugin_dir: Path, console) -> None:
-    """Copy any .example files to their real names if they don't already exist.
+    """将 .example 文件复制到实际名称（如尚不存在）。
 
-    For example, ``config.yaml.example`` becomes ``config.yaml``.
-    Skips files that already exist to avoid overwriting user config on reinstall.
+    例如，config.yaml.example 变为 config.yaml。
+    跳过已存在的文件以避免在重新安装时覆盖用户配置。
     """
     for example_file in plugin_dir.glob("*.example"):
-        real_name = example_file.stem  # e.g. "config.yaml" from "config.yaml.example"
+        real_name = example_file.stem  # 例如 "config.yaml" 来自 "config.yaml.example"
         real_path = plugin_dir / real_name
         if not real_path.exists():
             try:
                 shutil.copy2(example_file, real_path)
                 console.print(
-                    f"[dim]  Created {real_name} from {example_file.name}[/dim]"
+                    f"[dim]  已创建 {real_name} 来自 {example_file.name}[/dim]"
                 )
             except OSError as e:
                 console.print(
-                    f"[yellow]Warning:[/yellow] Failed to copy {example_file.name}: {e}"
+                    f"[yellow]警告：[/yellow] 复制 {example_file.name} 失败：{e}"
                 )
 
 
 def _prompt_plugin_env_vars(manifest: dict, console) -> None:
-    """Prompt for required environment variables declared in plugin.yaml.
+    """提示输入 plugin.yaml 中声明的必需环境变量。
 
-    ``requires_env`` accepts two formats:
+    requires_env 接受两种格式：
 
-    Simple list (backwards-compatible)::
+    简单列表（向后兼容）：
 
         requires_env:
           - MY_API_KEY
 
-    Rich list with metadata::
+    带元数据的丰富列表：
 
         requires_env:
           - name: MY_API_KEY
-            description: "API key for Acme service"
+            description: "Acme 服务的 API 密钥"
             url: "https://acme.com/keys"
             secret: true
 
-    Already-set variables are skipped.  Values are saved to the user's ``.env``.
+    已设置的变量会被跳过。值保存到用户的 .env 文件。
     """
     requires_env = manifest.get("requires_env") or []
     if not requires_env:
@@ -175,7 +174,7 @@ def _prompt_plugin_env_vars(manifest: dict, console) -> None:
     from kclaw_cli.config import get_env_value, save_env_value  # noqa: F811
     from kclaw_constants import display_kclaw_home
 
-    # Normalise to list-of-dicts
+    # 规范化为字典列表
     env_specs: list[dict] = []
     for entry in requires_env:
         if isinstance(entry, str):
@@ -183,13 +182,13 @@ def _prompt_plugin_env_vars(manifest: dict, console) -> None:
         elif isinstance(entry, dict) and entry.get("name"):
             env_specs.append(entry)
 
-    # Filter to only vars that aren't already set
+    # 仅筛选尚未设置的变量
     missing = [s for s in env_specs if not get_env_value(s["name"])]
     if not missing:
         return
 
-    plugin_name = manifest.get("name", "this plugin")
-    console.print(f"\n[bold]{plugin_name}[/bold] requires the following environment variables:\n")
+    plugin_name = manifest.get("name", "此插件")
+    console.print(f"\n[bold]{plugin_name}[/bold] 需要以下环境变量：\n")
 
     for spec in missing:
         name = spec["name"]
@@ -202,7 +201,7 @@ def _prompt_plugin_env_vars(manifest: dict, console) -> None:
             label += f" — {desc}"
         console.print(label)
         if url:
-            console.print(f"  [dim]Get yours at: {url}[/dim]")
+            console.print(f"  [dim]获取地址：{url}[/dim]")
 
         try:
             if secret:
@@ -211,21 +210,21 @@ def _prompt_plugin_env_vars(manifest: dict, console) -> None:
             else:
                 value = input(f"  {name}: ").strip()
         except (EOFError, KeyboardInterrupt):
-            console.print(f"\n[dim]  Skipped (you can set these later in {display_kclaw_home()}/.env)[/dim]")
+            console.print(f"\n[dim]  已跳过（稍后可在 {display_kclaw_home()}/.env 中设置）[/dim]")
             return
 
         if value:
             save_env_value(name, value)
             os.environ[name] = value
-            console.print(f"  [green]✓[/green] Saved to {display_kclaw_home()}/.env")
+            console.print(f"  [green]✓[/green] 已保存到 {display_kclaw_home()}/.env")
         else:
-            console.print(f"  [dim]  Skipped (set {name} in {display_kclaw_home()}/.env later)[/dim]")
+            console.print(f"  [dim]  已跳过（稍后在 {display_kclaw_home()}/.env 中设置 {name}）[/dim]")
 
     console.print()
 
 
 def _display_after_install(plugin_dir: Path, identifier: str) -> None:
-    """Show after-install.md if it exists, otherwise a default message."""
+    """如果存在 after-install.md 则显示，否则显示默认消息。"""
     from rich.console import Console
     from rich.markdown import Markdown
     from rich.panel import Panel
@@ -254,23 +253,23 @@ def _display_after_install(plugin_dir: Path, identifier: str) -> None:
 
 
 def _display_removed(name: str, plugins_dir: Path) -> None:
-    """Show confirmation after removing a plugin."""
+    """移除插件后显示确认。"""
     from rich.console import Console
 
     console = Console()
     console.print()
-    console.print(f"[red]✗[/red] Plugin [bold]{name}[/bold] removed from {plugins_dir}")
+    console.print(f"[red]✗[/red] 插件 [bold]{name}[/bold] 已从 {plugins_dir} 移除")
     console.print()
 
 
 def _require_installed_plugin(name: str, plugins_dir: Path, console) -> Path:
-    """Return the plugin path if it exists, or exit with an error listing installed plugins."""
+    """如果插件存在则返回路径，否则退出并列出已安装的插件。"""
     target = _sanitize_plugin_name(name, plugins_dir)
     if not target.exists():
-        installed = ", ".join(d.name for d in plugins_dir.iterdir() if d.is_dir()) or "(none)"
+        installed = ", ".join(d.name for d in plugins_dir.iterdir() if d.is_dir()) or "（无）"
         console.print(
-            f"[red]Error:[/red] Plugin '{name}' not found in {plugins_dir}.\n"
-            f"Installed plugins: {installed}"
+            f"[red]错误：[/red] 在 {plugins_dir} 中未找到插件 '{name}'。\n"
+            f"已安装的插件：{installed}"
         )
         sys.exit(1)
     return target
@@ -282,7 +281,7 @@ def _require_installed_plugin(name: str, plugins_dir: Path, console) -> Path:
 
 
 def cmd_install(identifier: str, force: bool = False) -> None:
-    """Install a plugin from a Git URL or owner/repo shorthand."""
+    """从 Git URL 或 owner/repo 简写安装插件。"""
     import tempfile
     from rich.console import Console
 
@@ -294,11 +293,11 @@ def cmd_install(identifier: str, force: bool = False) -> None:
         console.print(f"[red]Error:[/red] {e}")
         sys.exit(1)
 
-    # Warn about insecure / local URL schemes
+    # 警告不安全/本地 URL 方案
     if git_url.startswith(("http://", "file://")):
         console.print(
-            "[yellow]Warning:[/yellow] Using insecure/local URL scheme. "
-            "Consider using https:// or git@ for production installs."
+            "[yellow]警告：[/yellow] 使用不安全/本地 URL 方案。"
+            "生产环境请考虑使用 https:// 或 git@。"
         )
 
     plugins_dir = _plugins_dir()
@@ -306,7 +305,7 @@ def cmd_install(identifier: str, force: bool = False) -> None:
     # Clone into a temp directory first so we can read plugin.yaml for the name
     with tempfile.TemporaryDirectory() as tmp:
         tmp_target = Path(tmp) / "plugin"
-        console.print(f"[dim]Cloning {git_url}...[/dim]")
+        console.print(f"[dim]正在克隆 {git_url}...[/dim]")
 
         try:
             result = subprocess.run(
@@ -316,15 +315,15 @@ def cmd_install(identifier: str, force: bool = False) -> None:
                 timeout=60,
             )
         except FileNotFoundError:
-            console.print("[red]Error:[/red] git is not installed or not in PATH.")
+            console.print("[red]错误：[/red] 未安装 git 或不在 PATH 中。")
             sys.exit(1)
         except subprocess.TimeoutExpired:
-            console.print("[red]Error:[/red] Git clone timed out after 60 seconds.")
+            console.print("[red]错误：[/red] Git 克隆在 60 秒后超时。")
             sys.exit(1)
 
         if result.returncode != 0:
             console.print(
-                f"[red]Error:[/red] Git clone failed:\n{result.stderr.strip()}"
+                f"[red]错误：[/red] Git 克隆失败：\n{result.stderr.strip()}"
             )
             sys.exit(1)
 
@@ -339,65 +338,65 @@ def cmd_install(identifier: str, force: bool = False) -> None:
             console.print(f"[red]Error:[/red] {e}")
             sys.exit(1)
 
-        # Check manifest_version compatibility
+        # 检查 manifest_version 兼容性
         mv = manifest.get("manifest_version")
         if mv is not None:
             try:
                 mv_int = int(mv)
             except (ValueError, TypeError):
                 console.print(
-                    f"[red]Error:[/red] Plugin '{plugin_name}' has invalid "
-                    f"manifest_version '{mv}' (expected an integer)."
+                    f"[red]错误：[/red] 插件 '{plugin_name}' 的 "
+                    f"manifest_version '{mv}' 无效（应为整数）。"
                 )
                 sys.exit(1)
             if mv_int > _SUPPORTED_MANIFEST_VERSION:
                 from kclaw_cli.config import recommended_update_command
                 console.print(
-                    f"[red]Error:[/red] Plugin '{plugin_name}' requires manifest_version "
-                    f"{mv}, but this installer only supports up to {_SUPPORTED_MANIFEST_VERSION}.\n"
-                    f"Run [bold]{recommended_update_command()}[/bold] to get a newer installer."
+                    f"[red]错误：[/red] 插件 '{plugin_name}' 需要 manifest_version "
+                    f"{mv}，但此安装程序仅支持到 {_SUPPORTED_MANIFEST_VERSION}。\n"
+                    f"运行 [bold]{recommended_update_command()}[/bold] 获取更新的安装程序。"
                 )
                 sys.exit(1)
 
         if target.exists():
             if not force:
                 console.print(
-                    f"[red]Error:[/red] Plugin '{plugin_name}' already exists at {target}.\n"
-                    f"Use [bold]--force[/bold] to remove and reinstall, or "
-                    f"[bold]kclaw plugins update {plugin_name}[/bold] to pull latest."
+                    f"[red]错误：[/red] 插件 '{plugin_name}' 已存在于 {target}。\n"
+                    f"使用 [bold]--force[/bold] 移除并重新安装，或"
+                    f"使用 [bold]kclaw plugins update {plugin_name}[/bold] 拉取最新版本。"
                 )
                 sys.exit(1)
-            console.print(f"[dim]  Removing existing {plugin_name}...[/dim]")
+            console.print(f"[dim]  正在移除现有的 {plugin_name}...[/dim]")
             shutil.rmtree(target)
 
-        # Move from temp to final location
+        # 从临时目录移动到最终位置
         shutil.move(str(tmp_target), str(target))
 
-    # Validate it looks like a plugin
+    # 验证它看起来像插件
     if not (target / "plugin.yaml").exists() and not (target / "__init__.py").exists():
         console.print(
-            f"[yellow]Warning:[/yellow] {plugin_name} doesn't contain plugin.yaml "
-            f"or __init__.py. It may not be a valid KClaw plugin."
+            f"[yellow]警告：[/yellow] {plugin_name} 不包含 plugin.yaml "
+            f"或 __init__.py。它可能不是有效的 KClaw 插件。"
         )
 
-    # Copy .example files to their real names (e.g. config.yaml.example → config.yaml)
+    # 将 .example 文件复制到实际名称（例如 config.yaml.example → config.yaml）
     _copy_example_files(target, console)
 
-    # Re-read manifest from installed location (for env var prompting)
+    # 从安装位置重新读取清单（用于环境变量提示）
     installed_manifest = _read_manifest(target)
 
-    # Prompt for required environment variables before showing after-install docs
+    # 在显示安装后文档前提示输入必需的环境变量
     _prompt_plugin_env_vars(installed_manifest, console)
 
     _display_after_install(target, identifier)
 
-    console.print("[dim]Restart the gateway for the plugin to take effect:[/dim]")
+    console.print("[dim]重启网关以使插件生效：[/dim]")
     console.print("[dim]  kclaw gateway restart[/dim]")
     console.print()
 
 
 def cmd_update(name: str) -> None:
-    """Update an installed plugin by pulling latest from its git remote."""
+    """通过从 git 远程拉取最新版本更新已安装的插件。"""
     from rich.console import Console
 
     console = Console()
@@ -411,12 +410,12 @@ def cmd_update(name: str) -> None:
 
     if not (target / ".git").exists():
         console.print(
-            f"[red]Error:[/red] Plugin '{name}' was not installed from git "
-            f"(no .git directory). Cannot update."
+            f"[red]错误：[/red] 插件 '{name}' 不是通过 git 安装的 "
+            f"（无 .git 目录）。无法更新。"
         )
         sys.exit(1)
 
-    console.print(f"[dim]Updating {name}...[/dim]")
+    console.print(f"[dim]正在更新 {name}...[/dim]")
 
     try:
         result = subprocess.run(
@@ -427,31 +426,31 @@ def cmd_update(name: str) -> None:
             cwd=str(target),
         )
     except FileNotFoundError:
-        console.print("[red]Error:[/red] git is not installed or not in PATH.")
+        console.print("[red]错误：[/red] 未安装 git 或不在 PATH 中。")
         sys.exit(1)
     except subprocess.TimeoutExpired:
-        console.print("[red]Error:[/red] Git pull timed out after 60 seconds.")
+        console.print("[red]错误：[/red] Git 拉取在 60 秒后超时。")
         sys.exit(1)
 
     if result.returncode != 0:
-        console.print(f"[red]Error:[/red] Git pull failed:\n{result.stderr.strip()}")
+        console.print(f"[red]错误：[/red] Git 拉取失败：\n{result.stderr.strip()}")
         sys.exit(1)
 
-    # Copy any new .example files
+    # 复制任何新的 .example 文件
     _copy_example_files(target, console)
 
     output = result.stdout.strip()
     if "Already up to date" in output:
         console.print(
-            f"[green]✓[/green] Plugin [bold]{name}[/bold] is already up to date."
+            f"[green]✓[/green] 插件 [bold]{name}[/bold] 已是最新版本。"
         )
     else:
-        console.print(f"[green]✓[/green] Plugin [bold]{name}[/bold] updated.")
+        console.print(f"[green]✓[/green] 插件 [bold]{name}[/bold] 已更新。")
         console.print(f"[dim]{output}[/dim]")
 
 
 def cmd_remove(name: str) -> None:
-    """Remove an installed plugin by name."""
+    """按名称移除已安装的插件。"""
     from rich.console import Console
 
     console = Console()
@@ -468,7 +467,7 @@ def cmd_remove(name: str) -> None:
 
 
 def _get_disabled_set() -> set:
-    """Read the disabled plugins set from config.yaml."""
+    """从 config.yaml 读取禁用的插件集合。"""
     try:
         from kclaw_cli.config import load_config
         config = load_config()
@@ -479,7 +478,7 @@ def _get_disabled_set() -> set:
 
 
 def _save_disabled_set(disabled: set) -> None:
-    """Write the disabled plugins list to config.yaml."""
+    """将禁用的插件列表写入 config.yaml。"""
     from kclaw_cli.config import load_config, save_config
     config = load_config()
     if "plugins" not in config:
@@ -489,53 +488,53 @@ def _save_disabled_set(disabled: set) -> None:
 
 
 def cmd_enable(name: str) -> None:
-    """Enable a previously disabled plugin."""
+    """启用之前禁用的插件。"""
     from rich.console import Console
 
     console = Console()
     plugins_dir = _plugins_dir()
 
-    # Verify the plugin exists
+    # 验证插件是否存在
     target = plugins_dir / name
     if not target.is_dir():
-        console.print(f"[red]Plugin '{name}' is not installed.[/red]")
+        console.print(f"[red]插件 '{name}' 未安装。[/red]")
         sys.exit(1)
 
     disabled = _get_disabled_set()
     if name not in disabled:
-        console.print(f"[dim]Plugin '{name}' is already enabled.[/dim]")
+        console.print(f"[dim]插件 '{name}' 已启用。[/dim]")
         return
 
     disabled.discard(name)
     _save_disabled_set(disabled)
-    console.print(f"[green]✓[/green] Plugin [bold]{name}[/bold] enabled. Takes effect on next session.")
+    console.print(f"[green]✓[/green] 插件 [bold]{name}[/bold] 已启用。下次会话生效。")
 
 
 def cmd_disable(name: str) -> None:
-    """Disable a plugin without removing it."""
+    """在不移除的情况下禁用插件。"""
     from rich.console import Console
 
     console = Console()
     plugins_dir = _plugins_dir()
 
-    # Verify the plugin exists
+    # 验证插件是否存在
     target = plugins_dir / name
     if not target.is_dir():
-        console.print(f"[red]Plugin '{name}' is not installed.[/red]")
+        console.print(f"[red]插件 '{name}' 未安装。[/red]")
         sys.exit(1)
 
     disabled = _get_disabled_set()
     if name in disabled:
-        console.print(f"[dim]Plugin '{name}' is already disabled.[/dim]")
+        console.print(f"[dim]插件 '{name}' 已禁用。[/dim]")
         return
 
     disabled.add(name)
     _save_disabled_set(disabled)
-    console.print(f"[yellow]⊘[/yellow] Plugin [bold]{name}[/bold] disabled. Takes effect on next session.")
+    console.print(f"[yellow]⊘[/yellow] 插件 [bold]{name}[/bold] 已禁用。下次会话生效。")
 
 
 def cmd_list() -> None:
-    """List installed plugins."""
+    """列出已安装的插件。"""
     from rich.console import Console
     from rich.table import Table
 
@@ -549,25 +548,25 @@ def cmd_list() -> None:
 
     dirs = sorted(d for d in plugins_dir.iterdir() if d.is_dir())
     if not dirs:
-        console.print("[dim]No plugins installed.[/dim]")
-        console.print("[dim]Install with:[/dim] kclaw plugins install owner/repo")
+        console.print("[dim]未安装任何插件。[/dim]")
+        console.print("[dim]安装方式：[/dim] kclaw plugins install owner/repo")
         return
 
     disabled = _get_disabled_set()
 
-    table = Table(title="Installed Plugins", show_lines=False)
-    table.add_column("Name", style="bold")
-    table.add_column("Status")
-    table.add_column("Version", style="dim")
-    table.add_column("Description")
-    table.add_column("Source", style="dim")
+    table = Table(title="已安装的插件", show_lines=False)
+    table.add_column("名称", style="bold")
+    table.add_column("状态")
+    table.add_column("版本", style="dim")
+    table.add_column("描述")
+    table.add_column("来源", style="dim")
 
     for d in dirs:
         manifest_file = d / "plugin.yaml"
         name = d.name
         version = ""
         description = ""
-        source = "local"
+        source = "本地"
 
         if manifest_file.exists() and yaml:
             try:
@@ -579,23 +578,23 @@ def cmd_list() -> None:
             except Exception:
                 pass
 
-        # Check if it's a git repo (installed via kclaw plugins install)
+        # 检查是否是 git 仓库（通过 kclaw plugins install 安装）
         if (d / ".git").exists():
             source = "git"
 
         is_disabled = name in disabled or d.name in disabled
-        status = "[red]disabled[/red]" if is_disabled else "[green]enabled[/green]"
+        status = "[red]已禁用[/red]" if is_disabled else "[green]已启用[/green]"
         table.add_row(name, status, str(version), description, source)
 
     console.print()
     console.print(table)
     console.print()
-    console.print("[dim]Interactive toggle:[/dim] kclaw plugins")
-    console.print("[dim]Enable/disable:[/dim] kclaw plugins enable/disable <name>")
+    console.print("[dim]交互式切换：[/dim] kclaw plugins")
+    console.print("[dim]启用/禁用：[/dim] kclaw plugins enable/disable <name>")
 
 
 def cmd_toggle() -> None:
-    """Interactive curses checklist to enable/disable installed plugins."""
+    """交互式 curses 复选框，用于启用/禁用已安装的插件。"""
     from rich.console import Console
 
     try:
@@ -608,13 +607,13 @@ def cmd_toggle() -> None:
 
     dirs = sorted(d for d in plugins_dir.iterdir() if d.is_dir())
     if not dirs:
-        console.print("[dim]No plugins installed.[/dim]")
-        console.print("[dim]Install with:[/dim] kclaw plugins install owner/repo")
+        console.print("[dim]未安装任何插件。[/dim]")
+        console.print("[dim]安装方式：[/dim] kclaw plugins install owner/repo")
         return
 
     disabled = _get_disabled_set()
 
-    # Build items list: "name — description" for display
+    # 构建项目列表：显示用的 "名称 — 描述"
     names = []
     labels = []
     selected = set()
@@ -643,12 +642,12 @@ def cmd_toggle() -> None:
     from kclaw_cli.curses_ui import curses_checklist
 
     result = curses_checklist(
-        title="Plugins — toggle enabled/disabled",
+        title="插件 — 切换启用/禁用",
         items=labels,
         selected=selected,
     )
 
-    # Compute new disabled set from deselected items
+    # 从取消选择的项目计算新的禁用集合
     new_disabled = set()
     for i, name in enumerate(names):
         if i not in result:
@@ -658,15 +657,15 @@ def cmd_toggle() -> None:
         _save_disabled_set(new_disabled)
         enabled_count = len(names) - len(new_disabled)
         console.print(
-            f"\n[green]✓[/green] {enabled_count} enabled, {len(new_disabled)} disabled. "
-            f"Takes effect on next session."
+            f"\n[green]✓[/green] {enabled_count} 已启用，{len(new_disabled)} 已禁用。"
+            f"下次会话生效。"
         )
     else:
-        console.print("\n[dim]No changes.[/dim]")
+        console.print("\n[dim]无更改。[/dim]")
 
 
 def plugins_command(args) -> None:
-    """Dispatch kclaw plugins subcommands."""
+    """分发 kclaw plugins 子命令。"""
     action = getattr(args, "plugins_action", None)
 
     if action == "install":
@@ -686,5 +685,5 @@ def plugins_command(args) -> None:
     else:
         from rich.console import Console
 
-        Console().print(f"[red]Unknown plugins action: {action}[/red]")
+        Console().print(f"[red]未知的 plugins 操作：{action}[/red]")
         sys.exit(1)

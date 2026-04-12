@@ -1,18 +1,18 @@
-"""``kclaw logs`` — view and filter KClaw log files.
+"""kclaw logs — 查看和过滤 KClaw 日志文件。
 
-Supports tailing, following, session filtering, level filtering, and
-relative time ranges.  All log files live under ``~/.kclaw/logs/``.
+支持跟踪、实时查看、会话过滤、级别过滤和相对时间范围。
+所有日志文件位于 ~/.kclaw/logs/ 下。
 
-Usage examples::
+用法示例::
 
-    kclaw logs                    # last 50 lines of agent.log
-    kclaw logs -f                 # follow agent.log in real time
-    kclaw logs errors             # last 50 lines of errors.log
-    kclaw logs gateway -n 100     # last 100 lines of gateway.log
-    kclaw logs --level WARNING    # only WARNING+ lines
-    kclaw logs --session abc123   # filter by session ID substring
-    kclaw logs --since 1h         # lines from the last hour
-    kclaw logs --since 30m -f     # follow, starting 30 min ago
+    kclaw logs                    # agent.log 最后 50 行
+    kclaw logs -f                 # 实时跟踪 agent.log
+    kclaw logs errors             # errors.log 最后 50 行
+    kclaw logs gateway -n 100     # gateway.log 最后 100 行
+    kclaw logs --level WARNING    # 仅 WARNING 及以上级别
+    kclaw logs --session abc123   # 按会话 ID 过滤
+    kclaw logs --since 1h         # 最近一小时的日志
+    kclaw logs --since 30m -f     # 从 30 分钟前开始跟踪
 """
 
 import re
@@ -63,7 +63,7 @@ def _parse_since(since_str: str) -> Optional[datetime]:
 
 
 def _parse_line_timestamp(line: str) -> Optional[datetime]:
-    """Extract timestamp from a log line. Returns None if not parseable."""
+    """从日志行中提取时间戳。如果无法解析则返回 None。"""
     m = _TS_RE.match(line)
     if not m:
         return None
@@ -74,7 +74,7 @@ def _parse_line_timestamp(line: str) -> Optional[datetime]:
 
 
 def _extract_level(line: str) -> Optional[str]:
-    """Extract the log level from a line."""
+    """从行中提取日志级别。"""
     m = _LEVEL_RE.search(line)
     return m.group(1) if m else None
 
@@ -86,7 +86,7 @@ def _matches_filters(
     session_filter: Optional[str] = None,
     since: Optional[datetime] = None,
 ) -> bool:
-    """Check if a log line passes all active filters."""
+    """检查日志行是否通过所有活动过滤器。"""
     if since is not None:
         ts = _parse_line_timestamp(line)
         if ts is not None and ts < since:
@@ -114,22 +114,22 @@ def tail_log(
     session: Optional[str] = None,
     since: Optional[str] = None,
 ) -> None:
-    """Read and display log lines, optionally following in real time.
+    """读取并显示日志行，可选择实时跟踪。
 
-    Parameters
+    参数
     ----------
     log_name
-        Which log to read: ``"agent"``, ``"errors"``, ``"gateway"``.
+        要读取的日志："agent"、"errors"、"gateway"。
     num_lines
-        Number of recent lines to show (before follow starts).
+        显示的最近行数（跟踪开始前）。
     follow
-        If True, keep watching for new lines (Ctrl+C to stop).
+        如果为 True，持续监视新行（Ctrl+C 停止）。
     level
-        Minimum log level to show (e.g. ``"WARNING"``).
+        显示的最低日志级别（例如 "WARNING"）。
     session
-        Session ID substring to filter on.
+        要过滤的会话 ID 子字符串。
     since
-        Relative time string (e.g. ``"1h"``, ``"30m"``).
+        相对时间字符串（例如 "1h"、"30m"）。
     """
     filename = LOG_FILES.get(log_name)
     if filename is None:
@@ -138,8 +138,8 @@ def tail_log(
 
     log_path = get_kclaw_home() / "logs" / filename
     if not log_path.exists():
-        print(f"Log file not found: {log_path}")
-        print(f"(Logs are created when KClaw runs — try 'kclaw chat' first)")
+        print(f"日志文件未找到：{log_path}")
+        print(f"(日志在 KClaw 运行时创建 — 请先运行 'kclaw chat')")
         sys.exit(1)
 
     # Parse --since into a datetime cutoff
@@ -147,12 +147,12 @@ def tail_log(
     if since:
         since_dt = _parse_since(since)
         if since_dt is None:
-            print(f"Invalid --since value: {since!r}. Use format like '1h', '30m', '2d'.")
+            print(f"无效的 --since 值：{since!r}。请使用 '1h'、'30m'、'2d' 格式。")
             sys.exit(1)
 
     min_level = level.upper() if level else None
     if min_level and min_level not in _LEVEL_ORDER:
-        print(f"Invalid --level: {level!r}. Use DEBUG, INFO, WARNING, ERROR, or CRITICAL.")
+        print(f"无效的 --level：{level!r}。请使用 DEBUG、INFO、WARNING、ERROR 或 CRITICAL。")
         sys.exit(1)
 
     has_filters = min_level is not None or session is not None or since_dt is not None
@@ -163,7 +163,7 @@ def tail_log(
                            min_level=min_level, session_filter=session,
                            since=since_dt)
     except PermissionError:
-        print(f"Permission denied: {log_path}")
+        print(f"权限被拒绝：{log_path}")
         sys.exit(1)
 
     # Print header
@@ -177,9 +177,9 @@ def tail_log(
     filter_desc = f" [{', '.join(filter_parts)}]" if filter_parts else ""
 
     if follow:
-        print(f"--- {display_kclaw_home()}/logs/{filename}{filter_desc} (Ctrl+C to stop) ---")
+        print(f"--- {display_kclaw_home()}/logs/{filename}{filter_desc}（按 Ctrl+C 停止）---")
     else:
-        print(f"--- {display_kclaw_home()}/logs/{filename}{filter_desc} (last {num_lines}) ---")
+        print(f"--- {display_kclaw_home()}/logs/{filename}{filter_desc}（最近 {num_lines} 行）---")
 
     for line in lines:
         print(line, end="")
@@ -192,7 +192,7 @@ def tail_log(
         _follow_log(log_path, min_level=min_level, session_filter=session,
                      since=since_dt)
     except KeyboardInterrupt:
-        print("\n--- stopped ---")
+        print("\n--- 已停止 ---")
 
 
 def _read_tail(
@@ -204,9 +204,9 @@ def _read_tail(
     session_filter: Optional[str] = None,
     since: Optional[datetime] = None,
 ) -> list:
-    """Read the last *num_lines* matching lines from a log file.
+    """从日志文件中读取最后 num_lines 匹配的行。
 
-    When filters are active, we read more raw lines to find enough matches.
+    当过滤器激活时，我们会读取更多原始行以确保有足够的匹配。
     """
     if has_filters:
         # Read more lines to ensure we get enough after filtering.
@@ -223,10 +223,10 @@ def _read_tail(
 
 
 def _read_last_n_lines(path: Path, n: int) -> list:
-    """Efficiently read the last N lines from a file.
+    """高效地从文件中读取最后 N 行。
 
-    For files under 1MB, reads the whole file (fast, simple).
-    For larger files, reads chunks from the end.
+    对于小于 1MB 的文件，读取整个文件（快速、简单）。
+    对于更大的文件，从末尾读取块。
     """
     try:
         size = path.stat().st_size
@@ -252,8 +252,7 @@ def _read_last_n_lines(path: Path, n: int) -> list:
                 chunk = f.read(read_size)
                 chunk_lines = chunk.split(b"\n")
                 if lines:
-                    # Merge the last partial line of the new chunk with the
-                    # first partial line of what we already have.
+                    # 将新块的最后一个不完整行与已有的第一个不完整行合并。
                     lines[0] = chunk_lines[-1] + lines[0]
                     lines = chunk_lines[:-1] + lines
                 else:
@@ -285,7 +284,7 @@ def _follow_log(
     session_filter: Optional[str] = None,
     since: Optional[datetime] = None,
 ) -> None:
-    """Poll a log file for new content and print matching lines."""
+    """轮询日志文件获取新内容并打印匹配的行。"""
     with open(path, "r", encoding="utf-8", errors="replace") as f:
         # Seek to end
         f.seek(0, 2)
@@ -301,13 +300,13 @@ def _follow_log(
 
 
 def list_logs() -> None:
-    """Print available log files with sizes."""
+    """打印可用的日志文件及大小。"""
     log_dir = get_kclaw_home() / "logs"
     if not log_dir.exists():
-        print(f"No logs directory at {display_kclaw_home()}/logs/")
+        print(f"{display_kclaw_home()}/logs/ 目录下无日志")
         return
 
-    print(f"Log files in {display_kclaw_home()}/logs/:\n")
+    print(f"{display_kclaw_home()}/logs/ 中的日志文件：\n")
     found = False
     for entry in sorted(log_dir.iterdir()):
         if entry.is_file() and entry.suffix == ".log":
@@ -321,15 +320,15 @@ def list_logs() -> None:
                 size_str = f"{size / (1024 * 1024):.1f}MB"
             age = datetime.now() - mtime
             if age.total_seconds() < 60:
-                age_str = "just now"
+                age_str = "刚刚"
             elif age.total_seconds() < 3600:
-                age_str = f"{int(age.total_seconds() / 60)}m ago"
+                age_str = f"{int(age.total_seconds() / 60)}分钟前"
             elif age.total_seconds() < 86400:
-                age_str = f"{int(age.total_seconds() / 3600)}h ago"
+                age_str = f"{int(age.total_seconds() / 3600)}小时前"
             else:
                 age_str = mtime.strftime("%Y-%m-%d")
             print(f"  {entry.name:<25} {size_str:>8}   {age_str}")
             found = True
 
     if not found:
-        print("  (no log files yet — run 'kclaw chat' to generate logs)")
+        print("  （尚无日志文件 — 请运行 'kclaw chat' 生成日志）")

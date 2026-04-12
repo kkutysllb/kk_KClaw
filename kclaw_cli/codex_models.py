@@ -1,4 +1,4 @@
-"""Codex model discovery from API, local cache, and config."""
+"""从 API、本地缓存和配置中发现 Codex 模型。"""
 
 from __future__ import annotations
 
@@ -29,11 +29,11 @@ _FORWARD_COMPAT_TEMPLATE_MODELS: List[tuple[str, tuple[str, ...]]] = [
 
 
 def _add_forward_compat_models(model_ids: List[str]) -> List[str]:
-    """Add Clawdbot-style synthetic forward-compat Codex models.
+    """添加 Clawdbot 风格的合成前向兼容 Codex 模型。
 
-    If a newer Codex slug isn't returned by live discovery, surface it when an
-    older compatible template model is present. This mirrors Clawdbot's
-    synthetic catalog / forward-compat behavior for GPT-5 Codex variants.
+    如果实时发现未返回较新的 Codex slug，但存在较旧的可兼容模板模型，
+    则显示该较新的模型。这模仿了 Clawdbot 对 GPT-5 Codex 变体的
+    合成目录 / 前向兼容行为。
     """
     ordered: List[str] = []
     seen: set[str] = set()
@@ -53,7 +53,7 @@ def _add_forward_compat_models(model_ids: List[str]) -> List[str]:
 
 
 def _fetch_models_from_api(access_token: str) -> List[str]:
-    """Fetch available models from the Codex API. Returns visible models sorted by priority."""
+    """从 Codex API 获取可用模型。返回按优先级排序的可见模型。"""
     try:
         import httpx
         resp = httpx.get(
@@ -66,7 +66,7 @@ def _fetch_models_from_api(access_token: str) -> List[str]:
         data = resp.json()
         entries = data.get("models", []) if isinstance(data, dict) else []
     except Exception as exc:
-        logger.debug("Failed to fetch Codex models from API: %s", exc)
+        logger.debug("从 API 获取 Codex 模型失败: %s", exc)
         return []
 
     sortable = []
@@ -145,22 +145,22 @@ def _read_cache_models(codex_home: Path) -> List[str]:
 
 
 def get_codex_model_ids(access_token: Optional[str] = None) -> List[str]:
-    """Return available Codex model IDs, trying API first, then local sources.
+    """返回可用的 Codex 模型 ID，优先尝试 API，然后尝试本地源。
     
-    Resolution order: API (live, if token provided) > config.toml default >
-    local cache > hardcoded defaults.
+    解析顺序：API（实时，如提供令牌）> config.toml 默认 >
+    本地缓存 > 硬编码默认值。
     """
     codex_home_str = os.getenv("CODEX_HOME", "").strip() or str(Path.home() / ".codex")
     codex_home = Path(codex_home_str).expanduser()
     ordered: List[str] = []
 
-    # Try live API if we have a token
+    # 如果有令牌，尝试实时 API
     if access_token:
         api_models = _fetch_models_from_api(access_token)
         if api_models:
             return _add_forward_compat_models(api_models)
 
-    # Fall back to local sources
+    # 回退到本地源
     default_model = _read_default_model(codex_home)
     if default_model:
         ordered.append(default_model)

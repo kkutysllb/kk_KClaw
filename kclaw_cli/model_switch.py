@@ -1,21 +1,21 @@
-"""Shared model-switching logic for CLI and gateway /model commands.
+"""CLI 和 gateway /model 命令的共享模型切换逻辑。
 
-Both the CLI (cli.py) and gateway (gateway/run.py) /model handlers
-share the same core pipeline:
+CLI（cli.py）和 gateway（gateway/run.py）的 /model 处理器
+共享相同的核心流程：
 
-  parse flags -> alias resolution -> provider resolution ->
-  credential resolution -> normalize model name ->
-  metadata lookup -> build result
+  解析标志 -> 别名解析 -> 提供者解析 ->
+  凭据解析 -> 规范化模型名称 ->
+  元数据查找 -> 构建结果
 
-This module ties together the foundation layers:
+此模块将基础层整合在一起：
 
-- ``agent.models_dev``            -- models.dev catalog, ModelInfo, ProviderInfo
-- ``kclaw_cli.providers``        -- canonical provider identity + overlays
-- ``kclaw_cli.model_normalize``  -- per-provider name formatting
+- agent.models_dev            -- models.dev 目录，ModelInfo，ProviderInfo
+- kclaw_cli.providers        -- 规范提供者身份 + 覆盖层
+- kclaw_cli.model_normalize  -- 每个提供者的名称格式化
 
-Provider switching uses the ``--provider`` flag exclusively.
-No colon-based ``provider:model`` syntax — colons are reserved for
-OpenRouter variant suffixes (``:free``, ``:extended``, ``:fast``).
+提供者切换仅使用 --provider 标志。
+不支持冒号分隔的 provider:model 语法 — 冒号保留用于
+OpenRouter 变体后缀（:free、:extended、:fast）。
 """
 
 from __future__ import annotations

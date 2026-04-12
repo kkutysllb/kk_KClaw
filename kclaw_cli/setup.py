@@ -1,14 +1,14 @@
 """
-Interactive setup wizard for KClaw Agent.
+KClaw Agent 的交互式设置向导。
 
-Modular wizard with independently-runnable sections:
-  1. Model & Provider — choose your AI provider and model
-  2. Terminal Backend — where your agent runs commands
-  3. Agent Settings — iterations, compression, session reset
-  4. Messaging Platforms — connect Telegram, Discord, etc.
-  5. Tools — configure TTS, web search, image generation, etc.
+模块化向导，可独立运行各部分：
+  1. 模型和提供者 — 选择你的 AI 提供者和模型
+  2. 终端后端 — 你的代理运行命令的地方
+  3. 代理设置 — 迭代、压缩、会话重置
+  4. 消息平台 — 连接 Telegram、Discord 等
+  5. 工具 — 配置 TTS、Web 搜索、图像生成等
 
-Config files are stored in ~/.kclaw/ for easy access.
+配置文件存储在 ~/.kclaw/ 下便于访问。
 """
 
 import importlib.util

@@ -1,28 +1,27 @@
 """
-KClaw Plugin System
+KClaw 插件系统
 ====================
 
-Discovers, loads, and manages plugins from three sources:
+从三个来源发现、加载和管理插件：
 
-1. **User plugins**   – ``~/.kclaw/plugins/<name>/``
-2. **Project plugins** – ``./.kclaw/plugins/<name>/`` (opt-in via
-   ``KCLAW_ENABLE_PROJECT_PLUGINS``)
-3. **Pip plugins**     – packages that expose the ``kclaw_agent.plugins``
-   entry-point group.
+1. **用户插件**   – ~/.kclaw/plugins/<name>/
+2. **项目插件** – ./.kclaw/plugins/<name>/（通过
+   KCLAW_ENABLE_PROJECT_PLUGINS 选择加入）
+3. **Pip 插件**     – 暴露 kclaw_agent.plugins
+   入口点组的包。
 
-Each directory plugin must contain a ``plugin.yaml`` manifest **and** an
-``__init__.py`` with a ``register(ctx)`` function.
+每个目录插件必须包含 plugin.yaml 清单 **以及**
+带有 register(ctx) 函数的 __init__.py。
 
-Lifecycle hooks
+生命周期钩子
 ---------------
-Plugins may register callbacks for any of the hooks in ``VALID_HOOKS``.
-The agent core calls ``invoke_hook(name, **kwargs)`` at the appropriate
-points.
+插件可以为 VALID_HOOKS 中的任何钩子注册回调。
+代理核心在适当的时机调用 invoke_hook(name, **kwargs)。
 
-Tool registration
+工具注册
 -----------------
-``PluginContext.register_tool()`` delegates to ``tools.registry.register()``
-so plugin-defined tools appear alongside the built-in tools.
+PluginContext.register_tool() 委托给 tools.registry.register()
+以便插件定义的工具与内置工具一起出现。
 """
 
 from __future__ import annotations

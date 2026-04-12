@@ -1,4 +1,4 @@
-"""Credential-pool auth subcommands."""
+"""凭据池认证子命令。"""
 
 from __future__ import annotations
 
@@ -31,12 +31,12 @@ from kclaw_cli.auth import PROVIDER_REGISTRY
 from kclaw_constants import OPENROUTER_BASE_URL
 
 
-# Providers that support OAuth login in addition to API keys.
+# 支持 OAuth 登录的提供者（除 API 密钥外）。
 _OAUTH_CAPABLE_PROVIDERS = {"anthropic", "nous", "openai-codex", "qwen-oauth"}
 
 
 def _get_custom_provider_names() -> list:
-    """Return list of (display_name, pool_key) tuples for custom_providers in config."""
+    """返回 config 中 custom_providers 的 (显示名称, 池键) 元组列表。"""
     try:
         from kclaw_cli.config import load_config
 
@@ -59,7 +59,7 @@ def _get_custom_provider_names() -> list:
 
 
 def _resolve_custom_provider_input(raw: str) -> str | None:
-    """If raw input matches a custom_providers entry name (case-insensitive), return its pool key."""
+    """如果原始输入匹配 custom_providers 条目名称（不区分大小写），返回其池键。"""
     normalized = (raw or "").strip().lower().replace(" ", "-")
     if not normalized:
         return None
@@ -117,22 +117,22 @@ def _format_exhausted_status(entry) -> str:
     code = f" ({entry.last_error_code})" if entry.last_error_code else ""
     exhausted_until = _exhausted_until(entry)
     if exhausted_until is None:
-        return f" exhausted{reason_text}{code}"
+        return f" 已耗尽{reason_text}{code}"
     remaining = max(0, int(math.ceil(exhausted_until - time.time())))
     if remaining <= 0:
-        return f" exhausted{reason_text}{code} (ready to retry)"
+        return f" 已耗尽{reason_text}{code}（准备重试）"
     minutes, seconds = divmod(remaining, 60)
     hours, minutes = divmod(minutes, 60)
     days, hours = divmod(hours, 24)
     if days:
-        wait = f"{days}d {hours}h"
+        wait = f"{days}天{hours}时"
     elif hours:
-        wait = f"{hours}h {minutes}m"
+        wait = f"{hours}时{minutes}分"
     elif minutes:
-        wait = f"{minutes}m {seconds}s"
+        wait = f"{minutes}分{seconds}秒"
     else:
-        wait = f"{seconds}s"
-    return f" exhausted{reason_text}{code} ({wait} left)"
+        wait = f"{seconds}秒"
+    return f" 已耗尽{reason_text}{code}（还剩 {wait}）"
 
 
 def auth_add_command(args) -> None:
@@ -154,13 +154,13 @@ def auth_add_command(args) -> None:
     if requested_type == AUTH_TYPE_API_KEY:
         token = (getattr(args, "api_key", None) or "").strip()
         if not token:
-            token = getpass("Paste your API key: ").strip()
+            token = getpass("粘贴您的 API 密钥: ").strip()
         if not token:
-            raise SystemExit("No API key provided.")
+            raise SystemExit("未提供 API 密钥。")
         default_label = _api_key_default_label(len(pool.entries()) + 1)
         label = (getattr(args, "label", None) or "").strip()
         if not label:
-            label = input(f"Label (optional, default: {default_label}): ").strip() or default_label
+            label = input(f"标签（可选，默认: {default_label}）: ").strip() or default_label
         entry = PooledCredential(
             provider=provider,
             id=uuid.uuid4().hex[:6],
@@ -172,7 +172,7 @@ def auth_add_command(args) -> None:
             base_url=_provider_base_url(provider),
         )
         pool.add_entry(entry)
-        print(f'Added {provider} credential #{len(pool.entries())}: "{label}"')
+        print(f'已添加 {provider} 凭据 #{len(pool.entries())}: "{label}"')
         return
 
     if provider == "anthropic":
@@ -180,7 +180,7 @@ def auth_add_command(args) -> None:
 
         creds = anthropic_mod.run_kclaw_oauth_login_pure()
         if not creds:
-            raise SystemExit("Anthropic OAuth login did not return credentials.")
+            raise SystemExit("Anthropic OAuth 登录未返回凭据。")
         label = (getattr(args, "label", None) or "").strip() or label_from_token(
             creds["access_token"],
             _oauth_default_label(provider, len(pool.entries()) + 1),
@@ -198,7 +198,7 @@ def auth_add_command(args) -> None:
             base_url=_provider_base_url(provider),
         )
         pool.add_entry(entry)
-        print(f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
+        print(f'已添加 {provider} OAuth 凭据 #{len(pool.entries())}: "{entry.label}"')
         return
 
     if provider == "nous":
@@ -225,7 +225,7 @@ def auth_add_command(args) -> None:
             "base_url": creds.get("inference_base_url"),
         })
         pool.add_entry(entry)
-        print(f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
+        print(f'已添加 {provider} OAuth 凭据 #{len(pool.entries())}: "{entry.label}"')
         return
 
     if provider == "openai-codex":
@@ -247,7 +247,7 @@ def auth_add_command(args) -> None:
             last_refresh=creds.get("last_refresh"),
         )
         pool.add_entry(entry)
-        print(f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
+        print(f'已添加 {provider} OAuth 凭据 #{len(pool.entries())}: "{entry.label}"')
         return
 
     if provider == "qwen-oauth":
@@ -267,10 +267,10 @@ def auth_add_command(args) -> None:
             base_url=creds.get("base_url"),
         )
         pool.add_entry(entry)
-        print(f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
+        print(f'已添加 {provider} OAuth 凭据 #{len(pool.entries())}: "{entry.label}"')
         return
 
-    raise SystemExit(f"`kclaw auth add {provider}` is not implemented for auth type {requested_type} yet.")
+    raise SystemExit(f"`kclaw auth add {provider}` 尚未实现 auth type {requested_type}。")
 
 
 def auth_list_command(args) -> None:

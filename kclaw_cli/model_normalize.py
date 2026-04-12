@@ -1,25 +1,25 @@
-"""Per-provider model name normalization.
+"""各提供商的模型名称规范化。
 
-Different LLM providers expect model identifiers in different formats:
+不同的 LLM 提供商期望不同格式的模型标识符：
 
-- **Aggregators** (OpenRouter, Nous, AI Gateway, Kilo Code) need
-  ``vendor/model`` slugs like ``anthropic/claude-sonnet-4.6``.
-- **Anthropic** native API expects bare names with dots replaced by
-  hyphens: ``claude-sonnet-4-6``.
-- **Copilot** expects bare names *with* dots preserved:
-  ``claude-sonnet-4.6``.
-- **OpenCode Zen** follows the same dot-to-hyphen convention as
-  Anthropic: ``claude-sonnet-4-6``.
-- **OpenCode Go** preserves dots in model names: ``minimax-m2.7``.
-- **DeepSeek** only accepts two model identifiers:
-  ``deepseek-chat`` and ``deepseek-reasoner``.
-- **Custom** and remaining providers pass the name through as-is.
+- **聚合器**（OpenRouter、Nous、AI Gateway、Kilo Code）需要
+  ``vendor/model`` slug，如 ``anthropic/claude-sonnet-4.6``。
+- **Anthropic** 原生 API 期望裸名称，点替换为
+  连字符：``claude-sonnet-4-6``。
+- **Copilot** 期望裸名称 **保留点**：
+  ``claude-sonnet-4.6``。
+- **OpenCode Zen** 遵循与 Anthropic 相同的点转连字符约定：
+  ``claude-sonnet-4-6``。
+- **OpenCode Go** 在模型名称中保留点：``minimax-m2.7``。
+- **DeepSeek** 只接受两个模型标识符：
+  ``deepseek-chat`` 和 ``deepseek-reasoner``。
+- **Custom** 和其他提供者直接透传名称。
 
-This module centralises that translation so callers can simply write::
+此模块集中处理这些转换，让调用者只需写：
 
     api_model = normalize_model_for_provider(user_input, provider)
 
-Inspired by Clawdbot's ``normalizeAnthropicModelId`` pattern.
+灵感来自 Clawdbot 的 ``normalizeAnthropicModelId`` 模式。
 """
 
 from __future__ import annotations
@@ -27,13 +27,13 @@ from __future__ import annotations
 from typing import Optional
 
 # ---------------------------------------------------------------------------
-# Vendor prefix mapping
+# 供应商前缀映射
 # ---------------------------------------------------------------------------
-# Maps the first hyphen-delimited token of a bare model name to the vendor
-# slug used by aggregator APIs (OpenRouter, Nous, etc.).
+# 将裸模型名称的第一个连字符分隔标记映射到聚合器 API（OpenRouter、Nous 等）
+# 使用的供应商 slug。
 #
-# Example: "claude-sonnet-4.6" -> first token "claude" -> vendor "anthropic"
-#          -> aggregator slug: "anthropic/claude-sonnet-4.6"
+# 示例: "claude-sonnet-4.6" -> 第一个标记 "claude" -> 供应商 "anthropic"
+#          -> 聚合器 slug: "anthropic/claude-sonnet-4.6"
 
 _VENDOR_PREFIXES: dict[str, str] = {
     "claude": "anthropic",
@@ -56,7 +56,7 @@ _VENDOR_PREFIXES: dict[str, str] = {
     "trinity": "arcee-ai",
 }
 
-# Providers whose APIs consume vendor/model slugs.
+# API 接受 vendor/model slug 的提供者。
 _AGGREGATOR_PROVIDERS: frozenset[str] = frozenset({
     "openrouter",
     "nous",
@@ -64,19 +64,19 @@ _AGGREGATOR_PROVIDERS: frozenset[str] = frozenset({
     "kilocode",
 })
 
-# Providers that want bare names with dots replaced by hyphens.
+# 需要裸名称且将点替换为连字符的提供者。
 _DOT_TO_HYPHEN_PROVIDERS: frozenset[str] = frozenset({
     "anthropic",
     "opencode-zen",
 })
 
-# Providers that want bare names with dots preserved.
+# 需要裸名称且保留点的提供者。
 _STRIP_VENDOR_ONLY_PROVIDERS: frozenset[str] = frozenset({
     "copilot",
     "copilot-acp",
 })
 
-# Providers whose own naming is authoritative -- pass through unchanged.
+# 自有命名权威的提供者 — 原样透传。
 _PASSTHROUGH_PROVIDERS: frozenset[str] = frozenset({
     "gemini",
     "zai",
@@ -91,10 +91,10 @@ _PASSTHROUGH_PROVIDERS: frozenset[str] = frozenset({
 })
 
 # ---------------------------------------------------------------------------
-# DeepSeek special handling
+# DeepSeek 特殊处理
 # ---------------------------------------------------------------------------
-# DeepSeek's API only recognises exactly two model identifiers.  We map
-# common aliases and patterns to the canonical names.
+# DeepSeek 的 API 只识别两个确切的模型标识符。我们映射
+# 常见别名和模式到规范名称。
 
 _DEEPSEEK_REASONER_KEYWORDS: frozenset[str] = frozenset({
     "reasoner",
@@ -111,19 +111,19 @@ _DEEPSEEK_CANONICAL_MODELS: frozenset[str] = frozenset({
 
 
 def _normalize_for_deepseek(model_name: str) -> str:
-    """Map any model input to one of DeepSeek's two accepted identifiers.
+    """将任何模型输入映射到 DeepSeek 接受的两个标识符之一。
 
-    Rules:
-    - Already ``deepseek-chat`` or ``deepseek-reasoner`` -> pass through.
-    - Contains any reasoner keyword (r1, think, reasoning, cot, reasoner)
-      -> ``deepseek-reasoner``.
-    - Everything else -> ``deepseek-chat``.
+    规则：
+    - 已经是 ``deepseek-chat`` 或 ``deepseek-reasoner`` -> 透传。
+    - 包含任何推理关键词（r1、think、reasoning、cot、reasoner）
+      -> ``deepseek-reasoner``。
+    - 其他一切 -> ``deepseek-chat``。
 
-    Args:
-        model_name: The bare model name (vendor prefix already stripped).
+    参数:
+        model_name: 裸模型名称（供应商前缀已剥离）。
 
-    Returns:
-        One of ``"deepseek-chat"`` or ``"deepseek-reasoner"``.
+    返回:
+        ``"deepseek-chat"`` 或 ``"deepseek-reasoner"`` 之一。
     """
     bare = _strip_vendor_prefix(model_name).lower()
 
@@ -139,13 +139,13 @@ def _normalize_for_deepseek(model_name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Helper utilities
+# 辅助工具函数
 # ---------------------------------------------------------------------------
 
 def _strip_vendor_prefix(model_name: str) -> str:
-    """Remove a ``vendor/`` prefix if present.
+    """移除 ``vendor/`` 前缀（如果存在）。
 
-    Examples::
+    示例::
 
         >>> _strip_vendor_prefix("anthropic/claude-sonnet-4.6")
         'claude-sonnet-4.6'
@@ -160,31 +160,29 @@ def _strip_vendor_prefix(model_name: str) -> str:
 
 
 def _dots_to_hyphens(model_name: str) -> str:
-    """Replace dots with hyphens in a model name.
+    """将模型名称中的点替换为连字符。
 
-    Anthropic's native API uses hyphens where marketing names use dots:
-    ``claude-sonnet-4.6`` -> ``claude-sonnet-4-6``.
+    Anthropic 的原生 API 在营销名称使用点的地方使用连字符：
+    ``claude-sonnet-4.6`` -> ``claude-sonnet-4-6``。
     """
     return model_name.replace(".", "-")
 
 
 def detect_vendor(model_name: str) -> Optional[str]:
-    """Detect the vendor slug from a bare model name.
+    """从裸模型名称检测供应商 slug。
 
-    Uses the first hyphen-delimited token of the model name to look up
-    the corresponding vendor in ``_VENDOR_PREFIXES``.  Also handles
-    case-insensitive matching and special patterns.
+    使用模型名称的第一个连字符分隔标记在 ``_VENDOR_PREFIXES`` 中
+    查找对应的供应商。也处理不区分大小写的匹配和特殊模式。
 
-    Args:
-        model_name: A model name, optionally already including a
-            ``vendor/`` prefix.  If a prefix is present it is used
-            directly.
+    参数:
+        model_name: 模型名称，可选已包含 ``vendor/`` 前缀。
+            如果存在前缀则直接使用。
 
-    Returns:
-        The vendor slug (e.g. ``"anthropic"``, ``"openai"``) or ``None``
-        if no vendor can be confidently detected.
+    返回:
+        供应商 slug（例如 ``"anthropic"``、``"openai"``），
+        如果无法自信检测则返回 ``None``。
 
-    Examples::
+    示例::
 
         >>> detect_vendor("claude-sonnet-4.6")
         'anthropic'

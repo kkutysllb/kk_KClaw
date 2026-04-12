@@ -1,15 +1,15 @@
 """
-Configuration management for KClaw Agent.
+KClaw Agent 的配置管理。
 
-Config files are stored in ~/.kclaw/ for easy access:
-- ~/.kclaw/config.yaml  - All settings (model, toolsets, terminal, etc.)
-- ~/.kclaw/.env         - API keys and secrets
+配置文件存储在 ~/.kclaw/ 下便于访问：
+- ~/.kclaw/config.yaml  - 所有设置（模型、工具集、终端等）
+- ~/.kclaw/.env         - API 密钥和密钥
 
-This module provides:
-- kclaw config          - Show current configuration
-- kclaw config edit     - Open config in editor
-- kclaw config set      - Set a specific value
-- kclaw config wizard   - Re-run setup wizard
+此模块提供：
+- kclaw config          - 显示当前配置
+- kclaw config edit     - 在编辑器中打开配置
+- kclaw config set      - 设置特定值
+- kclaw config wizard   - 重新运行设置向导
 """
 
 import os

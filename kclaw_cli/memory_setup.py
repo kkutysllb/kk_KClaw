@@ -1,8 +1,8 @@
-"""kclaw memory setup|status — configure memory provider plugins.
+"""kclaw memory setup|status — 配置记忆提供者插件。
 
-Auto-detects installed memory providers via the plugin system.
-Interactive curses-based UI for provider selection, then walks through
-the provider's config schema. Writes config to config.yaml + .env.
+通过插件系统自动检测已安装的记忆提供者。
+使用交互式基于 curses 的 UI 选择提供者，然后按照提供者的
+配置模式进行配置。写入 config.yaml + .env。
 """
 
 from __future__ import annotations
@@ -16,14 +16,14 @@ from kclaw_constants import get_kclaw_home
 
 
 # ---------------------------------------------------------------------------
-# Curses-based interactive picker (same pattern as kclaw tools)
+# 基于 curses 的交互式选择器（与 kclaw tools 相同的模式）
 # ---------------------------------------------------------------------------
 
 def _curses_select(title: str, items: list[tuple[str, str]], default: int = 0) -> int:
-    """Interactive single-select with arrow keys.
+    """使用方向键进行交互式单选。
 
-    items: list of (label, description) tuples.
-    Returns selected index, or default on escape/quit.
+    items: (标签, 描述) 元组列表。
+    返回选中的索引，或在退出/取消时返回默认值。
     """
     try:
         import curses
@@ -47,7 +47,7 @@ def _curses_select(title: str, items: list[tuple[str, str]], default: int = 0) -
                 try:
                     stdscr.addnstr(0, 0, title, max_x - 1,
                                    curses.A_BOLD | (curses.color_pair(2) if curses.has_colors() else 0))
-                    stdscr.addnstr(1, 0, "  ↑↓ navigate  ⏎ select  q quit", max_x - 1,
+                    stdscr.addnstr(1, 0, "  ↑↓ 导航  ⏎ 选择  q 退出", max_x - 1,
                                    curses.color_pair(3) if curses.has_colors() else curses.A_DIM)
                 except curses.error:
                     pass
@@ -88,7 +88,7 @@ def _curses_select(title: str, items: list[tuple[str, str]], default: int = 0) -
         return result[0]
 
     except Exception:
-        # Fallback: numbered input
+        # 回退：带编号的输入
         print(f"\n  {title}\n")
         for i, (label, desc) in enumerate(items):
             marker = "→" if i == default else " "
@@ -96,7 +96,7 @@ def _curses_select(title: str, items: list[tuple[str, str]], default: int = 0) -
             print(f"  {marker} {i + 1}. {label}{d}")
         while True:
             try:
-                val = input(f"\n  Select [1-{len(items)}] ({default + 1}): ")
+                val = input(f"\n  选择 [1-{len(items)}] ({default + 1}): ")
                 if not val:
                     return default
                 idx = int(val) - 1
@@ -107,7 +107,7 @@ def _curses_select(title: str, items: list[tuple[str, str]], default: int = 0) -
 
 
 def _prompt(label: str, default: str | None = None, secret: bool = False) -> str:
-    """Prompt for a value with optional default and secret masking."""
+    """提示输入值，可选默认值和密钥掩码。"""
     suffix = f" [{default}]" if default else ""
     if secret:
         sys.stdout.write(f"  {label}{suffix}: ")
@@ -124,11 +124,11 @@ def _prompt(label: str, default: str | None = None, secret: bool = False) -> str
 
 
 # ---------------------------------------------------------------------------
-# Provider discovery
+# 提供者发现
 # ---------------------------------------------------------------------------
 
 def _install_dependencies(provider_name: str) -> None:
-    """Install pip dependencies declared in plugin.yaml."""
+    """安装 plugin.yaml 中声明的 pip 依赖。"""
     import subprocess
     from pathlib import Path as _Path
 
@@ -148,7 +148,7 @@ def _install_dependencies(provider_name: str) -> None:
     if not pip_deps:
         return
 
-    # pip name → import name mapping for packages where they differ
+    # pip 包名 → 导入名的映射，用于包名不同的情况
     _IMPORT_NAMES = {
         "honcho-ai": "honcho",
         "mem0ai": "mem0",
@@ -156,7 +156,7 @@ def _install_dependencies(provider_name: str) -> None:
         "hindsight-all": "hindsight",
     }
 
-    # Check which packages are missing
+    # 检查缺失的包
     missing = []
     for dep in pip_deps:
         import_name = _IMPORT_NAMES.get(dep, dep.replace("-", "_").split("[")[0])
@@ -168,14 +168,14 @@ def _install_dependencies(provider_name: str) -> None:
     if not missing:
         return
 
-    print(f"\n  Installing dependencies: {', '.join(missing)}")
+    print(f"\n  正在安装依赖: {', '.join(missing)}")
 
     import shutil
     uv_path = shutil.which("uv")
     if not uv_path:
-        print(f"  ⚠ uv not found — cannot install dependencies")
-        print(f"  Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh")
-        print(f"  Then re-run: kclaw memory setup")
+        print(f"  ⚠ 未找到 uv — 无法安装依赖")
+        print(f"  安装 uv: curl -LsSf https://astral.sh/uv/install.sh | sh")
+        print(f"  然后重新运行: kclaw memory setup")
         return
 
     try:
@@ -184,18 +184,18 @@ def _install_dependencies(provider_name: str) -> None:
             check=True, timeout=120,
             capture_output=True,
         )
-        print(f"  ✓ Installed {', '.join(missing)}")
+        print(f"  ✓ 已安装 {', '.join(missing)}")
     except subprocess.CalledProcessError as e:
-        print(f"  ⚠ Failed to install {', '.join(missing)}")
+        print(f"  ⚠ 安装 {', '.join(missing)} 失败")
         stderr = (e.stderr or b"").decode()[:200]
         if stderr:
             print(f"    {stderr}")
         print(f"  Run manually: uv pip install --python {sys.executable} {' '.join(missing)}")
     except Exception as e:
-        print(f"  ⚠ Install failed: {e}")
+        print(f"  ⚠ 安装失败: {e}")
         print(f"  Run manually: uv pip install --python {sys.executable} {' '.join(missing)}")
 
-    # Also show external dependencies (non-pip) if any
+    # 同时显示外部依赖（非 pip）如果有的话
     ext_deps = meta.get("external_dependencies", [])
     for dep in ext_deps:
         dep_name = dep.get("name", "")
@@ -208,14 +208,14 @@ def _install_dependencies(provider_name: str) -> None:
                 )
             except Exception:
                 if install_cmd:
-                    print(f"\n  ⚠ '{dep_name}' not found. Install with:")
+                    print(f"\n  ⚠ 未找到 '{dep_name}'。使用以下命令安装:")
                     print(f"    {install_cmd}")
 
 
 def _get_available_providers() -> list:
-    """Discover memory providers from plugins/memory/.
+    """从 plugins/memory/ 发现记忆提供者。
 
-    Returns list of (name, description, provider_instance) tuples.
+    返回 (名称, 描述, 提供者实例) 元组列表。
     """
     try:
         from plugins.memory import discover_memory_providers, load_memory_provider
@@ -236,24 +236,24 @@ def _get_available_providers() -> list:
         has_secrets = any(f.get("secret") for f in schema)
         has_non_secrets = any(not f.get("secret") for f in schema)
         if has_secrets and has_non_secrets:
-            setup_hint = "API key / local"
+            setup_hint = "API 密钥 / 本地"
         elif has_secrets:
-            setup_hint = "requires API key"
+            setup_hint = "需要 API 密钥"
         elif not schema:
-            setup_hint = "no setup needed"
+            setup_hint = "无需设置"
         else:
-            setup_hint = "local"
+            setup_hint = "本地"
 
         results.append((name, setup_hint, provider))
     return results
 
 
 # ---------------------------------------------------------------------------
-# Setup wizard
+# 设置向导
 # ---------------------------------------------------------------------------
 
 def cmd_setup_provider(provider_name: str) -> None:
-    """Run memory setup for a specific provider, skipping the picker."""
+    """为特定提供者运行记忆设置，跳过选择器。"""
     from kclaw_cli.config import load_config, save_config
 
     providers = _get_available_providers()
@@ -264,8 +264,8 @@ def cmd_setup_provider(provider_name: str) -> None:
             break
 
     if not match:
-        print(f"\n  Memory provider '{provider_name}' not found.")
-        print("  Run 'kclaw memory setup' to see available providers.\n")
+        print(f"\n  未找到记忆提供者 '{provider_name}'。")
+        print("  运行 'kclaw memory setup' 查看可用的提供者。\n")
         return
 
     name, _, provider = match
@@ -281,22 +281,22 @@ def cmd_setup_provider(provider_name: str) -> None:
         provider.post_setup(kclaw_home, config)
         return
 
-    # Fallback: generic schema-based setup (same as cmd_setup)
+    # 回退：通用基于模式的设置（与 cmd_setup 相同）
     config["memory"]["provider"] = name
     save_config(config)
-    print(f"\n  Memory provider: {name}")
-    print(f"  Activation saved to config.yaml\n")
+    print(f"\n  记忆提供者: {name}")
+    print(f"  配置已保存到 config.yaml\n")
 
 
 def cmd_setup(args) -> None:
-    """Interactive memory provider setup wizard."""
+    """交互式记忆提供者设置向导。"""
     from kclaw_cli.config import load_config, save_config
 
     providers = _get_available_providers()
 
     if not providers:
-        print("\n  No memory provider plugins detected.")
-        print("  Install a plugin to ~/.kclaw/plugins/ and try again.\n")
+        print("\n  未检测到记忆提供者插件。")
+        print("  安装插件到 ~/.kclaw/plugins/ 后重试。\n")
         return
 
     # Build picker items

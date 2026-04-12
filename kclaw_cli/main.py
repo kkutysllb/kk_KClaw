@@ -1,46 +1,46 @@
 #!/usr/bin/env python3
 """
-KClaw CLI - Main entry point.
+KClaw CLI - 主入口点。
 
-Usage:
-    kclaw                     # Interactive chat (default)
-    kclaw chat                # Interactive chat
-    kclaw gateway             # Run gateway in foreground
-    kclaw gateway start       # Start gateway as service
-    kclaw gateway stop        # Stop gateway service
-    kclaw gateway status      # Show gateway status
-    kclaw gateway install     # Install gateway service
-    kclaw gateway uninstall   # Uninstall gateway service
-    kclaw setup               # Interactive setup wizard
-    kclaw logout              # Clear stored authentication
-    kclaw status              # Show status of all components
-    kclaw cron                # Manage cron jobs
-    kclaw cron list           # List cron jobs
-    kclaw cron status         # Check if cron scheduler is running
-    kclaw doctor              # Check configuration and dependencies
-    kclaw honcho setup                    # Configure Honcho AI memory integration
-    kclaw honcho status                   # Show Honcho config and connection status
-    kclaw honcho sessions                 # List directory → session name mappings
-    kclaw honcho map <name>               # Map current directory to a session name
-    kclaw honcho peer                     # Show peer names and dialectic settings
-    kclaw honcho peer --user NAME         # Set user peer name
-    kclaw honcho peer --ai NAME           # Set AI peer name
-    kclaw honcho peer --reasoning LEVEL   # Set dialectic reasoning level
-    kclaw honcho mode                     # Show current memory mode
-    kclaw honcho mode [hybrid|honcho|local]  # Set memory mode
-    kclaw honcho tokens                   # Show token budget settings
-    kclaw honcho tokens --context N       # Set session.context() token cap
-    kclaw honcho tokens --dialectic N     # Set dialectic result char cap
-    kclaw honcho identity                 # Show AI peer identity representation
-    kclaw honcho identity <file>          # Seed AI peer identity from a file (SOUL.md etc.)
-    kclaw honcho migrate                  # Step-by-step migration guide: OpenClaw native → KClaw + Honcho
-    kclaw version             Show version
-    kclaw update              Update to latest version
-    kclaw uninstall           Uninstall KClaw Agent
-    kclaw acp                 Run as an ACP server for editor integration
-    kclaw sessions browse     Interactive session picker with search
+用法:
+    kclaw                     # 交互式聊天（默认）
+    kclaw chat                # 交互式聊天
+    kclaw gateway             # 在前台运行网关
+    kclaw gateway start       # 启动网关服务
+    kclaw gateway stop         # 停止网关服务
+    kclaw gateway status       # 显示网关状态
+    kclaw gateway install      # 安装网关服务
+    kclaw gateway uninstall    # 卸载网关服务
+    kclaw setup               # 交互式设置向导
+    kclaw logout              # 清除存储的认证信息
+    kclaw status              # 显示所有组件状态
+    kclaw cron                # 管理定时任务
+    kclaw cron list           # 列出定时任务
+    kclaw cron status         # 检查定时调度器是否运行
+    kclaw doctor              # 检查配置和依赖
+    kclaw honcho setup        # 配置 Honcho AI 记忆集成
+    kclaw honcho status       # 显示 Honcho 配置和连接状态
+    kclaw honcho sessions     # 列出目录 → 会话名称映射
+    kclaw honcho map <名称>   # 将当前目录映射到会话名称
+    kclaw honcho peer         # 显示对等名称和辩证设置
+    kclaw honcho peer --user NAME      # 设置用户对等名称
+    kclaw honcho peer --ai NAME        # 设置 AI 对等名称
+    kclaw honcho peer --reasoning LEVEL # 设置辩证推理级别
+    kclaw honcho mode         # 显示当前记忆模式
+    kclaw honcho mode [hybrid|honcho|local]  # 设置记忆模式
+    kclaw honcho tokens       # 显示令牌预算设置
+    kclaw honcho tokens --context N     # 设置 session.context() 令牌上限
+    kclaw honcho tokens --dialectic N   # 设置辩证结果字符上限
+    kclaw honcho identity     # 显示 AI 对等身份表示
+    kclaw honcho identity <文件>  # 从文件种子化 AI 对等身份（SOUL.md 等）
+    kclaw honcho migrate      # 分步迁移指南：OpenClaw 原生 → KClaw + Honcho
+    kclaw version             显示版本
+    kclaw update              更新到最新版本
+    kclaw uninstall           卸载 KClaw Agent
+    kclaw acp                 作为 ACP 服务器运行以进行编辑器集成
+    kclaw sessions browse     带有搜索的交互式会话选择器
 
-    kclaw claw migrate --dry-run  # Preview migration without changes
+    kclaw claw migrate --dry-run  # 预览迁移而不进行更改
 """
 
 import argparse
@@ -51,17 +51,17 @@ from pathlib import Path
 from typing import Optional
 
 def _require_tty(command_name: str) -> None:
-    """Exit with a clear error if stdin is not a terminal.
+    """如果 stdin 不是终端则以清晰错误退出。
 
-    Interactive TUI commands (kclaw tools, kclaw setup, kclaw model) use
-    curses or input() prompts that spin at 100% CPU when stdin is a pipe.
-    This guard prevents accidental non-interactive invocation.
+    交互式 TUI 命令（kclaw tools、kclaw setup、kclaw model）使用
+    curses 或 input() 提示，在 stdin 是管道时会以 100% CPU 空转。
+    此保护防止意外的非交互式调用。
     """
     if not sys.stdin.isatty():
         print(
-            f"Error: 'kclaw {command_name}' requires an interactive terminal.\n"
-            f"It cannot be run through a pipe or non-interactive subprocess.\n"
-            f"Run it directly in your terminal instead.",
+            f"错误: 'kclaw {command_name}' 需要交互式终端。\n"
+            f"无法通过管道或非交互式子进程运行。\n"
+            f"请直接在终端中运行。",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -72,16 +72,16 @@ PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # ---------------------------------------------------------------------------
-# Profile override — MUST happen before any kclaw module import.
+# Profile 覆盖 — 必须在任何 kclaw 模块导入之前发生。
 #
-# Many modules cache KCLAW_HOME at import time (module-level constants).
-# We intercept --profile/-p from sys.argv here and set the env var so that
-# every subsequent ``os.getenv("KCLAW_HOME", ...)`` resolves correctly.
-# The flag is stripped from sys.argv so argparse never sees it.
-# Falls back to ~/.kclaw/active_profile for sticky default.
+# 许多模块在导入时缓存 KCLAW_HOME（模块级常量）。
+# 我们在此拦截 sys.argv 中的 --profile/-p 并设置环境变量，以便
+# 每个后续的 ``os.getenv("KCLAW_HOME", ...)`` 都能正确解析。
+# 标志从 sys.argv 中剥离，以便 argparse 永远不会看到它。
+# 回退到 ~/.kclaw/active_profile 作为粘性默认值。
 # ---------------------------------------------------------------------------
 def _apply_profile_override() -> None:
-    """Pre-parse --profile/-p and set KCLAW_HOME before module imports."""
+    """在模块导入之前预解析 --profile/-p 并设置 KCLAW_HOME。"""
     argv = sys.argv[1:]
     profile_name = None
     consume = 0
@@ -136,14 +136,14 @@ def _apply_profile_override() -> None:
 
 _apply_profile_override()
 
-# Load .env from ~/.kclaw/.env first, then project root as dev fallback.
-# User-managed env files should override stale shell exports on restart.
+# 从 ~/.kclaw/.env 首先加载 .env，然后项目根目录作为开发回退。
+# 用户管理的 env 文件应在重新启动时覆盖过时的 shell 导出。
 from kclaw_cli.config import get_kclaw_home
 from kclaw_cli.env_loader import load_kclaw_dotenv
 load_kclaw_dotenv(project_env=PROJECT_ROOT / '.env')
 
-# Initialize centralized file logging early — all `kclaw` subcommands
-# (chat, setup, gateway, config, etc.) write to agent.log + errors.log.
+# 尽早初始化集中式文件日志 — 所有 `kclaw` 子命令
+# (chat、setup、gateway、config 等) 写入 agent.log + errors.log。
 try:
     from kclaw_logging import setup_logging as _setup_logging
     _setup_logging(mode="cli")

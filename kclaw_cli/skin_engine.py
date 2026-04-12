@@ -1,51 +1,51 @@
-"""KClaw CLI skin/theme engine.
+"""KClaw CLI 皮肤/主题引擎。
 
-A data-driven skin system that lets users customize the CLI's visual appearance.
-Skins are defined as YAML files in ~/.kclaw/skins/ or as built-in presets.
-No code changes are needed to add a new skin.
+数据驱动的皮肤系统，允许用户自定义 CLI 的视觉外观。
+皮肤定义为 ~/.kclaw/skins/ 中的 YAML 文件或内置预设。
+添加新皮肤无需代码更改。
 
-SKIN YAML SCHEMA
+皮肤 YAML 模式
 ================
 
-All fields are optional. Missing values inherit from the ``default`` skin.
+所有字段都是可选的。缺失的值从 default 皮肤继承。
 
 .. code-block:: yaml
 
-    # Required: skin identity
-    name: mytheme                         # Unique skin name (lowercase, hyphens ok)
-    description: Short description        # Shown in /skin listing
+    # 必需：皮肤标识
+    name: mytheme                         # 唯一皮肤名称（小写，允许连字符）
+    description: 简短描述        # 在 /skin 列表中显示
 
-    # Colors: hex values for Rich markup (banner, UI, response box)
+    # 颜色：用于 Rich 标记的十六进制值（横幅、UI、响应框）
     colors:
-      banner_border: "#CD7F32"            # Panel border color
-      banner_title: "#FFD700"             # Panel title text color
-      banner_accent: "#FFBF00"            # Section headers (Available Tools, etc.)
-      banner_dim: "#B8860B"               # Dim/muted text (separators, labels)
-      banner_text: "#FFF8DC"              # Body text (tool names, skill names)
-      ui_accent: "#FFBF00"               # General UI accent
-      ui_label: "#4dd0e1"                # UI labels
-      ui_ok: "#4caf50"                   # Success indicators
-      ui_error: "#ef5350"                # Error indicators
-      ui_warn: "#ffa726"                 # Warning indicators
-      prompt: "#FFF8DC"                  # Prompt text color
-      input_rule: "#CD7F32"              # Input area horizontal rule
-      response_border: "#FFD700"         # Response box border (ANSI)
-      session_label: "#DAA520"           # Session label color
-      session_border: "#8B8682"          # Session ID dim color
+      banner_border: "#CD7F32"            # 面板边框颜色
+      banner_title: "#FFD700"             # 面板标题文本颜色
+      banner_accent: "#FFBF00"            # 小节标题（可用工具等）
+      banner_dim: "#B8860B"               # 暗淡/柔和文本（分隔符、标签）
+      banner_text: "#FFF8DC"              # 正文文本（工具名称、技能名称）
+      ui_accent: "#FFBF00"               # 通用 UI 强调色
+      ui_label: "#4dd0e1"                # UI 标签
+      ui_ok: "#4caf50"                   # 成功指示器
+      ui_error: "#ef5350"                # 错误指示器
+      ui_warn: "#ffa726"                 # 警告指示器
+      prompt: "#FFF8DC"                  # 提示符文本颜色
+      input_rule: "#CD7F32"              # 输入区域水平线
+      response_border: "#FFD700"         # 响应框边框（ANSI）
+      session_label: "#DAA520"           # 会话标签颜色
+      session_border: "#8B8682"          # 会话 ID 暗淡颜色
 
-    # Spinner: customize the animated spinner during API calls
+    # Spinner：在 API 调用期间自定义动画微调器
     spinner:
-      waiting_faces:                      # Faces shown while waiting for API
+      waiting_faces:                      # 等待 API 响应时显示的表情
         - "(⚔)"
         - "(⛨)"
-      thinking_faces:                     # Faces shown during reasoning
+      thinking_faces:                     # 推理期间显示的表情
         - "(⌁)"
         - "(<>)"
-      thinking_verbs:                     # Verbs for spinner messages
+      thinking_verbs:                     # 微调器消息的动词
         - "forging"
         - "plotting"
-      wings:                              # Optional left/right spinner decorations
-        - ["⟪⚔", "⚔⟫"]                  # Each entry is [left, right] pair
+      wings:                              # 可选的左/右微调器装饰
+        - ["⟪⚔", "⚔⟫"]                  # 每个条目是 [左, 右] 对
         - ["⟪▲", "▲⟫"]
 
     # Branding: text strings used throughout the CLI

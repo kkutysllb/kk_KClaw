@@ -1,4 +1,4 @@
-"""Helpers for Nous subscription managed-tool capabilities."""
+"""Nous 订阅托管工具功能的辅助函数。"""
 
 from __future__ import annotations
 
@@ -160,7 +160,7 @@ def _resolve_browser_feature_state(
     direct_firecrawl: bool,
     managed_browser_available: bool,
 ) -> tuple[str, bool, bool, bool]:
-    """Resolve browser availability using the same precedence as runtime."""
+    """使用与运行时相同的优先级解析浏览器可用性。"""
     if direct_camofox:
         return "camofox", True, bool(browser_tool_enabled), False
 

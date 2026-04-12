@@ -1,11 +1,11 @@
 """
-MCP Server Management CLI — ``kclaw mcp`` subcommand.
+MCP 服务器管理 CLI — kclaw mcp 子命令。
 
-Implements ``kclaw mcp add/remove/list/test/configure`` for interactive
-MCP server lifecycle management (issue #690 Phase 2).
+实现 kclaw mcp add/remove/list/test/configure，用于交互式
+MCP 服务器生命周期管理（issue #690 Phase 2）。
 
-Relies on tools/mcp_tool.py for connection/discovery and keeps
-configuration in ~/.kclaw/config.yaml under the ``mcp_servers`` key.
+依赖 tools/mcp_tool.py 进行连接/发现，并保持
+在 ~/.kclaw/config.yaml 的 mcp_servers 键下配置。
 """
 
 import asyncio

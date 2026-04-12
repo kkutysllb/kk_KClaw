@@ -1,8 +1,8 @@
-"""Shared curses-based multi-select checklist for KClaw CLI.
+"""KClaw CLI 共享的基于 curses 的多选清单。
 
-Used by both ``kclaw tools`` and ``kclaw skills`` to present a
-toggleable list of items.  Falls back to a numbered text UI when
-curses is unavailable (Windows without curses, piped stdin, etc.).
+供 ``kclaw tools`` 和 ``kclaw skills`` 使用，用于显示可切换的列表项。
+当 curses 不可用时（Windows 无 curses、stdin 被管道等）
+回退到带编号的文本界面。
 """
 
 import sys
@@ -16,18 +16,18 @@ def curses_checklist(
     items: List[str],
     pre_selected: Set[int],
 ) -> Set[int]:
-    """Multi-select checklist.  Returns set of **selected** indices.
+    """多选清单。返回 **已选择** 的索引集合。
 
-    Args:
-        title: Header text shown at the top of the checklist.
-        items: Display labels for each row.
-        pre_selected: Indices that start checked.
+    参数:
+        title: 显示在清单顶部的标题文本。
+        items: 每行的显示标签。
+        pre_selected: 初始勾选的索引。
 
-    Returns:
-        The indices the user confirmed as checked.  On cancel (ESC/q),
-        returns ``pre_selected`` unchanged.
+    返回:
+        用户确认勾选的索引集合。取消（ESC/q）时，
+        返回 ``pre_selected`` 不变。
     """
-    # Safety: return defaults when stdin is not a terminal.
+    # 安全检查：当 stdin 不是终端时返回默认值。
     if not sys.stdin.isatty():
         return set(pre_selected)
 
@@ -57,7 +57,7 @@ def curses_checklist(
                     stdscr.addnstr(0, 0, title, max_x - 1, hattr)
                     stdscr.addnstr(
                         1, 0,
-                        "  ↑↓ navigate  SPACE toggle  ENTER confirm  ESC cancel",
+                        "  ↑↓ 导航  空格 切换  回车 确认  ESC 取消",
                         max_x - 1, curses.A_DIM,
                     )
                 except curses.error:
@@ -110,12 +110,12 @@ def curses_checklist(
         return result[0] if result[0] is not None else set(pre_selected)
 
     except Exception:
-        pass  # fall through to numbered fallback
+        pass  # 回退到带编号的文本模式
 
-    # ── Numbered text fallback ────────────────────────────────────────────
+    # ── 带编号的文本回退 ────────────────────────────────────────────
     selected = set(pre_selected)
     print(color(f"\n  {title}", Colors.YELLOW))
-    print(color("  Toggle by number, Enter to confirm.\n", Colors.DIM))
+    print(color("  按编号切换，回车确认。\n", Colors.DIM))
 
     while True:
         for i, label in enumerate(items):
@@ -124,7 +124,7 @@ def curses_checklist(
         print()
 
         try:
-            raw = input(color("  Number to toggle, 's' to save, 'q' to cancel: ", Colors.DIM)).strip()
+            raw = input(color("  输入编号切换，'s' 保存，'q' 取消: ", Colors.DIM)).strip()
         except (KeyboardInterrupt, EOFError):
             return set(pre_selected)
 
@@ -137,4 +137,4 @@ def curses_checklist(
             if 0 <= idx < len(items):
                 selected.symmetric_difference_update({idx})
         except ValueError:
-            print(color("  Invalid input", Colors.DIM))
+            print(color("  无效输入", Colors.DIM))

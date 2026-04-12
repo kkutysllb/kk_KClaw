@@ -1,22 +1,22 @@
 """
-Profile management for multiple isolated KClaw instances.
+多个隔离 KClaw 实例的 Profile 管理。
 
-Each profile is a fully independent KCLAW_HOME directory with its own
-config.yaml, .env, memory, sessions, skills, gateway, cron, and logs.
-Profiles live under ``~/.kclaw/profiles/<name>/`` by default.
+每个 profile 都是完全独立的 KCLAW_HOME 目录，有自己的
+config.yaml、.env、memory、sessions、skills、gateway、cron 和 logs。
+Profile 默认位于 ~/.kclaw/profiles/<name>/ 下。
 
-The "default" profile is ``~/.kclaw`` itself — backward compatible,
-zero migration needed.
+"default" profile 是 ~/.kclaw 本身 — 向后兼容，
+无需迁移。
 
-Usage::
+用法::
 
-    kclaw profile create coder          # fresh profile + bundled skills
-    kclaw profile create coder --clone  # also copy config, .env, SOUL.md
-    kclaw profile create coder --clone-all  # full copy of source profile
-    coder chat                           # use via wrapper alias
-    kclaw -p coder chat                 # or via flag
-    kclaw profile use coder             # set as sticky default
-    kclaw profile delete coder          # remove profile + alias + service
+    kclaw profile create coder          # 新 profile + 捆绑技能
+    kclaw profile create coder --clone  # 也复制 config、.env、SOUL.md
+    kclaw profile create coder --clone-all  # 完整复制源 profile
+    coder chat                           # 通过包装器别名使用
+    kclaw -p coder chat                 # 或通过标志
+    kclaw profile use coder             # 设置为粘性默认
+    kclaw profile delete coder          # 移除 profile + 别名 + 服务
 """
 
 import json

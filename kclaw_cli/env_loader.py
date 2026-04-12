@@ -1,4 +1,4 @@
-"""Helpers for loading KClaw .env files consistently across entrypoints."""
+"""跨入口点一致加载 KClaw .env 文件的帮助函数。"""
 
 from __future__ import annotations
 
@@ -20,13 +20,12 @@ def load_kclaw_dotenv(
     kclaw_home: str | os.PathLike | None = None,
     project_env: str | os.PathLike | None = None,
 ) -> list[Path]:
-    """Load KClaw environment files with user config taking precedence.
+    """加载 KClaw 环境文件，用户配置优先。
 
-    Behavior:
-    - `~/.kclaw/.env` overrides stale shell-exported values when present.
-    - project `.env` acts as a dev fallback and only fills missing values when
-      the user env exists.
-    - if no user env exists, the project `.env` also overrides stale shell vars.
+    行为：
+    - `~/.kclaw/.env` 存在时覆盖过时的 shell 导出值。
+    - 项目 `.env` 作为开发回退，仅在用户环境存在时填充缺失值。
+    - 如果不存在用户环境，项目 `.env` 也会覆盖过时的 shell 变量。
     """
     loaded: list[Path] = []
 

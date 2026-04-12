@@ -1,9 +1,9 @@
 """
-Dump command for kclaw CLI.
+kclaw CLI 的 dump 命令。
 
-Outputs a compact, plain-text summary of the user's KClaw setup
-that can be copy-pasted into Discord/GitHub/Telegram for support context.
-No ANSI colors, no checkmarks — just data.
+输出用户 KClaw 设置的紧凑纯文本摘要，
+可复制粘贴到 Discord/GitHub/Telegram 作为支持上下文。
+无 ANSI 颜色，无勾选标记 — 只有数据。
 """
 
 import json
@@ -18,7 +18,7 @@ from kclaw_constants import display_kclaw_home
 
 
 def _get_git_commit(project_root: Path) -> str:
-    """Return short git commit hash, or '(unknown)'."""
+    """返回短 git 提交哈希，或 '(unknown)'。"""
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short=8", "HEAD"],
@@ -33,12 +33,12 @@ def _get_git_commit(project_root: Path) -> str:
 
 
 def _key_present(name: str) -> str:
-    """Return 'set' or 'not set' for an env var."""
-    return "set" if os.getenv(name) else "not set"
+    """返回环境变量的 'set' 或 'not set'。"""
+    return "已设置" if os.getenv(name) else "未设置"
 
 
 def _redact(value: str) -> str:
-    """Redact all but first 4 and last 4 chars."""
+    """脱敏除首尾4个字符外的所有内容。"""
     if not value:
         return ""
     if len(value) < 12:
@@ -47,7 +47,7 @@ def _redact(value: str) -> str:
 
 
 def _gateway_status() -> str:
-    """Return a short gateway status string."""
+    """返回简短网关状态字符串。"""
     if sys.platform.startswith("linux"):
         try:
             from kclaw_cli.gateway import get_service_name
@@ -59,7 +59,7 @@ def _gateway_status() -> str:
                 ["systemctl", "--user", "is-active", svc],
                 capture_output=True, text=True, timeout=5,
             )
-            return "running (systemd)" if r.stdout.strip() == "active" else "stopped"
+            return "运行中 (systemd)" if r.stdout.strip() == "active" else "已停止"
         except Exception:
             return "unknown"
     elif sys.platform == "darwin":
@@ -69,14 +69,14 @@ def _gateway_status() -> str:
                 ["launchctl", "list", get_launchd_label()],
                 capture_output=True, text=True, timeout=5,
             )
-            return "loaded (launchd)" if r.returncode == 0 else "not loaded"
+            return "已加载 (launchd)" if r.returncode == 0 else "未加载"
         except Exception:
             return "unknown"
     return "N/A"
 
 
 def _count_skills(kclaw_home: Path) -> int:
-    """Count installed skills."""
+    """统计已安装的技能数量。"""
     skills_dir = kclaw_home / "skills"
     if not skills_dir.is_dir():
         return 0
@@ -87,14 +87,14 @@ def _count_skills(kclaw_home: Path) -> int:
 
 
 def _count_mcp_servers(config: dict) -> int:
-    """Count configured MCP servers."""
+    """统计已配置的 MCP 服务器数量。"""
     mcp = config.get("mcp", {})
     servers = mcp.get("servers", {})
     return len(servers)
 
 
 def _cron_summary(kclaw_home: Path) -> str:
-    """Return cron jobs summary."""
+    """返回 cron 任务摘要。"""
     jobs_file = kclaw_home / "cron" / "jobs.json"
     if not jobs_file.exists():
         return "0"
@@ -109,7 +109,7 @@ def _cron_summary(kclaw_home: Path) -> str:
 
 
 def _configured_platforms() -> list[str]:
-    """Return list of configured messaging platform names."""
+    """返回已配置的消息平台名称列表。"""
     checks = {
         "telegram": "TELEGRAM_BOT_TOKEN",
         "discord": "DISCORD_BOT_TOKEN",
@@ -129,31 +129,31 @@ def _configured_platforms() -> list[str]:
 
 
 def _memory_provider(config: dict) -> str:
-    """Return the active memory provider name."""
+    """返回活动记忆提供者名称。"""
     mem = config.get("memory", {})
     provider = mem.get("provider", "")
     return provider if provider else "built-in"
 
 
 def _get_model_and_provider(config: dict) -> tuple[str, str]:
-    """Extract model and provider from config."""
+    """从配置中提取模型和提供者。"""
     model_cfg = config.get("model", "")
     if isinstance(model_cfg, dict):
-        model = model_cfg.get("default") or model_cfg.get("model") or model_cfg.get("name") or "(not set)"
-        provider = model_cfg.get("provider") or "(auto)"
+        model = model_cfg.get("default") or model_cfg.get("model") or model_cfg.get("name") or "(未设置)"
+        provider = model_cfg.get("provider") or "(自动)"
     elif isinstance(model_cfg, str):
-        model = model_cfg or "(not set)"
+        model = model_cfg or "(未设置)"
         provider = "(auto)"
     else:
-        model = "(not set)"
+        model = "(未设置)"
         provider = "(auto)"
     return model, provider
 
 
 def _config_overrides(config: dict) -> dict[str, str]:
-    """Find non-default config values worth reporting.
+    """查找值得报告的非默认配置值。
     
-    Returns a flat dict of dotpath -> value for interesting overrides.
+    返回点路径 -> 值的扁平字典，用于有趣的覆盖。
     """
     from kclaw_cli.config import DEFAULT_CONFIG
 
@@ -203,10 +203,10 @@ def _config_overrides(config: dict) -> dict[str, str]:
 
 
 def run_dump(args):
-    """Output a compact, copy-pasteable setup summary."""
+    """输出紧凑的、可复制粘贴的设置摘要。"""
     show_keys = getattr(args, "show_keys", False)
 
-    # Load env from .env file so key checks work
+    # 从 .env 文件加载环境变量以使密钥检查生效
     from dotenv import load_dotenv
     env_path = get_env_path()
     if env_path.exists():
@@ -214,7 +214,7 @@ def run_dump(args):
             load_dotenv(env_path, encoding="utf-8")
         except UnicodeDecodeError:
             load_dotenv(env_path, encoding="latin-1")
-    # Also try project .env as dev fallback
+    # 也尝试项目 .env 作为开发回退
     load_dotenv(get_project_root() / ".env", override=False, encoding="utf-8")
 
     project_root = get_project_root()
@@ -223,7 +223,7 @@ def run_dump(args):
     try:
         from kclaw_cli import __version__, __release_date__
     except ImportError:
-        __version__ = "(unknown)"
+        __version__ = "(未知)"
         __release_date__ = ""
 
     commit = _get_git_commit(project_root)
@@ -238,22 +238,22 @@ def run_dump(args):
     # Profile
     try:
         from kclaw_cli.profiles import get_active_profile_name
-        profile = get_active_profile_name() or "(default)"
+        profile = get_active_profile_name() or "(默认)"
     except Exception:
-        profile = "(default)"
+        profile = "(默认)"
 
-    # Terminal backend
+    # 终端后端
     terminal_cfg = config.get("terminal", {})
     backend = terminal_cfg.get("backend", "local")
 
-    # OpenAI SDK version
+    # OpenAI SDK 版本
     try:
         import openai
         openai_ver = openai.__version__
     except ImportError:
-        openai_ver = "not installed"
+        openai_ver = "未安装"
 
-    # OS info
+    # 操作系统信息
     os_info = f"{platform.system()} {platform.release()} {platform.machine()}"
 
     lines = []
@@ -272,7 +272,7 @@ def run_dump(args):
     lines.append(f"provider:         {provider}")
     lines.append(f"terminal:         {backend}")
 
-    # API keys
+    # API 密钥
     lines.append("")
     lines.append("api_keys:")
     api_keys = [
@@ -305,25 +305,25 @@ def run_dump(args):
         if show_keys and val:
             display = _redact(val)
         else:
-            display = "set" if val else "not set"
+            display = "已设置" if val else "未设置"
         lines.append(f"  {label:<20} {display}")
 
-    # Features summary
+    # 功能摘要
     lines.append("")
     lines.append("features:")
 
     toolsets = config.get("toolsets", ["kclaw-cli"])
-    lines.append(f"  toolsets:           {', '.join(toolsets) if toolsets else '(default)'}")
+    lines.append(f"  toolsets:           {', '.join(toolsets) if toolsets else '(默认)'}")
     lines.append(f"  mcp_servers:        {_count_mcp_servers(config)}")
     lines.append(f"  memory_provider:    {_memory_provider(config)}")
     lines.append(f"  gateway:            {_gateway_status()}")
 
     platforms = _configured_platforms()
-    lines.append(f"  platforms:          {', '.join(platforms) if platforms else 'none'}")
+    lines.append(f"  platforms:          {', '.join(platforms) if platforms else '无'}")
     lines.append(f"  cron_jobs:          {_cron_summary(kclaw_home)}")
     lines.append(f"  skills:             {_count_skills(kclaw_home)}")
 
-    # Config overrides (non-default values)
+    # 配置覆盖（非默认值）
     overrides = _config_overrides(config)
     if overrides:
         lines.append("")

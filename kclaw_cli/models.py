@@ -1,8 +1,8 @@
 """
-Canonical model catalogs and lightweight validation helpers.
+规范模型目录和轻量级验证辅助函数。
 
-Add, remove, or reorder entries here — both `kclaw setup` and
-`kclaw` provider-selection will pick up the change automatically.
+在此处添加、移除或重新排序条目 — kclaw setup 和
+kclaw 提供者选择都会自动获取更改。
 """
 
 from __future__ import annotations

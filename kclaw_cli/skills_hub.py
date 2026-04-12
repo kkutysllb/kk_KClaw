@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Skills Hub CLI — Unified interface for the KClaw Skills Hub.
+技能中心 CLI — KClaw 技能中心的统一接口。
 
-Powers both:
-  - `kclaw skills <subcommand>` (CLI argparse entry point)
-  - `/skills <subcommand>` (slash command in the interactive chat)
+为以下两者提供支持：
+  - kclaw skills <子命令>（CLI argparse 入口点）
+  - /skills <子命令>（交互式聊天中的斜杠命令）
 
-All logic lives in shared do_* functions. The CLI entry point and slash command
-handler are thin wrappers that parse args and delegate.
+所有逻辑都存在于共享的 do_* 函数中。CLI 入口点和斜杠命令
+处理器是薄包装器，解析参数并委托。
 """
 
 import json

@@ -1,19 +1,19 @@
-"""GitHub Copilot authentication utilities.
+"""GitHub Copilot 认证工具。
 
-Implements the OAuth device code flow used by the Copilot CLI and handles
-token validation/exchange for the Copilot API.
+实现 Copilot CLI 使用的 OAuth 设备代码流程，并处理
+Copilot API 的令牌验证/交换。
 
-Token type support (per GitHub docs):
-  gho_          OAuth token           ✓  (default via copilot login)
-  github_pat_   Fine-grained PAT      ✓  (needs Copilot Requests permission)
-  ghu_          GitHub App token      ✓  (via environment variable)
-  ghp_          Classic PAT           ✗  NOT SUPPORTED
+令牌类型支持（根据 GitHub 文档）：
+  gho_          OAuth 令牌           ✓  （默认通过 copilot login）
+  github_pat_   细粒度 PAT          ✓  （需要 Copilot Requests 权限）
+  ghu_          GitHub App 令牌      ✓  （通过环境变量）
+  ghp_          经典 PAT            ✗  不支持
 
-Credential search order (matching Copilot CLI behaviour):
-  1. COPILOT_GITHUB_TOKEN env var
-  2. GH_TOKEN env var
-  3. GITHUB_TOKEN env var
-  4. gh auth token  CLI fallback
+凭据搜索顺序（匹配 Copilot CLI 行为）：
+  1. COPILOT_GITHUB_TOKEN 环境变量
+  2. GH_TOKEN 环境变量
+  3. GITHUB_TOKEN 环境变量
+  4. gh auth token  CLI 回退
 """
 
 from __future__ import annotations
@@ -29,60 +29,59 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# OAuth device code flow constants (same client ID as opencode/Copilot CLI)
+# OAuth 设备代码流程常量（与 opencode/Copilot CLI 相同的客户端 ID）
 COPILOT_OAUTH_CLIENT_ID = "Ov23li8tweQw6odWQebz"
 COPILOT_DEVICE_CODE_URL = "https://github.com/login/device/code"
 COPILOT_ACCESS_TOKEN_URL = "https://github.com/login/oauth/access_token"
 
-# Copilot API constants
+# Copilot API 常量
 COPILOT_TOKEN_EXCHANGE_URL = "https://api.github.com/copilot_internal/v2/token"
 COPILOT_API_BASE_URL = "https://api.githubcopilot.com"
 
-# Token type prefixes
+# 令牌类型前缀
 _CLASSIC_PAT_PREFIX = "ghp_"
 _SUPPORTED_PREFIXES = ("gho_", "github_pat_", "ghu_")
 
-# Env var search order (matches Copilot CLI)
+# 环境变量搜索顺序（匹配 Copilot CLI）
 COPILOT_ENV_VARS = ("COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN")
 
-# Polling constants
+# 轮询常量
 _DEVICE_CODE_POLL_INTERVAL = 5  # seconds
 _DEVICE_CODE_POLL_SAFETY_MARGIN = 3  # seconds
 
 
 def is_classic_pat(token: str) -> bool:
-    """Check if a token is a classic PAT (ghp_*), which Copilot doesn't support."""
+    """检查令牌是否为经典 PAT（ghp_*），Copilot 不支持此类型。"""
     return token.strip().startswith(_CLASSIC_PAT_PREFIX)
 
 
 def validate_copilot_token(token: str) -> tuple[bool, str]:
-    """Validate that a token is usable with the Copilot API.
+    """验证令牌是否可用于 Copilot API。
 
-    Returns (valid, message).
+    返回 (有效, 消息)。
     """
     token = token.strip()
     if not token:
-        return False, "Empty token"
+        return False, "空令牌"
 
     if token.startswith(_CLASSIC_PAT_PREFIX):
         return False, (
-            "Classic Personal Access Tokens (ghp_*) are not supported by the "
-            "Copilot API. Use one of:\n"
-            "  → `copilot login` or `kclaw model` to authenticate via OAuth\n"
-            "  → A fine-grained PAT (github_pat_*) with Copilot Requests permission\n"
-            "  → `gh auth login` with the default device code flow (produces gho_* tokens)"
+            "经典个人访问令牌（ghp_*）不被 Copilot API 支持。使用以下之一:\n"
+            "  → `copilot login` 或 `kclaw model` 通过 OAuth 认证\n"
+            "  → 具有 Copilot Requests 权限的细粒度 PAT（github_pat_*）\n"
+            "  → `gh auth login` 使用默认设备代码流程（生成 gho_* 令牌）"
         )
 
-    return True, "OK"
+    return True, "正常"
 
 
 def resolve_copilot_token() -> tuple[str, str]:
-    """Resolve a GitHub token suitable for Copilot API use.
+    """解析适合 Copilot API 使用的 GitHub 令牌。
 
-    Returns (token, source) where source describes where the token came from.
-    Raises ValueError if only a classic PAT is available.
+    返回 (令牌, 来源)，其中来源描述令牌的来源。
+    如果只有经典 PAT 可用则抛出 ValueError。
     """
-    # 1. Check env vars in priority order
+    # 1. 按优先级检查环境变量
     for env_var in COPILOT_ENV_VARS:
         val = os.getenv(env_var, "").strip()
         if val:
@@ -94,7 +93,7 @@ def resolve_copilot_token() -> tuple[str, str]:
                 continue
             return val, env_var
 
-    # 2. Fall back to gh auth token
+    # 2. 回退到 gh auth token
     token = _try_gh_cli_token()
     if token:
         valid, msg = validate_copilot_token(token)
@@ -108,7 +107,7 @@ def resolve_copilot_token() -> tuple[str, str]:
 
 
 def _gh_cli_candidates() -> list[str]:
-    """Return candidate ``gh`` binary paths, including common Homebrew installs."""
+    """返回候选 ``gh`` 二进制路径，包括常见的 Homebrew 安装位置。"""
     candidates: list[str] = []
 
     resolved = shutil.which("gh")
@@ -129,7 +128,7 @@ def _gh_cli_candidates() -> list[str]:
 
 
 def _try_gh_cli_token() -> Optional[str]:
-    """Return a token from ``gh auth token`` when the GitHub CLI is available."""
+    """当 GitHub CLI 可用时从 ``gh auth token`` 返回令牌。"""
     for gh_path in _gh_cli_candidates():
         try:
             result = subprocess.run(
@@ -146,19 +145,19 @@ def _try_gh_cli_token() -> Optional[str]:
     return None
 
 
-# ─── OAuth Device Code Flow ────────────────────────────────────────────────
+# ─── OAuth 设备代码流程 ────────────────────────────────────────────────
 
 def copilot_device_code_login(
     *,
     host: str = "github.com",
     timeout_seconds: float = 300,
 ) -> Optional[str]:
-    """Run the GitHub OAuth device code flow for Copilot.
+    """运行 GitHub Copilot 的 OAuth 设备代码流程。
 
-    Prints instructions for the user, polls for completion, and returns
-    the OAuth access token on success, or None on failure/cancellation.
+    打印用户说明，轮询完成情况，成功时返回
+    OAuth 访问令牌，失败/取消时返回 None。
 
-    This replicates the flow used by opencode and the Copilot CLI.
+    这复刻了 opencode 和 Copilot CLI 使用的流程。
     """
     import urllib.request
     import urllib.parse
@@ -167,7 +166,7 @@ def copilot_device_code_login(
     device_code_url = f"https://{domain}/login/device/code"
     access_token_url = f"https://{domain}/login/oauth/access_token"
 
-    # Step 1: Request device code
+    # 步骤 1: 请求设备代码
     data = urllib.parse.urlencode({
         "client_id": COPILOT_OAUTH_CLIENT_ID,
         "scope": "read:user",
@@ -187,8 +186,8 @@ def copilot_device_code_login(
         with urllib.request.urlopen(req, timeout=15) as resp:
             device_data = json.loads(resp.read().decode())
     except Exception as exc:
-        logger.error("Failed to initiate device authorization: %s", exc)
-        print(f"  ✗ Failed to start device authorization: {exc}")
+        logger.error("启动设备授权失败: %s", exc)
+        print(f"  ✗ 启动设备授权失败: {exc}")
         return None
 
     verification_uri = device_data.get("verification_uri", "https://github.com/login/device")
@@ -197,17 +196,17 @@ def copilot_device_code_login(
     interval = max(device_data.get("interval", _DEVICE_CODE_POLL_INTERVAL), 1)
 
     if not device_code or not user_code:
-        print("  ✗ GitHub did not return a device code.")
+        print("  ✗ GitHub 未返回设备代码。")
         return None
 
-    # Step 2: Show instructions
+    # 步骤 2: 显示说明
     print()
-    print(f"  Open this URL in your browser: {verification_uri}")
-    print(f"  Enter this code: {user_code}")
+    print(f"  在浏览器中打开此 URL: {verification_uri}")
+    print(f"  输入此代码: {user_code}")
     print()
-    print("  Waiting for authorization...", end="", flush=True)
+    print("  等待授权...", end="", flush=True)
 
-    # Step 3: Poll for completion
+    # 步骤 3: 轮询完成情况
     deadline = time.time() + timeout_seconds
 
     while time.time() < deadline:
@@ -245,7 +244,7 @@ def copilot_device_code_login(
             print(".", end="", flush=True)
             continue
         elif error == "slow_down":
-            # RFC 8628: add 5 seconds to polling interval
+            # RFC 8628: 增加 5 秒到轮询间隔
             server_interval = result.get("interval")
             if isinstance(server_interval, (int, float)) and server_interval > 0:
                 interval = int(server_interval)
@@ -255,32 +254,32 @@ def copilot_device_code_login(
             continue
         elif error == "expired_token":
             print()
-            print("  ✗ Device code expired. Please try again.")
+            print("  ✗ 设备代码已过期。请重试。")
             return None
         elif error == "access_denied":
             print()
-            print("  ✗ Authorization was denied.")
+            print("  ✗ 授权被拒绝。")
             return None
         elif error:
             print()
-            print(f"  ✗ Authorization failed: {error}")
+            print(f"  ✗ 授权失败: {error}")
             return None
 
     print()
-    print("  ✗ Timed out waiting for authorization.")
+    print("  ✗ 等待授权超时。")
     return None
 
 
-# ─── Copilot API Headers ───────────────────────────────────────────────────
+# ─── Copilot API 头信息 ───────────────────────────────────────────────────
 
 def copilot_request_headers(
     *,
     is_agent_turn: bool = True,
     is_vision: bool = False,
 ) -> dict[str, str]:
-    """Build the standard headers for Copilot API requests.
+    """为 Copilot API 请求构建标准头信息。
 
-    Replicates the header set used by opencode and the Copilot CLI.
+    复刻 opencode 和 Copilot CLI 使用的头信息集。
     """
     headers: dict[str, str] = {
         "Editor-Version": "vscode/1.104.1",
