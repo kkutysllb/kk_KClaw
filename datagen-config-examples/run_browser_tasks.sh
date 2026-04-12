@@ -1,26 +1,25 @@
 #!/bin/bash
 
 # =============================================================================
-# Example: Browser-Focused Data Generation
+# 示例：浏览器聚焦的数据生成
 # =============================================================================
 #
-# Generates tool-calling trajectories for browser automation tasks.
-# The agent navigates websites, fills forms, extracts information, etc.
+# 生成用于浏览器自动化任务的工具调用轨迹。
+# Agent 可以导航网站、填写表单、提取信息等。
 #
-# Distribution: browser 97%, web 20%, vision 12%, terminal 15%
+# 分布：浏览器 97%，网页 20%，视觉 12%，终端 15%
 #
-# Prerequisites:
-#   - OPENROUTER_API_KEY in ~/.kclaw/.env
-#   - BROWSERBASE_API_KEY in ~/.kclaw/.env (for browser tools)
-#   - A dataset JSONL file with one {"prompt": "..."} per line
+# 前置条件：
+#   - ~/.kclaw/.env 中配置了 OPENROUTER_API_KEY
+#   - ~/.kclaw/.env 中配置了 BROWSERBASE_API_KEY（用于浏览器工具）
+#   - 一个 JSONL 格式的数据集文件，每行包含一个 {"prompt": "..."}
 #
-# Usage:
+# 用法：
 #   cd ~/.kclaw/kclaw
 #   bash datagen-config-examples/run_browser_tasks.sh
 #
-# Output: data/browser_tasks_example/trajectories.jsonl
+# 输出：data/browser_tasks_example/trajectories.jsonl
 # =============================================================================
-
 mkdir -p logs
 
 LOG_FILE="logs/browser_tasks_$(date +%Y%m%d_%H%M%S).log"
@@ -54,12 +53,12 @@ IMPORTANT GUIDELINES:
 echo "✅ Done. Log: $LOG_FILE"
 
 # =============================================================================
-# Common options you can add:
+# 常用可添加的选项：
 #
-#   --resume                  Resume from checkpoint if interrupted
-#   --verbose                 Enable detailed logging
-#   --max_tokens=63000        Set max response tokens
-#   --reasoning_disabled      Disable model thinking/reasoning tokens
-#   --providers_allowed="anthropic,google"  Restrict to specific providers
-#   --prefill_messages_file="configs/prefill.json"  Few-shot priming
+#   --resume                  如果中断，从检查点恢复
+#   --verbose                 启用详细日志记录
+#   --max_tokens=63000        设置最大响应令牌数
+#   --reasoning_disabled      禁用模型思考/推理令牌
+#   --providers_allowed="anthropic,google"  限制为特定提供商
+#   --prefill_messages_file="configs/prefill.json"  少样本提示
 # =============================================================================
