@@ -1,9 +1,9 @@
-"""OpenAI-compatible shim that forwards KClaw requests to `copilot --acp`.
+"""兼容 OpenAI 的适配层，将 KClaw 请求转发到 `copilot --acp`。
 
-This adapter lets KClaw treat the GitHub Copilot ACP server as a chat-style
-backend. Each request starts a short-lived ACP session, sends the formatted
-conversation as a single prompt, collects text chunks, and converts the result
-back into the minimal shape KClaw expects from an OpenAI client.
+此适配器使 KClaw 可以将 GitHub Copilot ACP 服务器视为聊天式
+后端。每个请求启动一个短生命周期的 ACP 会话，将格式化的
+对话作为单个提示词发送，收集文本块，然后将结果转换回
+KClaw 期望的 OpenAI 客户端最小形状。
 """
 
 from __future__ import annotations
@@ -230,13 +230,13 @@ def _extract_tool_calls_from_text(text: str) -> tuple[list[SimpleNamespace], str
 def _ensure_path_within_cwd(path_text: str, cwd: str) -> Path:
     candidate = Path(path_text)
     if not candidate.is_absolute():
-        raise PermissionError("ACP file-system paths must be absolute.")
+        raise PermissionError("ACP 文件系统路径必须是绝对路径。")
     resolved = candidate.resolve()
     root = Path(cwd).resolve()
     try:
         resolved.relative_to(root)
     except ValueError as exc:
-        raise PermissionError(f"Path '{resolved}' is outside the session cwd '{root}'.") from exc
+        raise PermissionError(f"路径 '{resolved}' 在会话工作目录 '{root}' 之外。") from exc
     return resolved
 
 
@@ -254,7 +254,7 @@ class _ACPChatNamespace:
 
 
 class CopilotACPClient:
-    """Minimal OpenAI-client-compatible facade for Copilot ACP."""
+    """Copilot ACP 客户端的最小 OpenAI 兼容外观。"""
 
     def __init__(
         self,
@@ -354,13 +354,13 @@ class CopilotACPClient:
             )
         except FileNotFoundError as exc:
             raise RuntimeError(
-                f"Could not start Copilot ACP command '{self._acp_command}'. "
-                "Install GitHub Copilot CLI or set KCLAW_COPILOT_ACP_COMMAND/COPILOT_CLI_PATH."
+                f"无法启动 Copilot ACP 命令 '{self._acp_command}'。"
+                "请安装 GitHub Copilot CLI 或设置 KCLAW_COPILOT_ACP_COMMAND/COPILOT_CLI_PATH。"
             ) from exc
 
         if proc.stdin is None or proc.stdout is None:
             proc.kill()
-            raise RuntimeError("Copilot ACP process did not expose stdin/stdout pipes.")
+            raise RuntimeError("Copilot ACP 进程未暴露 stdin/stdout 管道。")
 
         self.is_closed = False
         with self._active_process_lock:
@@ -425,14 +425,14 @@ class CopilotACPClient:
                 if "error" in msg:
                     err = msg.get("error") or {}
                     raise RuntimeError(
-                        f"Copilot ACP {method} failed: {err.get('message') or err}"
+                        f"Copilot ACP {method} 失败：{err.get('message') or err}"
                     )
                 return msg.get("result")
 
             stderr_text = "\n".join(stderr_tail).strip()
             if proc.poll() is not None and stderr_text:
-                raise RuntimeError(f"Copilot ACP process exited early: {stderr_text}")
-            raise TimeoutError(f"Timed out waiting for Copilot ACP response to {method}.")
+                raise RuntimeError(f"Copilot ACP 进程提前退出：{stderr_text}")
+            raise TimeoutError(f"等待 Copilot ACP 响应 {method} 超时。")
 
         try:
             _request(
@@ -461,7 +461,7 @@ class CopilotACPClient:
             ) or {}
             session_id = str(session.get("sessionId") or "").strip()
             if not session_id:
-                raise RuntimeError("Copilot ACP did not return a sessionId.")
+                raise RuntimeError("Copilot ACP 未返回 sessionId。")
 
             text_parts: list[str] = []
             reasoning_parts: list[str] = []
@@ -562,7 +562,7 @@ class CopilotACPClient:
             response = _jsonrpc_error(
                 message_id,
                 -32601,
-                f"ACP client method '{method}' is not supported by KClaw yet.",
+                f"ACP 客户端方法 '{method}' 尚未被 KClaw 支持。",
             )
 
         process.stdin.write(json.dumps(response) + "\n")

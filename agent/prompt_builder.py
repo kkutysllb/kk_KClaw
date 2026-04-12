@@ -1,7 +1,7 @@
-"""System prompt assembly -- identity, platform hints, skills index, context files.
+"""系统提示词组装 — 身份、平台提示、技能索引、上下文文件。
 
-All functions are stateless. AIAgent._build_system_prompt() calls these to
-assemble pieces, then combines them with memory and ephemeral prompts.
+所有函数都是无状态的。AIAgent._build_system_prompt() 调用这些函数
+组装各部分，然后将它们与记忆和临时提示组合。
 """
 
 import json
@@ -29,8 +29,7 @@ from utils import atomic_json_write
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Context file scanning — detect prompt injection in AGENTS.md, .cursorrules,
-# SOUL.md before they get injected into the system prompt.
+# 上下文文件扫描 — 检测 AGENTS.md、.cursorrules、SOUL.md 中的提示注入
 # ---------------------------------------------------------------------------
 
 _CONTEXT_THREAT_PATTERNS = [
@@ -53,31 +52,30 @@ _CONTEXT_INVISIBLE_CHARS = {
 
 
 def _scan_context_content(content: str, filename: str) -> str:
-    """Scan context file content for injection. Returns sanitized content."""
+    """扫描上下文文件内容中的注入攻击。返回清理后的内容。"""
     findings = []
 
-    # Check invisible unicode
+    # 检查不可见 Unicode 字符
     for char in _CONTEXT_INVISIBLE_CHARS:
         if char in content:
             findings.append(f"invisible unicode U+{ord(char):04X}")
 
-    # Check threat patterns
+    # 检查威胁模式
     for pattern, pid in _CONTEXT_THREAT_PATTERNS:
         if re.search(pattern, content, re.IGNORECASE):
             findings.append(pid)
 
     if findings:
-        logger.warning("Context file %s blocked: %s", filename, ", ".join(findings))
-        return f"[BLOCKED: {filename} contained potential prompt injection ({', '.join(findings)}). Content not loaded.]"
+        logger.warning("上下文文件 %s 已阻止: %s", filename, ", ".join(findings))
+        return f"[已阻止: {filename} 包含潜在的提示注入（{', '.join(findings)}）。内容未加载。]"
 
     return content
 
 
 def _find_git_root(start: Path) -> Optional[Path]:
-    """Walk *start* and its parents looking for a ``.git`` directory.
+    """遍历 *start* 及其父目录查找 ``.git`` 目录。
 
-    Returns the directory containing ``.git``, or ``None`` if we hit the
-    filesystem root without finding one.
+    返回包含 ``.git`` 的目录，如果到达文件系统根目录仍未找到则返回 ``None``。
     """
     current = start.resolve()
     for parent in [current, *current.parents]:
@@ -90,11 +88,10 @@ _KCLAW_MD_NAMES = (".kclaw.md", "KCLAW.md")
 
 
 def _find_kclaw_md(cwd: Path) -> Optional[Path]:
-    """Discover the nearest ``.kclaw.md`` or ``KCLAW.md``.
+    """查找最近的 ``.kclaw.md`` 或 ``KCLAW.md``。
 
-    Search order: *cwd* first, then each parent directory up to (and
-    including) the git repository root.  Returns the first match, or
-    ``None`` if nothing is found.
+    搜索顺序: 先 *cwd*，然后每个父目录直到（并包括）git 仓库根目录。
+    返回第一个匹配，或 ``None`` 表示未找到。
     """
     stop_at = _find_git_root(cwd)
     current = cwd.resolve()
@@ -104,31 +101,30 @@ def _find_kclaw_md(cwd: Path) -> Optional[Path]:
             candidate = directory / name
             if candidate.is_file():
                 return candidate
-        # Stop walking at the git root (or filesystem root).
+        # 在 git 根目录（或文件系统根目录）停止遍历。
         if stop_at and directory == stop_at:
             break
     return None
 
 
 def _strip_yaml_frontmatter(content: str) -> str:
-    """Remove optional YAML frontmatter (``---`` delimited) from *content*.
+    """从 *content* 中移除可选的 YAML 前置元数据（``---`` 分隔）。
 
-    The frontmatter may contain structured config (model overrides, tool
-    settings) that will be handled separately in a future PR.  For now we
-    strip it so only the human-readable markdown body is injected into the
-    system prompt.
+    前置元数据可能包含结构化配置（模型覆盖、工具设置），
+    将在未来的 PR 中单独处理。目前我们将其去除，
+    只将人类可读的 markdown 正文注入系统提示词。
     """
     if content.startswith("---"):
         end = content.find("\n---", 3)
         if end != -1:
-            # Skip past the closing --- and any trailing newline
+            # 跳过闭合 --- 及其后的换行符
             body = content[end + 4:].lstrip("\n")
             return body if body else content
     return content
 
 
 # =========================================================================
-# Constants
+# 常量
 # =========================================================================
 
 DEFAULT_AGENT_IDENTITY = (
@@ -185,14 +181,13 @@ TOOL_USE_ENFORCEMENT_GUIDANCE = (
     "without acting are not acceptable."
 )
 
-# Model name substrings that trigger tool-use enforcement guidance.
-# Add new patterns here when a model family needs explicit steering.
+# 触发工具使用强制指引的模型名称子串。
+# 当模型系列需要显式引导时在此添加新模式。
 TOOL_USE_ENFORCEMENT_MODELS = ("gpt", "codex", "gemini", "gemma", "grok")
 
-# OpenAI GPT/Codex-specific execution guidance.  Addresses known failure modes
-# where GPT models abandon work on partial results, skip prerequisite lookups,
-# hallucinate instead of using tools, and declare "done" without verification.
-# Inspired by patterns from OpenAI's GPT-5.4 prompting guide & OpenClaw PR #38953.
+# OpenAI GPT/Codex 特定的执行指引。解决 GPT 模型在部分结果上放弃工作、
+# 跳过前置查找、幻觉替代工具使用以及未验证就声明"完成"的已知故障模式。
+# 灵感来自 OpenAI GPT-5.4 提示指南和 OpenClaw PR #38953。
 OPENAI_MODEL_EXECUTION_GUIDANCE = (
     "# Execution discipline\n"
     "<tool_persistence>\n"
@@ -253,8 +248,8 @@ OPENAI_MODEL_EXECUTION_GUIDANCE = (
     "</missing_context>"
 )
 
-# Gemini/Gemma-specific operational guidance, adapted from OpenCode's gemini.txt.
-# Injected alongside TOOL_USE_ENFORCEMENT_GUIDANCE when the model is Gemini or Gemma.
+# Gemini/Gemma 特定的操作指引，改编自 OpenCode 的 gemini.txt。
+# 当模型为 Gemini 或 Gemma 时与 TOOL_USE_ENFORCEMENT_GUIDANCE 一起注入。
 GOOGLE_MODEL_OPERATIONAL_GUIDANCE = (
     "# Google model operational directives\n"
     "Follow these operational rules strictly:\n"
@@ -275,11 +270,10 @@ GOOGLE_MODEL_OPERATIONAL_GUIDANCE = (
     "Don't stop with a plan — execute it.\n"
 )
 
-# Model name substrings that should use the 'developer' role instead of
-# 'system' for the system prompt.  OpenAI's newer models (GPT-5, Codex)
-# give stronger instruction-following weight to the 'developer' role.
-# The swap happens at the API boundary in _build_api_kwargs() so internal
-# message representation stays consistent ("system" everywhere).
+# 应使用 'developer' 角色而非 'system' 角色用于系统提示词的模型名称子串。
+# OpenAI 较新模型（GPT-5、Codex）对 'developer' 角色赋予更强的指令遵循权重。
+# 角色交换在 _build_api_kwargs() 的 API 边界进行，因此内部消息表示保持一致
+# （到处使用 "system"）。
 DEVELOPER_ROLE_MODELS = ("gpt-5", "codex")
 
 PLATFORM_HINTS = {
@@ -364,7 +358,7 @@ CONTEXT_TRUNCATE_TAIL_RATIO = 0.2
 
 
 # =========================================================================
-# Skills prompt cache
+# 技能提示缓存
 # =========================================================================
 
 _SKILLS_PROMPT_CACHE_MAX = 8
@@ -378,18 +372,18 @@ def _skills_prompt_snapshot_path() -> Path:
 
 
 def clear_skills_system_prompt_cache(*, clear_snapshot: bool = False) -> None:
-    """Drop the in-process skills prompt cache (and optionally the disk snapshot)."""
+    """清除进程内技能提示缓存（以及可选的磁盘快照）。"""
     with _SKILLS_PROMPT_CACHE_LOCK:
         _SKILLS_PROMPT_CACHE.clear()
     if clear_snapshot:
         try:
             _skills_prompt_snapshot_path().unlink(missing_ok=True)
         except OSError as e:
-            logger.debug("Could not remove skills prompt snapshot: %s", e)
+            logger.debug("无法移除技能提示快照: %s", e)
 
 
 def _build_skills_manifest(skills_dir: Path) -> dict[str, list[int]]:
-    """Build an mtime/size manifest of all SKILL.md and DESCRIPTION.md files."""
+    """构建所有 SKILL.md 和 DESCRIPTION.md 文件的修改时间/大小清单。"""
     manifest: dict[str, list[int]] = {}
     for filename in ("SKILL.md", "DESCRIPTION.md"):
         for path in iter_skill_index_files(skills_dir, filename):
@@ -402,7 +396,7 @@ def _build_skills_manifest(skills_dir: Path) -> dict[str, list[int]]:
 
 
 def _load_skills_snapshot(skills_dir: Path) -> Optional[dict]:
-    """Load the disk snapshot if it exists and its manifest still matches."""
+    """加载磁盘快照（如果存在且其清单仍然匹配）。"""
     snapshot_path = _skills_prompt_snapshot_path()
     if not snapshot_path.exists():
         return None
@@ -425,7 +419,7 @@ def _write_skills_snapshot(
     skill_entries: list[dict],
     category_descriptions: dict[str, str],
 ) -> None:
-    """Persist skill metadata to disk for fast cold-start reuse."""
+    """将技能元数据持久化到磁盘，以便快速冷启动复用。"""
     payload = {
         "version": _SKILLS_SNAPSHOT_VERSION,
         "manifest": manifest,
@@ -435,7 +429,7 @@ def _write_skills_snapshot(
     try:
         atomic_json_write(_skills_prompt_snapshot_path(), payload)
     except Exception as e:
-        logger.debug("Could not write skills prompt snapshot: %s", e)
+        logger.debug("无法写入技能提示快照: %s", e)
 
 
 def _build_snapshot_entry(
@@ -444,7 +438,7 @@ def _build_snapshot_entry(
     frontmatter: dict,
     description: str,
 ) -> dict:
-    """Build a serialisable metadata dict for one skill."""
+    """为一个技能构建可序列化的元数据字典。"""
     rel_path = skill_file.relative_to(skills_dir)
     parts = rel_path.parts
     if len(parts) >= 2:
@@ -469,14 +463,14 @@ def _build_snapshot_entry(
 
 
 # =========================================================================
-# Skills index
+# 技能索引
 # =========================================================================
 
 def _parse_skill_file(skill_file: Path) -> tuple[bool, dict, str]:
-    """Read a SKILL.md once and return platform compatibility, frontmatter, and description.
+    """读取一次 SKILL.md 并返回平台兼容性、前置元数据和描述。
 
-    Returns (is_compatible, frontmatter, description). On any error, returns
-    (True, {}, "") to err on the side of showing the skill.
+    返回 (is_compatible, frontmatter, description)。任何错误时返回
+    (True, {}, "")，以偏向显示该技能。
     """
     try:
         raw = skill_file.read_text(encoding="utf-8")[:2000]
@@ -487,18 +481,18 @@ def _parse_skill_file(skill_file: Path) -> tuple[bool, dict, str]:
 
         return True, frontmatter, extract_skill_description(frontmatter)
     except Exception as e:
-        logger.debug("Failed to parse skill file %s: %s", skill_file, e)
+        logger.debug("解析技能文件失败 %s: %s", skill_file, e)
         return True, {}, ""
 
 
 def _read_skill_conditions(skill_file: Path) -> dict:
-    """Extract conditional activation fields from SKILL.md frontmatter."""
+    """从 SKILL.md 前置元数据中提取条件激活字段。"""
     try:
         raw = skill_file.read_text(encoding="utf-8")[:2000]
         frontmatter, _ = parse_frontmatter(raw)
         return extract_skill_conditions(frontmatter)
     except Exception as e:
-        logger.debug("Failed to read skill conditions from %s: %s", skill_file, e)
+        logger.debug("从 %s 读取技能条件失败: %s", skill_file, e)
         return {}
 
 
@@ -507,14 +501,14 @@ def _skill_should_show(
     available_tools: "set[str] | None",
     available_toolsets: "set[str] | None",
 ) -> bool:
-    """Return False if the skill's conditional activation rules exclude it."""
+    """当技能的条件激活规则排除该技能时返回 False。"""
     if available_tools is None and available_toolsets is None:
-        return True  # No filtering info — show everything (backward compat)
+        return True  # 无过滤信息 — 显示所有（向后兼容）
 
     at = available_tools or set()
     ats = available_toolsets or set()
 
-    # fallback_for: hide when the primary tool/toolset IS available
+    # fallback_for: 当主要工具/工具集可用时隐藏
     for ts in conditions.get("fallback_for_toolsets", []):
         if ts in ats:
             return False
@@ -522,7 +516,7 @@ def _skill_should_show(
         if t in at:
             return False
 
-    # requires: hide when a required tool/toolset is NOT available
+    # requires: 当所需工具/工具集不可用时隐藏
     for ts in conditions.get("requires_toolsets", []):
         if ts not in ats:
             return False
@@ -537,30 +531,29 @@ def build_skills_system_prompt(
     available_tools: "set[str] | None" = None,
     available_toolsets: "set[str] | None" = None,
 ) -> str:
-    """Build a compact skill index for the system prompt.
+    """构建用于系统提示词的紧凑技能索引。
 
-    Two-layer cache:
-      1. In-process LRU dict keyed by (skills_dir, tools, toolsets)
-      2. Disk snapshot (``.skills_prompt_snapshot.json``) validated by
-         mtime/size manifest — survives process restarts
+    两层缓存:
+      1. 进程内 LRU 字典，以 (skills_dir, tools, toolsets) 为键
+      2. 磁盘快照（``.skills_prompt_snapshot.json``），通过修改时间/大小
+         清单验证 — 跨进程重启存活
 
-    Falls back to a full filesystem scan when both layers miss.
+    当两层都未命中时回退到完整文件系统扫描。
 
-    External skill directories (``skills.external_dirs`` in config.yaml) are
-    scanned alongside the local ``~/.kclaw/skills/`` directory.  External dirs
-    are read-only — they appear in the index but new skills are always created
-    in the local dir.  Local skills take precedence when names collide.
+    外部技能目录（config.yaml 中的 ``skills.external_dirs``）与本地
+    ``~/.kclaw/skills/`` 目录一起扫描。外部目录为只读 — 它们出现在
+    索引中但新技能始终创建在本地目录。名称冲突时本地技能优先。
     """
     kclaw_home = get_kclaw_home()
     skills_dir = kclaw_home / "skills"
-    external_dirs = get_all_skills_dirs()[1:]  # skip local (index 0)
+    external_dirs = get_all_skills_dirs()[1:]  # 跳过本地（索引 0）
 
     if not skills_dir.exists() and not external_dirs:
         return ""
 
-    # ── Layer 1: in-process LRU cache ─────────────────────────────────
-    # Include the resolved platform so per-platform disabled-skill lists
-    # produce distinct cache entries (gateway serves multiple platforms).
+    # ── 第 1 层: 进程内 LRU 缓存 ─────────────────────────────────
+    # 包含解析的平台，使每个平台的禁用技能列表
+    # 产生不同的缓存条目（gateway 服务多个平台）。
     _platform_hint = (
         os.environ.get("KCLAW_PLATFORM")
         or os.environ.get("KCLAW_SESSION_PLATFORM")
@@ -581,14 +574,14 @@ def build_skills_system_prompt(
 
     disabled = get_disabled_skill_names()
 
-    # ── Layer 2: disk snapshot ────────────────────────────────────────
+    # ── 第 2 层: 磁盘快照 ────────────────────────────────────────
     snapshot = _load_skills_snapshot(skills_dir)
 
     skills_by_category: dict[str, list[tuple[str, str]]] = {}
     category_descriptions: dict[str, str] = {}
 
     if snapshot is not None:
-        # Fast path: use pre-parsed metadata from disk
+        # 快速路径: 使用从磁盘预解析的元数据
         for entry in snapshot.get("skills", []):
             if not isinstance(entry, dict):
                 continue
@@ -614,7 +607,7 @@ def build_skills_system_prompt(
             for k, v in (snapshot.get("category_descriptions") or {}).items()
         }
     else:
-        # Cold path: full filesystem scan + write snapshot for next time
+        # 冷启动路径: 完整文件系统扫描 + 写入快照供下次使用
         skill_entries: list[dict] = []
         for skill_file in iter_skill_index_files(skills_dir, "SKILL.md"):
             is_compatible, frontmatter, desc = _parse_skill_file(skill_file)
@@ -635,7 +628,7 @@ def build_skills_system_prompt(
                 (skill_name, entry["description"])
             )
 
-        # Read category-level DESCRIPTION.md files
+        # 读取类别级别的 DESCRIPTION.md 文件
         for desc_file in iter_skill_index_files(skills_dir, "DESCRIPTION.md"):
             try:
                 content = desc_file.read_text(encoding="utf-8")
@@ -647,7 +640,7 @@ def build_skills_system_prompt(
                 cat = "/".join(rel.parts[:-1]) if len(rel.parts) > 1 else "general"
                 category_descriptions[cat] = str(cat_desc).strip().strip("'\"")
             except Exception as e:
-                logger.debug("Could not read skill description %s: %s", desc_file, e)
+                logger.debug("无法读取技能描述 %s: %s", desc_file, e)
 
         _write_skills_snapshot(
             skills_dir,
@@ -656,10 +649,10 @@ def build_skills_system_prompt(
             category_descriptions,
         )
 
-    # ── External skill directories ─────────────────────────────────────
-    # Scan external dirs directly (no snapshot caching — they're read-only
-    # and typically small).  Local skills already in skills_by_category take
-    # precedence: we track seen names and skip duplicates from external dirs.
+    # ── 外部技能目录 ─────────────────────────────────────
+    # 直接扫描外部目录（无快照缓存 — 它们是只读的且通常很小）。
+    # 已在 skills_by_category 中的本地技能优先: 我们跟踪已见名称
+    # 并跳过外部目录中的重复项。
     seen_skill_names: set[str] = set()
     for cat_skills in skills_by_category.values():
         for name, _desc in cat_skills:
@@ -690,9 +683,9 @@ def build_skills_system_prompt(
                     (skill_name, entry["description"])
                 )
             except Exception as e:
-                logger.debug("Error reading external skill %s: %s", skill_file, e)
+                logger.debug("读取外部技能出错 %s: %s", skill_file, e)
 
-        # External category descriptions
+        # 外部类别描述
         for desc_file in iter_skill_index_files(ext_dir, "DESCRIPTION.md"):
             try:
                 content = desc_file.read_text(encoding="utf-8")
@@ -704,7 +697,7 @@ def build_skills_system_prompt(
                 cat = "/".join(rel.parts[:-1]) if len(rel.parts) > 1 else "general"
                 category_descriptions.setdefault(cat, str(cat_desc).strip().strip("'\""))
             except Exception as e:
-                logger.debug("Could not read external skill description %s: %s", desc_file, e)
+                logger.debug("无法读取外部技能描述 %s: %s", desc_file, e)
 
     if not skills_by_category:
         result = ""
@@ -716,7 +709,7 @@ def build_skills_system_prompt(
                 index_lines.append(f"  {category}: {cat_desc}")
             else:
                 index_lines.append(f"  {category}:")
-            # Deduplicate and sort skills within each category
+            # 去重并排序每个类别中的技能
             seen = set()
             for name, desc in sorted(skills_by_category[category], key=lambda x: x[0]):
                 if name in seen:
@@ -743,7 +736,7 @@ def build_skills_system_prompt(
             "If none match, proceed normally without loading a skill."
         )
 
-    # ── Store in LRU cache ────────────────────────────────────────────
+    # ── 存入 LRU 缓存 ────────────────────────────────────────────
     with _SKILLS_PROMPT_CACHE_LOCK:
         _SKILLS_PROMPT_CACHE[cache_key] = result
         _SKILLS_PROMPT_CACHE.move_to_end(cache_key)
@@ -754,12 +747,12 @@ def build_skills_system_prompt(
 
 
 def build_nous_subscription_prompt(valid_tool_names: "set[str] | None" = None) -> str:
-    """Build a compact Nous subscription capability block for the system prompt."""
+    """构建用于系统提示词的紧凑 Nous 订阅功能块。"""
     try:
         from kclaw_cli.nous_subscription import get_nous_subscription_features
         from tools.tool_backend_helpers import managed_nous_tools_enabled
     except Exception as exc:
-        logger.debug("Failed to import Nous subscription helper: %s", exc)
+        logger.debug("导入 Nous 订阅辅助函数失败: %s", exc)
         return ""
 
     if not managed_nous_tools_enabled():
@@ -820,33 +813,33 @@ def build_nous_subscription_prompt(valid_tool_names: "set[str] | None" = None) -
 
 
 # =========================================================================
-# Context files (SOUL.md, AGENTS.md, .cursorrules)
+# 上下文文件 (SOUL.md、AGENTS.md、.cursorrules)
 # =========================================================================
 
 def _truncate_content(content: str, filename: str, max_chars: int = CONTEXT_FILE_MAX_CHARS) -> str:
-    """Head/tail truncation with a marker in the middle."""
+    """头尾截断，中间插入标记。"""
     if len(content) <= max_chars:
         return content
     head_chars = int(max_chars * CONTEXT_TRUNCATE_HEAD_RATIO)
     tail_chars = int(max_chars * CONTEXT_TRUNCATE_TAIL_RATIO)
     head = content[:head_chars]
     tail = content[-tail_chars:]
-    marker = f"\n\n[...truncated {filename}: kept {head_chars}+{tail_chars} of {len(content)} chars. Use file tools to read the full file.]\n\n"
+    marker = f"\n\n[...{filename} 已截断: 保留 {head_chars}+{tail_chars} / {len(content)} 字符。使用文件工具读取完整文件。]\n\n"
     return head + marker + tail
 
 
 def load_soul_md() -> Optional[str]:
-    """Load SOUL.md from KCLAW_HOME and return its content, or None.
+    """从 KCLAW_HOME 加载 SOUL.md 并返回其内容，或 None。
 
-    Used as the agent identity (slot #1 in the system prompt).  When this
-    returns content, ``build_context_files_prompt`` should be called with
-    ``skip_soul=True`` so SOUL.md isn't injected twice.
+    用作 agent 身份（系统提示词中的槽位 #1）。当此函数返回内容时，
+    ``build_context_files_prompt`` 应以 ``skip_soul=True`` 调用，
+    以避免 SOUL.md 被注入两次。
     """
     try:
         from kclaw_cli.config import ensure_kclaw_home
         ensure_kclaw_home()
     except Exception as e:
-        logger.debug("Could not ensure KCLAW_HOME before loading SOUL.md: %s", e)
+        logger.debug("加载 SOUL.md 前无法确保 KCLAW_HOME: %s", e)
 
     soul_path = get_kclaw_home() / "SOUL.md"
     if not soul_path.exists():
@@ -859,12 +852,12 @@ def load_soul_md() -> Optional[str]:
         content = _truncate_content(content, "SOUL.md")
         return content
     except Exception as e:
-        logger.debug("Could not read SOUL.md from %s: %s", soul_path, e)
+        logger.debug("无法从 %s 读取 SOUL.md: %s", soul_path, e)
         return None
 
 
 def _load_kclaw_md(cwd_path: Path) -> str:
-    """.kclaw.md / KCLAW.md — walk to git root."""
+    """.kclaw.md / KCLAW.md — 遍历至 git 根目录。"""
     kclaw_md_path = _find_kclaw_md(cwd_path)
     if not kclaw_md_path:
         return ""
@@ -882,12 +875,12 @@ def _load_kclaw_md(cwd_path: Path) -> str:
         result = f"## {rel}\n\n{content}"
         return _truncate_content(result, ".kclaw.md")
     except Exception as e:
-        logger.debug("Could not read %s: %s", kclaw_md_path, e)
+        logger.debug("无法读取 %s: %s", kclaw_md_path, e)
         return ""
 
 
 def _load_agents_md(cwd_path: Path) -> str:
-    """AGENTS.md — top-level only (no recursive walk)."""
+    """AGENTS.md — 仅顶层（不递归遍历）。"""
     for name in ["AGENTS.md", "agents.md"]:
         candidate = cwd_path / name
         if candidate.exists():
@@ -898,12 +891,12 @@ def _load_agents_md(cwd_path: Path) -> str:
                     result = f"## {name}\n\n{content}"
                     return _truncate_content(result, "AGENTS.md")
             except Exception as e:
-                logger.debug("Could not read %s: %s", candidate, e)
+                logger.debug("无法读取 %s: %s", candidate, e)
     return ""
 
 
 def _load_claude_md(cwd_path: Path) -> str:
-    """CLAUDE.md / claude.md — cwd only."""
+    """CLAUDE.md / claude.md — 仅 cwd。"""
     for name in ["CLAUDE.md", "claude.md"]:
         candidate = cwd_path / name
         if candidate.exists():
@@ -914,12 +907,12 @@ def _load_claude_md(cwd_path: Path) -> str:
                     result = f"## {name}\n\n{content}"
                     return _truncate_content(result, "CLAUDE.md")
             except Exception as e:
-                logger.debug("Could not read %s: %s", candidate, e)
+                logger.debug("无法读取 %s: %s", candidate, e)
     return ""
 
 
 def _load_cursorrules(cwd_path: Path) -> str:
-    """.cursorrules + .cursor/rules/*.mdc — cwd only."""
+    """.cursorrules + .cursor/rules/*.mdc — 仅 cwd。"""
     cursorrules_content = ""
     cursorrules_file = cwd_path / ".cursorrules"
     if cursorrules_file.exists():
@@ -929,7 +922,7 @@ def _load_cursorrules(cwd_path: Path) -> str:
                 content = _scan_context_content(content, ".cursorrules")
                 cursorrules_content += f"## .cursorrules\n\n{content}\n\n"
         except Exception as e:
-            logger.debug("Could not read .cursorrules: %s", e)
+            logger.debug("无法读取 .cursorrules: %s", e)
 
     cursor_rules_dir = cwd_path / ".cursor" / "rules"
     if cursor_rules_dir.exists() and cursor_rules_dir.is_dir():
@@ -941,7 +934,7 @@ def _load_cursorrules(cwd_path: Path) -> str:
                     content = _scan_context_content(content, f".cursor/rules/{mdc_file.name}")
                     cursorrules_content += f"## .cursor/rules/{mdc_file.name}\n\n{content}\n\n"
             except Exception as e:
-                logger.debug("Could not read %s: %s", mdc_file, e)
+                logger.debug("无法读取 %s: %s", mdc_file, e)
 
     if not cursorrules_content:
         return ""
@@ -949,19 +942,19 @@ def _load_cursorrules(cwd_path: Path) -> str:
 
 
 def build_context_files_prompt(cwd: Optional[str] = None, skip_soul: bool = False) -> str:
-    """Discover and load context files for the system prompt.
+    """发现并加载系统提示词的上下文文件。
 
-    Priority (first found wins — only ONE project context type is loaded):
-      1. .kclaw.md / KCLAW.md  (walk to git root)
-      2. AGENTS.md / agents.md   (cwd only)
-      3. CLAUDE.md / claude.md   (cwd only)
-      4. .cursorrules / .cursor/rules/*.mdc  (cwd only)
+    优先级（首个匹配胜出 — 仅加载一种项目上下文类型）:
+      1. .kclaw.md / KCLAW.md  （遍历至 git 根目录）
+      2. AGENTS.md / agents.md   （仅 cwd）
+      3. CLAUDE.md / claude.md   （仅 cwd）
+      4. .cursorrules / .cursor/rules/*.mdc  （仅 cwd）
 
-    SOUL.md from KCLAW_HOME is independent and always included when present.
-    Each context source is capped at 20,000 chars.
+    KCLAW_HOME 中的 SOUL.md 是独立的，存在时始终包含。
+    每个上下文源上限 20,000 字符。
 
-    When *skip_soul* is True, SOUL.md is not included here (it was already
-    loaded via ``load_soul_md()`` for the identity slot).
+    当 *skip_soul* 为 True 时，此处不包含 SOUL.md（它已通过
+    ``load_soul_md()`` 加载到身份槽位）。
     """
     if cwd is None:
         cwd = os.getcwd()
@@ -969,7 +962,7 @@ def build_context_files_prompt(cwd: Optional[str] = None, skip_soul: bool = Fals
     cwd_path = Path(cwd).resolve()
     sections = []
 
-    # Priority-based project context: first match wins
+    # 基于优先级的项目上下文: 首个匹配胜出
     project_context = (
         _load_kclaw_md(cwd_path)
         or _load_agents_md(cwd_path)
@@ -979,7 +972,7 @@ def build_context_files_prompt(cwd: Optional[str] = None, skip_soul: bool = Fals
     if project_context:
         sections.append(project_context)
 
-    # SOUL.md from KCLAW_HOME only — skip when already loaded as identity
+    # 仅 KCLAW_HOME 中的 SOUL.md — 已作为身份加载时跳过
     if not skip_soul:
         soul_content = load_soul_md()
         if soul_content:
@@ -987,4 +980,4 @@ def build_context_files_prompt(cwd: Optional[str] = None, skip_soul: bool = Fals
 
     if not sections:
         return ""
-    return "# Project Context\n\nThe following project context files have been loaded and should be followed:\n\n" + "\n".join(sections)
+    return "# 项目上下文\n\n已加载以下项目上下文文件，应当遵循:\n\n" + "\n".join(sections)

@@ -1,4 +1,4 @@
-"""Persistent multi-credential pool for same-provider failover."""
+"""同一提供者的凭据故障转移持久化多凭据池。"""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 def _load_config_safe() -> Optional[dict]:
-    """Load config.yaml, returning None on any error."""
+    """安全加载 config.yaml，出错时返回 None。"""
     try:
         from kclaw_cli.config import load_config
 
@@ -42,7 +42,7 @@ def _load_config_safe() -> Optional[dict]:
         return None
 
 
-# --- Status and type constants ---
+# --- 状态和类型常量 ---
 
 STATUS_OK = "ok"
 STATUS_EXHAUSTED = "exhausted"
@@ -63,19 +63,19 @@ SUPPORTED_POOL_STRATEGIES = {
     STRATEGY_LEAST_USED,
 }
 
-# Cooldown before retrying an exhausted credential.
-# 429 (rate-limited) and 402 (billing/quota) both cool down after 1 hour.
-# Provider-supplied reset_at timestamps override these defaults.
+# 耗尽凭据的重试冷却时间。
+# 429（速率限制）和 402（计费/配额）都在 1 小时后冷却。
+# 提供者提供的 reset_at 时间戳会覆盖这些默认值。
 EXHAUSTED_TTL_429_SECONDS = 60 * 60          # 1 hour
 EXHAUSTED_TTL_DEFAULT_SECONDS = 60 * 60      # 1 hour
 
-# Pool key prefix for custom OpenAI-compatible endpoints.
-# Custom endpoints all share provider='custom' but are keyed by their
-# custom_providers name: 'custom:<normalized_name>'.
+# 自定义 OpenAI 兼容端点的池键前缀。
+# 自定义端点都共享 provider='custom'，但按键区分：
+# 'custom:<normalized_name>'。
 CUSTOM_POOL_PREFIX = "custom:"
 
 
-# Fields that are only round-tripped through JSON — never used for logic as attributes.
+# 仅通过 JSON 往返的字段 — 从不用于逻辑属性。
 _EXTRA_KEYS = frozenset({
     "token_type", "scope", "client_id", "portal_base_url", "obtained_at",
     "expires_in", "agent_key_id", "agent_key_expires_in", "agent_key_reused",
@@ -185,17 +185,17 @@ def _is_manual_source(source: str) -> bool:
 
 
 def _exhausted_ttl(error_code: Optional[int]) -> int:
-    """Return cooldown seconds based on the HTTP status that caused exhaustion."""
+    """根据导致耗尽的 HTTP 状态码返回冷却秒数。"""
     if error_code == 429:
         return EXHAUSTED_TTL_429_SECONDS
     return EXHAUSTED_TTL_DEFAULT_SECONDS
 
 
 def _parse_absolute_timestamp(value: Any) -> Optional[float]:
-    """Best-effort parse for provider reset timestamps.
+    """尽力解析提供者重置时间戳。
 
-    Accepts epoch seconds, epoch milliseconds, and ISO-8601 strings.
-    Returns seconds since epoch.
+    接受纪元秒、纪元毫秒和 ISO-8601 字符串。
+    返回自纪元以来的秒数。
     """
     if value is None or value == "":
         return None
@@ -271,12 +271,12 @@ def _exhausted_until(entry: PooledCredential) -> Optional[float]:
 
 
 def _normalize_custom_pool_name(name: str) -> str:
-    """Normalize a custom provider name for use as a pool key suffix."""
+    """规范化自定义提供者名称以用作池键后缀。"""
     return name.strip().lower().replace(" ", "-")
 
 
 def _iter_custom_providers(config: Optional[dict] = None):
-    """Yield (normalized_name, entry_dict) for each valid custom_providers entry."""
+    """为每个有效的 custom_providers 条目生成 (normalized_name, entry_dict)。"""
     if config is None:
         config = _load_config_safe()
     if config is None:
@@ -294,9 +294,9 @@ def _iter_custom_providers(config: Optional[dict] = None):
 
 
 def get_custom_provider_pool_key(base_url: str) -> Optional[str]:
-    """Look up the custom_providers list in config.yaml and return 'custom:<name>' for a matching base_url.
+    """在 config.yaml 的 custom_providers 列表中查找匹配 base_url 的条目，返回 'custom:<name>'。
 
-    Returns None if no match is found.
+    如果未找到匹配则返回 None。
     """
     if not base_url:
         return None
@@ -309,7 +309,7 @@ def get_custom_provider_pool_key(base_url: str) -> Optional[str]:
 
 
 def list_custom_pool_providers() -> List[str]:
-    """Return all 'custom:*' pool keys that have entries in auth.json."""
+    """返回 auth.json 中有条目的所有 'custom:*' 池键。"""
     pool_data = read_credential_pool(None)
     return sorted(
         key for key in pool_data
@@ -320,7 +320,7 @@ def list_custom_pool_providers() -> List[str]:
 
 
 def _get_custom_provider_config(pool_key: str) -> Optional[Dict[str, Any]]:
-    """Return the custom_providers config entry matching a pool key like 'custom:together.ai'."""
+    """返回与池键（如 'custom:together.ai'）匹配的 custom_providers 配置条目。"""
     if not pool_key.startswith(CUSTOM_POOL_PREFIX):
         return None
     suffix = pool_key[len(CUSTOM_POOL_PREFIX):]
@@ -331,7 +331,7 @@ def _get_custom_provider_config(pool_key: str) -> Optional[Dict[str, Any]]:
 
 
 def get_pool_strategy(provider: str) -> str:
-    """Return the configured selection strategy for a provider."""
+    """返回提供者的已配置选择策略。"""
     config = _load_config_safe()
     if config is None:
         return STRATEGY_FILL_FIRST
@@ -363,7 +363,7 @@ class CredentialPool:
         return bool(self._entries)
 
     def has_available(self) -> bool:
-        """True if at least one entry is not currently in exhaustion cooldown."""
+        """如果至少有一个条目不在耗尽冷却中则为 True。"""
         return bool(self._available_entries())
 
     def entries(self) -> List[PooledCredential]:
@@ -375,7 +375,7 @@ class CredentialPool:
         return next((entry for entry in self._entries if entry.id == self._current_id), None)
 
     def _replace_entry(self, old: PooledCredential, new: PooledCredential) -> None:
-        """Swap an entry in-place by id, preserving sort order."""
+        """按 id 原地交换条目，保持排序顺序。"""
         for idx, entry in enumerate(self._entries):
             if entry.id == old.id:
                 self._entries[idx] = new
@@ -408,12 +408,12 @@ class CredentialPool:
         return updated
 
     def _sync_anthropic_entry_from_credentials_file(self, entry: PooledCredential) -> PooledCredential:
-        """Sync a claude_code pool entry from ~/.claude/.credentials.json if tokens differ.
+        """从 ~/.claude/.credentials.json 同步 claude_code 池条目（如果 token 不同）。
 
-        OAuth refresh tokens are single-use. When something external (e.g.
-        Claude Code CLI, or another profile's pool) refreshes the token, it
-        writes the new pair to ~/.claude/.credentials.json. The pool entry's
-        refresh token becomes stale. This method detects that and syncs.
+        OAuth 刷新 token 是一次性的。当外部（如 Claude Code CLI
+        或另一个 profile 的池）刷新 token 时，它会将新的令牌对
+        写入 ~/.claude/.credentials.json。池条目的刷新 token
+        就会变得过时。此方法检测并同步。
         """
         if self.provider != "anthropic" or entry.source != "claude_code":
             return entry
@@ -425,9 +425,9 @@ class CredentialPool:
             file_refresh = creds.get("refreshToken", "")
             file_access = creds.get("accessToken", "")
             file_expires = creds.get("expiresAt", 0)
-            # If the credentials file has a different token pair, sync it
+            # 如果凭据文件有不同的令牌对，同步它
             if file_refresh and file_refresh != entry.refresh_token:
-                logger.debug("Pool entry %s: syncing tokens from credentials file (refresh token changed)", entry.id)
+                logger.debug("池条目 %s：从凭据文件同步 token（刷新 token 已更改）", entry.id)
                 updated = replace(
                     entry,
                     access_token=file_access,
@@ -441,16 +441,16 @@ class CredentialPool:
                 self._persist()
                 return updated
         except Exception as exc:
-            logger.debug("Failed to sync from credentials file: %s", exc)
+            logger.debug("从凭据文件同步失败：%s", exc)
         return entry
 
     def _sync_codex_entry_from_cli(self, entry: PooledCredential) -> PooledCredential:
-        """Sync an openai-codex pool entry from ~/.codex/auth.json if tokens differ.
+        """从 ~/.codex/auth.json 同步 openai-codex 池条目（如果 token 不同）。
 
-        OpenAI OAuth refresh tokens are single-use and rotate on every refresh.
-        When the Codex CLI (or another KClaw profile) refreshes its token,
-        the pool entry's refresh_token becomes stale.  This method detects that
-        by comparing against ~/.codex/auth.json and syncing the fresh pair.
+        OpenAI OAuth 刷新 token 是一次性的，每次刷新都会轮换。
+        当 Codex CLI（或另一个 KClaw profile）刷新其 token 时，
+        池条目的 refresh_token 就会变得过时。此方法通过与
+        ~/.codex/auth.json 比较来检测并同步新的令牌对。
         """
         if self.provider != "openai-codex":
             return entry
@@ -461,7 +461,7 @@ class CredentialPool:
             cli_refresh = cli_tokens.get("refresh_token", "")
             cli_access = cli_tokens.get("access_token", "")
             if cli_refresh and cli_refresh != entry.refresh_token:
-                logger.debug("Pool entry %s: syncing tokens from ~/.codex/auth.json (refresh token changed)", entry.id)
+                logger.debug("池条目 %s：从 ~/.codex/auth.json 同步 token（刷新 token 已更改）", entry.id)
                 updated = replace(
                     entry,
                     access_token=cli_access,
@@ -474,7 +474,7 @@ class CredentialPool:
                 self._persist()
                 return updated
         except Exception as exc:
-            logger.debug("Failed to sync from ~/.codex/auth.json: %s", exc)
+            logger.debug("从 ~/.codex/auth.json 同步失败：%s", exc)
         return entry
 
     def _refresh_entry(self, entry: PooledCredential, *, force: bool) -> Optional[PooledCredential]:
@@ -497,9 +497,9 @@ class CredentialPool:
                     refresh_token=refreshed["refresh_token"],
                     expires_at_ms=refreshed["expires_at_ms"],
                 )
-                # Keep ~/.claude/.credentials.json in sync so that the
-                # fallback path (resolve_anthropic_token) and other profiles
-                # see the latest tokens.
+                # 保持 ~/.claude/.credentials.json 同步，以便回退路径
+                # (resolve_anthropic_token) 和其他 profile 能看到
+                # 最新的 token。
                 if entry.source == "claude_code":
                     try:
                         from agent.anthropic_adapter import _write_claude_code_credentials
@@ -509,7 +509,7 @@ class CredentialPool:
                             refreshed["expires_at_ms"],
                         )
                     except Exception as wexc:
-                        logger.debug("Failed to write refreshed token to credentials file: %s", wexc)
+                        logger.debug("将刷新的 token 写入凭据文件失败：%s", wexc)
             elif self.provider == "openai-codex":
                 refreshed = auth_mod.refresh_codex_oauth_pure(
                     entry.access_token,
@@ -542,7 +542,7 @@ class CredentialPool:
                     force_refresh=force,
                     force_mint=force,
                 )
-                # Apply returned fields: dataclass fields via replace, extras via dict update
+                # 应用返回的字段：dataclass 字段通过 replace，额外字段通过 dict 更新
                 field_updates = {}
                 extra_updates = dict(entry.extra)
                 _field_names = {f.name for f in fields(entry)}
@@ -555,14 +555,14 @@ class CredentialPool:
             else:
                 return entry
         except Exception as exc:
-            logger.debug("Credential refresh failed for %s/%s: %s", self.provider, entry.id, exc)
-            # For anthropic claude_code entries: the refresh token may have been
-            # consumed by another process. Check if ~/.claude/.credentials.json
-            # has a newer token pair and retry once.
+            logger.debug("凭据刷新失败 %s/%s：%s", self.provider, entry.id, exc)
+            # 对于 anthropic claude_code 条目：刷新 token 可能已被
+            # 另一个进程消费。检查 ~/.claude/.credentials.json
+            # 是否有更新的令牌对并重试一次。
             if self.provider == "anthropic" and entry.source == "claude_code":
                 synced = self._sync_anthropic_entry_from_credentials_file(entry)
                 if synced.refresh_token != entry.refresh_token:
-                    logger.debug("Retrying refresh with synced token from credentials file")
+                    logger.debug("使用凭据文件同步的 token 重试刷新")
                     try:
                         from agent.anthropic_adapter import refresh_anthropic_oauth_pure
                         refreshed = refresh_anthropic_oauth_pure(
@@ -588,13 +588,13 @@ class CredentialPool:
                                 refreshed["expires_at_ms"],
                             )
                         except Exception as wexc:
-                            logger.debug("Failed to write refreshed token to credentials file (retry path): %s", wexc)
+                            logger.debug("将刷新的 token 写入凭据文件失败（重试路径）：%s", wexc)
                         return updated
                     except Exception as retry_exc:
-                        logger.debug("Retry refresh also failed: %s", retry_exc)
+                        logger.debug("重试刷新也失败：%s", retry_exc)
                 elif not self._entry_needs_refresh(synced):
-                    # Credentials file had a valid (non-expired) token — use it directly
-                    logger.debug("Credentials file has valid token, using without refresh")
+                    # 凭据文件有有效（未过期）的 token — 直接使用
+                    logger.debug("凭据文件有有效 token，无需刷新直接使用")
                     return synced
             self._mark_exhausted(entry, None)
             return None
@@ -625,14 +625,13 @@ class CredentialPool:
                 CODEX_ACCESS_TOKEN_REFRESH_SKEW_SECONDS,
             )
         if self.provider == "nous":
-            # Nous refresh/mint can require network access and should happen when
-            # runtime credentials are actually resolved, not merely when the pool
-            # is enumerated for listing, migration, or selection.
+            # Nous 刷新/mint 可能需要网络访问，应在运行时凭据
+            # 实际解析时才执行，而非仅枚举池用于列出、迁移或选择时。
             return False
         return False
 
     def mark_used(self, entry_id: Optional[str] = None) -> None:
-        """Increment request_count for tracking. Used by least_used strategy."""
+        """递增 request_count 用于跟踪。由 least_used 策略使用。"""
         target_id = entry_id or self._current_id
         if not target_id:
             return
@@ -647,28 +646,28 @@ class CredentialPool:
             return self._select_unlocked()
 
     def _available_entries(self, *, clear_expired: bool = False, refresh: bool = False) -> List[PooledCredential]:
-        """Return entries not currently in exhaustion cooldown.
+        """返回不在耗尽冷却中的条目。
 
-        When *clear_expired* is True, entries whose cooldown has elapsed are
-        reset to STATUS_OK and persisted.  When *refresh* is True, entries
-        that need a token refresh are refreshed (skipped on failure).
+        当 *clear_expired* 为 True 时，冷却时间已过的条目
+        被重置为 STATUS_OK 并持久化。当 *refresh* 为 True 时，
+        需要 token 刷新的条目会被刷新（失败则跳过）。
         """
         now = time.time()
         cleared_any = False
         available: List[PooledCredential] = []
         for entry in self._entries:
-            # For anthropic claude_code entries, sync from the credentials file
-            # before any status/refresh checks. This picks up tokens refreshed
-            # by other processes (Claude Code CLI, other KClaw profiles).
+            # 对于 anthropic claude_code 条目，在任何状态/刷新
+            # 检查之前从凭据文件同步。这可以获取由其他进程
+            # （Claude Code CLI、其他 KClaw profile）刷新的 token。
             if (self.provider == "anthropic" and entry.source == "claude_code"
                     and entry.last_status == STATUS_EXHAUSTED):
                 synced = self._sync_anthropic_entry_from_credentials_file(entry)
                 if synced is not entry:
                     entry = synced
                     cleared_any = True
-            # For openai-codex entries, sync from ~/.codex/auth.json before
-            # any status/refresh checks.  This picks up tokens refreshed by
-            # the Codex CLI or another KClaw profile.
+            # 对于 openai-codex 条目，在任何状态/刷新检查之前
+            # 从 ~/.codex/auth.json 同步。这可以获取由 Codex CLI
+            # 或另一个 KClaw profile 刷新的 token。
             if (self.provider == "openai-codex"
                     and entry.last_status == STATUS_EXHAUSTED
                     and entry.refresh_token):
@@ -707,7 +706,7 @@ class CredentialPool:
         available = self._available_entries(clear_expired=True, refresh=True)
         if not available:
             self._current_id = None
-            logger.info("credential pool: no available entries (all exhausted or empty)")
+            logger.info("凭据池：没有可用条目（全部耗尽或为空）")
             return None
 
         if self._strategy == STRATEGY_RANDOM:
@@ -752,7 +751,7 @@ class CredentialPool:
                 return None
             _label = entry.label or entry.id[:8]
             logger.info(
-                "credential pool: marking %s exhausted (status=%s), rotating",
+                "凭据池：标记 %s 已耗尽（状态=%s），轮换",
                 _label, status_code,
             )
             self._mark_exhausted(entry, status_code, error_context)
@@ -760,16 +759,16 @@ class CredentialPool:
             next_entry = self._select_unlocked()
             if next_entry:
                 _next_label = next_entry.label or next_entry.id[:8]
-                logger.info("credential pool: rotated to %s", _next_label)
+                logger.info("凭据池：轮换到 %s", _next_label)
             return next_entry
 
     def acquire_lease(self, credential_id: Optional[str] = None) -> Optional[str]:
-        """Acquire a soft lease on a credential.
+        """获取凭据的软租约。
 
-        If a specific credential_id is provided, lease that entry directly.
-        Otherwise prefer the least-leased available credential, using priority as
-        a stable tie-breaker. When every credential is already at the soft cap,
-        still return the least-leased one instead of blocking.
+        如果提供了特定的 credential_id，直接租用该条目。
+        否则优先租用最少租用的可用凭据，使用优先级作为
+        稳定的决胜因素。当每个凭据都已达到软上限时，
+        仍返回最少租用的那个而非阻塞。
         """
         with self._lock:
             if credential_id:
@@ -795,7 +794,7 @@ class CredentialPool:
             return chosen.id
 
     def release_lease(self, credential_id: str) -> None:
-        """Release a previously acquired credential lease."""
+        """释放先前获取的凭据租约。"""
         with self._lock:
             count = self._active_leases.get(credential_id, 0)
             if count <= 1:
@@ -804,7 +803,7 @@ class CredentialPool:
                 self._active_leases[credential_id] = count - 1
 
     def active_lease_count(self, credential_id: str) -> int:
-        """Return the number of active leases for a credential."""
+        """返回凭据的活动租约数。"""
         with self._lock:
             return self._active_leases.get(credential_id, 0)
 
@@ -861,7 +860,7 @@ class CredentialPool:
     def resolve_target(self, target: Any) -> Tuple[Optional[int], Optional[PooledCredential], Optional[str]]:
         raw = str(target or "").strip()
         if not raw:
-            return None, None, "No credential target provided."
+            return None, None, "未提供凭据目标。"
 
         for idx, entry in enumerate(self._entries, start=1):
             if entry.id == raw:
@@ -875,13 +874,13 @@ class CredentialPool:
         if len(label_matches) == 1:
             return label_matches[0][0], label_matches[0][1], None
         if len(label_matches) > 1:
-            return None, None, f'Ambiguous credential label "{raw}". Use the numeric index or entry id instead.'
+            return None, None, f'凭据标签 "{raw}" 不明确。请使用数字索引或条目 id。'
         if raw.isdigit():
             index = int(raw)
             if 1 <= index <= len(self._entries):
                 return index, self._entries[index - 1], None
-            return None, None, f"No credential #{index}."
-        return None, None, f'No credential matching "{raw}".'
+            return None, None, f"没有凭据 #{index}。"
+        return None, None, f'没有匹配 "{raw}" 的凭据。'
 
     def add_entry(self, entry: PooledCredential) -> PooledCredential:
         entry = replace(entry, priority=_next_priority(self._entries))
@@ -1119,11 +1118,11 @@ def _prune_stale_seeded_entries(entries: List[PooledCredential], active_sources:
 
 
 def _seed_custom_pool(pool_key: str, entries: List[PooledCredential]) -> Tuple[bool, Set[str]]:
-    """Seed a custom endpoint pool from custom_providers config and model config."""
+    """从 custom_providers 配置和模型配置中种入自定义端点池。"""
     changed = False
     active_sources: Set[str] = set()
 
-    # Seed from the custom_providers config entry's api_key field
+    # 从 custom_providers 配置条目的 api_key 字段种入
     cp_config = _get_custom_provider_config(pool_key)
     if cp_config:
         api_key = str(cp_config.get("api_key") or "").strip()
@@ -1145,7 +1144,7 @@ def _seed_custom_pool(pool_key: str, entries: List[PooledCredential]) -> Tuple[b
                 },
             )
 
-    # Seed from model.api_key if model.provider=='custom' and model.base_url matches
+    # 从 model.api_key 种入（当 model.provider=='custom' 且 model.base_url 匹配时）
     try:
         config = _load_config_safe()
         model_cfg = config.get("model") if config else None
@@ -1159,7 +1158,7 @@ def _seed_custom_pool(pool_key: str, entries: List[PooledCredential]) -> Tuple[b
                     model_api_key = v.strip()
                     break
             if model_provider == "custom" and model_base_url and model_api_key:
-                # Check if this model's base_url matches our custom provider
+                # 检查此模型的 base_url 是否匹配我们的自定义提供者
                 matched_key = get_custom_provider_pool_key(model_base_url)
                 if matched_key == pool_key:
                     source = "model_config"
@@ -1188,7 +1187,7 @@ def load_pool(provider: str) -> CredentialPool:
     entries = [PooledCredential.from_dict(provider, payload) for payload in raw_entries]
 
     if provider.startswith(CUSTOM_POOL_PREFIX):
-        # Custom endpoint pool — seed from custom_providers config and model config
+        # 自定义端点池 — 从 custom_providers 配置和模型配置种入
         custom_changed, custom_sources = _seed_custom_pool(provider, entries)
         changed = custom_changed
         changed |= _prune_stale_seeded_entries(entries, custom_sources)
