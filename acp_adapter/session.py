@@ -1,10 +1,9 @@
-"""ACP session manager — maps ACP sessions to KClaw AIAgent instances.
+"""ACP 会话管理器 — 将 ACP 会话映射到 KClaw AIAgent 实例。
 
-Sessions are persisted to the shared SessionDB (``~/.kclaw/state.db``) so they
-survive process restarts and appear in ``session_search``.  When the editor
-reconnects after idle/restart, the ``load_session`` / ``resume_session`` calls
-find the persisted session in the database and restore the full conversation
-history.
+会话通过共享的 SessionDB（``~/.kclaw/state.db``）持久化，
+使其在进程重启后仍可恢复，并出现在 ``session_search`` 中。
+当编辑器在空闲/重启后重新连接时，``load_session`` / ``resume_session`` 
+调用会在数据库中查找持久化的会话并恢复完整的对话历史。
 """
 from __future__ import annotations
 
@@ -23,10 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 def _acp_stderr_print(*args, **kwargs) -> None:
-    """Best-effort human-readable output sink for ACP stdio sessions.
+    """尽力而为的可读输出接收器，用于 ACP stdio 会话。
 
-    ACP reserves stdout for JSON-RPC frames, so any incidental CLI/status output
-    from AIAgent must be redirected away from stdout. Route it to stderr instead.
+    ACP 保留 stdout 用于 JSON-RPC 帧，因此 AIAgent 的任何附带的
+    CLI/状态输出必须从 stdout 重定向。将其路由到 stderr。
     """
     kwargs = dict(kwargs)
     kwargs.setdefault("file", sys.stderr)
@@ -34,30 +33,30 @@ def _acp_stderr_print(*args, **kwargs) -> None:
 
 
 def _register_task_cwd(task_id: str, cwd: str) -> None:
-    """Bind a task/session id to the editor's working directory for tools."""
+    """将任务/会话 ID 绑定到编辑器的工作目录，供工具使用。"""
     if not task_id:
         return
     try:
         from tools.terminal_tool import register_task_env_overrides
         register_task_env_overrides(task_id, {"cwd": cwd})
     except Exception:
-        logger.debug("Failed to register ACP task cwd override", exc_info=True)
+        logger.debug("注册 ACP 任务工作目录覆盖失败", exc_info=True)
 
 
 def _clear_task_cwd(task_id: str) -> None:
-    """Remove task-specific cwd overrides for an ACP session."""
+    """移除 ACP 会话的特定任务工作目录覆盖。"""
     if not task_id:
         return
     try:
         from tools.terminal_tool import clear_task_env_overrides
         clear_task_env_overrides(task_id)
     except Exception:
-        logger.debug("Failed to clear ACP task cwd override", exc_info=True)
+        logger.debug("清除 ACP 任务工作目录覆盖失败", exc_info=True)
 
 
 @dataclass
 class SessionState:
-    """Tracks per-session state for an ACP-managed KClaw agent."""
+    """跟踪 ACP 管理的 KClaw Agent 的每个会话状态。"""
 
     session_id: str
     agent: Any  # AIAgent instance
@@ -68,31 +67,31 @@ class SessionState:
 
 
 class SessionManager:
-    """Thread-safe manager for ACP sessions backed by KClaw AIAgent instances.
+    """线程安全的 ACP 会话管理器，由 KClaw AIAgent 实例支持。
 
-    Sessions are held in-memory for fast access **and** persisted to the
-    shared SessionDB so they survive process restarts and are searchable
-    via ``session_search``.
+    会话在内存中保持以供快速访问，**同时**持久化到共享的
+    SessionDB，使其在进程重启后仍可恢复，且可通过
+    ``session_search`` 搜索。
     """
 
     def __init__(self, agent_factory=None, db=None):
         """
-        Args:
-            agent_factory: Optional callable that creates an AIAgent-like object.
-                           Used by tests. When omitted, a real AIAgent is created
-                           using the current KClaw runtime provider configuration.
-            db:            Optional SessionDB instance. When omitted, the default
-                           SessionDB (``~/.kclaw/state.db``) is lazily created.
+        参数:
+            agent_factory: 可选的可调用对象，创建类 AIAgent 对象。
+                           供测试使用。省略时，使用当前 KClaw 运行时提供者
+                           配置创建真实的 AIAgent。
+            db:            可选的 SessionDB 实例。省略时，延迟创建默认的
+                           SessionDB（``~/.kclaw/state.db``）。
         """
         self._sessions: Dict[str, SessionState] = {}
         self._lock = Lock()
         self._agent_factory = agent_factory
         self._db_instance = db  # None → lazy-init on first use
 
-    # ---- public API ---------------------------------------------------------
+    # ---- 公共 API -----------------------------------------------------------
 
     def create_session(self, cwd: str = ".") -> SessionState:
-        """Create a new session with a unique ID and a fresh AIAgent."""
+        """创建一个具有唯一 ID 和全新 AIAgent 的新会话。"""
         import threading
 
         session_id = str(uuid.uuid4())
@@ -108,24 +107,24 @@ class SessionManager:
             self._sessions[session_id] = state
         _register_task_cwd(session_id, cwd)
         self._persist(state)
-        logger.info("Created ACP session %s (cwd=%s)", session_id, cwd)
+        logger.info("已创建 ACP 会话 %s (工作目录=%s)", session_id, cwd)
         return state
 
     def get_session(self, session_id: str) -> Optional[SessionState]:
-        """Return the session for *session_id*, or ``None``.
+        """返回 session_id 对应的会话，若不存在则返回 ``None``。
 
-        If the session is not in memory but exists in the database (e.g. after
-        a process restart), it is transparently restored.
+        如果会话不在内存中但存在于数据库中（如进程重启后），
+        将透明地恢复。
         """
         with self._lock:
             state = self._sessions.get(session_id)
         if state is not None:
             return state
-        # Attempt to restore from database.
+        # 尝试从数据库恢复。
         return self._restore(session_id)
 
     def remove_session(self, session_id: str) -> bool:
-        """Remove a session from memory and database. Returns True if it existed."""
+        """从内存和数据库中移除会话。存在则返回 True。"""
         with self._lock:
             existed = self._sessions.pop(session_id, None) is not None
         db_existed = self._delete_persisted(session_id)
@@ -134,7 +133,7 @@ class SessionManager:
         return existed or db_existed
 
     def fork_session(self, session_id: str, cwd: str = ".") -> Optional[SessionState]:
-        """Deep-copy a session's history into a new session."""
+        """将一个会话的历史深拷贝到新会话中。"""
         import threading
 
         original = self.get_session(session_id)  # checks DB too
@@ -159,12 +158,12 @@ class SessionManager:
             self._sessions[new_id] = state
         _register_task_cwd(new_id, cwd)
         self._persist(state)
-        logger.info("Forked ACP session %s -> %s", session_id, new_id)
+        logger.info("已分叉 ACP 会话 %s -> %s", session_id, new_id)
         return state
 
     def list_sessions(self) -> List[Dict[str, Any]]:
-        """Return lightweight info dicts for all sessions (memory + database)."""
-        # Collect in-memory sessions first.
+        """返回所有会话的轻量信息字典（内存 + 数据库）。"""
+        # 先收集内存中的会话。
         with self._lock:
             seen_ids = set(self._sessions.keys())
             results = [
@@ -177,7 +176,7 @@ class SessionManager:
                 for s in self._sessions.values()
             ]
 
-        # Merge any persisted sessions not currently in memory.
+        # 合并数据库中不在内存的持久化会话。
         db = self._get_db()
         if db is not None:
             try:
@@ -186,7 +185,7 @@ class SessionManager:
                     sid = row["id"]
                     if sid in seen_ids:
                         continue
-                    # Extract cwd from model_config JSON.
+                    # 从 model_config JSON 提取 cwd。
                     cwd = "."
                     mc = row.get("model_config")
                     if mc:
@@ -201,12 +200,12 @@ class SessionManager:
                         "history_len": row.get("message_count") or 0,
                     })
             except Exception:
-                logger.debug("Failed to list ACP sessions from DB", exc_info=True)
+                logger.debug("从数据库列出 ACP 会话失败", exc_info=True)
 
         return results
 
     def update_cwd(self, session_id: str, cwd: str) -> Optional[SessionState]:
-        """Update the working directory for a session and its tool overrides."""
+        """更新会话的工作目录及其工具覆盖。"""
         state = self.get_session(session_id)  # checks DB too
         if state is None:
             return None
@@ -216,14 +215,14 @@ class SessionManager:
         return state
 
     def cleanup(self) -> None:
-        """Remove all sessions (memory and database) and clear task-specific cwd overrides."""
+        """移除所有会话（内存和数据库）并清除特定任务的工作目录覆盖。"""
         with self._lock:
             session_ids = list(self._sessions.keys())
             self._sessions.clear()
         for session_id in session_ids:
             _clear_task_cwd(session_id)
             self._delete_persisted(session_id)
-        # Also remove any DB-only ACP sessions not currently in memory.
+        # 同时移除数据库中当前不在内存的 ACP 会话。
         db = self._get_db()
         if db is not None:
             try:
@@ -233,31 +232,28 @@ class SessionManager:
                     _clear_task_cwd(sid)
                     db.delete_session(sid)
             except Exception:
-                logger.debug("Failed to cleanup ACP sessions from DB", exc_info=True)
+                logger.debug("从数据库清理 ACP 会话失败", exc_info=True)
 
     def save_session(self, session_id: str) -> None:
-        """Persist the current state of a session to the database.
+        """将当前会话状态持久化到数据库。
 
-        Called by the server after prompt completion, slash commands that
-        mutate history, and model switches.
+        在提示完成后、修改历史的斜杠命令和模型切换后由服务器调用。
         """
         with self._lock:
             state = self._sessions.get(session_id)
         if state is not None:
             self._persist(state)
 
-    # ---- persistence via SessionDB ------------------------------------------
+    # ---- 通过 SessionDB 持久化 ----------------------------------------------
 
     def _get_db(self):
-        """Lazily initialise and return the SessionDB instance.
+        """延迟初始化并返回 SessionDB 实例。
 
-        Returns ``None`` if the DB is unavailable (e.g. import error in a
-        minimal test environment).
+        如果数据库不可用（如在最小测试环境中的导入错误）则返回 ``None``。
 
-        Note: we resolve ``KCLAW_HOME`` dynamically rather than relying on
-        the module-level ``DEFAULT_DB_PATH`` constant, because that constant
-        is evaluated at import time and won't reflect env-var changes made
-        later (e.g. by the test fixture ``_isolate_kclaw_home``).
+        注意：我们动态解析 ``KCLAW_HOME``，而非依赖模块级常量
+        ``DEFAULT_DB_PATH``，因为该常量在导入时求值，不会反映
+        后续的环境变量更改（例如测试固件 ``_isolate_kclaw_home``）。
         """
         if self._db_instance is not None:
             return self._db_instance
@@ -267,20 +263,20 @@ class SessionManager:
             self._db_instance = SessionDB(db_path=kclaw_home / "state.db")
             return self._db_instance
         except Exception:
-            logger.debug("SessionDB unavailable for ACP persistence", exc_info=True)
+            logger.debug("SessionDB 不可用，ACP 持久化失败", exc_info=True)
             return None
 
     def _persist(self, state: SessionState) -> None:
-        """Write session state to the database.
+        """将会话状态写入数据库。
 
-        Creates the session record if it doesn't exist, then replaces all
-        stored messages with the current in-memory history.
+        如果会话记录不存在则创建，然后将所有存储的消息替换为
+        当前内存中的历史。
         """
         db = self._get_db()
         if db is None:
             return
 
-        # Ensure model is a plain string (not a MagicMock or other proxy).
+        # 确保 model 是普通字符串（而非 MagicMock 或其他代理对象）。
         model_str = str(state.model) if state.model else None
         session_meta = {"cwd": state.cwd}
         provider = getattr(state.agent, "provider", None)
@@ -295,7 +291,7 @@ class SessionManager:
         cwd_json = json.dumps(session_meta)
 
         try:
-            # Ensure the session record exists.
+            # 确保会话记录存在。
             existing = db.get_session(state.session_id)
             if existing is None:
                 db.create_session(
@@ -305,7 +301,7 @@ class SessionManager:
                     model_config={"cwd": state.cwd},
                 )
             else:
-                # Update model_config (contains cwd) if changed.
+                # 如果已更改，更新 model_config（包含 cwd）。
                 try:
                     with db._lock:
                         db._conn.execute(
@@ -314,9 +310,9 @@ class SessionManager:
                         )
                         db._conn.commit()
                 except Exception:
-                    logger.debug("Failed to update ACP session metadata", exc_info=True)
+                    logger.debug("更新 ACP 会话元数据失败", exc_info=True)
 
-            # Replace stored messages with current history.
+            # 用当前历史替换存储的消息。
             db.clear_messages(state.session_id)
             for msg in state.history:
                 db.append_message(
@@ -328,10 +324,10 @@ class SessionManager:
                     tool_call_id=msg.get("tool_call_id"),
                 )
         except Exception:
-            logger.warning("Failed to persist ACP session %s", state.session_id, exc_info=True)
+            logger.warning("持久化 ACP 会话 %s 失败", state.session_id, exc_info=True)
 
     def _restore(self, session_id: str) -> Optional[SessionState]:
-        """Load a session from the database into memory, recreating the AIAgent."""
+        """从数据库加载会话到内存，重新创建 AIAgent。"""
         import threading
 
         db = self._get_db()
@@ -341,17 +337,17 @@ class SessionManager:
         try:
             row = db.get_session(session_id)
         except Exception:
-            logger.debug("Failed to query DB for ACP session %s", session_id, exc_info=True)
+            logger.debug("查询 ACP 会话 %s 的数据库失败", session_id, exc_info=True)
             return None
 
         if row is None:
             return None
 
-        # Only restore ACP sessions.
+        # 仅恢复 ACP 会话。
         if row.get("source") != "acp":
             return None
 
-        # Extract cwd from model_config.
+        # 从 model_config 提取 cwd。
         cwd = "."
         requested_provider = row.get("billing_provider")
         restored_base_url = row.get("billing_base_url")
@@ -370,11 +366,11 @@ class SessionManager:
 
         model = row.get("model") or None
 
-        # Load conversation history.
+        # 加载对话历史。
         try:
             history = db.get_messages_as_conversation(session_id)
         except Exception:
-            logger.warning("Failed to load messages for ACP session %s", session_id, exc_info=True)
+            logger.warning("加载 ACP 会话 %s 的消息失败", session_id, exc_info=True)
             history = []
 
         try:
@@ -387,7 +383,7 @@ class SessionManager:
                 api_mode=restored_api_mode,
             )
         except Exception:
-            logger.warning("Failed to recreate agent for ACP session %s", session_id, exc_info=True)
+            logger.warning("为 ACP 会话 %s 重新创建 Agent 失败", session_id, exc_info=True)
             return None
 
         state = SessionState(
@@ -401,21 +397,21 @@ class SessionManager:
         with self._lock:
             self._sessions[session_id] = state
         _register_task_cwd(session_id, cwd)
-        logger.info("Restored ACP session %s from DB (%d messages)", session_id, len(history))
+        logger.info("已从数据库恢复 ACP 会话 %s (%d 条消息)", session_id, len(history))
         return state
 
     def _delete_persisted(self, session_id: str) -> bool:
-        """Delete a session from the database. Returns True if it existed."""
+        """从数据库删除会话。存在则返回 True。"""
         db = self._get_db()
         if db is None:
             return False
         try:
             return db.delete_session(session_id)
         except Exception:
-            logger.debug("Failed to delete ACP session %s from DB", session_id, exc_info=True)
+            logger.debug("从数据库删除 ACP 会话 %s 失败", session_id, exc_info=True)
             return False
 
-    # ---- internal -----------------------------------------------------------
+    # ---- 内部方法 -----------------------------------------------------------
 
     def _make_agent(
         self,
@@ -465,11 +461,11 @@ class SessionManager:
                 }
             )
         except Exception:
-            logger.debug("ACP session falling back to default provider resolution", exc_info=True)
+            logger.debug("ACP 会话回退到默认提供者解析", exc_info=True)
 
         _register_task_cwd(session_id, cwd)
         agent = AIAgent(**kwargs)
-        # ACP stdio transport requires stdout to remain protocol-only JSON-RPC.
-        # Route any incidental human-readable agent output to stderr instead.
+        # ACP stdio 传输要求 stdout 保持仅协议的 JSON-RPC。
+        # 将任何附带的可读 Agent 输出重定向到 stderr。
         agent._print_fn = _acp_stderr_print
         return agent

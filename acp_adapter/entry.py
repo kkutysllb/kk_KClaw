@@ -21,7 +21,7 @@ from kclaw_constants import get_kclaw_home
 
 
 def _setup_logging() -> None:
-    """Route all logging to stderr so stdout stays clean for ACP stdio."""
+    """将所有日志路由到 stderr，保持 stdout 专用于 ACP stdio 传输。"""
     handler = logging.StreamHandler(sys.stderr)
     handler.setFormatter(
         logging.Formatter(
@@ -34,36 +34,36 @@ def _setup_logging() -> None:
     root.addHandler(handler)
     root.setLevel(logging.INFO)
 
-    # Quiet down noisy libraries
+    # 降低噪音库的日志级别
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("openai").setLevel(logging.WARNING)
 
 
 def _load_env() -> None:
-    """Load .env from KCLAW_HOME (default ``~/.kclaw``)."""
+    """从 KCLAW_HOME（默认 ``~/.kclaw``）加载 .env 环境变量。"""
     from kclaw_cli.env_loader import load_kclaw_dotenv
 
     kclaw_home = get_kclaw_home()
     loaded = load_kclaw_dotenv(kclaw_home=kclaw_home)
     if loaded:
         for env_file in loaded:
-            logging.getLogger(__name__).info("Loaded env from %s", env_file)
+            logging.getLogger(__name__).info("已从 %s 加载环境变量", env_file)
     else:
         logging.getLogger(__name__).info(
-            "No .env found at %s, using system env", kclaw_home / ".env"
+            "未找到 .env 文件: %s，使用系统环境变量", kclaw_home / ".env"
         )
 
 
 def main() -> None:
-    """Entry point: load env, configure logging, run the ACP agent."""
+    """入口点：加载环境变量、配置日志、启动 ACP 代理服务器。"""
     _setup_logging()
     _load_env()
 
     logger = logging.getLogger(__name__)
-    logger.info("Starting kclaw ACP adapter")
+    logger.info("正在启动 kclaw ACP 适配器")
 
-    # Ensure the project root is on sys.path so ``from run_agent import AIAgent`` works
+    # 确保项目根目录在 sys.path 中，使 ``from run_agent import AIAgent`` 可用
     project_root = str(Path(__file__).resolve().parent.parent)
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
@@ -75,9 +75,9 @@ def main() -> None:
     try:
         asyncio.run(acp.run_agent(agent, use_unstable_protocol=True))
     except KeyboardInterrupt:
-        logger.info("Shutting down (KeyboardInterrupt)")
+        logger.info("正在关闭 (KeyboardInterrupt)")
     except Exception:
-        logger.exception("ACP agent crashed")
+        logger.exception("ACP 代理崩溃")
         sys.exit(1)
 
 

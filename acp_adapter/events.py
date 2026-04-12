@@ -1,10 +1,8 @@
-"""Callback factories for bridging AIAgent events to ACP notifications.
+"""回调工厂：桥接 AIAgent 事件到 ACP 通知。
 
-Each factory returns a callable with the signature that AIAgent expects
-for its callbacks. Internally, the callbacks push ACP session updates
-to the client via ``conn.session_update()`` using
-``asyncio.run_coroutine_threadsafe()`` (since AIAgent runs in a worker
-thread while the event loop lives on the main thread).
+每个工厂返回一个符合 AIAgent 回调签名的可调用对象。内部通过
+``asyncio.run_coroutine_threadsafe()`` 向客户端推送 ACP 会话更新
+（因为 AIAgent 运行在工作线程，而事件循环在主线程上）。
 """
 
 import asyncio
@@ -30,18 +28,18 @@ def _send_update(
     loop: asyncio.AbstractEventLoop,
     update: Any,
 ) -> None:
-    """Fire-and-forget an ACP session update from a worker thread."""
+    """从工作线程发送 ACP 会话更新（即发即弃）。"""
     try:
         future = asyncio.run_coroutine_threadsafe(
             conn.session_update(session_id, update), loop
         )
         future.result(timeout=5)
     except Exception:
-        logger.debug("Failed to send ACP update", exc_info=True)
+        logger.debug("发送 ACP 更新失败", exc_info=True)
 
 
 # ------------------------------------------------------------------
-# Tool progress callback
+# 工具进度回调
 # ------------------------------------------------------------------
 
 def make_tool_progress_cb(
@@ -50,20 +48,19 @@ def make_tool_progress_cb(
     loop: asyncio.AbstractEventLoop,
     tool_call_ids: Dict[str, Deque[str]],
 ) -> Callable:
-    """Create a ``tool_progress_callback`` for AIAgent.
+    """为 AIAgent 创建 ``tool_progress_callback``。
 
-    Signature expected by AIAgent::
+    AIAgent 期望的签名::
 
         tool_progress_callback(event_type: str, name: str, preview: str, args: dict, **kwargs)
 
-    Emits ``ToolCallStart`` for ``tool.started`` events and tracks IDs in a FIFO
-    queue per tool name so duplicate/parallel same-name calls still complete
-    against the correct ACP tool call.  Other event types (``tool.completed``,
-    ``reasoning.available``) are silently ignored.
+    对 ``tool.started`` 事件发送 ``ToolCallStart``，并按工具名称维护 FIFO 队列，
+    使重复/并行同名调用仍能正确匹配对应的 ACP 工具调用。
+    其他事件类型（``tool.completed``、``reasoning.available``）被静默忽略。
     """
 
     def _tool_progress(event_type: str, name: str = None, preview: str = None, args: Any = None, **kwargs) -> None:
-        # Only emit ACP ToolCallStart for tool.started; ignore other event types
+        # 仅对 tool.started 发送 ACP ToolCallStart；忽略其他事件类型
         if event_type != "tool.started":
             return
         if isinstance(args, str):
@@ -91,7 +88,7 @@ def make_tool_progress_cb(
 
 
 # ------------------------------------------------------------------
-# Thinking callback
+# 思考回调
 # ------------------------------------------------------------------
 
 def make_thinking_cb(
@@ -99,7 +96,7 @@ def make_thinking_cb(
     session_id: str,
     loop: asyncio.AbstractEventLoop,
 ) -> Callable:
-    """Create a ``thinking_callback`` for AIAgent."""
+    """为 AIAgent 创建 ``thinking_callback``。"""
 
     def _thinking(text: str) -> None:
         if not text:
@@ -111,7 +108,7 @@ def make_thinking_cb(
 
 
 # ------------------------------------------------------------------
-# Step callback
+# 步骤回调
 # ------------------------------------------------------------------
 
 def make_step_cb(
@@ -120,9 +117,9 @@ def make_step_cb(
     loop: asyncio.AbstractEventLoop,
     tool_call_ids: Dict[str, Deque[str]],
 ) -> Callable:
-    """Create a ``step_callback`` for AIAgent.
+    """为 AIAgent 创建 ``step_callback``。
 
-    Signature expected by AIAgent::
+    AIAgent 期望的签名::
 
         step_callback(api_call_count: int, prev_tools: list)
     """
@@ -156,7 +153,7 @@ def make_step_cb(
 
 
 # ------------------------------------------------------------------
-# Agent message callback
+# Agent 消息回调
 # ------------------------------------------------------------------
 
 def make_message_cb(
@@ -164,7 +161,7 @@ def make_message_cb(
     session_id: str,
     loop: asyncio.AbstractEventLoop,
 ) -> Callable:
-    """Create a callback that streams agent response text to the editor."""
+    """创建回调，将 Agent 响应文本流式发送到编辑器。"""
 
     def _message(text: str) -> None:
         if not text:
