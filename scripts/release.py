@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""KClaw Agent Release Script
+"""KClaw Agent 发版脚本
 
-Generates changelogs and creates GitHub releases with CalVer tags.
+生成更新日志并使用 CalVer 标签创建 GitHub 发布。
 
-Usage:
-    # Preview changelog (dry run)
+用法：
+    # 预览更新日志（试运行）
     python scripts/release.py
 
-    # Preview with semver bump
+    # 预览并升级语义化版本
     python scripts/release.py --bump minor
 
-    # Create the release
+    # 创建发布
     python scripts/release.py --bump minor --publish
 
-    # First release (no previous tag)
+    # 首次发布（无先前标签）
     python scripts/release.py --bump minor --publish --first-release
 
-    # Override CalVer date (e.g. for a belated release)
+    # 覆盖 CalVer 日期（例如延迟发布）
     python scripts/release.py --bump minor --publish --date 2026.3.15
 """
 
@@ -483,7 +483,7 @@ def main():
     base_tag = f"v{calver_date}"
     tag_name, calver_date = next_available_tag(base_tag)
     if tag_name != base_tag:
-        print(f"Note: Tag {base_tag} already exists, using {tag_name}")
+        print(f"注意: 标签 {base_tag} 已存在，使用 {tag_name}")
 
     # Determine semver
     current_version = get_current_version()
@@ -495,26 +495,26 @@ def main():
     # Get previous tag
     prev_tag = get_last_tag()
     if not prev_tag and not args.first_release:
-        print("No previous tags found. Use --first-release for the initial release.")
-        print(f"Would create tag: {tag_name}")
-        print(f"Would set version: {new_version}")
+        print("未找到之前的标签。请使用 --first-release 进行首次发布。")
+        print(f"将创建标签: {tag_name}")
+        print(f"将设置版本: {new_version}")
 
     # Get commits
     commits = get_commits(since_tag=prev_tag)
     if not commits:
-        print("No new commits since last tag.")
+        print("自上次标签以来没有新提交。")
         if not args.first_release:
             return
 
     print(f"{'='*60}")
-    print(f"  KClaw Agent Release Preview")
+    print(f"  KClaw Agent 发版预览")
     print(f"{'='*60}")
-    print(f"  CalVer tag:      {tag_name}")
+    print(f"  CalVer 标签:     {tag_name}")
     print(f"  SemVer:          v{current_version} → v{new_version}")
-    print(f"  Previous tag:    {prev_tag or '(none — first release)'}")
-    print(f"  Commits:         {len(commits)}")
-    print(f"  Unique authors:  {len(set(c['github_author'] for c in commits))}")
-    print(f"  Mode:            {'PUBLISH' if args.publish else 'DRY RUN'}")
+    print(f"  上一个标签:     {prev_tag or '(无 — 首次发布)'}")
+    print(f"  提交数:         {len(commits)}")
+    print(f"  独立作者:       {len(set(c['github_author'] for c in commits))}")
+    print(f"  模式:           {'发布' if args.publish else '试运行'}")
     print(f"{'='*60}")
     print()
 
@@ -527,33 +527,33 @@ def main():
 
     if args.output:
         Path(args.output).write_text(changelog)
-        print(f"Changelog written to {args.output}")
+        print(f"更新日志已写入 {args.output}")
     else:
         print(changelog)
 
     if args.publish:
         print(f"\n{'='*60}")
-        print("  Publishing release...")
+        print("  正在发布...")
         print(f"{'='*60}")
 
         # Update version files
         if args.bump:
             update_version_files(new_version, calver_date)
-            print(f"  ✓ Updated version files to v{new_version} ({calver_date})")
+            print(f"  ✓ 版本文件已更新为 v{new_version} ({calver_date})")
 
             # Commit version bump
             add_result = git_result("add", str(VERSION_FILE), str(PYPROJECT_FILE))
             if add_result.returncode != 0:
-                print(f"  ✗ Failed to stage version files: {add_result.stderr.strip()}")
+                print(f"  ✗ 暂存版本文件失败: {add_result.stderr.strip()}")
                 return
 
             commit_result = git_result(
                 "commit", "-m", f"chore: bump version to v{new_version} ({calver_date})"
             )
             if commit_result.returncode != 0:
-                print(f"  ✗ Failed to commit version bump: {commit_result.stderr.strip()}")
+                print(f"  ✗ 提交版本变更失败: {commit_result.stderr.strip()}")
                 return
-            print(f"  ✓ Committed version bump")
+            print(f"  ✓ 已提交版本变更")
 
         # Create annotated tag
         tag_result = git_result(
@@ -561,24 +561,24 @@ def main():
             f"KClaw Agent v{new_version} ({calver_date})\n\nWeekly release"
         )
         if tag_result.returncode != 0:
-            print(f"  ✗ Failed to create tag {tag_name}: {tag_result.stderr.strip()}")
+            print(f"  ✗ 创建标签 {tag_name} 失败: {tag_result.stderr.strip()}")
             return
-        print(f"  ✓ Created tag {tag_name}")
+        print(f"  ✓ 已创建标签 {tag_name}")
 
         # Push
         push_result = git_result("push", "origin", "HEAD", "--tags")
         if push_result.returncode == 0:
-            print(f"  ✓ Pushed to origin")
+            print(f"  ✓ 已推送到 origin")
         else:
-            print(f"  ✗ Failed to push to origin: {push_result.stderr.strip()}")
-            print("    Continue manually after fixing access:")
+            print(f"  ✗ 推送到 origin 失败: {push_result.stderr.strip()}")
+            print("    修复访问权限后手动继续:")
             print("    git push origin HEAD --tags")
 
         # Build semver-named Python artifacts so downstream packagers
         # (e.g. Homebrew) can target them without relying on CalVer tag names.
         artifacts = build_release_artifacts(new_version)
         if artifacts:
-            print("  ✓ Built release artifacts:")
+            print("  ✓ 已构建发版产物:")
             for artifact in artifacts:
                 print(f"    - {artifact.relative_to(REPO_ROOT)}")
 
@@ -605,24 +605,24 @@ def main():
 
         if result and result.returncode == 0:
             changelog_file.unlink(missing_ok=True)
-            print(f"  ✓ GitHub release created: {result.stdout.strip()}")
-            print(f"\n  🎉 Release v{new_version} ({tag_name}) published!")
+            print(f"  ✓ GitHub Release 已创建: {result.stdout.strip()}")
+            print(f"\n  🎉 v{new_version} ({tag_name}) 发布成功!")
         else:
             if result is None:
-                print("  ✗ GitHub release skipped: `gh` CLI not found.")
+                print("  ✗ GitHub Release 跳过: 未找到 `gh` CLI。")
             else:
-                print(f"  ✗ GitHub release failed: {result.stderr.strip()}")
-            print(f"    Release notes kept at: {changelog_file}")
-            print(f"    Tag was created locally. Create the release manually:")
+                print(f"  ✗ GitHub Release 失败: {result.stderr.strip()}")
+            print(f"    发布说明保存在: {changelog_file}")
+            print(f"    标签已在本地创建。手动创建 Release:")
             print(
                 f"    gh release create {tag_name} --title 'KClaw Agent v{new_version} ({calver_date})' "
                 f"--notes-file .release_notes.md {' '.join(str(path) for path in artifacts)}"
             )
-            print(f"\n  ✓ Release artifacts prepared for manual publish: v{new_version} ({tag_name})")
+            print(f"\n  ✓ 发版产物已准备就绪: v{new_version} ({tag_name})")
     else:
         print(f"\n{'='*60}")
-        print(f"  Dry run complete. To publish, add --publish")
-        print(f"  Example: python scripts/release.py --bump minor --publish")
+        print(f"  试运行完成。如需发布，请添加 --publish")
+        print(f"  示例: python scripts/release.py --bump minor --publish")
         print(f"{'='*60}")
 
 

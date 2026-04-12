@@ -1,17 +1,16 @@
 # ============================================================================
-# KClaw Agent Installer for Windows
+# KClaw Agent Windows 安装程序
 # ============================================================================
-# Installation script for Windows (PowerShell).
-# Uses uv for fast Python provisioning and package management.
+# 适用于 Windows 的安装脚本 (PowerShell)。
+# 使用 uv 进行快速 Python 环境配置和包管理。
 #
-# Usage:
+# 使用方式:
 #   irm https://raw.githubusercontent.com/kkutysllb/kk_KClaw/main/scripts/install.ps1 | iex
 #
-# Or download and run with options:
+# 或下载后带选项运行:
 #   .\install.ps1 -NoVenv -SkipSetup
 #
 # ============================================================================
-
 param(
     [switch]$NoVenv,
     [switch]$SkipSetup,
@@ -38,9 +37,9 @@ $NodeVersion = "22"
 function Write-Banner {
     Write-Host ""
     Write-Host "┌─────────────────────────────────────────────────────────┐" -ForegroundColor Magenta
-    Write-Host "│             ⚕ KClaw Agent Installer                    │" -ForegroundColor Magenta
+    Write-Host "│             ⚕ KClaw Agent 安装程序                    │" -ForegroundColor Magenta
     Write-Host "├─────────────────────────────────────────────────────────┤" -ForegroundColor Magenta
-    Write-Host "│  An open source AI agent by kkutysllb.              │" -ForegroundColor Magenta
+    Write-Host "│  由 kkutysllb 独立开发的开源 AI Agent。              │" -ForegroundColor Magenta
     Write-Host "└─────────────────────────────────────────────────────────┘" -ForegroundColor Magenta
     Write-Host ""
 }
@@ -70,13 +69,13 @@ function Write-Err {
 # ============================================================================
 
 function Install-Uv {
-    Write-Info "Checking for uv package manager..."
+    Write-Info "正在检查 uv 包管理器..."
     
     # Check if uv is already available
     if (Get-Command uv -ErrorAction SilentlyContinue) {
         $version = uv --version
         $script:UvCmd = "uv"
-        Write-Success "uv found ($version)"
+        Write-Success "已找到 uv ($version)"
         return $true
     }
     
@@ -89,13 +88,13 @@ function Install-Uv {
         if (Test-Path $uvPath) {
             $script:UvCmd = $uvPath
             $version = & $uvPath --version
-            Write-Success "uv found at $uvPath ($version)"
+                Write-Success "已在 $uvPath 找到 uv ($version)"
             return $true
         }
     }
     
     # Install uv
-    Write-Info "Installing uv (fast Python package manager)..."
+    Write-Info "正在安装 uv (快速 Python 包管理器)..."
     try {
         powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex" 2>&1 | Out-Null
         
@@ -115,42 +114,42 @@ function Install-Uv {
         if (Test-Path $uvExe) {
             $script:UvCmd = $uvExe
             $version = & $uvExe --version
-            Write-Success "uv installed ($version)"
+            Write-Success "uv 安装成功 ($version)"
             return $true
         }
         
-        Write-Err "uv installed but not found on PATH"
-        Write-Info "Try restarting your terminal and re-running"
+        Write-Err "uv 已安装但未在 PATH 中找到"
+        Write-Info "请重启终端后重新运行"
         return $false
     } catch {
-        Write-Err "Failed to install uv"
-        Write-Info "Install manually: https://docs.astral.sh/uv/getting-started/installation/"
+        Write-Err "uv 安装失败"
+        Write-Info "手动安装: https://docs.astral.sh/uv/getting-started/installation/"
         return $false
     }
 }
 
 function Test-Python {
-    Write-Info "Checking Python $PythonVersion..."
+    Write-Info "正在检查 Python $PythonVersion..."
     
     # Let uv find or install Python
     try {
         $pythonPath = & $UvCmd python find $PythonVersion 2>$null
         if ($pythonPath) {
             $ver = & $pythonPath --version 2>$null
-            Write-Success "Python found: $ver"
+            Write-Success "已找到 Python: $ver"
             return $true
         }
     } catch { }
     
     # Python not found — use uv to install it (no admin needed!)
-    Write-Info "Python $PythonVersion not found, installing via uv..."
+    Write-Info "未找到 Python $PythonVersion，正在通过 uv 安装..."
     try {
         $uvOutput = & $UvCmd python install $PythonVersion 2>&1
         if ($LASTEXITCODE -eq 0) {
             $pythonPath = & $UvCmd python find $PythonVersion 2>$null
             if ($pythonPath) {
                 $ver = & $pythonPath --version 2>$null
-                Write-Success "Python installed: $ver"
+                Write-Success "Python 安装成功: $ver"
                 return $true
             }
         } else {
@@ -162,13 +161,13 @@ function Test-Python {
     }
 
     # Fallback: check if ANY Python 3.10+ is already available on the system
-    Write-Info "Trying to find any existing Python 3.10+..."
+    Write-Info "正在尝试查找已有的 Python 3.10+..."
     foreach ($fallbackVer in @("3.12", "3.13", "3.10")) {
         try {
             $pythonPath = & $UvCmd python find $fallbackVer 2>$null
             if ($pythonPath) {
                 $ver = & $pythonPath --version 2>$null
-                Write-Success "Found fallback: $ver"
+                Write-Success "找到备选版本: $ver"
                 $script:PythonVersion = $fallbackVer
                 return $true
             }
@@ -179,39 +178,39 @@ function Test-Python {
     if (Get-Command python -ErrorAction SilentlyContinue) {
         $sysVer = python --version 2>$null
         if ($sysVer -match "3\.(1[0-9]|[1-9][0-9])") {
-            Write-Success "Using system Python: $sysVer"
+            Write-Success "使用系统 Python: $sysVer"
             return $true
         }
     }
     
-    Write-Err "Failed to install Python $PythonVersion"
-    Write-Info "Install Python 3.11 manually, then re-run this script:"
+    Write-Err "Python $PythonVersion 安装失败"
+    Write-Info "请手动安装 Python 3.11，然后重新运行此脚本:"
     Write-Info "  https://www.python.org/downloads/"
-    Write-Info "  Or: winget install Python.Python.3.11"
+    Write-Info "  或: winget install Python.Python.3.11"
     return $false
 }
 
 function Test-Git {
-    Write-Info "Checking Git..."
+    Write-Info "正在检查 Git..."
     
     if (Get-Command git -ErrorAction SilentlyContinue) {
         $version = git --version
-        Write-Success "Git found ($version)"
+        Write-Success "已找到 Git ($version)"
         return $true
     }
     
-    Write-Err "Git not found"
-    Write-Info "Please install Git from:"
+    Write-Err "未找到 Git"
+    Write-Info "请从以下地址安装 Git:"
     Write-Info "  https://git-scm.com/download/win"
     return $false
 }
 
 function Test-Node {
-    Write-Info "Checking Node.js (for browser tools)..."
+    Write-Info "正在检查 Node.js (浏览器工具所需)..."
 
     if (Get-Command node -ErrorAction SilentlyContinue) {
         $version = node --version
-        Write-Success "Node.js $version found"
+        Write-Success "已找到 Node.js $version"
         $script:HasNode = $true
         return $true
     }
@@ -221,23 +220,23 @@ function Test-Node {
     if (Test-Path $managedNode) {
         $version = & $managedNode --version
         $env:Path = "$KClawHome\node;$env:Path"
-        Write-Success "Node.js $version found (KClaw-managed)"
+        Write-Success "已找到 Node.js $version (KClaw 管理)"
         $script:HasNode = $true
         return $true
     }
 
-    Write-Info "Node.js not found — installing Node.js $NodeVersion LTS..."
+    Write-Info "未找到 Node.js — 正在安装 Node.js $NodeVersion LTS..."
 
     # Try winget first (cleanest on modern Windows)
     if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Write-Info "Installing via winget..."
+        Write-Info "正在通过 winget 安装..."
         try {
             winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
             # Refresh PATH
             $env:Path = [Environment]::GetEnvironmentVariable("Path", "User") + ";" + [Environment]::GetEnvironmentVariable("Path", "Machine")
             if (Get-Command node -ErrorAction SilentlyContinue) {
                 $version = node --version
-                Write-Success "Node.js $version installed via winget"
+                Write-Success "Node.js $version 已通过 winget 安装"
                 $script:HasNode = $true
                 return $true
             }
@@ -245,7 +244,7 @@ function Test-Node {
     }
 
     # Fallback: download binary zip to ~/.kclaw/node/
-    Write-Info "Downloading Node.js $NodeVersion binary..."
+    Write-Info "正在下载 Node.js $NodeVersion 二进制包..."
     try {
         $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
         $indexUrl = "https://nodejs.org/dist/latest-v${NodeVersion}.x/"
@@ -268,7 +267,7 @@ function Test-Node {
                 $env:Path = "$KClawHome\node;$env:Path"
 
                 $version = & "$KClawHome\node\node.exe" --version
-                Write-Success "Node.js $version installed to ~/.kclaw/node/"
+                Write-Success "Node.js $version 已安装到 ~/.kclaw/node/"
                 $script:HasNode = $true
 
                 Remove-Item -Force $tmpZip -ErrorAction SilentlyContinue
@@ -280,8 +279,8 @@ function Test-Node {
         Write-Warn "Download failed: $_"
     }
 
-    Write-Warn "Could not auto-install Node.js"
-    Write-Info "Install manually: https://nodejs.org/en/download/"
+    Write-Warn "无法自动安装 Node.js"
+    Write-Info "手动安装: https://nodejs.org/en/download/"
     $script:HasNode = $false
     return $true
 }
@@ -292,7 +291,7 @@ function Install-SystemPackages {
     $needRipgrep = $false
     $needFfmpeg = $false
 
-    Write-Info "Checking ripgrep (fast file search)..."
+    Write-Info "正在检查 ripgrep (快速文件搜索)..."
     if (Get-Command rg -ErrorAction SilentlyContinue) {
         $version = rg --version | Select-Object -First 1
         Write-Success "$version found"
@@ -301,9 +300,9 @@ function Install-SystemPackages {
         $needRipgrep = $true
     }
 
-    Write-Info "Checking ffmpeg (TTS voice messages)..."
+    Write-Info "正在检查 ffmpeg (TTS 语音消息)..."
     if (Get-Command ffmpeg -ErrorAction SilentlyContinue) {
-        Write-Success "ffmpeg found"
+        Write-Success "已找到 ffmpeg"
         $script:HasFfmpeg = $true
     } else {
         $needFfmpeg = $true
@@ -318,13 +317,13 @@ function Install-SystemPackages {
     $scoopPkgs = @()
 
     if ($needRipgrep) {
-        $descParts += "ripgrep for faster file search"
+        $descParts += "ripgrep 用于加速文件搜索"
         $wingetPkgs += "BurntSushi.ripgrep.MSVC"
         $chocoPkgs += "ripgrep"
         $scoopPkgs += "ripgrep"
     }
     if ($needFfmpeg) {
-        $descParts += "ffmpeg for TTS voice messages"
+        $descParts += "ffmpeg 用于 TTS 语音消息"
         $wingetPkgs += "Gyan.FFmpeg"
         $chocoPkgs += "ffmpeg"
         $scoopPkgs += "ffmpeg"
@@ -337,7 +336,7 @@ function Install-SystemPackages {
 
     # Try winget first (most common on modern Windows)
     if ($hasWinget) {
-        Write-Info "Installing $description via winget..."
+        Write-Info "正在通过 winget 安装 $description..."
         foreach ($pkg in $wingetPkgs) {
             try {
                 winget install $pkg --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
@@ -346,12 +345,12 @@ function Install-SystemPackages {
         # Refresh PATH and recheck
         $env:Path = [Environment]::GetEnvironmentVariable("Path", "User") + ";" + [Environment]::GetEnvironmentVariable("Path", "Machine")
         if ($needRipgrep -and (Get-Command rg -ErrorAction SilentlyContinue)) {
-            Write-Success "ripgrep installed"
+            Write-Success "ripgrep 安装成功"
             $script:HasRipgrep = $true
             $needRipgrep = $false
         }
         if ($needFfmpeg -and (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
-            Write-Success "ffmpeg installed"
+            Write-Success "ffmpeg 安装成功"
             $script:HasFfmpeg = $true
             $needFfmpeg = $false
         }
@@ -360,17 +359,17 @@ function Install-SystemPackages {
 
     # Fallback: choco
     if ($hasChoco -and ($needRipgrep -or $needFfmpeg)) {
-        Write-Info "Trying Chocolatey..."
+        Write-Info "正在尝试 Chocolatey..."
         foreach ($pkg in $chocoPkgs) {
             try { choco install $pkg -y 2>&1 | Out-Null } catch { }
         }
         if ($needRipgrep -and (Get-Command rg -ErrorAction SilentlyContinue)) {
-            Write-Success "ripgrep installed via chocolatey"
+            Write-Success "ripgrep 已通过 Chocolatey 安装"
             $script:HasRipgrep = $true
             $needRipgrep = $false
         }
         if ($needFfmpeg -and (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
-            Write-Success "ffmpeg installed via chocolatey"
+            Write-Success "ffmpeg 已通过 Chocolatey 安装"
             $script:HasFfmpeg = $true
             $needFfmpeg = $false
         }
@@ -378,17 +377,17 @@ function Install-SystemPackages {
 
     # Fallback: scoop
     if ($hasScoop -and ($needRipgrep -or $needFfmpeg)) {
-        Write-Info "Trying Scoop..."
+        Write-Info "正在尝试 Scoop..."
         foreach ($pkg in $scoopPkgs) {
             try { scoop install $pkg 2>&1 | Out-Null } catch { }
         }
         if ($needRipgrep -and (Get-Command rg -ErrorAction SilentlyContinue)) {
-            Write-Success "ripgrep installed via scoop"
+            Write-Success "ripgrep 已通过 Scoop 安装"
             $script:HasRipgrep = $true
             $needRipgrep = $false
         }
         if ($needFfmpeg -and (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
-            Write-Success "ffmpeg installed via scoop"
+            Write-Success "ffmpeg 已通过 Scoop 安装"
             $script:HasFfmpeg = $true
             $needFfmpeg = $false
         }
@@ -396,11 +395,11 @@ function Install-SystemPackages {
 
     # Show manual instructions for anything still missing
     if ($needRipgrep) {
-        Write-Warn "ripgrep not installed (file search will use findstr fallback)"
+        Write-Warn "ripgrep 未安装 (文件搜索将使用 findstr 备选方案)"
         Write-Info "  winget install BurntSushi.ripgrep.MSVC"
     }
     if ($needFfmpeg) {
-        Write-Warn "ffmpeg not installed (TTS voice messages will be limited)"
+        Write-Warn "ffmpeg 未安装 (TTS 语音消息功能将受限)"
         Write-Info "  winget install Gyan.FFmpeg"
     }
 }
@@ -410,20 +409,20 @@ function Install-SystemPackages {
 # ============================================================================
 
 function Install-Repository {
-    Write-Info "Installing to $InstallDir..."
+    Write-Info "正在安装到 $InstallDir..."
     
     if (Test-Path $InstallDir) {
         if (Test-Path "$InstallDir\.git") {
-            Write-Info "Existing installation found, updating..."
+            Write-Info "发现已有安装，正在更新..."
             Push-Location $InstallDir
             git -c windows.appendAtomically=false fetch origin
             git -c windows.appendAtomically=false checkout $Branch
             git -c windows.appendAtomically=false pull origin $Branch
             Pop-Location
         } else {
-            Write-Err "Directory exists but is not a git repository: $InstallDir"
-            Write-Info "Remove it or choose a different directory with -InstallDir"
-            throw "Directory exists but is not a git repository: $InstallDir"
+            Write-Err "目录已存在但不是 Git 仓库: $InstallDir"
+            Write-Info "请删除该目录或使用 -InstallDir 指定其他目录"
+            throw "目录已存在但不是 Git 仓库: $InstallDir"
         }
     } else {
         $cloneSuccess = $false
@@ -432,14 +431,14 @@ function Install-Repository {
         # Git for Windows can fail on atomic file operations (hook templates,
         # config lock files) due to antivirus, OneDrive, or NTFS filter drivers.
         # The -c flag injects config before any file I/O occurs.
-        Write-Info "Configuring git for Windows compatibility..."
+        Write-Info "正在配置 Windows Git 兼容性..."
         $env:GIT_CONFIG_COUNT = "1"
         $env:GIT_CONFIG_KEY_0 = "windows.appendAtomically"
         $env:GIT_CONFIG_VALUE_0 = "false"
         git config --global windows.appendAtomically false 2>$null
 
         # Try SSH first, then HTTPS, with -c flag for atomic write fix
-        Write-Info "Trying SSH clone..."
+        Write-Info "正在尝试 SSH 克隆..."
         $env:GIT_SSH_COMMAND = "ssh -o BatchMode=yes -o ConnectTimeout=5"
         try {
             git -c windows.appendAtomically=false clone --branch $Branch --recurse-submodules $RepoUrlSsh $InstallDir
@@ -449,7 +448,7 @@ function Install-Repository {
         
         if (-not $cloneSuccess) {
             if (Test-Path $InstallDir) { Remove-Item -Recurse -Force $InstallDir -ErrorAction SilentlyContinue }
-            Write-Info "SSH failed, trying HTTPS..."
+            Write-Info "SSH 失败，正在尝试 HTTPS..."
             try {
                 git -c windows.appendAtomically=false clone --branch $Branch --recurse-submodules $RepoUrlHttps $InstallDir
                 if ($LASTEXITCODE -eq 0) { $cloneSuccess = $true }
@@ -459,7 +458,7 @@ function Install-Repository {
         # Fallback: download ZIP archive (bypasses git file I/O issues entirely)
         if (-not $cloneSuccess) {
             if (Test-Path $InstallDir) { Remove-Item -Recurse -Force $InstallDir -ErrorAction SilentlyContinue }
-            Write-Warn "Git clone failed — downloading ZIP archive instead..."
+            Write-Warn "Git 克隆失败 — 正在下载 ZIP 压缩包..."
             try {
                 $zipUrl = "https://github.com/kkutysllb/kk_KClaw/archive/refs/heads/$Branch.zip"
                 $zipPath = "$env:TEMP\kclaw-$Branch.zip"
@@ -474,7 +473,7 @@ function Install-Repository {
                 if ($extractedDir) {
                     New-Item -ItemType Directory -Force -Path (Split-Path $InstallDir) -ErrorAction SilentlyContinue | Out-Null
                     Move-Item $extractedDir.FullName $InstallDir -Force
-                    Write-Success "Downloaded and extracted"
+                    Write-Success "下载并解压完成"
                     
                     # Initialize git repo so updates work later
                     Push-Location $InstallDir
@@ -482,7 +481,7 @@ function Install-Repository {
                     git -c windows.appendAtomically=false config windows.appendAtomically false 2>$null
                     git remote add origin $RepoUrlHttps 2>$null
                     Pop-Location
-                    Write-Success "Git repo initialized for future updates"
+                    Write-Success "Git 仓库已初始化，支持后续更新"
                     
                     $cloneSuccess = $true
                 }
@@ -491,12 +490,12 @@ function Install-Repository {
                 Remove-Item -Force $zipPath -ErrorAction SilentlyContinue
                 Remove-Item -Recurse -Force $extractPath -ErrorAction SilentlyContinue
             } catch {
-                Write-Err "ZIP download also failed: $_"
+                Write-Err "ZIP 下载也失败: $_"
             }
         }
 
         if (-not $cloneSuccess) {
-            throw "Failed to download repository (tried git clone SSH, HTTPS, and ZIP)"
+            throw "下载仓库失败 (已尝试 SSH、HTTPS 克隆和 ZIP 下载)"
         }
     }
     
@@ -505,30 +504,30 @@ function Install-Repository {
     git -c windows.appendAtomically=false config windows.appendAtomically false 2>$null
 
     # Ensure submodules are initialized and updated
-    Write-Info "Initializing submodules..."
+    Write-Info "正在初始化子模块..."
     git -c windows.appendAtomically=false submodule update --init --recursive 2>$null
     if ($LASTEXITCODE -ne 0) {
-        Write-Warn "Submodule init failed (terminal/RL tools may need manual setup)"
+        Write-Warn "子模块初始化失败 (终端/RL 工具可能需要手动设置)"
     } else {
-        Write-Success "Submodules ready"
+        Write-Success "子模块就绪"
     }
     Pop-Location
     
-    Write-Success "Repository ready"
+    Write-Success "仓库就绪"
 }
 
 function Install-Venv {
     if ($NoVenv) {
-        Write-Info "Skipping virtual environment (-NoVenv)"
+        Write-Info "跳过虚拟环境 (-NoVenv)"
         return
     }
     
-    Write-Info "Creating virtual environment with Python $PythonVersion..."
+    Write-Info "正在创建 Python $PythonVersion 虚拟环境..."
     
     Push-Location $InstallDir
     
     if (Test-Path "venv") {
-        Write-Info "Virtual environment already exists, recreating..."
+        Write-Info "虚拟环境已存在，正在重新创建..."
         Remove-Item -Recurse -Force "venv"
     }
     
@@ -537,11 +536,11 @@ function Install-Venv {
     
     Pop-Location
     
-    Write-Success "Virtual environment ready (Python $PythonVersion)"
+    Write-Success "虚拟环境就绪 (Python $PythonVersion)"
 }
 
 function Install-Dependencies {
-    Write-Info "Installing dependencies..."
+    Write-Info "正在安装依赖..."
     
     Push-Location $InstallDir
     
@@ -557,28 +556,28 @@ function Install-Dependencies {
         & $UvCmd pip install -e "." | Out-Null
     }
     
-    Write-Success "Main package installed"
+    Write-Success "主包安装成功"
     
     # Install optional submodules
-    Write-Info "Installing tinker-atropos (RL training backend)..."
+    Write-Info "正在安装 tinker-atropos (RL 训练后端)..."
     if (Test-Path "tinker-atropos\pyproject.toml") {
         try {
             & $UvCmd pip install -e ".\tinker-atropos" 2>&1 | Out-Null
-            Write-Success "tinker-atropos installed"
+            Write-Success "tinker-atropos 安装成功"
         } catch {
-            Write-Warn "tinker-atropos install failed (RL tools may not work)"
+            Write-Warn "tinker-atropos 安装失败 (RL 工具可能不可用)"
         }
     } else {
-        Write-Warn "tinker-atropos not found (run: git submodule update --init)"
+        Write-Warn "未找到 tinker-atropos (运行: git submodule update --init)"
     }
     
     Pop-Location
     
-    Write-Success "All dependencies installed"
+    Write-Success "所有依赖安装完成"
 }
 
 function Set-PathVariable {
-    Write-Info "Setting up kclaw command..."
+    Write-Info "正在设置 kclaw 命令..."
     
     if ($NoVenv) {
         $kclawBin = "$InstallDir"
@@ -596,9 +595,9 @@ function Set-PathVariable {
             "$kclawBin;$currentPath",
             "User"
         )
-        Write-Success "Added to user PATH: $kclawBin"
+        Write-Success "已添加到用户 PATH: $kclawBin"
     } else {
-        Write-Info "PATH already configured"
+        Write-Info "PATH 已配置"
     }
     
     # Set KCLAW_HOME so the Python code finds config/data in the right place.
@@ -607,18 +606,18 @@ function Set-PathVariable {
     $currentKClawHome = [Environment]::GetEnvironmentVariable("KCLAW_HOME", "User")
     if (-not $currentKClawHome -or $currentKClawHome -ne $KClawHome) {
         [Environment]::SetEnvironmentVariable("KCLAW_HOME", $KClawHome, "User")
-        Write-Success "Set KCLAW_HOME=$KClawHome"
+        Write-Success "已设置 KCLAW_HOME=$KClawHome"
     }
     $env:KCLAW_HOME = $KClawHome
     
     # Update current session
     $env:Path = "$kclawBin;$env:Path"
     
-    Write-Success "kclaw command ready"
+    Write-Success "kclaw 命令就绪"
 }
 
 function Copy-ConfigTemplates {
-    Write-Info "Setting up configuration files..."
+    Write-Info "正在设置配置文件..."
     
     # Create ~/.kclaw directory structure
     New-Item -ItemType Directory -Force -Path "$KClawHome\cron" | Out-Null
@@ -638,13 +637,13 @@ function Copy-ConfigTemplates {
         $examplePath = "$InstallDir\.env.example"
         if (Test-Path $examplePath) {
             Copy-Item $examplePath $envPath
-            Write-Success "Created ~/.kclaw/.env from template"
+            Write-Success "已从模板创建 ~/.kclaw/.env"
         } else {
             New-Item -ItemType File -Force -Path $envPath | Out-Null
-            Write-Success "Created ~/.kclaw/.env"
+            Write-Success "已创建 ~/.kclaw/.env"
         }
     } else {
-        Write-Info "~/.kclaw/.env already exists, keeping it"
+        Write-Info "~/.kclaw/.env 已存在，保留不变"
     }
     
     # Create config.yaml
@@ -653,10 +652,10 @@ function Copy-ConfigTemplates {
         $examplePath = "$InstallDir\cli-config.yaml.example"
         if (Test-Path $examplePath) {
             Copy-Item $examplePath $configPath
-            Write-Success "Created ~/.kclaw/config.yaml from template"
+            Write-Success "已从模板创建 ~/.kclaw/config.yaml"
         }
     } else {
-        Write-Info "~/.kclaw/config.yaml already exists, keeping it"
+        Write-Info "~/.kclaw/config.yaml 已存在，保留不变"
     }
     
     # Create SOUL.md if it doesn't exist (global persona file)
@@ -679,25 +678,25 @@ This file is loaded fresh each message -- no restart needed.
 Delete the contents (or this file) to use the default personality.
 -->
 "@ | Set-Content -Path $soulPath -Encoding UTF8
-        Write-Success "Created ~/.kclaw/SOUL.md (edit to customize personality)"
+        Write-Success "已创建 ~/.kclaw/SOUL.md (编辑以自定义个性)"
     }
     
-    Write-Success "Configuration directory ready: ~/.kclaw/"
+    Write-Success "配置目录就绪: ~/.kclaw/"
     
     # Seed bundled skills into ~/.kclaw/skills/ (manifest-based, one-time per skill)
-    Write-Info "Syncing bundled skills to ~/.kclaw/skills/ ..."
+    Write-Info "正在同步内置技能到 ~/.kclaw/skills/ ..."
     $pythonExe = "$InstallDir\venv\Scripts\python.exe"
     if (Test-Path $pythonExe) {
         try {
             & $pythonExe "$InstallDir\tools\skills_sync.py" 2>$null
-            Write-Success "Skills synced to ~/.kclaw/skills/"
+            Write-Success "技能已同步到 ~/.kclaw/skills/"
         } catch {
             # Fallback: simple directory copy
             $bundledSkills = "$InstallDir\skills"
             $userSkills = "$KClawHome\skills"
             if ((Test-Path $bundledSkills) -and -not (Get-ChildItem $userSkills -Exclude '.bundled_manifest' -ErrorAction SilentlyContinue)) {
                 Copy-Item -Path "$bundledSkills\*" -Destination $userSkills -Recurse -Force -ErrorAction SilentlyContinue
-                Write-Success "Skills copied to ~/.kclaw/skills/"
+                Write-Success "技能已复制到 ~/.kclaw/skills/"
             }
         }
     }
@@ -705,32 +704,32 @@ Delete the contents (or this file) to use the default personality.
 
 function Install-NodeDeps {
     if (-not $HasNode) {
-        Write-Info "Skipping Node.js dependencies (Node not installed)"
+        Write-Info "跳过 Node.js 依赖 (未安装 Node.js)"
         return
     }
     
     Push-Location $InstallDir
     
     if (Test-Path "package.json") {
-        Write-Info "Installing Node.js dependencies (browser tools)..."
+        Write-Info "正在安装 Node.js 依赖 (浏览器工具)..."
         try {
             npm install --silent 2>&1 | Out-Null
-            Write-Success "Node.js dependencies installed"
+            Write-Success "Node.js 依赖安装完成"
         } catch {
-            Write-Warn "npm install failed (browser tools may not work)"
+            Write-Warn "npm install 失败 (浏览器工具可能不可用)"
         }
     }
     
     # Install WhatsApp bridge dependencies
     $bridgeDir = "$InstallDir\scripts\whatsapp-bridge"
     if (Test-Path "$bridgeDir\package.json") {
-        Write-Info "Installing WhatsApp bridge dependencies..."
+        Write-Info "正在安装 WhatsApp 桥接依赖..."
         Push-Location $bridgeDir
         try {
             npm install --silent 2>&1 | Out-Null
-            Write-Success "WhatsApp bridge dependencies installed"
+            Write-Success "WhatsApp 桥接依赖安装完成"
         } catch {
-            Write-Warn "WhatsApp bridge npm install failed (WhatsApp may not work)"
+            Write-Warn "WhatsApp 桥接 npm install 失败 (WhatsApp 可能不可用)"
         }
         Pop-Location
     }
@@ -740,12 +739,12 @@ function Install-NodeDeps {
 
 function Invoke-SetupWizard {
     if ($SkipSetup) {
-        Write-Info "Skipping setup wizard (-SkipSetup)"
+        Write-Info "跳过设置向导 (-SkipSetup)"
         return
     }
     
     Write-Host ""
-    Write-Info "Starting setup wizard..."
+    Write-Info "正在启动设置向导..."
     Write-Host ""
     
     Push-Location $InstallDir
@@ -783,10 +782,10 @@ function Start-GatewayIfConfigured {
     $whatsappSession = "$KClawHome\whatsapp\session\creds.json"
     if ($whatsappEnabled -and -not (Test-Path $whatsappSession)) {
         Write-Host ""
-        Write-Info "WhatsApp is enabled but not yet paired."
-        Write-Info "Running 'kclaw whatsapp' to pair via QR code..."
+        Write-Info "WhatsApp 已启用但尚未配对。"
+        Write-Info "正在运行 'kclaw whatsapp' 以通过二维码配对..."
         Write-Host ""
-        $response = Read-Host "Pair WhatsApp now? [Y/n]"
+        $response = Read-Host "是否现在配对 WhatsApp? [Y/n]"
         if ($response -eq "" -or $response -match "^[Yy]") {
             try {
                 & $kclawCmd whatsapp
@@ -797,82 +796,82 @@ function Start-GatewayIfConfigured {
     }
 
     Write-Host ""
-    Write-Info "Messaging platform token detected!"
-    Write-Info "The gateway handles messaging platforms and cron job execution."
+    Write-Info "检测到消息平台令牌!"
+    Write-Info "网关负责处理消息平台和定时任务执行。"
     Write-Host ""
-    $response = Read-Host "Would you like to start the gateway now? [Y/n]"
+    $response = Read-Host "是否现在启动网关? [Y/n]"
 
     if ($response -eq "" -or $response -match "^[Yy]") {
-        Write-Info "Starting gateway in background..."
+        Write-Info "正在后台启动网关..."
         try {
             $logFile = "$KClawHome\logs\gateway.log"
             Start-Process -FilePath $kclawCmd -ArgumentList "gateway" `
                 -RedirectStandardOutput $logFile `
                 -RedirectStandardError "$KClawHome\logs\gateway-error.log" `
                 -WindowStyle Hidden
-            Write-Success "Gateway started! Your bot is now online."
-            Write-Info "Logs: $logFile"
-            Write-Info "To stop: close the gateway process from Task Manager"
+            Write-Success "网关已启动! 您的机器人现在在线。"
+            Write-Info "日志: $logFile"
+            Write-Info "停止: 从任务管理器关闭网关进程"
         } catch {
-            Write-Warn "Failed to start gateway. Run manually: kclaw gateway"
+            Write-Warn "网关启动失败。手动运行: kclaw gateway"
         }
     } else {
-        Write-Info "Skipped. Start the gateway later with: kclaw gateway"
+        Write-Info "已跳过。稍后启动网关: kclaw gateway"
     }
 }
 
 function Write-Completion {
     Write-Host ""
     Write-Host "┌─────────────────────────────────────────────────────────┐" -ForegroundColor Green
-    Write-Host "│              ✓ Installation Complete!                   │" -ForegroundColor Green
+    Write-Host "│              ✓ 安装完成!                              │" -ForegroundColor Green
     Write-Host "└─────────────────────────────────────────────────────────┘" -ForegroundColor Green
     Write-Host ""
     
     # Show file locations
-    Write-Host "📁 Your files:" -ForegroundColor Cyan
+    Write-Host "📁 您的文件:" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "   Config:    " -NoNewline -ForegroundColor Yellow
+    Write-Host "   配置文件:    " -NoNewline -ForegroundColor Yellow
     Write-Host "$KClawHome\config.yaml"
-    Write-Host "   API Keys:  " -NoNewline -ForegroundColor Yellow
+    Write-Host "   API 密钥:  " -NoNewline -ForegroundColor Yellow
     Write-Host "$KClawHome\.env"
-    Write-Host "   Data:      " -NoNewline -ForegroundColor Yellow
+    Write-Host "   数据:      " -NoNewline -ForegroundColor Yellow
     Write-Host "$KClawHome\cron\, sessions\, logs\"
-    Write-Host "   Code:      " -NoNewline -ForegroundColor Yellow
+    Write-Host "   代码:      " -NoNewline -ForegroundColor Yellow
     Write-Host "$KClawHome\kclaw\"
     Write-Host ""
     
     Write-Host "─────────────────────────────────────────────────────────" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "🚀 Commands:" -ForegroundColor Cyan
+    Write-Host "🚀 常用命令:" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "   kclaw              " -NoNewline -ForegroundColor Green
-    Write-Host "Start chatting"
+    Write-Host "开始对话"
     Write-Host "   kclaw setup        " -NoNewline -ForegroundColor Green
-    Write-Host "Configure API keys & settings"
+    Write-Host "配置 API 密钥和设置"
     Write-Host "   kclaw config       " -NoNewline -ForegroundColor Green
-    Write-Host "View/edit configuration"
+    Write-Host "查看/编辑配置"
     Write-Host "   kclaw config edit  " -NoNewline -ForegroundColor Green
-    Write-Host "Open config in editor"
+    Write-Host "在编辑器中打开配置"
     Write-Host "   kclaw gateway      " -NoNewline -ForegroundColor Green
-    Write-Host "Start messaging gateway (Telegram, Discord, etc.)"
+    Write-Host "启动消息网关 (Telegram、Discord 等)"
     Write-Host "   kclaw update       " -NoNewline -ForegroundColor Green
-    Write-Host "Update to latest version"
+    Write-Host "更新到最新版本"
     Write-Host ""
     
     Write-Host "─────────────────────────────────────────────────────────" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "⚡ Restart your terminal for PATH changes to take effect" -ForegroundColor Yellow
+    Write-Host "⚡ 请重启终端以使 PATH 更改生效" -ForegroundColor Yellow
     Write-Host ""
     
     if (-not $HasNode) {
-        Write-Host "Note: Node.js could not be installed automatically." -ForegroundColor Yellow
-        Write-Host "Browser tools need Node.js. Install manually:" -ForegroundColor Yellow
+        Write-Host "注意: 无法自动安装 Node.js。" -ForegroundColor Yellow
+        Write-Host "浏览器工具需要 Node.js。手动安装:" -ForegroundColor Yellow
         Write-Host "  https://nodejs.org/en/download/" -ForegroundColor Yellow
         Write-Host ""
     }
     
     if (-not $HasRipgrep) {
-        Write-Host "Note: ripgrep (rg) was not installed. For faster file search:" -ForegroundColor Yellow
+        Write-Host "注意: ripgrep (rg) 未安装。如需更快的文件搜索:" -ForegroundColor Yellow
         Write-Host "  winget install BurntSushi.ripgrep.MSVC" -ForegroundColor Yellow
         Write-Host ""
     }
@@ -903,16 +902,16 @@ function Main {
     Write-Completion
 }
 
-# Wrap in try/catch so errors don't kill the terminal when run via:
+# 使用 try/catch 包装，以防止错误导致终端崩溃，当通过以下方式运行时：
 #   irm https://...install.ps1 | iex
-# (exit/throw inside iex kills the entire PowerShell session)
+# （在 iex 中使用 exit/throw 会终止整个 PowerShell 会话）
 try {
     Main
 } catch {
     Write-Host ""
-    Write-Err "Installation failed: $_"
+    Write-Err "安装失败: $_"
     Write-Host ""
-    Write-Info "If the error is unclear, try downloading and running the script directly:"
+    Write-Info "如果错误信息不明确，请尝试直接下载并运行脚本:"
     Write-Host "  Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/kkutysllb/kk_KClaw/main/scripts/install.ps1' -OutFile install.ps1" -ForegroundColor Yellow
     Write-Host "  .\install.ps1" -ForegroundColor Yellow
     Write-Host ""

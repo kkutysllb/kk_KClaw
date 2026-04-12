@@ -1,18 +1,17 @@
 #!/bin/bash
 # ============================================================================
-# KClaw Agent Installer
+# KClaw Agent 安装程序
 # ============================================================================
-# Installation script for Linux and macOS.
-# Uses uv for fast Python provisioning and package management.
+# 适用于 Linux 和 macOS 的安装脚本。
+# 使用 uv 进行快速 Python 环境配置和包管理。
 #
-# Usage:
+# 用法:
 #   curl -fsSL https://raw.githubusercontent.com/kkutysllb/kk_KClaw/main/scripts/install.sh | bash
 #
-# Or with options:
+# 或者带选项:
 #   curl -fsSL ... | bash -s -- --no-venv --skip-setup
 #
 # ============================================================================
-
 set -e
 
 # Colors
