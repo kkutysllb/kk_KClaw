@@ -1,60 +1,60 @@
 """
-AgenticOPDEnv — On-Policy Distillation for Agentic Tool-Calling Tasks
+AgenticOPDEnv — Agentic 工具调用任务的同策略蒸馏
 =====================================================================
 
-First Atropos environment to populate the distill_token_ids / distill_logprobs
-fields on ScoredDataGroup, enabling on-policy distillation (OPD) training.
+首个填充 ScoredDataGroup 上 distill_token_ids / distill_logprobs
+字段的 Atropos 环境，实现同策略蒸馏（OPD）训练。
 
-Key idea (from OpenClaw-RL, Princeton 2026):
-  Every time an agent receives a next-state signal (tool result, error trace,
-  test verdict), that signal contains hindsight information about how the
-  agent's PREVIOUS response could have been better. This environment:
+核心思想（来自 OpenClaw-RL，普林斯顿 2026）：
+  每次 Agent 收到下一个状态信号（工具结果、错误追踪、
+  测试判决）时，该信号包含关于 Agent 之前响应
+  如何可以做得更好的后见信息。此环境：
 
-  1. Runs standard agentic rollouts (tool-calling agent loop)
-  2. Walks the conversation to find (assistant_turn, next_state) pairs
-  3. Uses an LLM judge to extract "hints" from next-state signals
-  4. Builds an enhanced prompt (original context + hint)
-  5. Scores the student's response tokens under the enhanced distribution
-     using VLLM's prompt_logprobs (via Atropos's get_logprobs API)
-  6. Packages the teacher's top-K predictions as distill_token_ids /
-     distill_logprobs on the ScoredDataGroup
+  1. 运行标准 agentic rollouts（工具调用 Agent 循环）
+  2. 遍历对话找到（assistant_turn, next_state）配对
+  3. 使用 LLM 评判从下一个状态信号中提取“提示”
+  4. 构建增强提示（原始上下文 + 提示）
+  5. 使用 VLLM 的 prompt_logprobs 在增强分布下对学生的响应 token 评分
+     （通过 Atropos 的 get_logprobs API）
+  6. 将教师的 top-K 预测打包为 ScoredDataGroup 上的
+     distill_token_ids / distill_logprobs
 
-The trainer then computes per-token advantages:
+训练器然后计算每个 token 的优势：
   A_t = teacher_logprob(token_t) - student_logprob(token_t)
-  Positive → teacher approves this token (upweight)
-  Negative → teacher disapproves (downweight)
+  正值 → 教师批准此 token（加权）
+  负值 → 教师反对（降权）
 
-This gives dense, token-level training signal from every tool interaction,
-instead of just a scalar reward at the end of the trajectory.
+这为每个工具交互提供密集的、token 级别的训练信号，
+而不是仅在轨迹末尾的标量奖励。
 
-Task: Coding tasks with test verification (rich next-state signals from
-test results, error messages, terminal output). Falls back to built-in
-coding problems if no HuggingFace dataset is configured.
+任务：带有测试验证的编码任务（来自测试结果、
+错误消息、终端输出的丰富下一个状态信号）。
+如果没有配置 HuggingFace 数据集，则回退到内置编码问题。
 
-Requirements:
-  - VLLM backend (server_type: vllm) — needed for prompt logprob scoring
-  - Phase 2 mode (ManagedServer) — needed for token-level tracking
+要求：
+  - VLLM 后端（server_type: vllm）— 需要用于 prompt logprob 评分
+  - 第二阶段模式（ManagedServer）— 需要用于 token 级别跟踪
 
-Usage:
-    # Process mode (offline data generation with OPD)
+用法：
+    # Process 模式（使用 OPD 生成离线数据）
     python environments/agentic_opd_env.py process \\
         --env.total_steps 10 --env.group_size 2 \\
         --env.data_path_to_save_groups output.jsonl \\
         --openai.base_url http://localhost:8000/v1 \\
         --openai.model_name Qwen/Qwen3-4B
 
-    # Serve mode (connected to Atropos trainer)
+    # Serve 模式（连接到 Atropos 训练器）
     python environments/agentic_opd_env.py serve \\
         --openai.base_url http://localhost:8000/v1 \\
         --openai.model_name Qwen/Qwen3-4B
 
-    # Evaluate mode
+    # Evaluate 模式
     python environments/agentic_opd_env.py evaluate \\
         --env.eval_size 10 \\
         --openai.base_url http://localhost:8000/v1 \\
         --openai.model_name Qwen/Qwen3-4B
 
-Reference: Wang et al., "OpenClaw-RL: Train Any Agent Simply by Talking"
+参考: Wang et al., "OpenClaw-RL: Train Any Agent Simply by Talking"
            arXiv:2603.10165, March 2026
 """
 
@@ -75,7 +75,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from pydantic import Field
 
-# Ensure kclaw root is on path
+# 确保 kclaw 根目录在路径上
 _repo_root = Path(__file__).resolve().parent.parent
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
@@ -92,7 +92,7 @@ logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Built-in coding tasks (fallback when no HF dataset is configured)
+# 内置编码任务（当没有配置 HF 数据集时的回退）
 # ═══════════════════════════════════════════════════════════════════════
 
 BUILTIN_CODING_TASKS = [
@@ -215,7 +215,7 @@ BUILTIN_CODING_TASKS = [
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Hint extraction prompts (adapted from OpenClaw-RL)
+# 提示提取提示词（改编自 OpenClaw-RL）
 # ═══════════════════════════════════════════════════════════════════════
 
 _HINT_JUDGE_SYSTEM = (
@@ -248,7 +248,7 @@ _HINT_RE = re.compile(r"\[HINT_START\](.*?)\[HINT_END\]", re.DOTALL)
 def _build_hint_judge_messages(
     response_text: str, next_state_text: str, next_state_role: str = "tool"
 ) -> list[dict]:
-    """Build messages for the hint extraction judge."""
+    """为提示提取评判器构建消息。"""
     user = (
         f"## Assistant response (turn t)\n{response_text}\n\n"
         f"## Next state (turn t+1) [role: {next_state_role}]\n{next_state_text}\n\n"
@@ -261,7 +261,7 @@ def _build_hint_judge_messages(
 
 
 def _parse_hint_result(text: str) -> tuple[int | None, str]:
-    """Parse the judge's boxed decision and hint text."""
+    """解析评判器的带框决策和提示文本。"""
     boxed = _BOXED_RE.findall(text)
     score = int(boxed[-1]) if boxed else None
     if score not in (1, -1):
@@ -272,7 +272,7 @@ def _parse_hint_result(text: str) -> tuple[int | None, str]:
 
 
 def _select_best_hint(votes: list[dict]) -> dict | None:
-    """Select the best hint from majority-voted judge results."""
+    """从多数投票的评判器结果中选择最佳提示。"""
     good = [
         v
         for v in votes
@@ -286,12 +286,12 @@ def _select_best_hint(votes: list[dict]) -> dict | None:
 
 
 def _append_hint_to_messages(messages: list[dict], hint: str) -> list[dict]:
-    """Clone messages and append hint to the last user message."""
+    """克隆消息并将提示附加到最后一条用户消息。"""
     cloned = copy.deepcopy(messages)
     if not cloned:
         return [{"role": "user", "content": f"[user's hint / instruction]\n{hint}"}]
 
-    # Find last user message
+    # 找到最后一条用户消息
     target_idx = None
     for i in range(len(cloned) - 1, -1, -1):
         if cloned[i].get("role") == "user":
@@ -311,96 +311,96 @@ def _append_hint_to_messages(messages: list[dict], hint: str) -> list[dict]:
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Configuration
+# 配置
 # ═══════════════════════════════════════════════════════════════════════
 
 
 class AgenticOPDConfig(KClawAgentEnvConfig):
-    """Configuration for the agentic OPD environment."""
+    """agentic OPD 环境的配置。"""
 
-    # --- OPD settings ---
+    # --- OPD 设置 ---
     opd_enabled: bool = Field(
         default=True,
-        description="Enable on-policy distillation pipeline. When disabled, "
-        "the environment behaves like a standard agentic env (no distill fields).",
+        description="启用同策略蒸馏管道。禁用时，"
+        "环境表现得像标准 agentic 环境（无 distill 字段）。",
     )
     distill_topk: int = Field(
         default=50,
-        description="Number of top-K teacher logprobs per position for distillation.",
+        description="每个位置用于蒸馏的 top-K 教师 logprobs 数量。"
     )
     prm_votes: int = Field(
         default=3,
-        description="Number of independent judge queries for majority-voted hint extraction.",
+        description="用于多数投票提示提取的独立评判器查询数量。"
     )
     hint_max_next_state_chars: int = Field(
         default=4000,
-        description="Maximum characters of next-state text to include in the hint judge prompt. "
-        "Tool results can be very long — truncating prevents judge context overflow.",
+        description="在提示评判器提示中包含的下一个状态文本的最大字符数。"
+        "工具结果可能很长 — 截断可防止评判器上下文溢出。"
     )
 
-    # --- Reward settings ---
+    # --- 奖励设置 ---
     correctness_weight: float = Field(
         default=0.7,
-        description="Weight for test pass/fail in reward.",
+        description="奖励中测试通过/失败的权重。"
     )
     efficiency_weight: float = Field(
         default=0.15,
-        description="Weight for efficiency (fewer turns = better).",
+        description="效率（轮次越少越好）的权重。"
     )
     tool_usage_weight: float = Field(
         default=0.15,
-        description="Weight for appropriate tool usage signal.",
+        description="适当工具使用信号的权重。"
     )
 
-    # --- Dataset ---
+    # --- 数据集 ---
     dataset_name: Optional[str] = Field(
         default=None,
-        description="HuggingFace dataset with coding tasks. "
-        "Expected fields: 'task' (problem description) and 'test_code' (pytest/assert tests). "
-        "Falls back to built-in tasks if not set or unavailable.",
+        description="带有编码任务的 HuggingFace 数据集。"
+        "预期字段: 'task'（问题描述）和 'test_code'（pytest/assert 测试）。"
+        "如果未设置或不可用则回退到内置任务。"
     )
 
-    # --- Eval ---
+    # --- 评估 ---
     eval_size: int = Field(
         default=10,
-        description="Number of held-out items for evaluation.",
+        description="用于评估的留出项目数量。"
     )
     eval_split_ratio: float = Field(
         default=0.15,
-        description="Fraction of dataset to hold out for evaluation.",
+        description="留出用于评估的数据集比例。"
     )
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Environment
+# 环境
 # ═══════════════════════════════════════════════════════════════════════
 
 
 class AgenticOPDEnv(KClawAgentBaseEnv):
     """
-    RL environment with on-policy distillation from next-state signals.
+    具有来自下一个状态信号的同策略蒸馏的强化学习环境。
 
-    Runs coding tasks where the agent writes code and runs tests.
-    Tool results (test pass/fail, error traces) serve as next-state signals
-    for hint extraction and teacher logprob scoring.
+    运行编码任务，其中 Agent 编写代码并运行测试。
+    工具结果（测试通过/失败、错误追踪）作为下一个状态信号
+    用于提示提取和教师 logprob 评分。
 
-    This is the first Atropos environment to populate distill_token_ids
-    and distill_logprobs on ScoredDataGroup for OPD training.
+    这是首个在 ScoredDataGroup 上填充 distill_token_ids
+    和 distill_logprobs 用于 OPD 训练的 Atropos 环境。
     """
 
     name = "agentic-opd"
     env_config_cls = AgenticOPDConfig
 
-    # Default toolsets: terminal for running code, file for writing it
+    # 默认工具集: terminal 用于运行代码，file 用于编写代码
     default_toolsets = ["terminal", "file"]
 
     @classmethod
     def config_init(cls) -> Tuple[AgenticOPDConfig, List[APIServerConfig]]:
-        """Default configuration."""
+        """默认配置。"""
         env_config = AgenticOPDConfig(
-            # Toolsets
+            # 工具集
             enabled_toolsets=["terminal", "file"],
-            # Agent loop
+            # Agent 循环
             max_agent_turns=15,
             agent_temperature=1.0,
             system_prompt=(
@@ -416,7 +416,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
             opd_enabled=True,
             distill_topk=50,
             prm_votes=3,
-            # Training
+            # 训练
             group_size=4,
             total_steps=500,
             steps_per_eval=50,
@@ -440,7 +440,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         self._eval_items: list[dict] = []
         self._index: int = 0
 
-        # Metric buffers
+        # 指标缓冲区
         self._reward_buffer: list[float] = []
         self._correctness_buffer: list[float] = []
         self._efficiency_buffer: list[float] = []
@@ -449,17 +449,17 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         self._opd_turns_scored_buffer: list[int] = []
 
     # ═══════════════════════════════════════════════════════════════════
-    # 1. setup — load dataset
+    # 1. setup — 加载数据集
     # ═══════════════════════════════════════════════════════════════════
 
     async def setup(self) -> None:
-        """Load coding tasks from HuggingFace or use built-in set."""
+        """从 HuggingFace 加载编码任务或使用内置集。"""
         if self.config.dataset_name:
             try:
                 from datasets import load_dataset
 
                 logger.info(
-                    "Loading dataset '%s'...", self.config.dataset_name
+                    "正在加载数据集 '%s'...", self.config.dataset_name
                 )
                 ds = load_dataset(
                     self.config.dataset_name, split=self.config.dataset_split
@@ -483,7 +483,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                     self._eval_items = self._items[:eval_size]
                     self._items = self._items[eval_size:]
                     logger.info(
-                        "Loaded %d train / %d eval items from '%s'",
+                        "从 '%s' 加载了 %d 个训练 / %d 个评估项目",
                         len(self._items),
                         len(self._eval_items),
                         self.config.dataset_name,
@@ -491,41 +491,41 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                     return
             except Exception as e:
                 logger.warning(
-                    "Could not load dataset '%s': %s. Using built-in tasks.",
+                    "无法加载数据集 '%s': %s。使用内置任务。",
                     self.config.dataset_name,
                     e,
                 )
 
-        # Fallback to built-in tasks
+        # 回退到内置任务
         items = copy.deepcopy(BUILTIN_CODING_TASKS)
         random.shuffle(items)
         split = max(1, len(items) * 85 // 100)
         self._items = items[:split]
         self._eval_items = items[split:]
         logger.info(
-            "Using built-in coding tasks: %d train / %d eval items",
+            "使用内置编码任务: %d 个训练 / %d 个评估项目",
             len(self._items),
             len(self._eval_items),
         )
 
     # ═══════════════════════════════════════════════════════════════════
-    # 2. get_next_item
+    # 2. 获取下一个数据项
     # ═══════════════════════════════════════════════════════════════════
 
     async def get_next_item(self) -> dict:
-        """Return the next coding task, cycling through the dataset."""
+        """返回下一个编码任务，循环遍历数据集。"""
         if not self._items:
-            raise RuntimeError("Dataset is empty. Did you call setup()?")
+            raise RuntimeError("数据集为空。你调用了 setup() 了吗？")
         item = self._items[self._index % len(self._items)]
         self._index += 1
         return item
 
     # ═══════════════════════════════════════════════════════════════════
-    # 3. format_prompt
+    # 3. 格式化提示词
     # ═══════════════════════════════════════════════════════════════════
 
     def format_prompt(self, item: dict) -> str:
-        """Format the coding task as a user prompt."""
+        """将编码任务格式化为用户提示。"""
         prompt = (
             f"Solve the following coding task.\n\n"
             f"## Task\n{item['task']}\n\n"
@@ -545,7 +545,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         return prompt
 
     # ═══════════════════════════════════════════════════════════════════
-    # 4. compute_reward
+    # 4. 计算奖励
     # ═══════════════════════════════════════════════════════════════════
 
     async def compute_reward(
@@ -555,15 +555,15 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         ctx: ToolContext,
     ) -> float:
         """
-        Multi-signal reward:
-          - correctness (0.7): Did the tests pass?
-          - efficiency (0.15): Fewer turns = better
-          - tool_usage (0.15): Did the agent actually write + run code?
+        多信号奖励:
+          - correctness（正确性）(0.7): 测试通过了吗？
+          - efficiency（效率）(0.15): 轮次越少越好
+          - tool_usage（工具使用）(0.15): Agent 是否实际编写并运行了代码？
         """
         cfg = self.config
 
-        # ---- Signal 1: Test correctness ----
-        # Check if test_solution.py exists and passes in the agent's sandbox
+        # ---- 信号 1: 测试正确性 ----
+        # 检查 test_solution.py 是否存在并在 Agent 的沙箱中通过
         correctness = 0.0
         try:
             test_result = ctx.terminal("python test_solution.py 2>&1", timeout=30)
@@ -571,17 +571,17 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
             exit_code = test_result.get("exit_code", 1)
             if exit_code == 0 and "passed" in output.lower():
                 correctness = 1.0
-            elif exit_code == 0:
-                correctness = 0.8  # Ran without error but no explicit "passed"
+            if exit_code == 0:
+                correctness = 0.8  # 运行无错误但没有明确的 "passed"
             elif "assert" in output.lower() and "error" in output.lower():
-                correctness = 0.2  # Partial — code runs but assertions fail
+                correctness = 0.2  # 部分 — 代码运行但断言失败
             else:
-                correctness = 0.1  # Code errors out entirely
+                correctness = 0.1  # 代码完全出错
         except Exception as e:
-            logger.debug("Test execution failed in reward: %s", e)
+            logger.debug("奖励中的测试执行失败: %s", e)
             correctness = 0.0
 
-        # ---- Signal 2: Efficiency ----
+        # ---- 信号 2: 效率 ----
         max_turns = cfg.max_agent_turns
         turns_used = result.turns_used
         if turns_used <= 3:
@@ -593,7 +593,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         else:
             efficiency = 0.2
 
-        # ---- Signal 3: Tool usage ----
+        # ---- 信号 3: 工具使用 ----
         tools_used = set()
         for msg in result.messages:
             if msg.get("role") == "assistant" and msg.get("tool_calls"):
@@ -603,7 +603,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                     if name:
                         tools_used.add(name)
 
-        # Good: used both terminal and file tools
+        # 好: 同时使用了 terminal 和 file 工具
         if "terminal" in tools_used and ("write_file" in tools_used or "patch" in tools_used):
             tool_usage = 1.0
         elif "terminal" in tools_used:
@@ -613,7 +613,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         else:
             tool_usage = 0.0
 
-        # ---- Combine ----
+        # ---- 组合 ----
         reward = (
             cfg.correctness_weight * correctness
             + cfg.efficiency_weight * efficiency
@@ -621,7 +621,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         )
         reward = min(1.0, max(0.0, reward))
 
-        # Track metrics
+        # 跟踪指标
         self._reward_buffer.append(reward)
         self._correctness_buffer.append(correctness)
         self._efficiency_buffer.append(efficiency)
@@ -637,7 +637,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         return reward
 
     # ═══════════════════════════════════════════════════════════════════
-    # 5. collect_trajectories — OPD pipeline
+    # 5. 收集轨迹 — OPD 管道
     # ═══════════════════════════════════════════════════════════════════
 
     async def collect_trajectories(
@@ -647,17 +647,17 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         List[Item],
     ]:
         """
-        Override collect_trajectories to add the OPD pipeline.
+        重写 collect_trajectories 以添加 OPD 管道。
 
-        1. Run standard rollouts via super() → ScoredDataGroup with tokens/masks/scores
-        2. For each rollout, extract hints from next-state signals
-        3. Score student tokens under enhanced (hint-augmented) distribution
-        4. Add distill_token_ids / distill_logprobs to the ScoredDataGroup
+        1. 通过 super() 运行标准 rollouts → 带有 tokens/masks/scores 的 ScoredDataGroup
+        2. 对于每个 rollout，从下一个状态信号中提取提示
+        3. 在增强（提示增强）分布下对学生 token 评分
+        4. 将 distill_token_ids / distill_logprobs 添加到 ScoredDataGroup
         """
-        # Step 1: Run standard rollouts
+        # 步骤 1: 运行标准 rollouts
         scored_group, backlog = await super().collect_trajectories(item)
 
-        # Step 2: OPD pipeline (only if enabled and we have VLLM server)
+        # 步骤 2: OPD 管道（仅在启用且有 VLLM 服务器时）
         if (
             self.config.opd_enabled
             and scored_group is not None
@@ -670,20 +670,20 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
 
     async def _apply_opd_pipeline(self, group: ScoredDataGroup) -> None:
         """
-        Apply on-policy distillation to each rollout in the group.
+        对组中的每个 rollout 应用同策略蒸馏。
 
-        For each rollout's messages:
-        1. Find (assistant, next_state) turn pairs
-        2. Extract hints via LLM judge with majority voting
-        3. Build enhanced prompt (original + hint)
-        4. Score student tokens under enhanced distribution via get_logprobs
-        5. Add distill_token_ids / distill_logprobs to the group
+        对于每个 rollout 的消息:
+        1. 找到 (assistant, next_state) 轮次配对
+        2. 通过 LLM 评判器使用多数投票提取提示
+        3. 构建增强提示（原始 + 提示）
+        4. 通过 get_logprobs 在增强分布下对学生 token 评分
+        5. 将 distill_token_ids / distill_logprobs 添加到组
         """
         messages_list = group.get("messages", [])
         tokens_list = group.get("tokens", [])
 
         if not messages_list or not tokens_list:
-            logger.debug("OPD: No messages or tokens to process")
+            logger.debug("OPD: 没有消息或 token 需要处理")
             return
 
         all_distill_token_ids: List[Optional[List[List[int]]]] = []
@@ -705,10 +705,10 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                 all_distill_token_ids.append(None)
                 all_distill_logprobs.append(None)
 
-        # Only set distill fields if at least one sequence succeeded
+        # 仅在至少一个序列成功时才设置 distill 字段
         any_succeeded = any(d is not None for d in all_distill_token_ids)
         if any_succeeded:
-            # Replace None entries with zero-padded arrays matching token length
+            # 用匹配 token 长度的零填充数组替换 None 条目
             for i in range(len(all_distill_token_ids)):
                 if all_distill_token_ids[i] is None and i < len(tokens_list):
                     seq_len = len(tokens_list[i])
@@ -728,24 +728,24 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         self, messages: List[Dict], student_tokens: List[int]
     ) -> Tuple[List[List[int]], List[List[float]]]:
         """
-        Run OPD for a single rollout sequence.
+        对单个 rollout 序列运行 OPD。
 
-        1. Walk conversation to find (assistant, next_state) pairs
-        2. Extract hints from next-state signals
-        3. For each hint-augmented turn, score student tokens via get_logprobs
-        4. Merge per-turn teacher logprobs into a full-sequence distill array
+        1. 遍历对话找到 (assistant, next_state) 配对
+        2. 从下一个状态信号中提取提示
+        3. 对于每个提示增强的轮次，通过 get_logprobs 对学生 token 评分
+        4. 将每轮教师 logprobs 合并为完整序列的 distill 数组
 
-        Returns:
-            (distill_token_ids, distill_logprobs) each of shape [seq_len][top_k]
+        返回:
+            (distill_token_ids, distill_logprobs)，每个形状为 [seq_len][top_k]
         """
         k = self.config.distill_topk
         seq_len = len(student_tokens)
 
-        # Initialize with zeros (no distill info = neutral)
+        # 用零初始化（没有 distill 信息 = 中性）
         distill_token_ids: List[List[int]] = [[0] * k for _ in range(seq_len)]
         distill_logprobs: List[List[float]] = [[0.0] * k for _ in range(seq_len)]
 
-        # Find (assistant, next_state) turn pairs
+        # 找到 (assistant, next_state) 轮次配对
         turn_pairs = self._extract_turn_pairs(messages)
         if not turn_pairs:
             return distill_token_ids, distill_logprobs
@@ -765,14 +765,14 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
 
                 hints_extracted += 1
 
-                # Build enhanced prompt with hint
+                # 构建带提示的增强提示
                 enhanced_messages = _append_hint_to_messages(
                     pair["context_messages"], hint
                 )
 
-                # Tokenize the enhanced prompt
+                # 对增强提示进行分词
                 if not self.tokenizer:
-                    logger.warning("OPD: No tokenizer available, skipping scoring")
+                    logger.warning("OPD: 没有可用的分词器，跳过评分")
                     continue
 
                 enhanced_prompt = self.tokenizer.apply_chat_template(
@@ -781,7 +781,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                     add_generation_prompt=True,
                 )
 
-                # Tokenize the assistant response to score
+                # 对要评分的 assistant 回复进行分词
                 response_text = pair["assistant_text"]
                 enhanced_full_text = enhanced_prompt + response_text
                 enhanced_ids = self.tokenizer(
@@ -796,13 +796,12 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                 if response_len == 0:
                     continue
 
-                # Score via get_logprobs — teacher scoring the student's tokens
-                # under the enhanced (hint-augmented) distribution
+                # 通过 get_logprobs 评分 — 教师在增强（提示增强）分布下对学生 token 评分
                 try:
                     logprob_result = await self.server.get_logprobs(
                         input_ids=enhanced_ids,
                         top_k=k,
-                        split="eval",  # Use eval semaphore to not block training
+                        split="eval",  # 使用 eval 信号量以不阻塞训练
                     )
                 except Exception as e:
                     logger.debug("get_logprobs failed: %s", e)
@@ -814,18 +813,18 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                 if not teacher_topk_ids:
                     continue
 
-                # Extract only the response positions (last response_len entries)
+                # 仅提取回复位置（最后 response_len 个条目）
                 if len(teacher_topk_ids) >= response_len:
                     resp_topk_ids = teacher_topk_ids[-response_len:]
                     resp_topk_lps = teacher_topk_lps[-response_len:]
                 else:
-                    # Pad from the left if the response was shorter than expected
+                    # 如果回复比预期短，从左侧填充
                     pad_len = response_len - len(teacher_topk_ids)
                     resp_topk_ids = [[0] * k] * pad_len + teacher_topk_ids
                     resp_topk_lps = [[0.0] * k] * pad_len + teacher_topk_lps
 
-                # Map these back to the student's full sequence positions
-                # Find where this assistant turn's tokens appear in the full sequence
+                # 将这些映射回学生的完整序列位置
+                # 找到此 assistant 轮次的 token 在完整序列中出现的位置
                 turn_start = self._find_token_span(
                     student_tokens, response_ids
                 )
@@ -833,7 +832,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                     for j in range(min(response_len, seq_len - turn_start)):
                         pos = turn_start + j
                         if pos < seq_len and j < len(resp_topk_ids):
-                            # Pad/truncate to exactly k entries
+                            # 填充/截断到恰好 k 个条目
                             ids = resp_topk_ids[j][:k]
                             lps = resp_topk_lps[j][:k]
                             while len(ids) < k:
@@ -847,7 +846,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                 logger.debug("OPD turn processing failed: %s", e)
                 continue
 
-        # Track OPD metrics
+        # 跟踪 OPD 指标
         self._hints_extracted_buffer.append(hints_extracted)
         self._opd_turns_scored_buffer.append(turns_scored)
 
@@ -863,17 +862,17 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         self, messages: List[Dict]
     ) -> List[Dict[str, Any]]:
         """
-        Walk conversation messages to find (assistant, next_state) pairs.
+        遍历对话消息找到 (assistant, next_state) 配对。
 
-        A "turn pair" is an assistant message with content (the response)
-        followed by one or more tool results or a user reply (the next state).
+        一个"轮次配对"是一个带有内容（回复）的 assistant 消息，
+        后面跟着一个或多个工具结果或用户回复（下一个状态）。
 
-        Returns list of dicts:
+        返回字典列表:
           {
-            "context_messages": messages up to (not including) the assistant turn,
-            "assistant_text": the assistant's response text,
-            "next_state_text": the next state content (tool result or user reply),
-            "next_state_role": "tool" or "user",
+            "context_messages": 到该 assistant 轮次之前（不包括）的消息，
+            "assistant_text": assistant 的回复文本，
+            "next_state_text": 下一个状态内容（工具结果或用户回复），
+            "next_state_role": "tool" 或 "user"，
           }
         """
         pairs = []
@@ -881,13 +880,13 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         while i < len(messages):
             msg = messages[i]
             if msg.get("role") == "assistant" and msg.get("content"):
-                # Found an assistant message with content
+                # 找到了带有内容的 assistant 消息
                 assistant_text = msg["content"]
-                context = messages[:i]  # Everything before this turn
+                context = messages[:i]  # 此轮次之前的所有内容
 
-                # Look ahead for next state
+                # 向前查找下一个状态
                 j = i + 1
-                # Skip tool_calls-only assistant messages and collect tool results
+                # 跳过仅包含 tool_calls 的 assistant 消息并收集工具结果
                 next_states = []
                 while j < len(messages):
                     next_msg = messages[j]
@@ -901,13 +900,13 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                         break
 
                 if next_states:
-                    # Combine all next-state content
+                    # 合并所有下一个状态内容
                     next_text_parts = []
                     next_role = next_states[0].get("role", "tool")
                     for ns in next_states:
                         content = ns.get("content", "")
                         if content:
-                            # Truncate very long tool outputs
+                            # 截断非常长的工具输出
                             max_chars = self.config.hint_max_next_state_chars
                             if len(content) > max_chars:
                                 content = content[:max_chars] + "\n...[truncated]"
@@ -933,9 +932,9 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         next_state_role: str,
     ) -> Optional[str]:
         """
-        Extract a hindsight hint from a next-state signal using majority-voted LLM judge.
+        使用多数投票的 LLM 评判器从下一个状态信号中提取后见提示。
 
-        Returns the hint string if the judge votes positively, None otherwise.
+        如果评判器投票为正，返回提示字符串，否则返回 None。
         """
         judge_messages = _build_hint_judge_messages(
             response_text=assistant_text,
@@ -943,7 +942,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
             next_state_role=next_state_role,
         )
 
-        # Majority voting across multiple judge queries
+        # 跨多个评判器查询进行多数投票
         votes = []
         tasks = []
         for _ in range(self.config.prm_votes):
@@ -961,7 +960,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
 
         for result in results:
             if isinstance(result, Exception):
-                logger.debug("Hint judge call failed: %s", result)
+                logger.debug("提示评判器调用失败: %s", result)
                 votes.append({"score": None, "hint": ""})
                 continue
             try:
@@ -969,7 +968,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                 score, hint = _parse_hint_result(text)
                 votes.append({"score": score, "hint": hint})
             except Exception as e:
-                logger.debug("Hint parse failed: %s", e)
+                logger.debug("提示解析失败: %s", e)
                 votes.append({"score": None, "hint": ""})
 
         selected = _select_best_hint(votes)
@@ -982,11 +981,11 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         full_tokens: List[int], sub_tokens: List[int]
     ) -> Optional[int]:
         """
-        Find where sub_tokens appears in full_tokens.
-        Returns the start index, or None if not found.
+        找到 sub_tokens 在 full_tokens 中出现的位置。
+        返回起始索引，如果未找到则返回 None。
 
-        Uses a sliding window search. For long sequences, searches
-        from the end since assistant responses are typically at the end.
+        使用滑动窗口搜索。对于长序列，从末尾搜索，
+        因为 assistant 回复通常在末尾附近。
         """
         if not sub_tokens or not full_tokens:
             return None
@@ -995,29 +994,29 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         if sub_len > full_len:
             return None
 
-        # Search backwards (assistant responses are usually near the end)
+        # 向后搜索（assistant 回复通常在末尾附近）
         for i in range(full_len - sub_len, -1, -1):
             if full_tokens[i : i + sub_len] == sub_tokens:
                 return i
         return None
 
     # ═══════════════════════════════════════════════════════════════════
-    # 6. evaluate
+    # 6. 评估
     # ═══════════════════════════════════════════════════════════════════
 
     async def evaluate(self, *args, **kwargs) -> None:
         """
-        Evaluate on held-out coding tasks using the full agent loop.
-        No OPD during eval — just standard agentic evaluation.
+        使用完整的 Agent 循环对留出的编码任务进行评估。
+        评估期间不进行 OPD — 仅进行标准的 agentic 评估。
         """
         if not self._eval_items:
-            logger.warning("No eval items available.")
+            logger.warning("没有可用的评估项目。")
             return
 
         eval_size = min(self.config.eval_size, len(self._eval_items))
         eval_items = self._eval_items[:eval_size]
 
-        logger.info("Running eval on %d coding tasks...", len(eval_items))
+        logger.info("在 %d 个编码任务上运行评估...", len(eval_items))
         start_time = time.time()
         samples = []
 
@@ -1026,7 +1025,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         for i, item in enumerate(eval_items):
             task_id = str(uuid.uuid4())
             logger.info(
-                "Eval [%d/%d]: %s...", i + 1, len(eval_items), item["task"][:60]
+                "评估 [%d/%d]: %s...", i + 1, len(eval_items), item["task"][:60]
             )
 
             try:
@@ -1052,7 +1051,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                 )
                 result = await agent.run(messages)
 
-                # Compute reward (track buffer lengths to rollback eval pollution)
+                # 计算奖励（跟踪缓冲区长度以回滚评估污染）
                 buf_len = len(self._correctness_buffer)
                 ctx = ToolContext(task_id)
                 try:
@@ -1060,7 +1059,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                 finally:
                     ctx.cleanup()
 
-                # Extract correctness and rollback training buffers
+                # 提取正确性并回滚训练缓冲区
                 correctness = (
                     self._correctness_buffer[buf_len]
                     if len(self._correctness_buffer) > buf_len
@@ -1075,7 +1074,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                     if len(buf) > buf_len:
                         buf.pop()
 
-                # Also rollback OPD buffers if they were touched
+                # 同时回滚 OPD 缓冲区（如果它们被触碰了）
                 for buf in (
                     self._hints_extracted_buffer,
                     self._opd_turns_scored_buffer,
@@ -1083,7 +1082,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                     if len(buf) > buf_len:
                         buf.pop()
 
-                # Extract final response
+                # 提取最终回复
                 final_response = ""
                 for msg in reversed(result.messages):
                     if (
@@ -1105,14 +1104,14 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
                 )
 
                 logger.info(
-                    "  → correctness=%.2f, reward=%.3f, turns=%d",
+                    "  → 正确性=%.2f, 奖励=%.3f, 轮次=%d",
                     correctness,
                     reward,
                     result.turns_used,
                 )
 
             except Exception as e:
-                logger.error("Eval error: %s", e)
+                logger.error("评估错误: %s", e)
                 samples.append(
                     {
                         "prompt": item["task"][:200],
@@ -1139,7 +1138,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         }
 
         logger.info(
-            "Eval complete — correctness=%.3f, reward=%.3f, pass_rate=%.0f%%",
+            "评估完成 — 正确性=%.3f, 奖励=%.3f, 通过率=%.0f%%",
             eval_metrics["eval/mean_correctness"],
             eval_metrics["eval/mean_reward"],
             eval_metrics["eval/pass_rate"] * 100,
@@ -1153,11 +1152,11 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
         )
 
     # ═══════════════════════════════════════════════════════════════════
-    # 7. wandb_log — custom OPD metrics
+    # 7. wandb_log — OPD 自定义指标
     # ═══════════════════════════════════════════════════════════════════
 
     async def wandb_log(self, wandb_metrics: Optional[Dict] = None) -> None:
-        """Log reward breakdown and OPD-specific metrics to wandb."""
+        """将奖励分解和 OPD 特定指标记录到 wandb。"""
         if wandb_metrics is None:
             wandb_metrics = {}
 
@@ -1183,7 +1182,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
             self._efficiency_buffer.clear()
             self._tool_usage_buffer.clear()
 
-        # OPD-specific metrics
+        # OPD 特定指标
         if self._hints_extracted_buffer:
             n = len(self._hints_extracted_buffer)
             wandb_metrics["opd/mean_hints_per_rollout"] = (
@@ -1207,7 +1206,7 @@ class AgenticOPDEnv(KClawAgentBaseEnv):
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Entry point
+# 程序入口
 # ═══════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":

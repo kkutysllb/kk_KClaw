@@ -1,14 +1,14 @@
 """
-KClawAgentLoop -- Reusable Multi-Turn Agent Engine
+KClawAgentLoop -- 可复用的多轮 Agent 引擎
 
-Runs the kclaw tool-calling loop using standard OpenAI-spec tool calling.
-Works with any server that returns ChatCompletion objects with tool_calls:
-    - Phase 1: OpenAI server type (VLLM, SGLang, OpenRouter, OpenAI API)
-    - Phase 2: ManagedServer with client-side tool call parser
+使用标准 OpenAI 规范的工具调用来运行 kclaw 工具调用循环。
+可与任何返回带有 tool_calls 的 ChatCompletion 对象的服务器配合使用:
+    - 第一阶段: OpenAI 服务器类型 (VLLM, SGLang, OpenRouter, OpenAI API)
+    - 第二阶段: ManagedServer 带客户端工具调用解析器
 
-The loop passes tools= and checks response.choices[0].message.tool_calls,
-identical to kclaw's run_agent.py. Tool execution is dispatched via
-handle_function_call() from model_tools.py.
+该循环传递 tools= 并检查 response.choices[0].message.tool_calls，
+与 kclaw 的 run_agent.py 完全相同。工具执行通过
+model_tools.py 中的 handle_function_call() 进行分发。
 """
 
 import asyncio
@@ -24,88 +24,87 @@ from model_tools import handle_function_call
 from tools.terminal_tool import get_active_env
 from tools.tool_result_storage import maybe_persist_tool_result, enforce_turn_budget
 
-# Thread pool for running sync tool calls that internally use asyncio.run()
-# (e.g., the Modal/Docker/Daytona terminal backends). Running them in a separate
-# thread gives them a clean event loop so they don't deadlock inside Atropos's loop.
-# Size must be large enough for concurrent eval tasks (e.g., 89 TB2 tasks all
-# making tool calls). Too small = thread pool starvation, tasks queue for minutes.
-# Resized at runtime by KClawAgentBaseEnv.__init__ via resize_tool_pool().
+# 用于运行同步工具调用的线程池，这些工具调用内部使用 asyncio.run()
+#（例如 Modal/Docker/Daytona 终端后端）。在独立线程中运行它们
+# 可以获得干净的事件循环，避免它们在 Atropos 的循环内死锁。
+# 大小必须足够大以支持并发评估任务（例如，89个 TB2 任务同时进行工具调用）。
+# 太小会导致线程池耗尽，任务排队等待数分钟。
+# 由 KClawAgentBaseEnv.__init__ 通过 resize_tool_pool() 在运行时调整大小。
 _tool_executor = concurrent.futures.ThreadPoolExecutor(max_workers=128)
 
 
 def resize_tool_pool(max_workers: int):
     """
-    Replace the global tool executor with a new one of the given size.
+    使用给定大小的新执行器替换全局工具执行器。
 
-    Called by KClawAgentBaseEnv.__init__ based on config.tool_pool_size.
-    Safe to call before any tasks are submitted.
+    根据 config.tool_pool_size 由 KClawAgentBaseEnv.__init__ 调用。
+    可在任何任务提交前安全调用。
     """
     global _tool_executor
     old_executor = _tool_executor
     _tool_executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
     old_executor.shutdown(wait=False)
-    logger.info("Tool thread pool resized to %d workers", max_workers)
+    logger.info("工具线程池已调整为 %d 个工作线程", max_workers)
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class ToolError:
-    """Record of a tool execution error during the agent loop."""
+    """记录 Agent 循环期间工具执行错误的记录。"""
 
-    turn: int                  # Which turn the error occurred on
-    tool_name: str             # Which tool was called
-    arguments: str             # The arguments passed (truncated)
-    error: str                 # The error message
-    tool_result: str           # The raw result returned to the model
+    turn: int                  # 发生错误的轮次
+    tool_name: str             # 被调用的工具名称
+    arguments: str             # 传递的参数（已截断）
+    error: str                 # 错误消息
+    tool_result: str           # 返回给模型的原始结果
 
 
 @dataclass
 class AgentResult:
-    """Result of running the agent loop."""
+    """运行 Agent 循环的结果。"""
 
-    # Full conversation history in OpenAI message format
+    # 完整的对话历史，使用 OpenAI 消息格式
     messages: List[Dict[str, Any]]
-    # ManagedServer.get_state() if available (Phase 2), None otherwise
+    # ManagedServer.get_state()（如果可用，第二阶段），否则为 None
     managed_state: Optional[Dict[str, Any]] = None
-    # How many LLM calls were made
+    # 进行的 LLM 调用次数
     turns_used: int = 0
-    # True if model stopped calling tools naturally (vs hitting max_turns)
+    # 模型是否自然停止调用工具（而非达到 max_turns）
     finished_naturally: bool = False
-    # Extracted reasoning content per turn (from PR #297 helpers)
+    # 每轮提取的推理内容（来自 PR #297 的辅助函数）
     reasoning_per_turn: List[Optional[str]] = field(default_factory=list)
-    # Tool errors encountered during the loop
+    # 循环期间遇到的工具错误
     tool_errors: List[ToolError] = field(default_factory=list)
 
 
 def _extract_reasoning_from_message(message) -> Optional[str]:
     """
-    Extract reasoning content from a ChatCompletion message.
+    从 ChatCompletion 消息中提取推理内容。
 
-    Handles multiple provider formats:
-    1. message.reasoning_content field (some providers)
-    2. message.reasoning field (some providers)
-    3. message.reasoning_details[].text (OpenRouter style)
+    处理多种 provider 格式:
+    1. message.reasoning_content 字段（某些 provider）
+    2. message.reasoning 字段（某些 provider）
+    3. message.reasoning_details[].text（OpenRouter 风格）
 
-    Note: <think> block extraction from content is NOT done here -- that's
-    handled by the response already in Phase 1 (server does it) or by
-    ManagedServer's patch in Phase 2.
+    注意: 从内容中提取 <think> 块的操作不在此处完成 — 那由第一阶段中
+    已有的响应处理（服务器完成）或由 ManagedServer 的补丁在第二阶段完成。
 
-    Args:
-        message: The assistant message from ChatCompletion response
+    参数:
+        message: ChatCompletion 响应中的助手消息
 
-    Returns:
-        Extracted reasoning text, or None if not found
+    返回:
+        提取的推理文本，如果未找到则返回 None
     """
-    # Check reasoning_content field (common across providers)
+    # 检查 reasoning_content 字段（各 provider 通用）
     if hasattr(message, "reasoning_content") and message.reasoning_content:
         return message.reasoning_content
 
-    # Check reasoning field
+    # 检查 reasoning 字段
     if hasattr(message, "reasoning") and message.reasoning:
         return message.reasoning
 
-    # Check reasoning_details (OpenRouter style)
+    # 检查 reasoning_details（OpenRouter 风格）
     if hasattr(message, "reasoning_details") and message.reasoning_details:
         for detail in message.reasoning_details:
             if hasattr(detail, "text") and detail.text:
@@ -118,16 +117,15 @@ def _extract_reasoning_from_message(message) -> Optional[str]:
 
 class KClawAgentLoop:
     """
-    Runs kclaw's tool-calling loop using standard OpenAI-spec tool calling.
+    使用标准 OpenAI 规范的工具调用来运行 kclaw 工具调用循环。
 
-    Same pattern as run_agent.py:
-    - Pass tools= to the API
-    - Check response.choices[0].message.tool_calls
-    - Dispatch via handle_function_call()
+    与 run_agent.py 相同的模式:
+    - 传递 tools= 给 API
+    - 检查 response.choices[0].message.tool_calls
+    - 通过 handle_function_call() 分发
 
-    Works identically with any server type -- OpenAI, VLLM, SGLang, OpenRouter,
-    or ManagedServer with a parser. The server determines how tool_calls get
-    populated on the response.
+    与任何服务器类型的工作方式相同 — OpenAI、VLLM、SGLang、OpenRouter，
+    或带解析器的 ManagedServer。服务器决定如何填充响应中的 tool_calls。
     """
 
     def __init__(
@@ -143,23 +141,23 @@ class KClawAgentLoop:
         budget_config: Optional["BudgetConfig"] = None,
     ):
         """
-        Initialize the agent loop.
+        初始化 Agent 循环。
 
-        Args:
-            server: Server object with chat_completion() method (OpenAIServer,
-                    ManagedServer, ServerManager, etc.)
-            tool_schemas: OpenAI-format tool definitions from get_tool_definitions()
-            valid_tool_names: Set of tool names the model is allowed to call
-            max_turns: Maximum number of LLM calls before stopping
-            task_id: Unique ID for terminal/browser session isolation
-            temperature: Sampling temperature for generation
-            max_tokens: Max tokens per generation (None for server default)
-            extra_body: Extra parameters passed to the OpenAI client's create() call.
-                        Used for OpenRouter provider preferences, transforms, etc.
-                        e.g. {"provider": {"ignore": ["DeepInfra"]}}
-            budget_config: Tool result persistence budget. Controls per-tool
-                        thresholds, per-turn aggregate budget, and preview size.
-                        If None, uses DEFAULT_BUDGET (current hardcoded values).
+        参数:
+            server: 具有 chat_completion() 方法的服务器对象（OpenAIServer、
+                    ManagedServer、ServerManager 等）
+            tool_schemas: 来自 get_tool_definitions() 的 OpenAI 格式工具定义
+            valid_tool_names: 模型允许调用的工具名称集合
+            max_turns: 停止前的最大 LLM 调用次数
+            task_id: 用于终端/浏览器会话隔离的唯一 ID
+            temperature: 采样的温度参数
+            max_tokens: 每次生成的最大 token 数（None 使用服务器默认值）
+            extra_body: 传递给 OpenAI 客户端 create() 调用的额外参数。
+                        用于 OpenRouter provider 偏好设置、transforms 等。
+                        例如 {"provider": {"ignore": ["DeepInfra"]}}
+            budget_config: 工具结果持久化预算。控制每个工具的阈值、
+                        每轮聚合预算和预览大小。
+                        如果为 None，使用 DEFAULT_BUDGET（当前硬编码的值）。
         """
         from tools.budget_config import DEFAULT_BUDGET
         self.server = server
@@ -174,23 +172,23 @@ class KClawAgentLoop:
 
     async def run(self, messages: List[Dict[str, Any]]) -> AgentResult:
         """
-        Execute the full agent loop using standard OpenAI tool calling.
+        使用标准 OpenAI 工具调用执行完整的 Agent 循环。
 
-        Args:
-            messages: Initial conversation messages (system + user).
-                      Modified in-place as the conversation progresses.
+        参数:
+            messages: 初始对话消息（系统 + 用户）。
+                      随着对话进行会被原地修改。
 
-        Returns:
-            AgentResult with full conversation history, managed state, and metadata
+        返回:
+            AgentResult，包含完整的对话历史、管理状态和元数据
         """
         reasoning_per_turn = []
         tool_errors: List[ToolError] = []
 
-        # Per-loop TodoStore for the todo tool (ephemeral, dies with the loop)
+        # 每个循环的 TodoStore，用于 todo 工具（临时的，随循环消亡）
         from tools.todo_tool import TodoStore, todo_tool as _todo_tool
         _todo_store = TodoStore()
 
-        # Extract user task from first user message for browser_snapshot context
+        # 从第一条用户消息中提取用户任务，用于浏览器快照上下文
         _user_task = None
         for msg in messages:
             if msg.get("role") == "user":
@@ -204,33 +202,33 @@ class KClawAgentLoop:
         for turn in range(self.max_turns):
             turn_start = _time.monotonic()
 
-            # Build the chat_completion kwargs
+            # 构建 chat_completion 的关键字参数
             chat_kwargs = {
                 "messages": messages,
                 "n": 1,
                 "temperature": self.temperature,
             }
 
-            # Only pass tools if we have them
+            # 仅在我们有工具时传递 tools
             if self.tool_schemas:
                 chat_kwargs["tools"] = self.tool_schemas
 
-            # Only pass max_tokens if explicitly set
+            # 仅在显式设置时传递 max_tokens
             if self.max_tokens is not None:
                 chat_kwargs["max_tokens"] = self.max_tokens
 
-            # Inject extra_body for provider-specific params (e.g., OpenRouter
-            # provider preferences like banned/preferred providers, transforms)
+            # 注入 extra_body 用于 provider 特定参数（例如 OpenRouter
+            # provider 偏好设置，如 banned/preferred providers、transforms）
             if self.extra_body:
                 chat_kwargs["extra_body"] = self.extra_body
 
-            # Make the API call -- standard OpenAI spec
+            # 进行 API 调用 — 标准 OpenAI 规范
             api_start = _time.monotonic()
             try:
                 response = await self.server.chat_completion(**chat_kwargs)
             except Exception as e:
                 api_elapsed = _time.monotonic() - api_start
-                logger.error("API call failed on turn %d (%.1fs): %s", turn + 1, api_elapsed, e)
+                logger.error("第 %d 轮 API 调用失败 (%.1fs): %s", turn + 1, api_elapsed, e)
                 return AgentResult(
                     messages=messages,
                     managed_state=self._get_managed_state(),
@@ -243,7 +241,7 @@ class KClawAgentLoop:
             api_elapsed = _time.monotonic() - api_start
 
             if not response or not response.choices:
-                logger.warning("Empty response on turn %d (api=%.1fs)", turn + 1, api_elapsed)
+                logger.warning("第 %d 轮收到空响应 (api=%.1fs)", turn + 1, api_elapsed)
                 return AgentResult(
                     messages=messages,
                     managed_state=self._get_managed_state(),
@@ -255,16 +253,15 @@ class KClawAgentLoop:
 
             assistant_msg = response.choices[0].message
 
-            # Extract reasoning content from the response (all provider formats)
+            # 从响应中提取推理内容（所有 provider 格式）
             reasoning = _extract_reasoning_from_message(assistant_msg)
             reasoning_per_turn.append(reasoning)
 
-            # Check for tool calls -- standard OpenAI spec.
-            # Fallback: if response has no structured tool_calls but content
-            # contains raw tool call tags (e.g. <tool_call>), parse them using
-            # kclaw's standalone parsers. This handles the case where
-            # ManagedServer's ToolCallTranslator couldn't parse because vLLM
-            # isn't installed.
+            # 检查工具调用 — 标准 OpenAI 规范。
+            # 后备方案: 如果响应没有结构化的 tool_calls 但内容
+            # 包含原始工具调用标签（例如 <tool_call>），则使用
+            # kclaw 的独立解析器解析它们。这处理了 ManagedServer 的
+            # ToolCallTranslator 因未安装 vLLM 而无法解析的情况。
             if (
                 not assistant_msg.tool_calls
                 and assistant_msg.content
@@ -282,15 +279,15 @@ class KClawAgentLoop:
                         if parsed_content is not None:
                             assistant_msg.content = parsed_content
                         logger.debug(
-                            "Fallback parser extracted %d tool calls from raw content",
+                            "后备解析器从原始内容中提取了 %d 个工具调用",
                             len(parsed_calls),
                         )
                 except Exception:
                     pass  # Fall through to no tool calls
 
             if assistant_msg.tool_calls:
-                # Normalize tool calls to dicts — they may come as objects
-                # (OpenAI API) or dicts (vLLM ToolCallTranslator).
+                # 将工具调用规范化为字典 — 它们可能以对象（OpenAI API）
+                # 或字典（vLLM ToolCallTranslator）的形式出现。
                 def _tc_to_dict(tc):
                     if isinstance(tc, dict):
                         return {
@@ -310,24 +307,24 @@ class KClawAgentLoop:
                         },
                     }
 
-                # Build the assistant message dict for conversation history
+                # 为对话历史构建助手消息字典
                 msg_dict: Dict[str, Any] = {
                     "role": "assistant",
                     "content": assistant_msg.content or "",
                     "tool_calls": [_tc_to_dict(tc) for tc in assistant_msg.tool_calls],
                 }
 
-                # Preserve reasoning_content for multi-turn chat template handling
-                # (e.g., Kimi-K2's template renders <think> blocks differently
-                # for history vs. the latest turn based on this field)
+                # 为多轮聊天模板处理保留 reasoning_content
+                #（例如 Kimi-K2 的模板根据此字段以不同方式渲染 <think> 块
+                # 用于历史记录与最新轮次）
                 if reasoning:
                     msg_dict["reasoning_content"] = reasoning
 
                 messages.append(msg_dict)
 
-                # Execute each tool call via kclaw's dispatch
+                # 通过 kclaw 的分发机制执行每个工具调用
                 for tc in assistant_msg.tool_calls:
-                    # Handle both object (OpenAI) and dict (vLLM) formats
+                    # 同时处理对象（OpenAI）和字典（vLLM）格式
                     if isinstance(tc, dict):
                         tool_name = tc.get("function", {}).get("name", tc.get("name", ""))
                         tool_args_raw = tc.get("function", {}).get("arguments", tc.get("arguments", "{}"))
@@ -335,7 +332,7 @@ class KClawAgentLoop:
                         tool_name = tc.function.name
                         tool_args_raw = tc.function.arguments
 
-                    # Validate tool name
+                    # 验证工具名称
                     if tool_name not in self.valid_tool_names:
                         tool_result = json.dumps(
                             {
@@ -350,17 +347,17 @@ class KClawAgentLoop:
                             tool_result=tool_result,
                         ))
                         logger.warning(
-                            "Model called unknown tool '%s' on turn %d",
+                            "模型在第 %d 轮调用了未知工具 '%s'",
                             tool_name, turn + 1,
                         )
                     else:
-                        # Parse arguments
+                        # 解析参数
                         try:
                             args = json.loads(tool_args_raw)
                         except json.JSONDecodeError as e:
                             args = None
                             tool_result = json.dumps(
-                                {"error": f"Invalid JSON in tool arguments: {e}. Please retry with valid JSON."}
+                                {"error": f"工具参数中的无效 JSON: {e}。请使用有效的 JSON 重试。"}
                             )
                             tool_errors.append(ToolError(
                                 turn=turn + 1, tool_name=tool_name,
@@ -369,11 +366,11 @@ class KClawAgentLoop:
                                 tool_result=tool_result,
                             ))
                             logger.warning(
-                                "Invalid JSON in tool call arguments for '%s': %s",
+                                "工具 '%s' 的参数中存在无效 JSON: %s",
                                 tool_name, tool_args_raw[:200],
                             )
 
-                        # Dispatch tool only if arguments parsed successfully
+                        # 仅在参数成功解析后才分发工具
                         if args is not None:
                             try:
                                 if tool_name == "terminal":
@@ -385,7 +382,7 @@ class KClawAgentLoop:
 
                                 tool_submit_time = _time.monotonic()
 
-                                # Todo tool -- handle locally (needs per-loop TodoStore)
+                                # Todo 工具 — 本地处理（需要每个循环的 TodoStore）
                                 if tool_name == "todo":
                                     tool_result = _todo_tool(
                                         todos=args.get("todos"),
@@ -394,17 +391,17 @@ class KClawAgentLoop:
                                     )
                                     tool_elapsed = _time.monotonic() - tool_submit_time
                                 elif tool_name == "memory":
-                                    tool_result = json.dumps({"error": "Memory is not available in RL environments."})
+                                    tool_result = json.dumps({"error": "记忆功能在强化学习环境中不可用。"})
                                     tool_elapsed = _time.monotonic() - tool_submit_time
                                 elif tool_name == "session_search":
-                                    tool_result = json.dumps({"error": "Session search is not available in RL environments."})
+                                    tool_result = json.dumps({"error": "会话搜索在强化学习环境中不可用。"})
                                     tool_elapsed = _time.monotonic() - tool_submit_time
                                 else:
-                                    # Run tool calls in a thread pool so backends that
-                                    # use asyncio.run() internally (modal, docker, daytona) get
-                                    # a clean event loop instead of deadlocking.
+                                    # 在线程池中运行工具调用，以便内部使用
+                                    # asyncio.run() 的后端（modal、docker、daytona）获得
+                                    # 干净的事件循环而不是死锁。
                                     loop = asyncio.get_event_loop()
-                                    # Capture current tool_name/args for the lambda
+                                # 捕获当前的 tool_name/args 用于 lambda
                                     _tn, _ta, _tid = tool_name, args, self.task_id
                                     tool_result = await loop.run_in_executor(
                                         _tool_executor,
@@ -415,17 +412,17 @@ class KClawAgentLoop:
                                     )
                                     tool_elapsed = _time.monotonic() - tool_submit_time
 
-                                # Log slow tools and thread pool stats for debugging
+                                # 记录慢速工具和线程池统计信息用于调试
                                 pool_active = _tool_executor._work_queue.qsize()
                                 if tool_elapsed > 30:
                                     logger.warning(
-                                        "[%s] turn %d: %s took %.1fs (pool queue=%d)",
+                                        "[%s] 第 %d 轮: %s 耗时 %.1fs（池队列=%d）",
                                         self.task_id[:8], turn + 1, tool_name,
                                         tool_elapsed, pool_active,
                                     )
                             except Exception as e:
                                 tool_result = json.dumps(
-                                    {"error": f"Tool execution failed: {type(e).__name__}: {str(e)}"}
+                                    {"error": f"工具执行失败: {type(e).__name__}: {str(e)}"}
                                 )
                                 tool_errors.append(ToolError(
                                     turn=turn + 1, tool_name=tool_name,
@@ -434,11 +431,11 @@ class KClawAgentLoop:
                                     tool_result=tool_result,
                                 ))
                                 logger.error(
-                                    "Tool '%s' execution failed on turn %d: %s",
+                                    "工具 '%s' 在第 %d 轮执行失败: %s",
                                     tool_name, turn + 1, e,
                                 )
 
-                        # Also check if the tool returned an error in its JSON result
+                        # 还要检查工具是否在其 JSON 结果中返回了错误
                         try:
                             result_data = json.loads(tool_result)
                             if isinstance(result_data, dict):
@@ -481,13 +478,13 @@ class KClawAgentLoop:
 
                 turn_elapsed = _time.monotonic() - turn_start
                 logger.info(
-                    "[%s] turn %d: api=%.1fs, %d tools, turn_total=%.1fs",
+                    "[%s] 第 %d 轮: api=%.1fs, %d 个工具, 轮次总计=%.1fs",
                     self.task_id[:8], turn + 1, api_elapsed,
                     len(assistant_msg.tool_calls), turn_elapsed,
                 )
 
             else:
-                # No tool calls -- model is done
+                # 没有工具调用 — 模型已完成
                 msg_dict = {
                     "role": "assistant",
                     "content": assistant_msg.content or "",
@@ -498,7 +495,7 @@ class KClawAgentLoop:
 
                 turn_elapsed = _time.monotonic() - turn_start
                 logger.info(
-                    "[%s] turn %d: api=%.1fs, no tools (finished), turn_total=%.1fs",
+                    "[%s] 第 %d 轮: api=%.1fs, 无工具（已完成）, 轮次总计=%.1fs",
                     self.task_id[:8], turn + 1, api_elapsed, turn_elapsed,
                 )
 
@@ -511,8 +508,8 @@ class KClawAgentLoop:
                     tool_errors=tool_errors,
                 )
 
-        # Hit max turns without the model stopping
-        logger.info("Agent hit max_turns (%d) without finishing", self.max_turns)
+        # 达到最大轮次但模型未停止
+        logger.info("Agent 达到最大轮次 (%d) 但未完成", self.max_turns)
         return AgentResult(
             messages=messages,
             managed_state=self._get_managed_state(),
@@ -524,10 +521,10 @@ class KClawAgentLoop:
 
     def _get_managed_state(self) -> Optional[Dict[str, Any]]:
         """
-        Get ManagedServer state if the server supports it.
+        如果服务器支持，获取 ManagedServer 状态。
 
-        Returns state dict with SequenceNodes containing tokens/logprobs/masks,
-        or None if the server doesn't support get_state() (e.g., regular OpenAI server).
+        返回包含 SequenceNodes 的状态字典，其中包含 tokens/logprobs/masks，
+        如果服务器不支持 get_state()（例如普通 OpenAI 服务器）则返回 None。
         """
         if hasattr(self.server, "get_state"):
             return self.server.get_state()
