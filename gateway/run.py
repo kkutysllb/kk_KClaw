@@ -2634,10 +2634,10 @@ class GatewayRunner:
                                     ),
                                 )
 
-                                # _compress_context ends the old session and creates
-                                # a new session_id.  Write compressed messages into
-                                # the NEW session so the old transcript stays intact
-                                # and searchable via session_search.
+                                # _compress_context 结束旧会话并创建
+                                # 新的 session_id。将压缩后的消息写入
+                                # 新会话，这样旧记录保持完整
+                                # 且可通过 session_search 搜索。
                                 _hyg_new_sid = _hyg_agent.session_id
                                 if _hyg_new_sid != session_entry.session_id:
                                     session_entry.session_id = _hyg_new_sid
@@ -4942,7 +4942,7 @@ class GatewayRunner:
         }
 
         raw_progress = user_config.get("display", {}).get("tool_progress", "all")
-        # YAML 1.1 parses bare "off" as boolean False — normalise back
+        # YAML 1.1 将裸 "off" 解析为布尔值 False — 规范化回来
         if raw_progress is False:
             current = "off"
         elif raw_progress is True:
@@ -5009,10 +5009,10 @@ class GatewayRunner:
                 lambda: tmp_agent._compress_context(msgs, "", approx_tokens=approx_tokens)
             )
 
-            # _compress_context already calls end_session() on the old session
-            # (preserving its full transcript in SQLite) and creates a new
-            # session_id for the continuation.  Write the compressed messages
-            # into the NEW session so the original history stays searchable.
+            # _compress_context 已经在旧会话上调用 end_session()
+            # （在 SQLite 中保留完整记录）并创建新的
+            # session_id 用于继续。将压缩后的消息写入
+            # 新会话，这样原始历史保持可搜索。
             new_session_id = tmp_agent.session_id
             if new_session_id != session_entry.session_id:
                 session_entry.session_id = new_session_id
@@ -6234,10 +6234,10 @@ class GatewayRunner:
         """
         import hashlib, json as _j
 
-        # 使用完整凭证字符串的指纹而不是短
-        # prefix. OAuth/JWT-style tokens frequently share a common prefix
-        # (e.g. "eyJhbGci"), which can cause false cache hits across auth
-        # switches if only the first few characters are considered.
+        # 使用完整凭据字符串的指纹而不是短
+        # 前缀。OAuth/JWT 风格的令牌经常共享相同的前缀
+        # （例如 "eyJhbGci"），如果只考虑前几个字符，
+        # 可能会在切换认证时导致误命中缓存。
         _api_key = str(runtime.get("api_key", "") or "")
         _api_key_fingerprint = hashlib.sha256(_api_key.encode()).hexdigest() if _api_key else ""
 
@@ -6307,12 +6307,12 @@ class GatewayRunner:
 
         # 工具进度模式来自 config.yaml: "all"、"new"、"verbose"、"off"
                     # 为向后兼容回退到环境变量。
-        # YAML 1.1 parses bare `off` as boolean False — normalise before
-        # the `or` chain so it doesn't silently fall through to "all".
+        # YAML 1.1 将裸 `off` 解析为布尔值 False — 在 `or` 链之前
+        # 规范化，这样它不会静默回退到 "all"。
         #
         # 每个平台的覆盖（display.tool_progress_overrides）优先于
         # 全局设置 — 例如 Signal 用户可以设置
-        # tool_progress to "off" while keeping Telegram on "all".
+        # tool_progress 为 "off" 同时保持 Telegram 为 "all"。
         _display_cfg = user_config.get("display", {})
         _overrides = _display_cfg.get("tool_progress_overrides", {})
         _raw_tp = _overrides.get(platform_key)
@@ -6372,9 +6372,9 @@ class GatewayRunner:
                 progress_queue.put(msg)
                 return
             
-            # "all" / "new" modes: short preview, respects tool_preview_length
-            # config (defaults to 40 chars when unset to keep gateway messages
-            # compact — unlike CLI spinners, these persist as permanent messages).
+            # "all" / "new" 模式：短预览，遵循 tool_preview_length
+            # 配置（未设置时默认 40 个字符以保持 gateway 消息
+            # 简洁 — 与 CLI spinner 不同，这些会作为永久消息保留）。
             if preview:
                 from agent.display import get_tool_preview_max_len
                 _pl = get_tool_preview_max_len()
@@ -6421,8 +6421,8 @@ class GatewayRunner:
                 return
 
             # 跳过不支持消息
-            # editing (e.g. iMessage/BlueBubbles) — each progress update
-            # would become a separate message bubble, which is noisy.
+            # 编辑的平台（例如 iMessage/BlueBubbles）— 每次进度更新
+            # 都会变成单独的消息气泡，这样会很吵。
             from gateway.platforms.base import BasePlatformAdapter as _BaseAdapter
             if type(adapter).edit_message is _BaseAdapter.edit_message:
                 while not progress_queue.empty():
@@ -6477,8 +6477,8 @@ class GatewayRunner:
                             _err = (getattr(result, "error", "") or "").lower()
                             if "flood" in _err or "retry after" in _err:
                                 # 遇到限流 — 禁用进一步编辑，
-                                # switch to sending new messages only for
-                                # important updates.  Don't block 23s.
+                                # 仅对重要更新发送新消息。
+                                # 不要阻塞 23 秒。
                                 logger.info(
                                     "[%s] Progress edits disabled due to flood control",
                                     adapter.name,
@@ -6545,9 +6545,9 @@ class GatewayRunner:
 
         def _step_callback_sync(iteration: int, prev_tools: list) -> None:
             try:
-                # prev_tools may be list[str] or list[dict] with "name"/"result"
-                # keys.  Normalise to keep "tool_names" backward-compatible for
-                # user-authored hooks that do ', '.join(tool_names)'.
+                # prev_tools 可能是 list[str] 或带有 "name"/"result"
+                # 键的 list[dict]。规范化以保持 "tool_names" 向后兼容，
+                # 适用于执行 ', '.join(tool_names)' 的用户编写钩子。
                 _names: list[str] = []
                 for _t in (prev_tools or []):
                     if isinstance(_t, dict):
@@ -6590,11 +6590,10 @@ class GatewayRunner:
 
         def run_sync():
             # 下面的条件重新赋值 `message`
-            # (prepending model-switch notes) makes Python treat it as a
-            # local variable in the entire function.  `nonlocal` lets us
-            # read *and* reassign the outer `_run_agent` parameter without
-            # triggering an UnboundLocalError on the earlier read at
-            # `_resolve_turn_agent_config(message, …)`.
+            # （前置模型切换说明）使 Python 将其视为整个函数中的
+            # 局部变量。`nonlocal` 让我们可以读取*并重新赋值*
+            # 外层的 `_run_agent` 参数，而不会在之前的读取时
+            # 触发 UnboundLocalError（在 `_resolve_turn_agent_config(message, …)` 处）。
             nonlocal message
 
             # 通过环境变量传递 session_key 到进程注册表，以便后台
@@ -6771,7 +6770,7 @@ class GatewayRunner:
                     continue
                 
                 # 富代理消息（tool_calls、工具结果）必须完整传递
-                # through intact so the API sees valid assistant→tool sequences
+                # 这样 API 才能看到有效的 assistant→tool 序列
                 has_tool_calls = "tool_calls" in msg
                 has_tool_call_id = "tool_call_id" in msg
                 is_tool_message = role == "tool"
@@ -7242,8 +7241,8 @@ class GatewayRunner:
                 }
 
             # 跟踪回退模型状态：如果代理在此运行期间切换到
-            # fallback model during this run, persist it so /model shows
-            # the actually-active model instead of the config default.
+            # 回退模型，持久化它以便 /model 显示
+            # 实际激活的模型而不是配置默认值。
             _agent = agent_holder[0]
             if _agent is not None and hasattr(_agent, 'model'):
                 _cfg_model = _resolve_gateway_model()
@@ -7276,10 +7275,10 @@ class GatewayRunner:
                         logger.debug("Processing queued message after agent completion: '%s...'", pending[:40])
             
             # 安全网：如果待处理文本是斜杠命令（例如 "/stop"、
-            # "/new"), discard it — commands should never be passed to the agent
-            # as user input.  The primary fix is in base.py (commands bypass the
-            # active-session guard), but this catches edge cases where command
-            # text leaks through the interrupt_message fallback.
+            # "/new"），丢弃它 — 命令永远不应作为用户输入
+            # 传递给代理。主要修复在 base.py 中（命令绕过
+            # 活动会话守卫），但这捕获了命令文本通过
+            # interrupt_message 回退泄漏的边缘情况。
             if pending and pending.strip().startswith("/"):
                 _pending_parts = pending.strip().split(None, 1)
                 _pending_cmd_word = _pending_parts[0][1:].lower() if _pending_parts else ""
@@ -7333,9 +7332,9 @@ class GatewayRunner:
                                                metadata=getattr(event, "metadata", None))
                         except Exception as e:
                             logger.warning("Failed to send first response before queued message: %s", e)
-                # else: interrupted — discard the interrupted response ("Operation
-                # interrupted." is just noise; the user already knows they sent a
-                # new message).
+                # 否则：被中断 — 丢弃被中断的响应（"Operation
+                # interrupted." 只是噪音；用户已经知道他们发送了
+                # 新消息）。
 
                 # 使用更新后的历史处理待处理消息
                 updated_history = result.get("messages", history)
