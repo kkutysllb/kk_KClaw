@@ -1,14 +1,13 @@
 #!/bin/bash
-# Docker entrypoint: bootstrap config files into the mounted volume, then run kclaw.
+# Docker 入口点：将配置文件引导到挂载卷，然后运行 kclaw。
 set -e
 
 KCLAW_HOME="/opt/data"
 INSTALL_DIR="/opt/kclaw"
 
-# Create essential directory structure.  Cache and platform directories
-# (cache/images, cache/audio, platforms/whatsapp, etc.) are created on
-# demand by the application — don't pre-create them here so new installs
-# get the consolidated layout from get_kclaw_dir().
+# 创建必要的目录结构。缓存和平台目录（cache/images、cache/audio、
+# platforms/whatsapp 等）由应用程序按需创建 — 不要在此预创建，
+# 以便新安装获得来自 get_kclaw_dir() 的整合布局。
 mkdir -p "$KCLAW_HOME"/{cron,sessions,logs,hooks,memories,skills}
 
 # .env
@@ -26,7 +25,7 @@ if [ ! -f "$KCLAW_HOME/SOUL.md" ]; then
     cp "$INSTALL_DIR/docker/SOUL.md" "$KCLAW_HOME/SOUL.md"
 fi
 
-# Sync bundled skills (manifest-based so user edits are preserved)
+# 同步捆绑的技能（基于清单，以便保留用户编辑）
 if [ -d "$INSTALL_DIR/skills" ]; then
     python3 "$INSTALL_DIR/tools/skills_sync.py"
 fi
