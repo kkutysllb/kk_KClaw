@@ -1,11 +1,10 @@
 """
-Cron job scheduler - executes due jobs.
+定时任务调度器 - 执行到期任务。
 
-Provides tick() which checks for due jobs and runs them. The gateway
-calls this every 60 seconds from a background thread.
+提供 tick() 函数检查到期任务并运行它们。网关每 60 秒从后台线程调用一次。
 
-Uses a file-based lock (~/.kclaw/cron/.tick.lock) so only one tick
-runs at a time if multiple processes overlap.
+使用基于文件的锁（~/.kclaw/cron/.tick.lock），这样如果多个进程重叠，
+只有一个 tick 能运行。
 """
 
 import asyncio
@@ -16,7 +15,7 @@ import os
 import subprocess
 import sys
 
-# fcntl is Unix-only; on Windows use msvcrt for file locking
+# fcntl 是 Unix 专用的；在 Windows 上使用 msvcrt 进行文件锁定
 try:
     import fcntl
 except ImportError:
@@ -28,9 +27,9 @@ except ImportError:
 from pathlib import Path
 from typing import Optional
 
-# Add parent directory to path for imports BEFORE repo-level imports.
-# Without this, standalone invocations (e.g. after `kclaw update` reloads
-# the module) fail with ModuleNotFoundError for kclaw_time et al.
+# 在 repo 级别导入之前，将父目录添加到路径。
+# 如果没有这个，独立调用（例如在 `kclaw update` 重新加载模块后）
+# 会因为找不到 kclaw_time 等模块而报 ModuleNotFoundError。
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from kclaw_constants import get_kclaw_home
@@ -39,8 +38,8 @@ from kclaw_time import now as _kclaw_now
 
 logger = logging.getLogger(__name__)
 
-# Valid delivery platforms — used to validate user-supplied platform names
-# in cron delivery targets, preventing env var enumeration via crafted names.
+# 有效的投递平台 — 用于验证用户提供的 cron 投递目标中的平台名称，
+# 防止通过精心设计的名称枚举环境变量。
 _KNOWN_DELIVERY_PLATFORMS = frozenset({
     "telegram", "discord", "slack", "whatsapp", "signal",
     "matrix", "mattermost", "homeassistant", "dingtalk", "feishu",
@@ -49,21 +48,20 @@ _KNOWN_DELIVERY_PLATFORMS = frozenset({
 
 from cron.jobs import get_due_jobs, mark_job_run, save_job_output, advance_next_run
 
-# Sentinel: when a cron agent has nothing new to report, it can start its
-# response with this marker to suppress delivery.  Output is still saved
-# locally for audit.
+# 标记：当 cron agent 没有新内容报告时，它可以在响应开头
+# 添加此标记以禁止投递。输出仍会保存在本地供审计。
 SILENT_MARKER = "[SILENT]"
 
-# Resolve KClaw home directory (respects KCLAW_HOME override)
+# 解析 KClaw 主目录（尊重 KCLAW_HOME 覆盖）
 _kclaw_home = get_kclaw_home()
 
-# File-based lock prevents concurrent ticks from gateway + daemon + systemd timer
+# 基于文件的锁防止 gateway + daemon + systemd timer 并发 tick
 _LOCK_DIR = _kclaw_home / "cron"
 _LOCK_FILE = _LOCK_DIR / ".tick.lock"
 
 
 def _resolve_origin(job: dict) -> Optional[dict]:
-    """Extract origin info from a job, preserving any extra routing metadata."""
+    """从任务中提取来源信息，保留任何额外的路由元数据。"""
     origin = job.get("origin")
     if not origin:
         return None
@@ -75,7 +73,7 @@ def _resolve_origin(job: dict) -> Optional[dict]:
 
 
 def _resolve_delivery_target(job: dict) -> Optional[dict]:
-    """Resolve the concrete auto-delivery target for a cron job, if any."""
+    """解析 cron 任务的具体自动投递目标（如果有）。"""
     deliver = job.get("deliver", "local")
     origin = _resolve_origin(job)
 
@@ -89,13 +87,13 @@ def _resolve_delivery_target(job: dict) -> Optional[dict]:
                 "chat_id": str(origin["chat_id"]),
                 "thread_id": origin.get("thread_id"),
             }
-        # Origin missing (e.g. job created via API/script) — try each
-        # platform's home channel as a fallback instead of silently dropping.
+        # 来源缺失（例如任务通过 API/脚本创建）— 尝试每个
+        # 平台的主频道作为后备，而不是静默丢弃。
         for platform_name in ("matrix", "telegram", "discord", "slack", "bluebubbles"):
             chat_id = os.getenv(f"{platform_name.upper()}_HOME_CHANNEL", "")
             if chat_id:
                 logger.info(
-                    "Job '%s' has deliver=origin but no origin; falling back to %s home channel",
+                    "任务 '%s' 设置了 deliver=origin 但无来源；回退到 %s 主频道",
                     job.get("name", job.get("id", "?")),
                     platform_name,
                 )
@@ -118,7 +116,7 @@ def _resolve_delivery_target(job: dict) -> Optional[dict]:
         else:
             chat_id, thread_id = rest, None
 
-        # Resolve human-friendly labels like "Alice (dm)" to real IDs.
+        # 解析类似 "Alice (dm)" 的友好标签为真实 ID。
         try:
             from gateway.channel_directory import resolve_channel_name
             resolved = resolve_channel_name(platform_key, chat_id)
@@ -158,18 +156,18 @@ def _resolve_delivery_target(job: dict) -> Optional[dict]:
     }
 
 
-# Media extension sets — keep in sync with gateway/platforms/base.py:_process_message_background
+# 媒体扩展名集合 — 与 gateway/platforms/base.py:_process_message_background 保持同步
 _AUDIO_EXTS = frozenset({'.ogg', '.opus', '.mp3', '.wav', '.m4a'})
 _VIDEO_EXTS = frozenset({'.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp'})
 _IMAGE_EXTS = frozenset({'.jpg', '.jpeg', '.png', '.webp', '.gif'})
 
 
 def _send_media_via_adapter(adapter, chat_id: str, media_files: list, metadata: dict | None, loop, job: dict) -> None:
-    """Send extracted MEDIA files as native platform attachments via a live adapter.
+    """通过实时适配器将提取的媒体文件作为原生平台附件发送。
 
-    Routes each file to the appropriate adapter method (send_voice, send_image_file,
-    send_video, send_document) based on file extension — mirroring the routing logic
-    in ``BasePlatformAdapter._process_message_background``.
+    根据文件扩展名将每个文件路由到适当的适配器方法（send_voice、send_image_file、
+    send_video、send_document）— 镜像 ``BasePlatformAdapter._process_message_background``
+    中的路由逻辑。
     """
     from pathlib import Path
 
@@ -189,31 +187,30 @@ def _send_media_via_adapter(adapter, chat_id: str, media_files: list, metadata: 
             result = future.result(timeout=30)
             if result and not getattr(result, "success", True):
                 logger.warning(
-                    "Job '%s': media send failed for %s: %s",
+                    "任务 '%s'：媒体发送失败 %s: %s",
                     job.get("id", "?"), media_path, getattr(result, "error", "unknown"),
                 )
         except Exception as e:
-            logger.warning("Job '%s': failed to send media %s: %s", job.get("id", "?"), media_path, e)
+            logger.warning("任务 '%s'：发送媒体 %s 失败: %s", job.get("id", "?"), media_path, e)
 
 
 def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Optional[str]:
     """
-    Deliver job output to the configured target (origin chat, specific platform, etc.).
+    将任务输出投递到配置的目标（原聊天、特定平台等）。
 
-    When ``adapters`` and ``loop`` are provided (gateway is running), tries to
-    use the live adapter first — this supports E2EE rooms (e.g. Matrix) where
-    the standalone HTTP path cannot encrypt.  Falls back to standalone send if
-    the adapter path fails or is unavailable.
+    当提供 ``adapters`` 和 ``loop`` 时（gateway 正在运行），优先使用实时适配器 —
+    这支持需要加密的端到端加密房间（例如 Matrix），因为独立 HTTP 路径无法加密。
+    如果适配器路径失败或不可用，则回退到独立发送。
 
-    Returns None on success, or an error string on failure.
+    成功返回 None，失败返回错误字符串。
     """
     target = _resolve_delivery_target(job)
     if not target:
         if job.get("deliver", "local") != "local":
-            msg = f"no delivery target resolved for deliver={job.get('deliver', 'local')}"
-            logger.warning("Job '%s': %s", job["id"], msg)
+            msg = f"无法解析投递目标 deliver={job.get('deliver', 'local')}"
+            logger.warning("任务 '%s'：%s", job["id"], msg)
             return msg
-        return None  # local-only jobs don't deliver — not a failure
+        return None  # 仅本地任务不投递 — 不是失败
 
     platform_name = target["platform"]
     chat_id = target["chat_id"]
@@ -240,26 +237,25 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
     }
     platform = platform_map.get(platform_name.lower())
     if not platform:
-        msg = f"unknown platform '{platform_name}'"
-        logger.warning("Job '%s': %s", job["id"], msg)
+        msg = f"未知平台 '{platform_name}'"
+        logger.warning("任务 '%s'：%s", job["id"], msg)
         return msg
 
     try:
         config = load_gateway_config()
     except Exception as e:
-        msg = f"failed to load gateway config: {e}"
-        logger.error("Job '%s': %s", job["id"], msg)
+        msg = f"加载网关配置失败: {e}"
+        logger.error("任务 '%s'：%s", job["id"], msg)
         return msg
 
     pconfig = config.platforms.get(platform)
     if not pconfig or not pconfig.enabled:
-        msg = f"platform '{platform_name}' not configured/enabled"
-        logger.warning("Job '%s': %s", job["id"], msg)
+        msg = f"平台 '{platform_name}' 未配置/未启用"
+        logger.warning("任务 '%s'：%s", job["id"], msg)
         return msg
 
-    # Optionally wrap the content with a header/footer so the user knows this
-    # is a cron delivery.  Wrapping is on by default; set cron.wrap_response: false
-    # in config.yaml for clean output.
+    # 可选择用页眉/页脚包装内容，让用户知道这是 cron 投递。
+    # 默认启用包装；将 config.yaml 中的 cron.wrap_response: false 设置为简洁输出。
     wrap_response = True
     try:
         user_cfg = load_config()
@@ -278,12 +274,12 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
     else:
         delivery_content = content
 
-    # Extract MEDIA: tags so attachments are forwarded as files, not raw text
+    # 提取 MEDIA: 标签，以便附件作为文件转发，而不是原始文本
     from gateway.platforms.base import BasePlatformAdapter
     media_files, cleaned_delivery_content = BasePlatformAdapter.extract_media(delivery_content)
 
-    # Prefer the live adapter when the gateway is running — this supports E2EE
-    # rooms (e.g. Matrix) where the standalone HTTP path cannot encrypt.
+    # 当 gateway 运行时优先使用实时适配器 — 这支持需要加密的端到端加密房间
+    # （例如 Matrix），因为独立 HTTP 路径无法加密。
     runtime_adapter = (adapters or {}).get(platform)
     if runtime_adapter is not None and loop is not None and getattr(loop, "is_running", lambda: False)():
         send_metadata = {"thread_id": thread_id} if thread_id else None
@@ -300,71 +296,68 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
                 if send_result and not getattr(send_result, "success", True):
                     err = getattr(send_result, "error", "unknown")
                     logger.warning(
-                        "Job '%s': live adapter send to %s:%s failed (%s), falling back to standalone",
+                        "任务 '%s'：实时适配器发送到 %s:%s 失败 (%s)，回退到独立模式",
                         job["id"], platform_name, chat_id, err,
                     )
-                    adapter_ok = False  # fall through to standalone path
+                    adapter_ok = False  # 回退到独立路径
 
-            # Send extracted media files as native attachments via the live adapter
+            # 通过实时适配器将提取的媒体文件作为原生附件发送
             if adapter_ok and media_files:
                 _send_media_via_adapter(runtime_adapter, chat_id, media_files, send_metadata, loop, job)
 
             if adapter_ok:
-                logger.info("Job '%s': delivered to %s:%s via live adapter", job["id"], platform_name, chat_id)
+                logger.info("任务 '%s'：通过实时适配器投递到 %s:%s", job["id"], platform_name, chat_id)
                 return None
         except Exception as e:
             logger.warning(
-                "Job '%s': live adapter delivery to %s:%s failed (%s), falling back to standalone",
+                "任务 '%s'：实时适配器投递到 %s:%s 失败 (%s)，回退到独立模式",
                 job["id"], platform_name, chat_id, e,
             )
 
-    # Standalone path: run the async send in a fresh event loop (safe from any thread)
+    # 独立路径：在新的事件循环中运行异步发送（从任何线程都是安全的）
     coro = _send_to_platform(platform, pconfig, chat_id, cleaned_delivery_content, thread_id=thread_id, media_files=media_files)
     try:
         result = asyncio.run(coro)
     except RuntimeError:
-        # asyncio.run() checks for a running loop before awaiting the coroutine;
-        # when it raises, the original coro was never started — close it to
-        # prevent "coroutine was never awaited" RuntimeWarning, then retry in a
-        # fresh thread that has no running loop.
+        # asyncio.run() 在等待协程之前检查是否有正在运行的循环；
+        # 当它抛出错误时，原来的协程从未启动 — 关闭它以防止
+        # "coroutine was never awaited" RuntimeWarning，然后在没有运行循环的新线程中重试。
         coro.close()
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             future = pool.submit(asyncio.run, _send_to_platform(platform, pconfig, chat_id, cleaned_delivery_content, thread_id=thread_id, media_files=media_files))
             result = future.result(timeout=30)
     except Exception as e:
-        msg = f"delivery to {platform_name}:{chat_id} failed: {e}"
-        logger.error("Job '%s': %s", job["id"], msg)
+        msg = f"投递到 {platform_name}:{chat_id} 失败: {e}"
+        logger.error("任务 '%s'：%s", job["id"], msg)
         return msg
 
     if result and result.get("error"):
-        msg = f"delivery error: {result['error']}"
-        logger.error("Job '%s': %s", job["id"], msg)
+        msg = f"投递错误: {result['error']}"
+        logger.error("任务 '%s'：%s", job["id"], msg)
         return msg
 
-    logger.info("Job '%s': delivered to %s:%s", job["id"], platform_name, chat_id)
+    logger.info("任务 '%s'：已投递到 %s:%s", job["id"], platform_name, chat_id)
     return None
 
 
-_SCRIPT_TIMEOUT = 120  # seconds
+_SCRIPT_TIMEOUT = 120  # 秒
 
 
 def _run_job_script(script_path: str) -> tuple[bool, str]:
-    """Execute a cron job's data-collection script and capture its output.
+    """执行 cron 任务的数据收集脚本并捕获其输出。
 
-    Scripts must reside within KCLAW_HOME/scripts/.  Both relative and
-    absolute paths are resolved and validated against this directory to
-    prevent arbitrary script execution via path traversal or absolute
-    path injection.
+    脚本必须位于 KCLAW_HOME/scripts/ 内。相对路径和绝对路径都会
+    针对此目录进行解析和验证，以防止通过路径遍历或绝对路径注入
+    执行任意脚本。
 
-    Args:
-        script_path: Path to a Python script.  Relative paths are resolved
-            against KCLAW_HOME/scripts/.  Absolute and ~-prefixed paths
-            are also validated to ensure they stay within the scripts dir.
+    参数:
+        script_path: Python 脚本的路径。相对路径相对于 KCLAW_HOME/scripts/ 解析。
+            绝对路径和 ~ 前缀的路径也会被验证以确保它们保持在 scripts 目录内。
 
-    Returns:
-        (success, output) — on failure *output* contains the error message so the
-        LLM can report the problem to the user.
+    返回:
+        (success, output) — 失败时 *output* 包含错误消息，以便
+        LLM 向用户报告问题。
     """
     from kclaw_constants import get_kclaw_home
 
@@ -378,20 +371,20 @@ def _run_job_script(script_path: str) -> tuple[bool, str]:
     else:
         path = (scripts_dir / raw).resolve()
 
-    # Guard against path traversal, absolute path injection, and symlink
-    # escape — scripts MUST reside within KCLAW_HOME/scripts/.
+    # 防止路径遍历、绝对路径注入和符号链接逃逸 —
+    # 脚本必须位于 KCLAW_HOME/scripts/ 内。
     try:
         path.relative_to(scripts_dir_resolved)
     except ValueError:
         return False, (
-            f"Blocked: script path resolves outside the scripts directory "
+            f"阻止：脚本路径解析到 scripts 目录外部 "
             f"({scripts_dir_resolved}): {script_path!r}"
         )
 
     if not path.exists():
-        return False, f"Script not found: {path}"
+        return False, f"找不到脚本: {path}"
     if not path.is_file():
-        return False, f"Script path is not a file: {path}"
+        return False, f"脚本路径不是文件: {path}"
 
     try:
         result = subprocess.run(
@@ -405,15 +398,15 @@ def _run_job_script(script_path: str) -> tuple[bool, str]:
         stderr = (result.stderr or "").strip()
 
         if result.returncode != 0:
-            parts = [f"Script exited with code {result.returncode}"]
+            parts = [f"脚本以代码 {result.returncode} 退出"]
             if stderr:
                 parts.append(f"stderr:\n{stderr}")
             if stdout:
                 parts.append(f"stdout:\n{stdout}")
             return False, "\n".join(parts)
 
-        # Redact any secrets that may appear in script output before
-        # they are injected into the LLM prompt context.
+        # 在脚本输出注入到 LLM 提示上下文之前，
+        # 清除可能出现的任何敏感信息。
         try:
             from agent.redact import redact_sensitive_text
             stdout = redact_sensitive_text(stdout)
@@ -422,44 +415,43 @@ def _run_job_script(script_path: str) -> tuple[bool, str]:
         return True, stdout
 
     except subprocess.TimeoutExpired:
-        return False, f"Script timed out after {_SCRIPT_TIMEOUT}s: {path}"
+        return False, f"脚本在 {_SCRIPT_TIMEOUT}s 后超时: {path}"
     except Exception as exc:
-        return False, f"Script execution failed: {exc}"
+        return False, f"脚本执行失败: {exc}"
 
 
 def _build_job_prompt(job: dict) -> str:
-    """Build the effective prompt for a cron job, optionally loading one or more skills first."""
+    """为 cron 任务构建有效提示词，可选择先加载一个或多个技能。"""
     prompt = job.get("prompt", "")
     skills = job.get("skills")
 
-    # Run data-collection script if configured, inject output as context.
+    # 如果配置了数据收集脚本，则运行它并将其输出作为上下文注入。
     script_path = job.get("script")
     if script_path:
         success, script_output = _run_job_script(script_path)
         if success:
             if script_output:
                 prompt = (
-                    "## Script Output\n"
-                    "The following data was collected by a pre-run script. "
-                    "Use it as context for your analysis.\n\n"
+                    "## 脚本输出\n"
+                    "以下数据由预运行脚本收集。"
+                    "将其作为分析的上下文使用。\n\n"
                     f"```\n{script_output}\n```\n\n"
                     f"{prompt}"
                 )
             else:
                 prompt = (
-                    "[Script ran successfully but produced no output.]\n\n"
+                    "[脚本运行成功但未产生输出。]\n\n"
                     f"{prompt}"
                 )
         else:
             prompt = (
-                "## Script Error\n"
-                "The data-collection script failed. Report this to the user.\n\n"
+                "## 脚本错误\n"
+                "数据收集脚本失败。请向用户报告。\n\n"
                 f"```\n{script_output}\n```\n\n"
                 f"{prompt}"
             )
 
-    # Always prepend cron execution guidance so the agent knows how
-    # delivery works and can suppress delivery when appropriate.
+    # 始终前置 cron 执行指导，以便 agent 了解投递机制并在适当时抑制投递。
     cron_hint = (
         "[SYSTEM: You are running as a scheduled cron job. "
         "DELIVERY: Your final response will be automatically delivered "
@@ -487,8 +479,8 @@ def _build_job_prompt(job: dict) -> str:
     for skill_name in skill_names:
         loaded = json.loads(skill_view(skill_name))
         if not loaded.get("success"):
-            error = loaded.get("error") or f"Failed to load skill '{skill_name}'"
-            logger.warning("Cron job '%s': skill not found, skipping — %s", job.get("name", job.get("id")), error)
+            error = loaded.get("error") or f"无法加载技能 '{skill_name}'"
+            logger.warning("定时任务 '%s'：技能未找到，跳过 — %s", job.get("name", job.get("id")), error)
             skipped.append(skill_name)
             continue
 
@@ -513,27 +505,27 @@ def _build_job_prompt(job: dict) -> str:
         parts.insert(0, notice)
 
     if prompt:
-        parts.extend(["", f"The user has provided the following instruction alongside the skill invocation: {prompt}"])
+        parts.extend(["", f"用户提供了以下指令以及技能调用: {prompt}"])
     return "\n".join(parts)
 
 
 def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
     """
-    Execute a single cron job.
+    执行单个定时任务。
     
-    Returns:
-        Tuple of (success, full_output_doc, final_response, error_message)
+    返回:
+        元组 (success, full_output_doc, final_response, error_message)
     """
     from run_agent import AIAgent
     
-    # Initialize SQLite session store so cron job messages are persisted
-    # and discoverable via session_search (same pattern as gateway/run.py).
+    # 初始化 SQLite 会话存储，以便 cron 任务消息被持久化
+    # 并可通过 session_search 发现（与 gateway/run.py 相同的模式）。
     _session_db = None
     try:
         from kclaw_state import SessionDB
         _session_db = SessionDB()
     except Exception as e:
-        logger.debug("Job '%s': SQLite session store not available: %s", job.get("id", "?"), e)
+        logger.debug("任务 '%s'：SQLite 会话存储不可用: %s", job.get("id", "?"), e)
     
     job_id = job["id"]
     job_name = job["name"]
@@ -541,19 +533,19 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
     origin = _resolve_origin(job)
     _cron_session_id = f"cron_{job_id}_{_kclaw_now().strftime('%Y%m%d_%H%M%S')}"
 
-    logger.info("Running job '%s' (ID: %s)", job_name, job_id)
-    logger.info("Prompt: %s", prompt[:100])
+    logger.info("正在运行任务 '%s' (ID: %s)", job_name, job_id)
+    logger.info("提示词: %s", prompt[:100])
 
     try:
-        # Inject origin context so the agent's send_message tool knows the chat.
-        # Must be INSIDE the try block so the finally cleanup always runs.
+        # 注入来源上下文，以便 agent 的 send_message 工具知道聊天。
+        # 必须在 try 块内部，以便 finally 清理始终运行。
         if origin:
             os.environ["KCLAW_SESSION_PLATFORM"] = origin["platform"]
             os.environ["KCLAW_SESSION_CHAT_ID"] = str(origin["chat_id"])
             if origin.get("chat_name"):
                 os.environ["KCLAW_SESSION_CHAT_NAME"] = origin["chat_name"]
-        # Re-read .env and config.yaml fresh every run so provider/key
-        # changes take effect without a gateway restart.
+        # 每次运行都重新读取 .env 和 config.yaml，以便 provider/key
+        # 更改无需重启 gateway 即可生效。
         from dotenv import load_dotenv
         try:
             load_dotenv(str(_kclaw_home / ".env"), override=True, encoding="utf-8")
@@ -569,7 +561,7 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
 
         model = job.get("model") or os.getenv("KCLAW_MODEL") or ""
 
-        # Load config.yaml for model, reasoning, prefill, toolsets, provider routing
+        # 从 config.yaml 加载模型、推理、预填充、工具集、provider 路由
         _cfg = {}
         try:
             import yaml
@@ -584,14 +576,14 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
                     elif isinstance(_model_cfg, dict):
                         model = _model_cfg.get("default", model)
         except Exception as e:
-            logger.warning("Job '%s': failed to load config.yaml, using defaults: %s", job_id, e)
+            logger.warning("任务 '%s'：加载 config.yaml 失败，使用默认值: %s", job_id, e)
 
-        # Reasoning config from config.yaml
+        # 从 config.yaml 读取推理配置
         from kclaw_constants import parse_reasoning_effort
         effort = str(_cfg.get("agent", {}).get("reasoning_effort", "")).strip()
         reasoning_config = parse_reasoning_effort(effort)
 
-        # Prefill messages from env or config.yaml
+        # 从 env 或 config.yaml 读取预填充消息
         prefill_messages = None
         prefill_file = os.getenv("KCLAW_PREFILL_MESSAGES_FILE", "") or _cfg.get("prefill_messages_file", "")
         if prefill_file:
@@ -606,13 +598,13 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
                     if not isinstance(prefill_messages, list):
                         prefill_messages = None
                 except Exception as e:
-                    logger.warning("Job '%s': failed to parse prefill messages file '%s': %s", job_id, pfpath, e)
+                    logger.warning("任务 '%s'：解析预填充消息文件 '%s' 失败: %s", job_id, pfpath, e)
                     prefill_messages = None
 
-        # Max iterations
+        # 最大迭代次数
         max_iterations = _cfg.get("agent", {}).get("max_turns") or _cfg.get("max_turns") or 90
 
-        # Provider routing
+        # Provider 路由
         pr = _cfg.get("provider_routing", {})
         smart_routing = _cfg.get("smart_model_routing", {}) or {}
 
@@ -663,20 +655,19 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
             provider_sort=pr.get("sort"),
             disabled_toolsets=["cronjob", "messaging", "clarify"],
             quiet_mode=True,
-            skip_memory=True,  # Cron system prompts would corrupt user representations
+            skip_memory=True,  # Cron 系统提示词会破坏用户表示
             platform="cron",
             session_id=_cron_session_id,
             session_db=_session_db,
         )
         
-        # Run the agent with an *inactivity*-based timeout: the job can run
-        # for hours if it's actively calling tools / receiving stream tokens,
-        # but a hung API call or stuck tool with no activity for the configured
-        # duration is caught and killed.  Default 600s (10 min inactivity);
-        # override via KCLAW_CRON_TIMEOUT env var.  0 = unlimited.
+        # 使用基于 *无活动* 的超时运行 agent：任务可以运行数小时
+        #（如果它在积极调用工具/接收流式 token），
+        # 但在配置的时间内无活动的挂起 API 调用或卡住的工具会被捕获并终止。
+        # 默认 600s（10 分钟无活动）；通过 KCLAW_CRON_TIMEOUT 环境变量覆盖。0 = 无限制。
         #
-        # Uses the agent's built-in activity tracker (updated by
-        # _touch_activity() on every tool call, API call, and stream delta).
+        # 使用 agent 内置的活动跟踪器（通过 _touch_activity() 在每次工具调用、
+        # API 调用和流式增量时更新）。
         _cron_timeout = float(os.getenv("KCLAW_CRON_TIMEOUT", 600))
         _cron_inactivity_limit = _cron_timeout if _cron_timeout > 0 else None
         _POLL_INTERVAL = 5.0
@@ -685,7 +676,7 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
         _inactivity_timeout = False
         try:
             if _cron_inactivity_limit is None:
-                # Unlimited — just wait for the result.
+                # 无限制 — 只需等待结果。
                 result = _cron_future.result()
             else:
                 result = None
@@ -696,7 +687,7 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
                     if done:
                         result = _cron_future.result()
                         break
-                    # Agent still running — check inactivity.
+                    # Agent 仍在运行 — 检查无活动状态。
                     _idle_secs = 0.0
                     if hasattr(agent, "get_activity_summary"):
                         try:
@@ -714,7 +705,7 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
             _cron_pool.shutdown(wait=False)
 
         if _inactivity_timeout:
-            # Build diagnostic summary from the agent's activity tracker.
+            # 从 agent 的活动跟踪器构建诊断摘要。
             _activity = {}
             if hasattr(agent, "get_activity_summary"):
                 try:
@@ -728,58 +719,58 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
             _iter_max = _activity.get("max_iterations", 0)
 
             logger.error(
-                "Job '%s' idle for %.0fs (inactivity limit %.0fs) "
+                "任务 '%s' 空闲 %.0fs（无活动限制 %.0fs）"
                 "| last_activity=%s | iteration=%s/%s | tool=%s",
                 job_name, _secs_ago, _cron_inactivity_limit,
                 _last_desc, _iter_n, _iter_max,
                 _cur_tool or "none",
             )
             if hasattr(agent, "interrupt"):
-                agent.interrupt("Cron job timed out (inactivity)")
+                agent.interrupt("定时任务超时（无活动）")
             raise TimeoutError(
-                f"Cron job '{job_name}' idle for "
-                f"{int(_secs_ago)}s (limit {int(_cron_inactivity_limit)}s) "
-                f"— last activity: {_last_desc}"
+                f"定时任务 '{job_name}' 空闲 "
+                f"{int(_secs_ago)}s（限制 {int(_cron_inactivity_limit)}s）"
+                f"— 最后活动: {_last_desc}"
             )
 
         final_response = result.get("final_response", "") or ""
-        # Use a separate variable for log display; keep final_response clean
-        # for delivery logic (empty response = no delivery).
-        logged_response = final_response if final_response else "(No response generated)"
+        # 使用单独的变量用于日志显示；保持 final_response 干净以供投递逻辑使用
+        #（空响应 = 不投递）。
+        logged_response = final_response if final_response else "（未生成响应）"
         
-        output = f"""# Cron Job: {job_name}
+        output = f"""# 定时任务: {job_name}
 
-**Job ID:** {job_id}
-**Run Time:** {_kclaw_now().strftime('%Y-%m-%d %H:%M:%S')}
-**Schedule:** {job.get('schedule_display', 'N/A')}
+**任务 ID:** {job_id}
+**运行时间:** {_kclaw_now().strftime('%Y-%m-%d %H:%M:%S')}
+**调度:** {job.get('schedule_display', 'N/A')}
 
-## Prompt
+## 提示词
 
 {prompt}
 
-## Response
+## 响应
 
 {logged_response}
 """
         
-        logger.info("Job '%s' completed successfully", job_name)
+        logger.info("任务 '%s' 成功完成", job_name)
         return True, output, final_response, None
         
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
-        logger.exception("Job '%s' failed: %s", job_name, error_msg)
+        logger.exception("任务 '%s' 失败: %s", job_name, error_msg)
         
-        output = f"""# Cron Job: {job_name} (FAILED)
+        output = f"""# 定时任务: {job_name} (失败)
 
-**Job ID:** {job_id}
-**Run Time:** {_kclaw_now().strftime('%Y-%m-%d %H:%M:%S')}
-**Schedule:** {job.get('schedule_display', 'N/A')}
+**任务 ID:** {job_id}
+**运行时间:** {_kclaw_now().strftime('%Y-%m-%d %H:%M:%S')}
+**调度:** {job.get('schedule_display', 'N/A')}
 
-## Prompt
+## 提示词
 
 {prompt}
 
-## Error
+## 错误
 
 ```
 {error_msg}
@@ -788,7 +779,7 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
         return False, output, "", error_msg
 
     finally:
-        # Clean up injected env vars so they don't leak to other jobs
+        # 清理注入的环境变量，以免泄露到其他任务
         for key in (
             "KCLAW_SESSION_PLATFORM",
             "KCLAW_SESSION_CHAT_ID",
@@ -802,31 +793,31 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
             try:
                 _session_db.end_session(_cron_session_id, "cron_complete")
             except (Exception, KeyboardInterrupt) as e:
-                logger.debug("Job '%s': failed to end session: %s", job_id, e)
+                logger.debug("任务 '%s'：结束会话失败: %s", job_id, e)
             try:
                 _session_db.close()
             except (Exception, KeyboardInterrupt) as e:
-                logger.debug("Job '%s': failed to close SQLite session store: %s", job_id, e)
+                logger.debug("任务 '%s'：关闭 SQLite 会话存储失败: %s", job_id, e)
 
 
 def tick(verbose: bool = True, adapters=None, loop=None) -> int:
     """
-    Check and run all due jobs.
+    检查并运行所有到期任务。
     
-    Uses a file lock so only one tick runs at a time, even if the gateway's
-    in-process ticker and a standalone daemon or manual tick overlap.
+    使用文件锁，以便一次只有一个 tick 运行，即使 gateway 的
+    进程内 ticker 与独立守护进程或手动 tick 重叠。
     
-    Args:
-        verbose: Whether to print status messages
-        adapters: Optional dict mapping Platform → live adapter (from gateway)
-        loop: Optional asyncio event loop (from gateway) for live adapter sends
+    参数:
+        verbose: 是否打印状态消息
+        adapters: 可选的 Platform → 实时适配器的字典（来自 gateway）
+        loop: 可选的 asyncio 事件循环（来自 gateway），用于实时适配器发送
     
-    Returns:
-        Number of jobs executed (0 if another tick is already running)
+    返回:
+        执行的任务数量（如果另一个 tick 已在运行则返回 0）
     """
     _LOCK_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Cross-platform file locking: fcntl on Unix, msvcrt on Windows
+    # 跨平台文件锁定：Unix 用 fcntl，Windows 用 msvcrt
     lock_fd = None
     try:
         lock_fd = open(_LOCK_FILE, "w")
@@ -835,7 +826,7 @@ def tick(verbose: bool = True, adapters=None, loop=None) -> int:
         elif msvcrt:
             msvcrt.locking(lock_fd.fileno(), msvcrt.LK_NBLCK, 1)
     except (OSError, IOError):
-        logger.debug("Tick skipped — another instance holds the lock")
+        logger.debug("跳过 tick — 另一个实例持有锁")
         if lock_fd is not None:
             lock_fd.close()
         return 0
@@ -844,34 +835,34 @@ def tick(verbose: bool = True, adapters=None, loop=None) -> int:
         due_jobs = get_due_jobs()
 
         if verbose and not due_jobs:
-            logger.info("%s - No jobs due", _kclaw_now().strftime('%H:%M:%S'))
+            logger.info("%s - 无到期任务", _kclaw_now().strftime('%H:%M:%S'))
             return 0
 
         if verbose:
-            logger.info("%s - %s job(s) due", _kclaw_now().strftime('%H:%M:%S'), len(due_jobs))
+            logger.info("%s - %s 个任务到期", _kclaw_now().strftime('%H:%M:%S'), len(due_jobs))
 
         executed = 0
         for job in due_jobs:
             try:
-                # For recurring jobs (cron/interval), advance next_run_at to the
-                # next future occurrence BEFORE execution.  This way, if the
-                # process crashes mid-run, the job won't re-fire on restart.
-                # One-shot jobs are left alone so they can retry on restart.
+                # 对于重复任务（cron/interval），在执行前将 next_run_at 推进到
+                # 下一次出现。这样，如果进程在运行期间崩溃，
+                # 任务不会在重启时重新触发。
+                # 一次性任务保持不变，以便在重启时仍能重试。
                 advance_next_run(job["id"])
 
                 success, output, final_response, error = run_job(job)
 
                 output_file = save_job_output(job["id"], output)
                 if verbose:
-                    logger.info("Output saved to: %s", output_file)
+                    logger.info("输出已保存到: %s", output_file)
 
-                # Deliver the final response to the origin/target chat.
-                # If the agent responded with [SILENT], skip delivery (but
-                # output is already saved above).  Failed jobs always deliver.
-                deliver_content = final_response if success else f"⚠️ Cron job '{job.get('name', job['id'])}' failed:\n{error}"
+                # 将最终响应投递到来源/目标聊天。
+                # 如果 agent 返回了 [SILENT]，则跳过投递（但输出已在上方保存）。
+                # 失败的任务始终投递。
+                deliver_content = final_response if success else f"⚠️ 定时任务 '{job.get('name', job['id'])}' 失败:\n{error}"
                 should_deliver = bool(deliver_content)
                 if should_deliver and success and SILENT_MARKER in deliver_content.strip().upper():
-                    logger.info("Job '%s': agent returned %s — skipping delivery", job["id"], SILENT_MARKER)
+                    logger.info("任务 '%s'：agent 返回了 %s — 跳过投递", job["id"], SILENT_MARKER)
                     should_deliver = False
 
                 delivery_error = None
@@ -880,13 +871,13 @@ def tick(verbose: bool = True, adapters=None, loop=None) -> int:
                         delivery_error = _deliver_result(job, deliver_content, adapters=adapters, loop=loop)
                     except Exception as de:
                         delivery_error = str(de)
-                        logger.error("Delivery failed for job %s: %s", job["id"], de)
+                        logger.error("任务 %s 的投递失败: %s", job["id"], de)
 
                 mark_job_run(job["id"], success, error, delivery_error=delivery_error)
                 executed += 1
 
             except Exception as e:
-                logger.error("Error processing job %s: %s", job['id'], e)
+                logger.error("处理任务 %s 时出错: %s", job['id'], e)
                 mark_job_run(job["id"], False, str(e))
 
         return executed

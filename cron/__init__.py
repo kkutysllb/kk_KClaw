@@ -1,18 +1,17 @@
 """
-Cron job scheduling system for KClaw Agent.
+KClaw Agent 的定时任务调度系统。
 
-This module provides scheduled task execution, allowing the agent to:
-- Run automated tasks on schedules (cron expressions, intervals, one-shot)
-- Self-schedule reminders and follow-up tasks
-- Execute tasks in isolated sessions (no prior context)
+本模块提供定时任务执行功能，使 Agent 能够：
+- 按计划运行自动化任务（cron 表达式、间隔执行、单次执行）
+- 自我安排提醒和后续任务
+- 在独立会话中执行任务（无先前上下文）
 
-Cron jobs are executed automatically by the gateway daemon:
-    kclaw gateway install    # Install as a user service
-    sudo kclaw gateway install --system  # Linux servers: boot-time system service
-    kclaw gateway            # Or run in foreground
+定时任务由网关守护进程自动执行：
+    kclaw gateway install    # 安装为用户服务
+    sudo kclaw gateway install --system  # Linux 服务器：开机启动的系统服务
+    kclaw gateway            # 或在前台运行
 
-The gateway ticks the scheduler every 60 seconds. A file lock prevents
-duplicate execution if multiple processes overlap.
+网关每 60 秒触发一次调度器。文件锁可防止多个进程重叠时的重复执行。
 """
 
 from cron.jobs import (
