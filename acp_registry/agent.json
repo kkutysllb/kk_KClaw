@@ -2,7 +2,7 @@
   "schema_version": 1,
   "name": "kclaw",
   "display_name": "KClaw Agent",
-  "description": "AI agent by kkutysllb with 90+ tools, persistent memory, and multi-platform support",
+  "description": "由 kkutysllb 开发的 AI 智能体，具备 90+ 工具、持久化内存和多平台支持",
   "icon": "icon.svg",
   "distribution": {
     "type": "command",
