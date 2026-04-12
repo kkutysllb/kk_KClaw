@@ -66,7 +66,7 @@ _MANAGED_SYSTEM_NAMES = {
 
 
 def get_managed_system() -> Optional[str]:
-    """Return the package manager owning this install, if any."""
+    """返回拥有此安装的程序包管理器（如果有）。"""
     raw = os.getenv("KCLAW_MANAGED", "").strip()
     if raw:
         normalized = raw.lower()
@@ -91,7 +91,7 @@ def is_managed() -> bool:
 
 
 def get_managed_update_command() -> Optional[str]:
-    """Return the preferred upgrade command for a managed install."""
+    """返回受管理安装的首选升级命令。"""
     managed_system = get_managed_system()
     if managed_system == "Homebrew":
         return "brew upgrade kclaw"
@@ -101,40 +101,40 @@ def get_managed_update_command() -> Optional[str]:
 
 
 def recommended_update_command() -> str:
-    """Return the best update command for the current installation."""
+    """返回当前安装的最佳更新命令。"""
     return get_managed_update_command() or "kclaw update"
 
 
-def format_managed_message(action: str = "modify this KClaw installation") -> str:
-    """Build a user-facing error for managed installs."""
-    managed_system = get_managed_system() or "a package manager"
+def format_managed_message(action: str = "修改此 KClaw 安装") -> str:
+    """为受管理安装构建面向用户的错误消息。"""
+    managed_system = get_managed_system() or "程序包管理器"
     raw = os.getenv("KCLAW_MANAGED", "").strip().lower()
 
     if managed_system == "NixOS":
         env_hint = "true" if raw in _MANAGED_TRUE_VALUES else raw or "true"
         return (
-            f"Cannot {action}: this KClaw installation is managed by NixOS "
-            f"(KCLAW_MANAGED={env_hint}).\n"
-            "Edit services.kclaw.settings in your configuration.nix and run:\n"
+            f"无法{action}: 此 KClaw 安装由 NixOS 管理 "
+            f"(KCLAW_MANAGED={env_hint})。\n"
+            "请在 configuration.nix 中编辑 services.kclaw.settings 然后运行:\n"
             "  sudo nixos-rebuild switch"
         )
 
     if managed_system == "Homebrew":
         env_hint = raw or "homebrew"
         return (
-            f"Cannot {action}: this KClaw installation is managed by Homebrew "
-            f"(KCLAW_MANAGED={env_hint}).\n"
-            "Use:\n"
+            f"无法{action}: 此 KClaw 安装由 Homebrew 管理 "
+            f"(KCLAW_MANAGED={env_hint})。\n"
+            "请使用:\n"
             "  brew upgrade kclaw"
         )
 
     return (
-        f"Cannot {action}: this KClaw installation is managed by {managed_system}.\n"
-        "Use your package manager to upgrade or reinstall KClaw."
+        f"无法{action}: 此 KClaw 安装由 {managed_system} 管理。\n"
+        "请使用您的程序包管理器来升级或重新安装 KClaw。"
     )
 
-def managed_error(action: str = "modify configuration"):
-    """Print user-friendly error for managed mode."""
+def managed_error(action: str = "修改配置"):
+    """打印适合受管理模式的友好错误提示。"""
     print(format_managed_message(action), file=sys.stderr)
 
 
@@ -146,23 +146,23 @@ def managed_error(action: str = "modify configuration"):
 from kclaw_constants import get_kclaw_home  # noqa: F811,E402
 
 def get_config_path() -> Path:
-    """Get the main config file path."""
+    """获取主配置文件路径。"""
     return get_kclaw_home() / "config.yaml"
 
 def get_env_path() -> Path:
-    """Get the .env file path (for API keys)."""
+    """获取 .env 文件路径（用于存储 API 密钥）。"""
     return get_kclaw_home() / ".env"
 
 def get_project_root() -> Path:
-    """Get the project installation directory."""
+    """获取项目安装目录。"""
     return Path(__file__).parent.parent.resolve()
 
 def _secure_dir(path):
-    """Set directory to owner-only access (0700). No-op on Windows.
+    """设置目录为仅所有者可访问 (0700)。在 Windows 上无操作。
 
-    Skipped in managed mode — the NixOS module sets group-readable
-    permissions (0750) so interactive users in the kclaw group can
-    share state with the gateway service.
+    在受管理模式下跳过 — NixOS 模块设置组可读权限
+    (0750) 以便 kclaw 组中的交互用户可以
+    与网关服务共享状态。
     """
     if is_managed():
         return
@@ -173,10 +173,10 @@ def _secure_dir(path):
 
 
 def _secure_file(path):
-    """Set file to owner-only read/write (0600). No-op on Windows.
+    """设置文件为仅所有者可读写 (0600)。在 Windows 上无操作。
 
-    Skipped in managed mode — the NixOS activation script sets
-    group-readable permissions (0640) on config files.
+    在受管理模式下跳过 — NixOS 激活脚本设置
+    配置文件的组可读权限 (0640)。
     """
     if is_managed():
         return
@@ -188,7 +188,7 @@ def _secure_file(path):
 
 
 def _ensure_default_soul_md(home: Path) -> None:
-    """Seed a default SOUL.md into KCLAW_HOME if the user doesn't have one yet."""
+    """如果用户还没有 SOUL.md,则在 KCLAW_HOME 中植入默认的 SOUL.md。"""
     soul_path = home / "SOUL.md"
     if soul_path.exists():
         return
@@ -197,7 +197,7 @@ def _ensure_default_soul_md(home: Path) -> None:
 
 
 def ensure_kclaw_home():
-    """Ensure ~/.kclaw directory structure exists with secure permissions."""
+    """确保 ~/.kclaw 目录结构存在并设置安全权限。"""
     home = get_kclaw_home()
     home.mkdir(parents=True, exist_ok=True)
     _secure_dir(home)
@@ -1411,7 +1411,7 @@ _CUSTOM_PROVIDER_LIKE_FIELDS = {"base_url", "api_key", "rate_limit_delay", "api_
 
 @dataclass
 class ConfigIssue:
-    """A detected config structure problem."""
+    """检测到的配置结构问题。"""
 
     severity: str  # "error", "warning"
     message: str
@@ -1580,7 +1580,7 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
     try:
         fixes = sanitize_env_file()
         if fixes and not quiet:
-            print(f"  ✓ Repaired .env file ({fixes} corrupted entries fixed)")
+            print(f"  ✓ 已修复 .env 文件（已修复 {fixes} 个损坏条目）")
     except Exception:
         pass  # best-effort; don't block migration on sanitize failure
 
@@ -1608,7 +1608,7 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
             config["display"] = display
             save_config(config)
             if not quiet:
-                print(f"  ✓ Migrated tool progress to config.yaml: {display['tool_progress']}")
+                print(f"  ✓ 已将工具进度迁移到 config.yaml: {display['tool_progress']}")
     
     # ── Version 4 → 5: add timezone field ──
     if current_ver < 5:
@@ -1624,7 +1624,7 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
             save_config(config)
             if not quiet:
                 tz_display = config["timezone"] or "(server-local)"
-                print(f"  ✓ Added timezone to config.yaml: {tz_display}")
+                print(f"  ✓ 已添加时区到 config.yaml: {tz_display}")
 
     # ── Version 8 → 9: clear ANTHROPIC_TOKEN from .env ──
     # The new Anthropic auth flow no longer uses this env var.
@@ -1634,7 +1634,7 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
             if old_token:
                 save_env_value("ANTHROPIC_TOKEN", "")
                 if not quiet:
-                    print("  ✓ Cleared ANTHROPIC_TOKEN from .env (no longer used)")
+                    print("  ✓ 已清除 .env 中的 ANTHROPIC_TOKEN（已不再使用）")
         except Exception:
             pass
 
@@ -1696,7 +1696,7 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
                 del config["custom_providers"]
                 save_config(config)
                 if not quiet:
-                    print(f"  ✓ Migrated {migrated_count} custom provider(s) to providers: section")
+                    print(f"  ✓ 已迁移 {migrated_count} 个自定义提供者到 providers: 部分")
                     for key in list(providers_dict.keys())[-migrated_count:]:
                         ep = providers_dict[key]
                         print(f"    → {key}: {ep.get('api', '')}")
@@ -1712,26 +1712,26 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
                 if old_val:
                     save_env_value(dead_var, "")
                     if not quiet:
-                        print(f"  ✓ Cleared {dead_var} from .env (no longer used — config.yaml is source of truth)")
+                        print(f"  ✓ 已清除 .env 中的 {dead_var}（已不再使用 — config.yaml 是唯一真相来源）")
             except Exception:
                 pass
 
     if current_ver < latest_ver and not quiet:
-        print(f"Config version: {current_ver} → {latest_ver}")
+        print(f"配置版本: {current_ver} → {latest_ver}")
     
     # Check for missing required env vars
     missing_env = get_missing_env_vars(required_only=True)
     
     if missing_env and not quiet:
-        print("\n⚠️  Missing required environment variables:")
+        print("\n⚠️  缺少必需的环境变量:")
         for var in missing_env:
             print(f"   • {var['name']}: {var['description']}")
     
     if interactive and missing_env:
-        print("\nLet's configure them now:\n")
+        print("\n现在让我们配置它们:\n")
         for var in missing_env:
             if var.get("url"):
-                print(f"  Get your key at: {var['url']}")
+                print(f"  获取密钥地址: {var['url']}")
             
             if var.get("password"):
                 import getpass
@@ -1742,9 +1742,9 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
             if value:
                 save_env_value(var["name"], value)
                 results["env_added"].append(var["name"])
-                print(f"  ✓ Saved {var['name']}")
+                print(f"  ✓ 已保存 {var['name']}")
             else:
-                results["warnings"].append(f"Skipped {var['name']} - some features may not work")
+                results["warnings"].append(f"跳过 {var['name']} - 某些功能可能无法工作")
             print()
     
     # Check for missing optional env vars and offer to configure interactively
@@ -1768,12 +1768,12 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
             if not get_env_value(name) and name in OPTIONAL_ENV_VARS
         ]
         if new_and_unset:
-            print(f"\n  {len(new_and_unset)} new optional key(s) in this update:")
+            print(f"\n  此更新中有 {len(new_and_unset)} 个新的可选密钥:")
             for name, info in new_and_unset:
                 print(f"    • {name} — {info.get('description', '')}")
             print()
             try:
-                answer = input("  Configure new keys? [y/N]: ").strip().lower()
+                answer = input("  配置新密钥? [y/N]: ").strip().lower()
             except (EOFError, KeyboardInterrupt):
                 answer = "n"
 
@@ -1782,21 +1782,21 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
                 for name, info in new_and_unset:
                     if info.get("url"):
                         print(f"  {info.get('description', name)}")
-                        print(f"  Get your key at: {info['url']}")
+                        print(f"  获取密钥地址: {info['url']}")
                     else:
                         print(f"  {info.get('description', name)}")
                     if info.get("password"):
                         import getpass
-                        value = getpass.getpass(f"  {info.get('prompt', name)} (Enter to skip): ")
+                        value = getpass.getpass(f"  {info.get('prompt', name)} (回车跳过): ")
                     else:
-                        value = input(f"  {info.get('prompt', name)} (Enter to skip): ").strip()
+                        value = input(f"  {info.get('prompt', name)} (回车跳过): ").strip()
                     if value:
                         save_env_value(name, value)
                         results["env_added"].append(name)
-                        print(f"  ✓ Saved {name}")
+                        print(f"  ✓ 已保存 {name}")
                     print()
             else:
-                print("  Set later with: kclaw config set <key> <value>")
+                print("  稍后可使用以下命令设置: kclaw config set <键> <值>")
     
     # Check for missing config fields
     missing_config = get_missing_config_fields()
@@ -1811,7 +1811,7 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
             _set_nested(config, key, default)
             results["config_added"].append(key)
             if not quiet:
-                print(f"  ✓ Added {key} = {default}")
+                print(f"  ✓ 已添加 {key} = {default}")
         
         # Update version and save
         config["_config_version"] = latest_ver
@@ -1828,13 +1828,13 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
     # Prompt for any that are missing/empty.
     missing_skill_config = get_missing_skill_config_vars()
     if missing_skill_config and interactive and not quiet:
-        print(f"\n  {len(missing_skill_config)} skill setting(s) not configured:")
+        print(f"\n  {len(missing_skill_config)} 个技能设置未配置:")
         for var in missing_skill_config:
             skill_name = var.get("skill", "unknown")
-            print(f"    • {var['key']} — {var['description']} (from skill: {skill_name})")
+            print(f"    • {var['key']} — {var['description']} (来自技能: {skill_name})")
         print()
         try:
-            answer = input("  Configure skill settings? [y/N]: ").strip().lower()
+            answer = input("  配置技能设置? [y/N]: ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             answer = "n"
 
@@ -1855,15 +1855,15 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
                     storage_key = f"{SKILL_CONFIG_PREFIX}.{var['key']}"
                     _set_nested(config, storage_key, value)
                     results["config_added"].append(var["key"])
-                    print(f"  ✓ Saved {var['key']} = {value}")
+                    print(f"  ✓ 已保存 {var['key']} = {value}")
                 else:
                     results["warnings"].append(
-                        f"Skipped {var['key']} — skill '{var.get('skill', '?')}' may ask for it later"
+                        f"跳过 {var['key']} — 技能 '{var.get('skill', '?')}' 可能会稍后询问"
                     )
                 print()
             save_config(config)
         else:
-            print("  Set later with: kclaw config set <key> <value>")
+            print("  稍后可使用以下命令设置: kclaw config set <键> <值>")
 
     return results
 
@@ -1939,7 +1939,7 @@ def _normalize_root_model_keys(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _normalize_max_turns_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    """Normalize legacy root-level max_turns into agent.max_turns."""
+    """将旧的根级别 max_turns 规范化为 agent.max_turns。"""
     config = dict(config)
     agent_config = dict(config.get("agent") or {})
 
@@ -1974,7 +1974,7 @@ def read_raw_config() -> Dict[str, Any]:
 
 
 def load_config() -> Dict[str, Any]:
-    """Load configuration from ~/.kclaw/config.yaml."""
+    """从 ~/.kclaw/config.yaml 加载配置。"""
     import copy
     ensure_kclaw_home()
     config_path = get_config_path()
@@ -1995,7 +1995,7 @@ def load_config() -> Dict[str, Any]:
 
             config = _deep_merge(config, user_config)
         except Exception as e:
-            print(f"Warning: Failed to load config: {e}")
+            print(f"警告: 加载配置失败: {e}")
     
     return _expand_env_vars(_normalize_root_model_keys(_normalize_max_turns_config(config)))
 
@@ -2096,7 +2096,7 @@ _COMMENTED_SECTIONS = """
 
 
 def save_config(config: Dict[str, Any]):
-    """Save configuration to ~/.kclaw/config.yaml."""
+    """将配置保存到 ~/.kclaw/config.yaml。"""
     if is_managed():
         managed_error("save configuration")
         return
@@ -2125,7 +2125,7 @@ def save_config(config: Dict[str, Any]):
 
 
 def load_env() -> Dict[str, str]:
-    """Load environment variables from ~/.kclaw/.env."""
+    """从 ~/.kclaw/.env 加载环境变量。"""
     env_path = get_env_path()
     env_vars = {}
     
@@ -2240,7 +2240,7 @@ def sanitize_env_file() -> int:
 
 
 def save_env_value(key: str, value: str):
-    """Save or update a value in ~/.kclaw/.env."""
+    """在 ~/.kclaw/.env 中保存或更新值。"""
     if is_managed():
         managed_error(f"set {key}")
         return
@@ -2347,21 +2347,21 @@ def remove_env_value(key: str) -> bool:
 
 
 def save_anthropic_oauth_token(value: str, save_fn=None):
-    """Persist an Anthropic OAuth/setup token and clear the API-key slot."""
+    """保存 Anthropic OAuth/setup 令牌并清除 API 密钥槽位。"""
     writer = save_fn or save_env_value
     writer("ANTHROPIC_TOKEN", value)
     writer("ANTHROPIC_API_KEY", "")
 
 
 def use_anthropic_claude_code_credentials(save_fn=None):
-    """Use Claude Code's own credential files instead of persisting env tokens."""
+    """使用 Claude Code 自己的凭据文件,而不是持久化环境令牌。"""
     writer = save_fn or save_env_value
     writer("ANTHROPIC_TOKEN", "")
     writer("ANTHROPIC_API_KEY", "")
 
 
 def save_anthropic_api_key(value: str, save_fn=None):
-    """Persist an Anthropic API key and clear the OAuth/setup-token slot."""
+    """保存 Anthropic API 密钥并清除 OAuth/setup 令牌槽位。"""
     writer = save_fn or save_env_value
     writer("ANTHROPIC_API_KEY", value)
     writer("ANTHROPIC_TOKEN", "")
@@ -2378,7 +2378,7 @@ def save_env_value_secure(key: str, value: str) -> Dict[str, Any]:
 
 
 def get_env_value(key: str) -> Optional[str]:
-    """Get a value from ~/.kclaw/.env or environment."""
+    """从 ~/.kclaw/.env 或环境中获取值。"""
     # Check environment first
     if key in os.environ:
         return os.environ[key]
@@ -2393,7 +2393,7 @@ def get_env_value(key: str) -> Optional[str]:
 # =============================================================================
 
 def redact_key(key: str) -> str:
-    """Redact an API key for display."""
+    """对 API 密钥进行脱敏显示。"""
     if not key:
         return color("(not set)", Colors.DIM)
     if len(key) < 12:
@@ -2402,7 +2402,7 @@ def redact_key(key: str) -> str:
 
 
 def show_config():
-    """Display current configuration."""
+    """显示当前配置。"""
     config = load_config()
     
     print()
@@ -2410,16 +2410,16 @@ def show_config():
     print(color("│              ⚕ KClaw Configuration                    │", Colors.CYAN))
     print(color("└─────────────────────────────────────────────────────────┘", Colors.CYAN))
     
-    # Paths
+    # 路径
     print()
-    print(color("◆ Paths", Colors.CYAN, Colors.BOLD))
-    print(f"  Config:       {get_config_path()}")
-    print(f"  Secrets:      {get_env_path()}")
-    print(f"  Install:      {get_project_root()}")
+    print(color("◆ 路径", Colors.CYAN, Colors.BOLD))
+    print(f"  配置文件:     {get_config_path()}")
+    print(f"  密钥文件:     {get_env_path()}")
+    print(f"  安装目录:     {get_project_root()}")
     
-    # API Keys
+    # API 密钥
     print()
-    print(color("◆ API Keys", Colors.CYAN, Colors.BOLD))
+    print(color("◆ API 密钥", Colors.CYAN, Colors.BOLD))
     
     keys = [
         ("OPENROUTER_API_KEY", "OpenRouter"),
@@ -2439,76 +2439,76 @@ def show_config():
     anthropic_value = get_env_value("ANTHROPIC_TOKEN") or get_env_value("ANTHROPIC_API_KEY")
     print(f"  {'Anthropic':<14} {redact_key(anthropic_value)}")
     
-    # Model settings
+    # 模型设置
     print()
-    print(color("◆ Model", Colors.CYAN, Colors.BOLD))
-    print(f"  Model:        {config.get('model', 'not set')}")
-    print(f"  Max turns:    {config.get('agent', {}).get('max_turns', DEFAULT_CONFIG['agent']['max_turns'])}")
+    print(color("◆ 模型", Colors.CYAN, Colors.BOLD))
+    print(f"  模型:         {config.get('model', '未设置')}")
+    print(f"  最大轮次:     {config.get('agent', {}).get('max_turns', DEFAULT_CONFIG['agent']['max_turns'])}")
     
-    # Display
+    # 显示设置
     print()
-    print(color("◆ Display", Colors.CYAN, Colors.BOLD))
+    print(color("◆ 显示设置", Colors.CYAN, Colors.BOLD))
     display = config.get('display', {})
-    print(f"  Personality:  {display.get('personality', 'kawaii')}")
-    print(f"  Reasoning:    {'on' if display.get('show_reasoning', False) else 'off'}")
-    print(f"  Bell:         {'on' if display.get('bell_on_complete', False) else 'off'}")
+    print(f"  人格:         {display.get('personality', 'kawaii')}")
+    print(f"  推理过程:     {'开' if display.get('show_reasoning', False) else '关'}")
+    print(f"  提示音:       {'开' if display.get('bell_on_complete', False) else '关'}")
 
-    # Terminal
+    # 终端
     print()
-    print(color("◆ Terminal", Colors.CYAN, Colors.BOLD))
+    print(color("◆ 终端", Colors.CYAN, Colors.BOLD))
     terminal = config.get('terminal', {})
-    print(f"  Backend:      {terminal.get('backend', 'local')}")
-    print(f"  Working dir:  {terminal.get('cwd', '.')}")
-    print(f"  Timeout:      {terminal.get('timeout', 60)}s")
-    
+    print(f"  后端:         {terminal.get('backend', 'local')}")
+    print(f"  工作目录:     {terminal.get('cwd', '.')}")
+    print(f"  超时时间:     {terminal.get('timeout', 60)}秒")
+
     if terminal.get('backend') == 'docker':
-        print(f"  Docker image: {terminal.get('docker_image', 'nikolaik/python-nodejs:python3.11-nodejs20')}")
+        print(f"  Docker 镜像:  {terminal.get('docker_image', 'nikolaik/python-nodejs:python3.11-nodejs20')}")
     elif terminal.get('backend') == 'singularity':
-        print(f"  Image:        {terminal.get('singularity_image', 'docker://nikolaik/python-nodejs:python3.11-nodejs20')}")
+        print(f"  镜像:         {terminal.get('singularity_image', 'docker://nikolaik/python-nodejs:python3.11-nodejs20')}")
     elif terminal.get('backend') == 'modal':
-        print(f"  Modal image:  {terminal.get('modal_image', 'nikolaik/python-nodejs:python3.11-nodejs20')}")
+        print(f"  Modal 镜像:   {terminal.get('modal_image', 'nikolaik/python-nodejs:python3.11-nodejs20')}")
         modal_token = get_env_value('MODAL_TOKEN_ID')
-        print(f"  Modal token:  {'configured' if modal_token else '(not set)'}")
+        print(f"  Modal 令牌:   {'已配置' if modal_token else '(未设置)'}")
     elif terminal.get('backend') == 'daytona':
-        print(f"  Daytona image: {terminal.get('daytona_image', 'nikolaik/python-nodejs:python3.11-nodejs20')}")
+        print(f"  Daytona 镜像: {terminal.get('daytona_image', 'nikolaik/python-nodejs:python3.11-nodejs20')}")
         daytona_key = get_env_value('DAYTONA_API_KEY')
-        print(f"  API key:      {'configured' if daytona_key else '(not set)'}")
+        print(f"  API 密钥:     {'已配置' if daytona_key else '(未设置)'}")
     elif terminal.get('backend') == 'ssh':
         ssh_host = get_env_value('TERMINAL_SSH_HOST')
         ssh_user = get_env_value('TERMINAL_SSH_USER')
-        print(f"  SSH host:     {ssh_host or '(not set)'}")
-        print(f"  SSH user:     {ssh_user or '(not set)'}")
+        print(f"  SSH 主机:     {ssh_host or '(未设置)'}")
+        print(f"  SSH 用户:     {ssh_user or '(未设置)'}")
     
-    # Timezone
+    # 时区
     print()
-    print(color("◆ Timezone", Colors.CYAN, Colors.BOLD))
+    print(color("◆ 时区", Colors.CYAN, Colors.BOLD))
     tz = config.get('timezone', '')
     if tz:
-        print(f"  Timezone:     {tz}")
+        print(f"  时区:         {tz}")
     else:
-        print(f"  Timezone:     {color('(server-local)', Colors.DIM)}")
+        print(f"  时区:         {color('(服务器本地)', Colors.DIM)}")
 
-    # Compression
+    # 压缩设置
     print()
-    print(color("◆ Context Compression", Colors.CYAN, Colors.BOLD))
+    print(color("◆ 上下文压缩", Colors.CYAN, Colors.BOLD))
     compression = config.get('compression', {})
     enabled = compression.get('enabled', True)
-    print(f"  Enabled:      {'yes' if enabled else 'no'}")
+    print(f"  启用:         {'是' if enabled else '否'}")
     if enabled:
-        print(f"  Threshold:    {compression.get('threshold', 0.50) * 100:.0f}%")
-        print(f"  Target ratio: {compression.get('target_ratio', 0.20) * 100:.0f}% of threshold preserved")
-        print(f"  Protect last: {compression.get('protect_last_n', 20)} messages")
-        _sm = compression.get('summary_model', '') or '(main model)'
-        print(f"  Model:        {_sm}")
+        print(f"  阈值:         {compression.get('threshold', 0.50) * 100:.0f}%")
+        print(f"  目标比率:     {compression.get('target_ratio', 0.20) * 100:.0f}% 的阈值保留")
+        print(f"  保留最近:     {compression.get('protect_last_n', 20)} 条消息")
+        _sm = compression.get('summary_model', '') or '(主模型)'
+        print(f"  模型:         {_sm}")
         comp_provider = compression.get('summary_provider', 'auto')
         if comp_provider != 'auto':
-            print(f"  Provider:     {comp_provider}")
+            print(f"  提供者:       {comp_provider}")
     
-    # Auxiliary models
+    # 辅助模型
     auxiliary = config.get('auxiliary', {})
     aux_tasks = {
-        "Vision":      auxiliary.get('vision', {}),
-        "Web extract": auxiliary.get('web_extract', {}),
+        "视觉":        auxiliary.get('vision', {}),
+        "网页提取":   auxiliary.get('web_extract', {}),
     }
     has_overrides = any(
         t.get('provider', 'auto') != 'auto' or t.get('model', '')
@@ -2516,53 +2516,53 @@ def show_config():
     )
     if has_overrides:
         print()
-        print(color("◆ Auxiliary Models (overrides)", Colors.CYAN, Colors.BOLD))
+        print(color("◆ 辅助模型 (覆盖)", Colors.CYAN, Colors.BOLD))
         for label, task_cfg in aux_tasks.items():
             prov = task_cfg.get('provider', 'auto')
             mdl = task_cfg.get('model', '')
             if prov != 'auto' or mdl:
-                parts = [f"provider={prov}"]
+                parts = [f"提供者={prov}"]
                 if mdl:
-                    parts.append(f"model={mdl}")
+                    parts.append(f"模型={mdl}")
                 print(f"  {label:12s}  {', '.join(parts)}")
     
-    # Messaging
+    # 消息平台
     print()
-    print(color("◆ Messaging Platforms", Colors.CYAN, Colors.BOLD))
-    
+    print(color("◆ 消息平台", Colors.CYAN, Colors.BOLD))
+
     telegram_token = get_env_value('TELEGRAM_BOT_TOKEN')
     discord_token = get_env_value('DISCORD_BOT_TOKEN')
-    
-    print(f"  Telegram:     {'configured' if telegram_token else color('not configured', Colors.DIM)}")
-    print(f"  Discord:      {'configured' if discord_token else color('not configured', Colors.DIM)}")
-    
-    # Skill config
+
+    print(f"  Telegram:     {'已配置' if telegram_token else color('未配置', Colors.DIM)}")
+    print(f"  Discord:      {'已配置' if discord_token else color('未配置', Colors.DIM)}")
+
+    # 技能配置
     try:
         from agent.skill_utils import discover_all_skill_config_vars, resolve_skill_config_values
         skill_vars = discover_all_skill_config_vars()
         if skill_vars:
             resolved = resolve_skill_config_values(skill_vars)
             print()
-            print(color("◆ Skill Settings", Colors.CYAN, Colors.BOLD))
+            print(color("◆ 技能设置", Colors.CYAN, Colors.BOLD))
             for var in skill_vars:
                 key = var["key"]
                 value = resolved.get(key, "")
                 skill_name = var.get("skill", "")
-                display_val = str(value) if value else color("(not set)", Colors.DIM)
+                display_val = str(value) if value else color("(未设置)", Colors.DIM)
                 print(f"  {key:<20s} {display_val}  {color(f'[{skill_name}]', Colors.DIM)}")
     except Exception:
         pass
 
     print()
     print(color("─" * 60, Colors.DIM))
-    print(color("  kclaw config edit     # Edit config file", Colors.DIM))
-    print(color("  kclaw config set <key> <value>", Colors.DIM))
-    print(color("  kclaw setup           # Run setup wizard", Colors.DIM))
+    print(color("  kclaw config edit     # 编辑配置文件", Colors.DIM))
+    print(color("  kclaw config set <键> <值>", Colors.DIM))
+    print(color("  kclaw setup           # 运行设置向导", Colors.DIM))
     print()
 
 
 def edit_config():
-    """Open config file in user's editor."""
+    """在用户的编辑器中打开配置文件。"""
     if is_managed():
         managed_error("edit configuration")
         return
@@ -2571,7 +2571,7 @@ def edit_config():
     # Ensure config exists
     if not config_path.exists():
         save_config(DEFAULT_CONFIG)
-        print(f"Created {config_path}")
+        print(f"已创建 {config_path}")
     
     # Find editor
     editor = os.getenv('EDITOR') or os.getenv('VISUAL')
@@ -2585,16 +2585,16 @@ def edit_config():
                 break
     
     if not editor:
-        print("No editor found. Config file is at:")
+        print("未找到编辑器。配置文件位于:")
         print(f"  {config_path}")
         return
-    
-    print(f"Opening {config_path} in {editor}...")
+
+    print(f"正在使用 {editor} 打开 {config_path}...")
     subprocess.run([editor, str(config_path)])
 
 
 def set_config_value(key: str, value: str):
-    """Set a configuration value."""
+    """设置配置值。"""
     if is_managed():
         managed_error("set configuration values")
         return
@@ -2681,7 +2681,7 @@ def set_config_value(key: str, value: str):
 # =============================================================================
 
 def config_command(args):
-    """Handle config subcommands."""
+    """处理 config 子命令。"""
     subcmd = getattr(args, 'config_command', None)
     
     if subcmd is None or subcmd == "show":
@@ -2694,9 +2694,9 @@ def config_command(args):
         key = getattr(args, 'key', None)
         value = getattr(args, 'value', None)
         if not key or value is None:
-            print("Usage: kclaw config set <key> <value>")
+            print("用法: kclaw config set <键> <值>")
             print()
-            print("Examples:")
+            print("示例:")
             print("  kclaw config set model anthropic/claude-sonnet-4")
             print("  kclaw config set terminal.backend docker")
             print("  kclaw config set OPENROUTER_API_KEY sk-or-...")
@@ -2711,25 +2711,25 @@ def config_command(args):
     
     elif subcmd == "migrate":
         print()
-        print(color("🔄 Checking configuration for updates...", Colors.CYAN, Colors.BOLD))
+        print(color("🔄 正在检查配置更新...", Colors.CYAN, Colors.BOLD))
         print()
-        
-        # Check what's missing
+
+        # 检查缺少什么
         missing_env = get_missing_env_vars(required_only=False)
         missing_config = get_missing_config_fields()
         current_ver, latest_ver = check_config_version()
-        
+
         if not missing_env and not missing_config and current_ver >= latest_ver:
-            print(color("✓ Configuration is up to date!", Colors.GREEN))
+            print(color("✓ 配置已是最新版本!", Colors.GREEN))
             print()
             return
-        
-        # Show what needs to be updated
+
+        # 显示需要更新的内容
         if current_ver < latest_ver:
-            print(f"  Config version: {current_ver} → {latest_ver}")
-        
+            print(f"  配置版本: {current_ver} → {latest_ver}")
+
         if missing_config:
-            print(f"\n  {len(missing_config)} new config option(s) will be added with defaults")
+            print(f"\n  {len(missing_config)} 个新配置选项将使用默认值添加")
         
         required_missing = [v for v in missing_env if v.get("is_required")]
         optional_missing = [
@@ -2738,26 +2738,26 @@ def config_command(args):
         ]
         
         if required_missing:
-            print(f"\n  ⚠️  {len(required_missing)} required API key(s) missing:")
+            print(f"\n  ⚠️  缺少 {len(required_missing)} 个必需的 API 密钥:")
             for var in required_missing:
                 print(f"     • {var['name']}")
-        
+
         if optional_missing:
-            print(f"\n  ℹ️  {len(optional_missing)} optional API key(s) not configured:")
+            print(f"\n  ℹ️  未配置 {len(optional_missing)} 个可选 API 密钥:")
             for var in optional_missing:
                 tools = var.get("tools", [])
-                tools_str = f" (enables: {', '.join(tools[:2])})" if tools else ""
+                tools_str = f" (启用: {', '.join(tools[:2])})" if tools else ""
                 print(f"     • {var['name']}{tools_str}")
-        
+
         print()
-        
-        # Run migration
+
+        # 运行迁移
         results = migrate_config(interactive=True, quiet=False)
-        
+
         print()
         if results["env_added"] or results["config_added"]:
-            print(color("✓ Configuration updated!", Colors.GREEN))
-        
+            print(color("✓ 配置已更新!", Colors.GREEN))
+
         if results["warnings"]:
             print()
             for warning in results["warnings"]:
@@ -2766,27 +2766,27 @@ def config_command(args):
         print()
     
     elif subcmd == "check":
-        # Non-interactive check for what's missing
+        # 非交互式检查缺少的内容
         print()
-        print(color("📋 Configuration Status", Colors.CYAN, Colors.BOLD))
+        print(color("📋 配置状态", Colors.CYAN, Colors.BOLD))
         print()
-        
+
         current_ver, latest_ver = check_config_version()
         if current_ver >= latest_ver:
-            print(f"  Config version: {current_ver} ✓")
+            print(f"  配置版本: {current_ver} ✓")
         else:
-            print(color(f"  Config version: {current_ver} → {latest_ver} (update available)", Colors.YELLOW))
-        
+            print(color(f"  配置版本: {current_ver} → {latest_ver} (有可用更新)", Colors.YELLOW))
+
         print()
-        print(color("  Required:", Colors.BOLD))
+        print(color("  必需项:", Colors.BOLD))
         for var_name in REQUIRED_ENV_VARS:
             if get_env_value(var_name):
                 print(f"    ✓ {var_name}")
             else:
-                print(color(f"    ✗ {var_name} (missing)", Colors.RED))
-        
+                print(color(f"    ✗ {var_name} (缺失)", Colors.RED))
+
         print()
-        print(color("  Optional:", Colors.BOLD))
+        print(color("  可选项:", Colors.BOLD))
         for var_name, info in OPTIONAL_ENV_VARS.items():
             if get_env_value(var_name):
                 print(f"    ✓ {var_name}")
@@ -2794,24 +2794,24 @@ def config_command(args):
                 tools = info.get("tools", [])
                 tools_str = f" → {', '.join(tools[:2])}" if tools else ""
                 print(color(f"    ○ {var_name}{tools_str}", Colors.DIM))
-        
+
         missing_config = get_missing_config_fields()
         if missing_config:
             print()
-            print(color(f"  {len(missing_config)} new config option(s) available", Colors.YELLOW))
-            print("    Run 'kclaw config migrate' to add them")
-        
+            print(color(f"  {len(missing_config)} 个新配置选项可用", Colors.YELLOW))
+            print("    运行 'kclaw config migrate' 来添加它们")
+
         print()
-    
+
     else:
-        print(f"Unknown config command: {subcmd}")
+        print(f"未知的 config 命令: {subcmd}")
         print()
-        print("Available commands:")
-        print("  kclaw config           Show current configuration")
-        print("  kclaw config edit      Open config in editor")
-        print("  kclaw config set <key> <value>   Set a config value")
-        print("  kclaw config check     Check for missing/outdated config")
-        print("  kclaw config migrate   Update config with new options")
-        print("  kclaw config path      Show config file path")
-        print("  kclaw config env-path  Show .env file path")
+        print("可用命令:")
+        print("  kclaw config           显示当前配置")
+        print("  kclaw config edit      在编辑器中打开配置")
+        print("  kclaw config set <键> <值>   设置配置值")
+        print("  kclaw config check     检查缺失/过时的配置")
+        print("  kclaw config migrate   使用新选项更新配置")
+        print("  kclaw config path      显示配置文件路径")
+        print("  kclaw config env-path  显示 .env 文件路径")
         sys.exit(1)

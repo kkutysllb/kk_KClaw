@@ -1,6 +1,6 @@
 name: hindsight
 version: 1.0.0
-description: "Hindsight — long-term memory with knowledge graph, entity resolution, and multi-strategy retrieval."
+description: "Hindsight —— 具备知识图谱、实体解析和多策略检索的长期记忆。"
 pip_dependencies:
   - "hindsight-client>=0.4.22"
 requires_env: []

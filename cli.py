@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-KClaw Agent CLI - Interactive Terminal Interface
+KClaw Agent CLI - 交互式终端界面
 
-A beautiful command-line interface for the KClaw Agent, inspired by Claude Code.
-Features ASCII art branding, interactive REPL, toolset selection, and rich formatting.
+为 KClaw Agent设计的美观命令行界面,灵感来自 Claude Code。
+具有 ASCII 艺术标识、交互式 REPL、工具集选择和丰富的格式化功能。
 
-Usage:
-    python cli.py                          # Start interactive mode with all tools
-    python cli.py --toolsets web,terminal  # Start with specific toolsets
+用法:
+    python cli.py                          # 以所有工具启动交互模式
+    python cli.py --toolsets web,terminal  # 以特定工具集启动
     python cli.py --skills kclaw-agent-dev,github-auth
-    python cli.py -q "your question"       # Single query mode
-    python cli.py --list-tools             # List available tools and exit
+    python cli.py -q "你的问题"            # 单次查询模式
+    python cli.py --list-tools             # 列出可用工具并退出
 """
 
 import logging
@@ -83,13 +83,13 @@ load_kclaw_dotenv(kclaw_home=_kclaw_home, project_env=_project_env)
 # =============================================================================
 
 def _load_prefill_messages(file_path: str) -> List[Dict[str, Any]]:
-    """Load ephemeral prefill messages from a JSON file.
-    
-    The file should contain a JSON array of {role, content} dicts, e.g.:
-        [{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello!"}]
-    
-    Relative paths are resolved from ~/.kclaw/.
-    Returns an empty list if the path is empty or the file doesn't exist.
+    """从 JSON 文件加载临时预填充消息。
+
+    文件应包含 {role, content} 字典的 JSON 数组,例如:
+        [{"role": "user", "content": "你好"}, {"role": "assistant", "content": "你好!"}]
+
+    相对路径从 ~/.kclaw/ 解析。
+    如果路径为空或文件不存在,则返回空列表。
     """
     if not file_path:
         return []
@@ -112,7 +112,7 @@ def _load_prefill_messages(file_path: str) -> List[Dict[str, Any]]:
 
 
 def _parse_reasoning_config(effort: str) -> dict | None:
-    """Parse a reasoning effort level into an OpenRouter reasoning config dict."""
+    """将推理努力级别解析为 OpenRouter 推理配置字典。"""
     from kclaw_constants import parse_reasoning_effort
     result = parse_reasoning_effort(effort)
     if effort and effort.strip() and result is None:
@@ -121,7 +121,7 @@ def _parse_reasoning_config(effort: str) -> dict | None:
 
 
 def _get_chrome_debug_candidates(system: str) -> list[str]:
-    """Return likely browser executables for local CDP auto-launch."""
+    """返回可能的浏览器可执行文件,用于本地 CDP 自动启动。"""
     candidates: list[str] = []
     seen: set[str] = set()
 
@@ -584,7 +584,7 @@ _cleanup_done = False
 _active_agent_ref = None
 
 def _run_cleanup():
-    """Run resource cleanup exactly once."""
+    """精确执行一次资源清理。"""
     global _cleanup_done
     if _cleanup_done:
         return
@@ -635,7 +635,7 @@ _active_worktree: Optional[Dict[str, str]] = None
 
 
 def _git_repo_root() -> Optional[str]:
-    """Return the git repo root for CWD, or None if not in a repo."""
+    """返回 CWD 的 git 仓库根目录,如果没有在仓库中则返回 None。"""
     import subprocess
     try:
         result = subprocess.run(
@@ -650,7 +650,7 @@ def _git_repo_root() -> Optional[str]:
 
 
 def _path_is_within_root(path: Path, root: Path) -> bool:
-    """Return True when a resolved path stays within the expected root."""
+    """当解析后的路径保持在预期根目录内时返回 True。"""
     try:
         path.relative_to(root)
         return True
@@ -659,10 +659,10 @@ def _path_is_within_root(path: Path, root: Path) -> bool:
 
 
 def _setup_worktree(repo_root: str = None) -> Optional[Dict[str, str]]:
-    """Create an isolated git worktree for this CLI session.
+    """为此 CLI 会话创建一个隔离的 git worktree。
 
-    Returns a dict with worktree metadata on success, None on failure.
-    The dict contains: path, branch, repo_root.
+    成功时返回包含 worktree 元数据的字典,失败时返回 None。
+    字典包含: path, branch, repo_root。
     """
     import subprocess
 
@@ -758,12 +758,11 @@ def _setup_worktree(repo_root: str = None) -> Optional[Dict[str, str]]:
 
 
 def _cleanup_worktree(info: Dict[str, str] = None) -> None:
-    """Remove a worktree and its branch on exit.
+    """退出时删除 worktree 及其分支。
 
-    Preserves the worktree only if it has unpushed commits (real work
-    that hasn't been pushed to any remote).  Uncommitted changes alone
-    (untracked files, test artifacts) are not enough to keep it — agent
-    work lives in commits/PRs, not the working tree.
+    仅在 worktree 有未推送的提交时才保留（真正的尚未推送到任何远程的工作）。
+    仅未提交的更改（未跟踪的文件、测试产物）不足以保留它 — agent
+    的工作存在于提交/PR 中,而不是工作树中。
     """
     global _active_worktree
     info = info or _active_worktree
@@ -822,15 +821,14 @@ def _cleanup_worktree(info: Dict[str, str] = None) -> None:
 
 
 def _prune_stale_worktrees(repo_root: str, max_age_hours: int = 24) -> None:
-    """Remove stale worktrees and orphaned branches on startup.
+    """启动时删除过时的 worktree 和孤立分支。
 
-    Age-based tiers:
-    - Under max_age_hours (24h): skip — session may still be active.
-    - 24h–72h: remove if no unpushed commits.
-    - Over 72h: force remove regardless (nothing should sit this long).
+    基于时间的分层:
+    - 低于 max_age_hours (24h): 跳过 — 会话可能仍处于活跃状态。
+    - 24h–72h: 如果没有未推送的提交则删除。
+    - 超过 72h: 强制删除（不应该有东西放置这么久）。
 
-    Also prunes orphaned ``kclaw/*`` and ``pr-*`` local branches that
-    have no corresponding worktree.
+    还会清理没有对应 worktree 的孤立 ``kclaw/*`` 和 ``pr-*`` 本地分支。
     """
     import subprocess
     import time
@@ -895,11 +893,10 @@ def _prune_stale_worktrees(repo_root: str, max_age_hours: int = 24) -> None:
 
 
 def _prune_orphaned_branches(repo_root: str) -> None:
-    """Delete local ``kclaw/kclaw-*`` and ``pr-*`` branches with no worktree.
+    """删除没有 worktree 的本地 ``kclaw/kclaw-*`` 和 ``pr-*`` 分支。
 
-    These are auto-generated by ``kclaw -w`` sessions and PR review
-    workflows respectively.  Once their worktree is gone they serve no
-    purpose and just accumulate.
+    这些分别由 ``kclaw -w`` 会话和 PR 审查工作流自动生成。
+    一旦它们的 worktree 消失,它们就毫无用处,只会积累。
     """
     import subprocess
 
@@ -980,7 +977,7 @@ _DIM = "\033[2m"
 _RST = "\033[0m"
 
 def _accent_hex() -> str:
-    """Return the active skin accent color for legacy CLI output lines."""
+    """为旧版 CLI 输出行返回活跃的皮肤强调色。"""
     try:
         from kclaw_cli.skin_engine import get_active_skin
         return get_active_skin().get_color("ui_accent", "#FFBF00")
@@ -989,20 +986,20 @@ def _accent_hex() -> str:
 
 
 def _rich_text_from_ansi(text: str) -> _RichText:
-    """Safely render assistant/tool output that may contain ANSI escapes.
+    """安全地渲染可能包含 ANSI 转义码的助手/工具输出。
 
-    Using Rich Text.from_ansi preserves literal bracketed text like
-    ``[not markup]`` while still interpreting real ANSI color codes.
+    使用 Rich Text.from_ansi 可以保留字面括号文本如
+    ``[not markup]``,同时仍能解释真实的 ANSI 颜色代码。
     """
     return _RichText.from_ansi(text or "")
 
 
 def _cprint(text: str):
-    """Print ANSI-colored text through prompt_toolkit's native renderer.
+    """通过 prompt_toolkit 的原生渲染器打印 ANSI 彩色文本。
 
-    Raw ANSI escapes written via print() are swallowed by patch_stdout's
-    StdoutProxy.  Routing through print_formatted_text(ANSI(...)) lets
-    prompt_toolkit parse the escapes and render real colors.
+    通过 print() 编写的原始 ANSI 转义码会被 patch_stdout 的
+    StdoutProxy 吞掉。通过 print_formatted_text(ANSI(...)) 路由
+    可以让 prompt_toolkit 解析转义码并渲染真实颜色。
     """
     _pt_print(_PT_ANSI(text))
 
@@ -1018,21 +1015,21 @@ _IMAGE_EXTENSIONS = frozenset({
 
 
 def _detect_file_drop(user_input: str) -> "dict | None":
-    """Detect if *user_input* is a dragged/pasted file path, not a slash command.
+    """检测 *user_input* 是否是拖拽/粘贴的文件路径,而不是斜杠命令。
 
-    When a user drags a file into the terminal, macOS pastes the absolute path
-    (e.g. ``/Users/roland/Desktop/file.png``) which starts with ``/`` and would
-    otherwise be mistaken for a slash command.
+    当用户将文件拖入终端时,macOS 会粘贴绝对路径
+    （例如 ``/Users/roland/Desktop/file.png``）,它以 ``/`` 开头,
+    否则会被误认为是斜杠命令。
 
-    Returns a dict on match::
+    匹配时返回字典::
 
         {
-            "path": Path,          # resolved file path
-            "is_image": bool,      # True when suffix is a known image type
-            "remainder": str,      # any text after the path
+            "path": Path,          # 解析后的文件路径
+            "is_image": bool,      # 当后缀是已知图像类型时为 True
+            "remainder": str,      # 路径之后的任何文本
         }
 
-    Returns ``None`` when the input is not a real file path.
+    当输入不是真实文件路径时返回 ``None``。
     """
     if not isinstance(user_input, str) or not user_input.startswith("/"):
         return None
@@ -1065,12 +1062,12 @@ def _detect_file_drop(user_input: str) -> "dict | None":
 
 
 class ChatConsole:
-    """Rich Console adapter for prompt_toolkit's patch_stdout context.
+    """prompt_toolkit 的 patch_stdout 上下文的 Rich Console 适配器。
 
-    Captures Rich's rendered ANSI output and routes it through _cprint
-    so colors and markup render correctly inside the interactive chat loop.
-    Drop-in replacement for Rich Console — just pass this to any function
-    that expects a console.print() interface.
+    捕获 Rich 渲染的 ANSI 输出并通过 _cprint 路由,
+    以便颜色和标记在交互式聊天循环中正确渲染。
+    Rich Console 的替代品 — 只需将这个传递给任何
+    期望 console.print() 接口的函数。
     """
 
     def __init__(self):
@@ -1134,7 +1131,7 @@ COMPACT_BANNER = """
 
 
 def _build_compact_banner() -> str:
-    """Build a compact banner that fits the current terminal width."""
+    """构建适合当前终端宽度的紧凑横幅。"""
     try:
         from kclaw_cli.skin_engine import get_active_skin
         _skin = get_active_skin()
@@ -1182,14 +1179,13 @@ def _build_compact_banner() -> str:
 # ============================================================================
 
 def _looks_like_slash_command(text: str) -> bool:
-    """Return True if *text* looks like a slash command, not a file path.
+    """如果 *text* 看起来像斜杠命令而不是文件路径,则返回 True。
 
-    Slash commands are ``/help``, ``/model gpt-4``, ``/q``, etc.
-    File paths like ``/Users/ironin/file.md:45-46 can you fix this?``
-    also start with ``/`` but contain additional ``/`` characters in
-    the first whitespace-delimited word.  This helper distinguishes
-    the two so that pasted paths are sent to the agent instead of
-    triggering "Unknown command".
+    斜杠命令是 ``/help``, ``/model gpt-4``, ``/q`` 等。
+    像 ``/Users/ironin/file.md:45-46 can you fix this?`` 这样的
+    文件路径也以 ``/`` 开头,但在第一个空白分隔的单词中包含
+    额外的 ``/`` 字符。这个辅助函数区分两者,
+    以便将粘贴的路径发送给 agent 而不是触发"未知命令"。
     """
     if not text or not text.startswith("/"):
         return False
@@ -1214,7 +1210,7 @@ _skill_commands = scan_skill_commands()
 
 
 def _get_plugin_cmd_handler_names() -> set:
-    """Return plugin command names (without slash prefix) for dispatch matching."""
+    """返回插件命令名称（不带斜杠前缀）用于调度匹配。"""
     try:
         from kclaw_cli.plugins import get_plugin_manager
         return set(get_plugin_manager()._plugin_commands.keys())
@@ -1223,7 +1219,7 @@ def _get_plugin_cmd_handler_names() -> set:
 
 
 def _parse_skills_argument(skills: str | list[str] | tuple[str, ...] | None) -> list[str]:
-    """Normalize a CLI skills flag into a deduplicated list of skill identifiers."""
+    """将 CLI skills 标志规范化为去重的技能标识符列表。"""
     if not skills:
         return []
 
@@ -1584,7 +1580,7 @@ class KClawCLI:
         self._background_task_counter = 0
 
     def _invalidate(self, min_interval: float = 0.25) -> None:
-        """Throttled UI repaint — prevents terminal blinking on slow/SSH connections."""
+        """节流 UI 重绘 — 防止慢速/SSH 连接时终端闪烁。"""
         import time as _time
         now = _time.monotonic()
         if hasattr(self, "_app") and self._app and (now - self._last_invalidate) >= min_interval:
@@ -1661,12 +1657,11 @@ class KClawCLI:
 
     @staticmethod
     def _status_bar_display_width(text: str) -> int:
-        """Return terminal cell width for status-bar text.
+        """返回状态栏文本的终端单元格宽度。
 
-        len() is not enough for prompt_toolkit layout decisions because some
-        glyphs can render wider than one Python codepoint. Keeping the status
-        bar within the real display width prevents it from wrapping onto a
-        second line and leaving behind duplicate rows.
+        对于 prompt_toolkit 的布局决策,len() 是不够的,因为某些
+        字形可以渲染得比一个 Python 码点更宽。将状态栏保持在
+        实际显示宽度内可以防止它换行到第二行并留下重复的行。
         """
         try:
             from prompt_toolkit.utils import get_cwidth
@@ -1676,7 +1671,7 @@ class KClawCLI:
 
     @classmethod
     def _trim_status_bar_text(cls, text: str, max_width: int) -> str:
-        """Trim status-bar text to a single terminal row."""
+        """将状态栏文本修剪为单个终端行。"""
         if max_width <= 0:
             return ""
         try:
@@ -1807,7 +1802,7 @@ class KClawCLI:
             return [("class:status-bar", f" {self._build_status_bar_text()} ")]
 
     def _normalize_model_for_provider(self, resolved_provider: str) -> bool:
-        """Normalize provider-specific model IDs and routing."""
+        """规范化和路由特定于提供者的模型 ID。"""
         current_model = (self.model or "").strip()
         changed = False
 
@@ -1891,7 +1886,7 @@ class KClawCLI:
         return changed
 
     def _on_thinking(self, text: str) -> None:
-        """Called by agent when thinking starts/stops. Updates TUI spinner."""
+        """在思考开始/停止时由 agent 调用。更新 TUI 微调器。"""
         if not text:
             self._flush_reasoning_preview(force=True)
         self._spinner_text = text or ""
@@ -1900,7 +1895,7 @@ class KClawCLI:
     # ── Streaming display ────────────────────────────────────────────────
 
     def _current_reasoning_callback(self):
-        """Return the active reasoning display callback for the current mode."""
+        """返回当前模式的活跃推理显示回调。"""
         if self.show_reasoning and self.streaming_enabled:
             return self._stream_reasoning_delta
         if self.verbose and not self.show_reasoning:
@@ -1908,7 +1903,7 @@ class KClawCLI:
         return None
 
     def _emit_reasoning_preview(self, reasoning_text: str) -> None:
-        """Render a buffered reasoning preview as a single [thinking] block."""
+        """将缓冲的推理预览渲染为单个 [thinking] 块。"""
         import re
         import textwrap
 
@@ -1934,23 +1929,22 @@ class KClawCLI:
             return
 
         if self.verbose:
-            _cprint(f"  {_DIM}[thinking] {preview_text}{_RST}")
+            _cprint(f"  {_DIM}[思考中] {preview_text}{_RST}")
             return
 
         lines = preview_text.splitlines()
         if len(lines) > 5:
             preview = "\n".join(lines[:5])
-            preview += f"\n  ... ({len(lines) - 5} more lines)"
+            preview += f"\n  ... ({len(lines) - 5} 更多行)"
         else:
             preview = preview_text
-        _cprint(f"  {_DIM}[thinking] {preview}{_RST}")
+        _cprint(f"  {_DIM}[思考中] {preview}{_RST}")
 
     def _flush_reasoning_preview(self, *, force: bool = False) -> None:
-        """Flush buffered reasoning text at natural boundaries.
+        """在自然边界处刷新缓冲的推理文本。
 
-        Some providers stream reasoning in tiny word or punctuation chunks.
-        Buffer them here so the preview path does not print one `[thinking]`
-        line per token.
+        一些提供者以很小的单词或标点符号块流式传输推理。
+        在这里缓冲它们,这样预览路径不会每个标记打印一行 `[thinking]`。
         """
         buf = getattr(self, "_reasoning_preview_buf", "")
         if not buf:
@@ -1995,15 +1989,15 @@ class KClawCLI:
             self._emit_reasoning_preview(flush_text)
 
     def _stream_reasoning_delta(self, text: str) -> None:
-        """Stream reasoning/thinking tokens into a dim box above the response.
+        """将推理/思考标记流式传输到响应上方的暗淡框中。
 
-        Opens a dim reasoning box on first token, streams line-by-line.
-        The box is closed automatically when content tokens start arriving
-        (via _stream_delta → _emit_stream_text).
+        在第一个标记时打开暗淡推理框,逐行流式传输。
+        当内容标记开始到达时自动关闭框
+        （通过 _stream_delta → _emit_stream_text）。
 
-        Once the response box is open, suppress any further reasoning
-        rendering — a late thinking block (e.g. after an interrupt) would
-        otherwise draw a reasoning box inside the response box.
+        一旦响应框打开,禁止任何进一步的推理
+        渲染 — 延迟的思考块（例如中断后）
+        否则会在响应框内绘制推理框。
         """
         if not text:
             return
@@ -2032,7 +2026,7 @@ class KClawCLI:
             self._reasoning_buf = ""
 
     def _close_reasoning_box(self) -> None:
-        """Close the live reasoning box if it's open."""
+        """如果实时推理框已打开,则将其关闭。"""
         if getattr(self, "_reasoning_box_opened", False):
             # Flush remaining reasoning buffer
             buf = getattr(self, "_reasoning_buf", "")
@@ -2050,19 +2044,19 @@ class KClawCLI:
                 self._emit_stream_text(deferred)
 
     def _stream_delta(self, text) -> None:
-        """Line-buffered streaming callback for real-time token rendering.
+        """用于实时标记渲染的行缓冲流式回调。
 
-        Receives text deltas from the agent as tokens arrive. Buffers
-        partial lines and emits complete lines via _cprint to work
-        reliably with prompt_toolkit's patch_stdout.
+        在标记到达时从 agent 接收文本增量。缓冲
+        部分行并通过 _cprint 发出完整行,以便与
+        prompt_toolkit 的 patch_stdout 可靠地工作。
 
-        Reasoning/thinking blocks (<REASONING_SCRATCHPAD>, <think>, etc.)
-        are suppressed during streaming since they'd display raw XML tags.
-        The agent strips them from the final response anyway.
+        推理/思考块（<REASONING_SCRATCHPAD>, <think> 等）
+        在流式传输期间被抑制,因为它们会显示原始 XML 标签。
+        agent 无论如何都会从最终响应中剥离它们。
 
-        A ``None`` value signals an intermediate turn boundary (tools are
-        about to execute).  Flushes any open boxes and resets state so
-        tool feed lines render cleanly between turns.
+        ``None`` 值表示中间回合边界（工具即将执行）。
+        刷新任何打开的框并重置状态,以便
+        工具反馈行在回合之间干净地渲染。
         """
         if text is None:
             self._flush_stream()
@@ -2147,7 +2141,7 @@ class KClawCLI:
             return
 
     def _emit_stream_text(self, text: str) -> None:
-        """Emit filtered text to the streaming display."""
+        """将过滤后的文本发送到流式显示。"""
         if not text:
             return
 
@@ -2198,7 +2192,7 @@ class KClawCLI:
             _cprint(f"{_tc}{line}{_RST}" if _tc else line)
 
     def _flush_stream(self) -> None:
-        """Emit any remaining partial line from the stream buffer and close the box."""
+        """发送流缓冲区中剩余的部分行并关闭框。"""
         # Close reasoning box if still open (in case no content tokens arrived)
         self._close_reasoning_box()
 
@@ -2213,7 +2207,7 @@ class KClawCLI:
             _cprint(f"{_GOLD}╰{'─' * (w - 2)}╯{_RST}")
 
     def _reset_stream_state(self) -> None:
-        """Reset streaming state before each agent invocation."""
+        """在每次 agent 调用前重置流状态。"""
         self._stream_buf = ""
         self._stream_started = False
         self._stream_box_opened = False
@@ -2227,7 +2221,7 @@ class KClawCLI:
         self._deferred_content = ""
 
     def _slow_command_status(self, command: str) -> str:
-        """Return a user-facing status message for slower slash commands."""
+        """返回较慢的斜杠命令的用户状态消息。"""
         cmd_lower = command.lower().strip()
         if cmd_lower.startswith("/skills search"):
             return "Searching skills..."
@@ -2246,7 +2240,7 @@ class KClawCLI:
         return "Processing command..."
 
     def _command_spinner_frame(self) -> str:
-        """Return the current spinner frame for slow slash commands."""
+        """返回慢速斜杠命令的当前微调器帧。"""
         import time as _time
 
         frame_idx = int(_time.monotonic() * 10) % len(_COMMAND_SPINNER_FRAMES)
@@ -2254,7 +2248,7 @@ class KClawCLI:
 
     @contextmanager
     def _busy_command(self, status: str):
-        """Expose a temporary busy state in the TUI while a slash command runs."""
+        """在斜杠命令运行期间在 TUI 中显示临时忙碌状态。"""
         self._command_running = True
         self._command_status = status
         self._invalidate(min_interval=0.0)
@@ -2268,10 +2262,10 @@ class KClawCLI:
 
     def _ensure_runtime_credentials(self) -> bool:
         """
-        Ensure runtime credentials are resolved before agent use.
-        Re-resolves provider credentials so key rotation and token refresh
-        are picked up without restarting the CLI.
-        Returns True if credentials are ready, False on auth failure.
+        确保在使用 agent 之前解析运行时凭证。
+        重新解析提供商凭证,以便密钥轮换和令牌刷新
+        无需重启 CLI 即可生效。
+        如果凭证就绪则返回 True,认证失败则返回 False。
         """
         from kclaw_cli.runtime_provider import (
             resolve_runtime_provider,
@@ -2311,12 +2305,12 @@ class KClawCLI:
                     base_url, _source,
                 )
             else:
-                print("\n⚠️  Provider resolver returned an empty API key. "
-                      "Set OPENROUTER_API_KEY or run: kclaw setup")
+                print("\n⚠️  提供商解析器返回了空的 API 密钥。"
+                      "设置 OPENROUTER_API_KEY 或运行: kclaw setup")
                 return False
         if not isinstance(base_url, str) or not base_url:
-            print("\n⚠️  Provider resolver returned an empty base URL. "
-                  "Check your provider config or run: kclaw setup")
+            print("\n⚠️  提供商解析器返回了空的 base URL。"
+                  "检查您的提供商配置或运行: kclaw setup")
             return False
 
         credentials_changed = api_key != self.api_key or base_url != self.base_url
@@ -2348,7 +2342,7 @@ class KClawCLI:
         return True
 
     def _resolve_turn_agent_config(self, user_message: str) -> dict:
-        """Resolve model/runtime overrides for a single user turn."""
+        """为单个用户回合解析模型/运行时覆盖。"""
         from agent.smart_model_routing import resolve_turn_route
 
         return resolve_turn_route(
@@ -2505,7 +2499,7 @@ class KClawCLI:
             return False
     
     def show_banner(self):
-        """Display the welcome banner in Claude Code style."""
+        """以 Claude Code 风格显示欢迎横幅。"""
         self.console.clear()
 
         # Get context length for display before branching so it remains
@@ -2572,29 +2566,29 @@ class KClawCLI:
         if "kclaw" in model_name.lower():
             self.console.print()
             self.console.print(
-                "[bold yellow]⚠  kkutysllb KClaw 3 & 4 models are NOT agentic and are not "
-                "designed for use with KClaw Agent.[/]"
+                "[bold yellow]⚠  kkutysllb KClaw 3 & 4 模型不是 agentic,不适用于 "
+                "KClaw Agent。[/]"
             )
             self.console.print(
-                "[dim]   They lack tool-calling capabilities required for agent workflows. "
-                "Consider using an agentic model (Claude, GPT, Gemini, DeepSeek, etc.).[/]"
+                "[dim]   它们缺少 agent 工作流程所需的工具调用能力。"
+                "请考虑使用 agentic 模型(Claude、GPT、Gemini、DeepSeek 等)。[/]"
             )
             self.console.print(
-                "[dim]   Switch with: /model sonnet  or  /model gpt5[/]"
+                "[dim]   切换方式: /model sonnet  或  /model gpt5[/]"
             )
 
         self.console.print()
 
     def _preload_resumed_session(self) -> bool:
-        """Load a resumed session's history from the DB early (before first chat).
+        """从数据库提前加载恢复会话的历史（在第一次聊天之前）。
 
-        Called from run() so the conversation history is available for display
-        before the user sends their first message.  Sets
-        ``self.conversation_history`` and prints the one-liner status.  Returns
-        True if history was loaded, False otherwise.
+        从 run() 调用,以便在用户发送第一条消息之前
+        对话历史可用于显示。设置
+        ``self.conversation_history`` 并打印单行状态。如果历史被加载则返回
+        True,否则返回 False。
 
-        The corresponding block in ``_init_agent()`` checks whether history is
-        already populated and skips the DB round-trip.
+        ``_init_agent()`` 中的相应块检查历史是否
+        已填充并跳过数据库往返。
         """
         if not self._resumed or not self._session_db:
             return False
@@ -2645,12 +2639,12 @@ class KClawCLI:
         return True
 
     def _display_resumed_history(self):
-        """Render a compact recap of previous conversation messages.
+        """渲染之前对话消息的紧凑摘要。
 
-        Uses Rich markup with dim/muted styling so the recap is visually
-        distinct from the active conversation.  Caps the display at the
-        last ``MAX_DISPLAY_EXCHANGES`` user/assistant exchanges and shows
-        an indicator for earlier hidden messages.
+        使用 Rich 标记和暗淡/静音样式,以便摘要在视觉上
+        与活跃对话不同。显示限制在
+        最后的 ``MAX_DISPLAY_EXCHANGES`` 用户/助手交换,并显示
+        更早隐藏消息的指示器。
         """
         if not self.conversation_history:
             return
@@ -2665,8 +2659,8 @@ class KClawCLI:
         MAX_ASST_LINES = 3           # max lines of assistant text
 
         def _strip_reasoning(text: str) -> str:
-            """Remove <REASONING_SCRATCHPAD>...</REASONING_SCRATCHPAD> blocks
-            from displayed text (reasoning model internal thoughts)."""
+            """从显示文本中删除 <REASONING_SCRATCHPAD>...</REASONING_SCRATCHPAD> 块
+            （推理模型内部思考）。"""
             import re
             cleaned = re.sub(
                 r"<REASONING_SCRATCHPAD>.*?</REASONING_SCRATCHPAD>\s*",
@@ -2796,10 +2790,10 @@ class KClawCLI:
         self.console.print(panel)
 
     def _try_attach_clipboard_image(self) -> bool:
-        """Check clipboard for an image and attach it if found.
+        """检查剪贴板中是否有图像,如果有则附加它。
 
-        Saves the image to ~/.kclaw/images/ and appends the path to
-        ``_attached_images``.  Returns True if an image was attached.
+        将图像保存到 ~/.kclaw/images/ 并将路径追加到
+        ``_attached_images``。如果有图像被附加则返回 True。
         """
         from kclaw_cli.clipboard import save_clipboard_image
 
@@ -2815,25 +2809,25 @@ class KClawCLI:
         return False
 
     def _handle_rollback_command(self, command: str):
-        """Handle /rollback — list, diff, or restore filesystem checkpoints.
+        """处理 /rollback — 列出、差异或恢复文件系统检查点。
 
-        Syntax:
-            /rollback                 — list checkpoints
-            /rollback <N>             — restore checkpoint N (also undoes last chat turn)
-            /rollback diff <N>        — preview changes since checkpoint N
-            /rollback <N> <file>      — restore a single file from checkpoint N
+        语法:
+            /rollback                 — 列出检查点
+            /rollback <N>             — 恢复检查点 N（也会撤销上一个聊天回合）
+            /rollback diff <N>        — 预览检查点 N 以来的更改
+            /rollback <N> <file>      — 从检查点 N 恢复单个文件
         """
         from tools.checkpoint_manager import format_checkpoint_list
 
         if not hasattr(self, 'agent') or not self.agent:
-            print("  No active agent session.")
+            print("  没有活动的 agent 会话。")
             return
 
         mgr = self.agent._checkpoint_mgr
         if not mgr.enabled:
-            print("  Checkpoints are not enabled.")
-            print("  Enable with: kclaw --checkpoints")
-            print("  Or in config.yaml: checkpoints: { enabled: true }")
+            print("  未启用检查点。")
+            print("  启用方式: kclaw --checkpoints")
+            print("  或在 config.yaml 中: checkpoints: { enabled: true }")
             return
 
         cwd = os.getenv("TERMINAL_CWD", os.getcwd())
@@ -2849,7 +2843,7 @@ class KClawCLI:
         # Handle /rollback diff <N>
         if args[0].lower() == "diff":
             if len(args) < 2:
-                print("  Usage: /rollback diff <N>")
+                print("  用法: /rollback diff <N>")
                 return
             checkpoints = mgr.list_checkpoints(cwd)
             if not checkpoints:
@@ -2863,7 +2857,7 @@ class KClawCLI:
                 stat = result.get("stat", "")
                 diff = result.get("diff", "")
                 if not stat and not diff:
-                    print("  No changes since this checkpoint.")
+                    print("  此检查点之后没有更改。")
                 else:
                     if stat:
                         print(f"\n{stat}")
@@ -2872,7 +2866,7 @@ class KClawCLI:
                         diff_lines = diff.splitlines()
                         if len(diff_lines) > 80:
                             print("\n".join(diff_lines[:80]))
-                            print(f"\n  ... ({len(diff_lines) - 80} more lines, showing first 80)")
+                            print(f"\n  ... ({len(diff_lines) - 80} 更多行,显示前 80 行)")
                         else:
                             print(f"\n{diff}")
             else:
@@ -2882,7 +2876,7 @@ class KClawCLI:
         # Resolve checkpoint reference (number or hash)
         checkpoints = mgr.list_checkpoints(cwd)
         if not checkpoints:
-            print(f"  No checkpoints found for {cwd}")
+            print(f"  未找到 {cwd} 的检查点")
             return
 
         target_hash = self._resolve_checkpoint_ref(args[0], checkpoints)
@@ -2895,37 +2889,37 @@ class KClawCLI:
         result = mgr.restore(cwd, target_hash, file_path=file_path)
         if result["success"]:
             if file_path:
-                print(f"  ✅ Restored {file_path} from checkpoint {result['restored_to']}: {result['reason']}")
+                print(f"  ✅ 已从检查点 {result['restored_to']} 恢复 {file_path}: {result['reason']}")
             else:
-                print(f"  ✅ Restored to checkpoint {result['restored_to']}: {result['reason']}")
-            print("  A pre-rollback snapshot was saved automatically.")
+                print(f"  ✅ 已恢复到检查点 {result['restored_to']}: {result['reason']}")
+            print("  回滚前快照已自动保存。")
 
             # Also undo the last conversation turn so the agent's context
             # matches the restored filesystem state
             if self.conversation_history:
                 self.undo_last()
-                print("  Chat turn undone to match restored file state.")
+                print("  已撤销聊天回合以匹配恢复的文件状态。")
         else:
             print(f"  ❌ {result['error']}")
 
     def _resolve_checkpoint_ref(self, ref: str, checkpoints: list) -> str | None:
-        """Resolve a checkpoint number or hash to a full commit hash."""
+        """将检查点编号或哈希解析为完整的提交哈希。"""
         try:
             idx = int(ref) - 1  # 1-indexed for user
             if 0 <= idx < len(checkpoints):
                 return checkpoints[idx]["hash"]
             else:
-                print(f"  Invalid checkpoint number. Use 1-{len(checkpoints)}.")
+                print(f"  无效的检查点编号。使用 1-{len(checkpoints)}。")
                 return None
         except ValueError:
             # Treat as a git hash
             return ref
 
     def _handle_stop_command(self):
-        """Handle /stop — kill all running background processes.
+        """处理 /stop — 终止所有运行的后台进程。
 
-        Inspired by OpenAI Codex's separation of interrupt (stop current turn)
-        from /stop (clean up background processes). See openai/codex#14602.
+        灵感来自 OpenAI Codex 对中断（停止当前回合）
+        和 /stop（清理后台进程）的区分。参见 openai/codex#14602。
         """
         from tools.process_registry import process_registry
 
@@ -2933,41 +2927,40 @@ class KClawCLI:
         running = [p for p in processes if p.get("status") == "running"]
 
         if not running:
-            print("  No running background processes.")
+            print("  没有运行中的后台进程。")
             return
 
-        print(f"  Stopping {len(running)} background process(es)...")
+        print(f"  正在停止 {len(running)} 个后台进程...")
         killed = process_registry.kill_all()
-        print(f"  ✅ Stopped {killed} process(es).")
+        print(f"  ✅ 已停止 {killed} 个进程。")
 
     def _handle_paste_command(self):
-        """Handle /paste — explicitly check clipboard for an image.
+        """处理 /paste — 显式检查剪贴板中的图像。
 
-        This is the reliable fallback for terminals where BracketedPaste
-        doesn't fire for image-only clipboard content (e.g., VSCode terminal,
-        Windows Terminal with WSL2).
+        这是在 BracketedPaste 不触发纯图像剪贴板内容的终端中的可靠后备方案
+        （例如,VSCode 终端,带有 WSL2 的 Windows Terminal）。
         """
         from kclaw_cli.clipboard import has_clipboard_image
         if has_clipboard_image():
             if self._try_attach_clipboard_image():
                 n = len(self._attached_images)
-                _cprint(f"  📎 Image #{n} attached from clipboard")
+                _cprint(f"  📎 图像 #{n} 已从剪贴板附加")
             else:
-                _cprint(f"  {_DIM}(>_<) Clipboard has an image but extraction failed{_RST}")
+                _cprint(f"  {_DIM}(>_<) 剪贴板中有图像但提取失败{_RST}")
         else:
-            _cprint(f"  {_DIM}(._.) No image found in clipboard{_RST}")
+            _cprint(f"  {_DIM}(._.) 剪贴板中未找到图像{_RST}")
 
     def _preprocess_images_with_vision(self, text: str, images: list) -> str:
-        """Analyze attached images via the vision tool and return enriched text.
+        """通过视觉工具分析附加的图像并返回丰富的文本。
 
-        Instead of embedding raw base64 ``image_url`` content parts in the
-        conversation (which only works with vision-capable models), this
-        pre-processes each image through the auxiliary vision model (Gemini
-        Flash) and prepends the descriptions to the user's message — the
-        same approach the messaging gateway uses.
+        不是将原始 base64 ``image_url`` 内容部分嵌入到
+        对话中（仅适用于有视觉功能的模型）,而是
+        通过辅助视觉模型（Gemini Flash）
+        预处理每张图像并将描述预先添加到用户的消息中 — 与
+        消息网关使用的方法相同。
 
-        The local file path is included so the agent can re-examine the
-        image later with ``vision_analyze`` if needed.
+        包含本地文件路径,以便 agent 稍后需要时
+        可以使用 ``vision_analyze`` 重新检查图像。
         """
         import asyncio as _asyncio
         import json as _json
@@ -2984,7 +2977,7 @@ class KClawCLI:
             if not img_path.exists():
                 continue
             size_kb = img_path.stat().st_size // 1024
-            _cprint(f"  {_DIM}👁️  analyzing {img_path.name} ({size_kb}KB)...{_RST}")
+            _cprint(f"  {_DIM}👁️  正在分析 {img_path.name} ({size_kb}KB)...{_RST}")
             try:
                 result_json = _asyncio.run(
                     vision_analyze_tool(image_url=str(img_path), user_prompt=analysis_prompt)
@@ -2997,21 +2990,21 @@ class KClawCLI:
                         f"[If you need a closer look, use vision_analyze with "
                         f"image_url: {img_path}]"
                     )
-                    _cprint(f"  {_DIM}✓ image analyzed{_RST}")
+                    _cprint(f"  {_DIM}✓ 图像已分析{_RST}")
                 else:
                     enriched_parts.append(
                         f"[The user attached an image but it couldn't be analyzed. "
                         f"You can try examining it with vision_analyze using "
                         f"image_url: {img_path}]"
                     )
-                    _cprint(f"  {_DIM}⚠ vision analysis failed — path included for retry{_RST}")
+                    _cprint(f"  {_DIM}⚠ 视觉分析失败 — 路径已包含以供重试{_RST}")
             except Exception as e:
                 enriched_parts.append(
                     f"[The user attached an image but analysis failed ({e}). "
                     f"You can try examining it with vision_analyze using "
                     f"image_url: {img_path}]"
                 )
-                _cprint(f"  {_DIM}⚠ vision analysis error — path included for retry{_RST}")
+                _cprint(f"  {_DIM}⚠ 视觉分析错误 — 路径已包含以供重试{_RST}")
 
         # Combine: vision descriptions first, then the user's original text
         user_text = text if isinstance(text, str) and text else ""
@@ -3021,29 +3014,29 @@ class KClawCLI:
         return user_text or "What do you see in this image?"
 
     def _show_tool_availability_warnings(self):
-        """Show warnings about disabled tools due to missing API keys."""
+        """显示因缺少 API 密钥而被禁用的工具的警告。"""
         try:
             from model_tools import check_tool_availability
-            
+
             available, unavailable = check_tool_availability()
-            
+
             # Filter to only those missing API keys (not system deps)
             api_key_missing = [u for u in unavailable if u["missing_vars"]]
-            
+
             if api_key_missing:
                 self.console.print()
-                self.console.print("[yellow]⚠️  Some tools disabled (missing API keys):[/]")
+                self.console.print("[yellow]⚠️  某些工具已被禁用(缺少 API 密钥):[/]")
                 for item in api_key_missing:
                     tools_str = ", ".join(item["tools"][:2])  # Show first 2 tools
                     if len(item["tools"]) > 2:
-                        tools_str += f", +{len(item['tools'])-2} more"
+                        tools_str += f", +{len(item['tools'])-2} 更多"
                     self.console.print(f"   [dim]• {item['name']}[/] [dim italic]({', '.join(item['missing_vars'])})[/]")
-                self.console.print("[dim]   Run 'kclaw setup' to configure[/]")
+                self.console.print("[dim]   运行 'kclaw setup' 进行配置[/]")
         except Exception:
             pass  # Don't crash on import errors
     
     def _show_status(self):
-        """Show current status bar."""
+        """显示当前状态栏。"""
         # Get tool count
         tools = get_tool_definitions(enabled_toolsets=self.enabled_toolsets, quiet_mode=True)
         tool_count = len(tools) if tools else 0
@@ -3075,7 +3068,7 @@ class KClawCLI:
         )
     
     def show_help(self):
-        """Display help information with categorized commands."""
+        """显示分类命令的帮助信息。"""
         from kclaw_cli.commands import COMMANDS_BY_CATEGORY
 
         try:
@@ -3108,23 +3101,23 @@ class KClawCLI:
         _cprint(f"  {_DIM}Paste image: Alt+V (or /paste){_RST}\n")
     
     def show_tools(self):
-        """Display available tools with kawaii ASCII art."""
+        """用 kawaii ASCII 艺术显示可用工具。"""
         tools = get_tool_definitions(enabled_toolsets=self.enabled_toolsets, quiet_mode=True)
-        
+
         if not tools:
-            print("(;_;) No tools available")
+            print("(;_;) 没有可用的工具")
             return
-        
+
         # Header
         print()
-        title = "(^_^)/ Available Tools"
+        title = "(^_^)/ 可用工具"
         width = 78
         pad = width - len(title)
         print("+" + "-" * width + "+")
         print("|" + " " * (pad // 2) + title + " " * (pad - pad // 2) + "|")
         print("+" + "-" * width + "+")
         print()
-        
+
         # Group tools by toolset
         toolsets = {}
         for tool in sorted(tools, key=lambda t: t["function"]["name"]):
@@ -3138,25 +3131,25 @@ class KClawCLI:
             if ". " in desc:
                 desc = desc[:desc.index(". ") + 1]
             toolsets[toolset].append((name, desc))
-        
+
         # Display by toolset
         for toolset in sorted(toolsets.keys()):
             print(f"  [{toolset}]")
             for name, desc in toolsets[toolset]:
                 print(f"    * {name:<20} - {desc}")
             print()
-        
-        print(f"  Total: {len(tools)} tools  ヽ(^o^)ノ")
+
+        print(f"  总计: {len(tools)} 个工具  ヽ(^o^)ノ")
         print()
 
     def _handle_tools_command(self, cmd: str):
-        """Handle /tools [list|disable|enable] slash commands.
+        """处理 /tools [list|disable|enable] 斜杠命令。
 
-        /tools (no args) shows the tool list.
-        /tools list shows enabled/disabled status per toolset.
-        /tools disable/enable saves the change to config and resets
-        the session so the new tool set takes effect cleanly (no
-        prompt-cache breakage mid-conversation).
+        /tools（无参数）显示工具列表。
+        /tools list 显示每个工具集的启用/禁用状态。
+        /tools disable/enable 将更改保存到配置并重置
+        会话,以便新工具集干净地生效（不会在
+        对话中途破坏提示缓存）。
         """
         import shlex
         from argparse import Namespace
@@ -3179,15 +3172,15 @@ class KClawCLI:
 
         names = parts[2:]
         if not names:
-            print(f"(._.) Usage: /tools {subcommand} <name> [name ...]")
-            print(f"  Built-in toolset:  /tools {subcommand} web")
-            print(f"  MCP tool:          /tools {subcommand} github:create_issue")
+            print(f"(._.) 用法: /tools {subcommand} <名称> [名称 ...]")
+            print(f"  内置工具集:  /tools {subcommand} web")
+            print(f"  MCP 工具:          /tools {subcommand} github:create_issue")
             return
 
         # Apply the change directly — the user typing the command is implicit
         # consent.  Do NOT use input() here; it hangs inside prompt_toolkit's
         # TUI event loop (known pitfall).
-        verb = "Disabling" if subcommand == "disable" else "Enabling"
+        verb = "禁用" if subcommand == "disable" else "启用"
         label = ", ".join(names)
         _cprint(f"{_GOLD}{verb} {label}...{_RST}")
 
@@ -3202,38 +3195,38 @@ class KClawCLI:
         _cprint(f"{_DIM}Session reset. New tool configuration is active.{_RST}")
 
     def show_toolsets(self):
-        """Display available toolsets with kawaii ASCII art."""
+        """用 kawaii ASCII 艺术显示可用工具集。"""
         all_toolsets = get_all_toolsets()
-        
+
         # Header
         print()
-        title = "(^_^)b Available Toolsets"
+        title = "(^_^)b 可用工具集"
         width = 58
         pad = width - len(title)
         print("+" + "-" * width + "+")
         print("|" + " " * (pad // 2) + title + " " * (pad - pad // 2) + "|")
         print("+" + "-" * width + "+")
         print()
-        
+
         for name in sorted(all_toolsets.keys()):
             info = get_toolset_info(name)
             if info:
                 tool_count = info["tool_count"]
                 desc = info["description"]
-                
+
                 # Mark if currently enabled
                 marker = "(*)" if self.enabled_toolsets and name in self.enabled_toolsets else "   "
-                print(f"  {marker} {name:<18} [{tool_count:>2} tools] - {desc}")
-        
+                print(f"  {marker} {name:<18} [{tool_count:>2} 个工具] - {desc}")
+
         print()
-        print("  (*) = currently enabled")
+        print("  (*) = 当前已启用")
         print()
-        print("  Tip: Use 'all' or '*' to enable all toolsets")
-        print("  Example: python cli.py --toolsets web,terminal")
+        print("  提示: 使用 'all' 或 '*' 启用所有工具集")
+        print("  示例: python cli.py --toolsets web,terminal")
         print()
-    
+
     def _handle_profile_command(self):
-        """Display active profile name and home directory."""
+        """显示活跃配置文件名和主目录。"""
         from kclaw_constants import get_kclaw_home, display_kclaw_home
 
         home = get_kclaw_home()
@@ -3248,14 +3241,14 @@ class KClawCLI:
 
         print()
         if profile_name:
-            print(f"  Profile: {profile_name}")
+            print(f"  配置: {profile_name}")
         else:
-            print("  Profile: default")
-        print(f"  Home:    {display}")
+            print("  配置: default")
+        print(f"  主目录: {display}")
         print()
 
     def show_config(self):
-        """Display current configuration with kawaii ASCII art."""
+        """用 kawaii ASCII 艺术显示当前配置。"""
         # Get terminal config from environment (which was set from cli-config.yaml)
         terminal_env = os.getenv("TERMINAL_ENV", "local")
         terminal_cwd = os.getenv("TERMINAL_CWD", os.getcwd())
@@ -3267,45 +3260,45 @@ class KClawCLI:
             config_path = user_config_path
         else:
             config_path = project_config_path
-        config_status = "(loaded)" if config_path.exists() else "(not found)"
-        
-        api_key_display = '********' + self.api_key[-4:] if self.api_key and len(self.api_key) > 4 else 'Not set!'
-        
+        config_status = "(已加载)" if config_path.exists() else "(未找到)"
+
+        api_key_display = '********' + self.api_key[-4:] if self.api_key and len(self.api_key) > 4 else '未设置!'
+
         print()
-        title = "(^_^) Configuration"
+        title = "(^_^) 配置"
         width = 50
         pad = width - len(title)
         print("+" + "-" * width + "+")
         print("|" + " " * (pad // 2) + title + " " * (pad - pad // 2) + "|")
         print("+" + "-" * width + "+")
         print()
-        print("  -- Model --")
-        print(f"  Model:     {self.model}")
-        print(f"  Base URL:  {self.base_url}")
-        print(f"  API Key:   {api_key_display}")
+        print("  -- 模型 --")
+        print(f"  模型:     {self.model}")
+        print(f"  基础 URL:  {self.base_url}")
+        print(f"  API 密钥:   {api_key_display}")
         print()
-        print("  -- Terminal --")
-        print(f"  Environment:  {terminal_env}")
+        print("  -- 终端 --")
+        print(f"  环境:  {terminal_env}")
         if terminal_env == "ssh":
-            ssh_host = os.getenv("TERMINAL_SSH_HOST", "not set")
-            ssh_user = os.getenv("TERMINAL_SSH_USER", "not set")
+            ssh_host = os.getenv("TERMINAL_SSH_HOST", "未设置")
+            ssh_user = os.getenv("TERMINAL_SSH_USER", "未设置")
             ssh_port = os.getenv("TERMINAL_SSH_PORT", "22")
-            print(f"  SSH Target:   {ssh_user}@{ssh_host}:{ssh_port}")
-        print(f"  Working Dir:  {terminal_cwd}")
-        print(f"  Timeout:      {terminal_timeout}s")
+            print(f"  SSH 目标:   {ssh_user}@{ssh_host}:{ssh_port}")
+        print(f"  工作目录:  {terminal_cwd}")
+        print(f"  超时:      {terminal_timeout}秒")
         print()
         print("  -- Agent --")
-        print(f"  Max Turns:  {self.max_turns}")
-        print(f"  Toolsets:   {', '.join(self.enabled_toolsets) if self.enabled_toolsets else 'all'}")
-        print(f"  Verbose:    {self.verbose}")
+        print(f"  最大轮次:  {self.max_turns}")
+        print(f"  工具集:   {', '.join(self.enabled_toolsets) if self.enabled_toolsets else 'all'}")
+        print(f"  详细模式:    {self.verbose}")
         print()
-        print("  -- Session --")
-        print(f"  Started:     {self.session_start.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"  Config File: {config_path} {config_status}")
+        print("  -- 会话 --")
+        print(f"  启动时间:     {self.session_start.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"  配置文件: {config_path} {config_status}")
         print()
     
     def _list_recent_sessions(self, limit: int = 10) -> list[dict[str, Any]]:
-        """Return recent CLI sessions for in-chat browsing/resume affordances."""
+        """返回最近的 CLI 会话,用于聊天内浏览/恢复功能。"""
         if not self._session_db:
             return []
         try:
@@ -3319,9 +3312,9 @@ class KClawCLI:
         return [s for s in sessions if s.get("id") != self.session_id]
 
     def _show_recent_sessions(self, *, reason: str = "history", limit: int = 10) -> bool:
-        """Render recent sessions inline from the active chat TUI.
+        """从活跃的聊天 TUI 中内联渲染最近的会话。
 
-        Returns True when something was shown, False if no session list was available.
+        当显示了某些内容时返回 True,如果没有可用的会话列表则返回 False。
         """
         sessions = self._list_recent_sessions(limit=limit)
         if not sessions:
@@ -3331,11 +3324,11 @@ class KClawCLI:
 
         print()
         if reason == "history":
-            print("(._.) No messages in the current chat yet — here are recent sessions you can resume:")
+            print("(._.) 当前聊天中暂无消息 — 以下是您可以恢复的最近会话:")
         else:
-            print("  Recent sessions:")
+            print("  最近会话:")
         print()
-        print(f"  {'Title':<32} {'Preview':<40} {'Last Active':<13} {'ID'}")
+        print(f"  {'标题':<32} {'预览':<40} {'最后活跃':<13} {'ID'}")
         print(f"  {'─' * 32} {'─' * 40} {'─' * 13} {'─' * 24}")
         for session in sessions:
             title = (session.get("title") or "—")[:30]
@@ -3343,15 +3336,15 @@ class KClawCLI:
             last_active = _relative_time(session.get("last_active"))
             print(f"  {title:<32} {preview:<40} {last_active:<13} {session['id']}")
         print()
-        print("  Use /resume <session id or title> to continue where you left off.")
+        print("  使用 /resume <会话 ID 或标题> 继续您上次离开的地方。")
         print()
         return True
 
     def show_history(self):
-        """Display conversation history."""
+        """显示对话历史。"""
         if not self.conversation_history:
             if not self._show_recent_sessions(reason="history"):
-                print("(._.) No conversation history yet.")
+                print("(._.) 暂无对话历史。")
             return
 
         preview_limit = 400
@@ -3364,13 +3357,13 @@ class KClawCLI:
                 return
 
             noun = "message" if hidden_tool_messages == 1 else "messages"
-            print("\n  [Tools]")
-            print(f"    ({hidden_tool_messages} tool {noun} hidden)")
+            print("\n  [工具]")
+            print(f"    ({hidden_tool_messages} 个工具 {noun} 已隐藏)")
             hidden_tool_messages = 0
 
         print()
         print("+" + "-" * 50 + "+")
-        print("|" + " " * 12 + "(^_^) Conversation History" + " " * 11 + "|")
+        print("|" + " " * 12 + "(^_^) 对话历史" + " " * 16 + "|")
         print("+" + "-" * 50 + "+")
 
         for msg in self.conversation_history:
@@ -3390,7 +3383,7 @@ class KClawCLI:
             content_text = "" if content is None else str(content)
 
             if role == "user":
-                print(f"\n  [You #{visible_index}]")
+                print(f"\n  [您 #{visible_index}]")
                 print(
                     f"    {content_text[:preview_limit]}{'...' if len(content_text) > preview_limit else ''}"
                 )
@@ -3404,10 +3397,10 @@ class KClawCLI:
             elif tool_calls:
                 tool_count = len(tool_calls)
                 noun = "call" if tool_count == 1 else "calls"
-                preview = f"(requested {tool_count} tool {noun})"
+                preview = f"(请求了 {tool_count} 个工具 {noun})"
                 suffix = ""
             else:
-                preview = "(no text response)"
+                preview = "(无文本响应)"
                 suffix = ""
             print(f"    {preview}{suffix}")
 
@@ -3415,10 +3408,10 @@ class KClawCLI:
         print()
     
     def _notify_session_boundary(self, event_type: str) -> None:
-        """Fire a session-boundary plugin hook (on_session_finalize or on_session_reset).
+        """触发会话边界插件钩子（on_session_finalize 或 on_session_reset）。
 
-        Non-blocking — errors are caught and logged.  Safe to call from any
-        lifecycle point (shutdown, /new, /reset).
+        非阻塞 — 错误被捕获并记录。从任何
+        生命周期点（关闭、/new、/reset）调用都是安全的。
         """
         try:
             from kclaw_cli.plugins import invoke_hook as _invoke_hook
@@ -3431,7 +3424,7 @@ class KClawCLI:
             pass
 
     def new_session(self, silent=False):
-        """Start a fresh session with a new session ID and cleared agent state."""
+        """使用新的会话 ID 和清除的 agent 状态启动新的会话。"""
         if self.agent and self.conversation_history:
             try:
                 self.agent.flush_memories(self.conversation_history)
@@ -3488,10 +3481,10 @@ class KClawCLI:
             self._notify_session_boundary("on_session_reset")
 
         if not silent:
-            print("(^_^)v New session started!")
+            print("(^_^)v 新会话已启动!")
 
     def _handle_resume_command(self, cmd_original: str) -> None:
-        """Handle /resume <session_id_or_title> — switch to a previous session mid-conversation."""
+        """处理 /resume <session_id_or_title> — 在对话中切换到之前的会话。"""
         parts = cmd_original.split(None, 1)
         target = parts[1].strip() if len(parts) > 1 else ""
 
@@ -3513,12 +3506,12 @@ class KClawCLI:
 
         session_meta = self._session_db.get_session(target_id)
         if not session_meta:
-            _cprint(f"  Session not found: {target}")
-            _cprint("  Use /history or `kclaw sessions list` to see available sessions.")
+            _cprint(f"  未找到会话: {target}")
+            _cprint("  使用 /history 或 `kclaw sessions list` 查看可用会话。")
             return
 
         if target_id == self.session_id:
-            _cprint("  Already on that session.")
+            _cprint("  已经在该会话上了。")
             return
 
         # End current session
@@ -3567,21 +3560,21 @@ class KClawCLI:
                 f" {len(self.conversation_history)} total)"
             )
         else:
-            _cprint(f"  ↻ Resumed session {target_id}{title_part} — no messages, starting fresh.")
+            _cprint(f"  ↻ 已恢复会话 {target_id}{title_part} — 无消息,重新开始。")
 
     def _handle_branch_command(self, cmd_original: str) -> None:
-        """Handle /branch [name] — fork the current session into a new independent copy.
+        """处理 /branch [name] — 将当前会话分叉到一个新的独立副本。
 
-        Copies the full conversation history to a new session so the user can
-        explore a different approach without losing the original session state.
-        Inspired by Claude Code's /branch command.
+        将完整的对话历史复制到新会话,以便用户可以
+        探索不同的方法而不会丢失原始会话状态。
+        灵感来自 Claude Code 的 /branch 命令。
         """
         if not self.conversation_history:
-            _cprint("  No conversation to branch — send a message first.")
+            _cprint("  没有可分支的对话 — 请先发送一条消息。")
             return
 
         if not self._session_db:
-            _cprint("  Session database not available.")
+            _cprint("  会话数据库不可用。")
             return
 
         parts = cmd_original.split(None, 1)
@@ -3626,7 +3619,7 @@ class KClawCLI:
                 parent_session_id=parent_session_id,
             )
         except Exception as e:
-            _cprint(f"  Failed to create branch session: {e}")
+            _cprint(f"  创建分支会话失败: {e}")
             return
 
         # Copy conversation history to the new session
@@ -3681,14 +3674,14 @@ class KClawCLI:
         _cprint(f"  Branch session:   {new_session_id}")
 
     def save_conversation(self):
-        """Save the current conversation to a file."""
+        """将当前对话保存到文件。"""
         if not self.conversation_history:
-            print("(;_;) No conversation to save.")
+            print("(;_;) 没有可保存的对话。")
             return
-        
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"kclaw_conversation_{timestamp}.json"
-        
+
         try:
             with open(filename, "w", encoding="utf-8") as f:
                 json.dump({
@@ -3696,19 +3689,19 @@ class KClawCLI:
                     "session_start": self.session_start.isoformat(),
                     "messages": self.conversation_history,
                 }, f, indent=2, ensure_ascii=False)
-            print(f"(^_^)v Conversation saved to: {filename}")
+            print(f"(^_^)v 对话已保存到: {filename}")
         except Exception as e:
-            print(f"(x_x) Failed to save: {e}")
-    
+            print(f"(x_x) 保存失败: {e}")
+
     def retry_last(self):
-        """Retry the last user message by removing the last exchange and re-sending.
-        
-        Removes the last assistant response (and any tool-call messages) and
-        the last user message, then re-sends that user message to the agent.
-        Returns the message to re-send, or None if there's nothing to retry.
+        """通过删除最后一个交换并重新发送来重试最后一条用户消息。
+
+        删除最后一条助手响应（以及任何工具调用消息）
+        和最后一条用户消息,然后重新发送该用户消息给 agent。
+        返回要重新发送的消息,如果没有可重试的内容则返回 None。
         """
         if not self.conversation_history:
-            print("(._.) No messages to retry.")
+            print("(._.) 没有可重试的消息。")
             return None
         
         # Walk backwards to find the last user message
@@ -3719,57 +3712,57 @@ class KClawCLI:
                 break
         
         if last_user_idx is None:
-            print("(._.) No user message found to retry.")
+            print("(._.) 未找到可重试的用户消息。")
             return None
-        
+
         # Extract the message text and remove everything from that point forward
         last_message = self.conversation_history[last_user_idx].get("content", "")
         self.conversation_history = self.conversation_history[:last_user_idx]
-        
-        print(f"(^_^)b Retrying: \"{last_message[:60]}{'...' if len(last_message) > 60 else ''}\"")
+
+        print(f"(^_^)b 重试中: \"{last_message[:60]}{'...' if len(last_message) > 60 else ''}\"")
         return last_message
-    
+
     def undo_last(self):
-        """Remove the last user/assistant exchange from conversation history.
-        
-        Walks backwards and removes all messages from the last user message
-        onward (including assistant responses, tool calls, etc.).
+        """从对话历史中删除最后一个用户/助手交换。
+
+        向后遍历并删除从最后一条用户消息开始的所有消息
+        （包括助手响应、工具调用等）。
         """
         if not self.conversation_history:
-            print("(._.) No messages to undo.")
+            print("(._.) 没有可撤销的消息。")
             return
-        
+
         # Walk backwards to find the last user message
         last_user_idx = None
         for i in range(len(self.conversation_history) - 1, -1, -1):
             if self.conversation_history[i].get("role") == "user":
                 last_user_idx = i
                 break
-        
+
         if last_user_idx is None:
-            print("(._.) No user message found to undo.")
+            print("(._.) 未找到可撤销的用户消息。")
             return
-        
+
         # Count how many messages we're removing
         removed_count = len(self.conversation_history) - last_user_idx
         removed_msg = self.conversation_history[last_user_idx].get("content", "")
-        
+
         # Truncate history to before the last user message
         self.conversation_history = self.conversation_history[:last_user_idx]
-        
-        print(f"(^_^)b Undid {removed_count} message(s). Removed: \"{removed_msg[:60]}{'...' if len(removed_msg) > 60 else ''}\"")
+
+        print(f"(^_^)b 已撤销 {removed_count} 条消息。已删除: \"{removed_msg[:60]}{'...' if len(removed_msg) > 60 else ''}\"")
         remaining = len(self.conversation_history)
-        print(f"  {remaining} message(s) remaining in history.")
+        print(f"  历史记录中剩余 {remaining} 条消息。")
     
     def _handle_model_switch(self, cmd_original: str):
-        """Handle /model command — switch model for this session.
+        """处理 /model 命令 — 切换本会话的模型。
 
-        Supports:
-          /model                              — show current model + usage hints
-          /model <name>                       — switch for this session only
-          /model <name> --global              — switch and persist to config.yaml
-          /model <name> --provider <provider> — switch provider + model
-          /model --provider <provider>        — switch to provider, auto-detect model
+        支持:
+          /model                              — 显示当前模型和使用提示
+          /model <名称>                       — 仅在本次会话中切换
+          /model <名称> --global              — 切换并持久化到 config.yaml
+          /model <名称> --provider <提供商>  — 切换提供商和模型
+          /model --provider <提供商>         — 切换到提供商,自动检测模型
         """
         from kclaw_cli.model_switch import switch_model, parse_model_flags, list_authenticated_providers
         from kclaw_cli.providers import get_label
@@ -3888,19 +3881,19 @@ class KClawCLI:
 
         # Display confirmation with full metadata
         provider_label = result.provider_label or result.target_provider
-        _cprint(f"  ✓ Model switched: {result.new_model}")
-        _cprint(f"    Provider: {provider_label}")
+        _cprint(f"  ✓ 模型已切换: {result.new_model}")
+        _cprint(f"    提供商: {provider_label}")
 
         # Rich metadata from models.dev
         mi = result.model_info
         if mi:
             if mi.context_window:
-                _cprint(f"    Context: {mi.context_window:,} tokens")
+                _cprint(f"    上下文: {mi.context_window:,} tokens")
             if mi.max_output:
-                _cprint(f"    Max output: {mi.max_output:,} tokens")
+                _cprint(f"    最大输出: {mi.max_output:,} tokens")
             if mi.has_cost_data():
-                _cprint(f"    Cost: {mi.format_cost()}")
-            _cprint(f"    Capabilities: {mi.format_capabilities()}")
+                _cprint(f"    成本: {mi.format_cost()}")
+            _cprint(f"    能力: {mi.format_capabilities()}")
         else:
             # Fallback to old context length lookup
             try:
@@ -3911,7 +3904,7 @@ class KClawCLI:
                     api_key=result.api_key or self.api_key,
                     provider=result.target_provider,
                 )
-                _cprint(f"    Context: {ctx:,} tokens")
+                _cprint(f"    上下文: {ctx:,} tokens")
             except Exception:
                 pass
 
@@ -3921,7 +3914,7 @@ class KClawCLI:
             or result.api_mode == "anthropic_messages"
         )
         if cache_enabled:
-            _cprint("    Prompt caching: enabled")
+            _cprint("    提示词缓存: 已启用")
 
         # Warning from validation
         if result.warning_message:
@@ -3932,15 +3925,13 @@ class KClawCLI:
             save_config_value("model.default", result.new_model)
             if result.provider_changed:
                 save_config_value("model.provider", result.target_provider)
-            _cprint("    Saved to config.yaml (--global)")
+            _cprint("    已保存到 config.yaml (--global)")
         else:
-            _cprint("    (session only — add --global to persist)")
+            _cprint("    (仅会话 — 添加 --global 以持久化)")
+        """显示当前模型 + 提供商并列出所有已认证的提供商。
 
-    def _show_model_and_providers(self):
-        """Show current model + provider and list all authenticated providers.
-
-        Shows current model + provider, then lists all authenticated
-        providers with their available models.
+        显示当前模型 + 提供商,然后列出所有已认证的
+        提供商及其可用模型。
         """
         from kclaw_cli.models import (
             curated_models_for_provider, list_available_providers,
@@ -3964,7 +3955,7 @@ class KClawCLI:
             current = raw_provider
         current_label = _PROVIDER_LABELS.get(current, current)
 
-        print(f"\n  Current: {self.model} via {current_label}")
+        print(f"\n  当前: {self.model} via {current_label}")
         print()
 
         # Show all authenticated providers with their models
@@ -3973,10 +3964,10 @@ class KClawCLI:
         unauthed = [p for p in providers if not p["authenticated"]]
 
         if authed:
-            print("  Authenticated providers & models:")
+            print("  已认证的提供商和模型:")
             for p in authed:
                 is_active = p["id"] == current
-                marker = " ← active" if is_active else ""
+                marker = " ← 活跃" if is_active else ""
                 print(f"    [{p['id']}]{marker}")
                 curated = curated_models_for_provider(p["id"])
                 # Fetch pricing for providers that support it (openrouter, nous)
@@ -3987,30 +3978,30 @@ class KClawCLI:
                         print(line)
                 elif curated:
                     for mid, desc in curated:
-                        current_marker = " ← current" if (is_active and mid == self.model) else ""
+                        current_marker = " ← 当前" if (is_active and mid == self.model) else ""
                         print(f"      {mid}{current_marker}")
                 elif p["id"] == "custom":
                     from kclaw_cli.models import _get_custom_base_url
                     custom_url = _get_custom_base_url()
                     if custom_url:
-                        print(f"      endpoint: {custom_url}")
+                        print(f"      端点: {custom_url}")
                     if is_active:
-                        print(f"      model: {self.model} ← current")
-                    print("      (use kclaw model to change)")
+                        print(f"      模型: {self.model} ← 当前")
+                    print("      (使用 kclaw model 更改)")
                 else:
-                    print("      (use kclaw model to change)")
+                    print("      (使用 kclaw model 更改)")
                 print()
 
         if unauthed:
             names = ", ".join(p["label"] for p in unauthed)
-            print(f"  Not configured: {names}")
-            print("  Run: kclaw setup")
+            print(f"  未配置: {names}")
+            print("  运行: kclaw setup")
             print()
 
-        print("  To change model or provider, use: kclaw model")
+        print("  要更改模型或提供商,请使用: kclaw model")
 
     def _handle_prompt_command(self, cmd: str):
-        """Handle the /prompt command to view or set system prompt."""
+        """处理 /prompt 命令以查看或设置系统提示。"""
         parts = cmd.split(maxsplit=1)
         
         if len(parts) > 1:
@@ -4028,15 +4019,15 @@ class KClawCLI:
                 self.system_prompt = new_prompt
                 self.agent = None  # Force re-init
                 if save_config_value("agent.system_prompt", new_prompt):
-                    print("(^_^)b System prompt set (saved to config)")
+                    print("(^_^)b 系统提示词已设置(已保存到配置)")
                 else:
-                    print("(^_^) System prompt set (session only)")
+                    print("(^_^) 系统提示词已设置(仅本次会话)")
                 print(f"  \"{new_prompt[:60]}{'...' if len(new_prompt) > 60 else ''}\"")
         else:
             # Show current prompt
             print()
             print("+" + "-" * 50 + "+")
-            print("|" + " " * 15 + "(^_^) System Prompt" + " " * 15 + "|")
+            print("|" + " " * 15 + "(^_^) 系统提示词" + " " * 17 + "|")
             print("+" + "-" * 50 + "+")
             print()
             if self.system_prompt:
@@ -4055,18 +4046,18 @@ class KClawCLI:
                 for line in lines:
                     print(f"  {line}")
             else:
-                print("  (no custom prompt set - using default)")
+                print("  (未设置自定义提示词 - 使用默认值)")
             print()
-            print("  Usage:")
-            print("    /prompt <text>  - Set a custom system prompt")
-            print("    /prompt clear   - Remove custom prompt")
-            print("    /personality    - Use a predefined personality")
+            print("  用法:")
+            print("    /prompt <文本>  - 设置自定义系统提示词")
+            print("    /prompt clear   - 移除自定义提示词")
+            print("    /personality    - 使用预定义人格")
             print()
     
 
     @staticmethod
     def _resolve_personality_prompt(value) -> str:
-        """Accept string or dict personality value; return system prompt string."""
+        """接受字符串或字典类型的 personality 值;返回系统提示词字符串。"""
         if isinstance(value, dict):
             parts = [value.get("system_prompt", "")]
             if value.get("tone"):
@@ -4077,7 +4068,7 @@ class KClawCLI:
         return str(value)
 
     def _handle_personality_command(self, cmd: str):
-        """Handle the /personality command to set predefined personalities."""
+        """处理 /personality 命令以设置预定义人格。"""
         parts = cmd.split(maxsplit=1)
         
         if len(parts) > 1:
@@ -4098,19 +4089,19 @@ class KClawCLI:
                 if save_config_value("agent.system_prompt", self.system_prompt):
                     print(f"(^_^)b Personality set to '{personality_name}' (saved to config)")
                 else:
-                    print(f"(^_^) Personality set to '{personality_name}' (session only)")
+                    print(f"(^_^) 人格已设置为 '{personality_name}' (仅本次会话)")
                 print(f"  \"{self.system_prompt[:60]}{'...' if len(self.system_prompt) > 60 else ''}\"")
             else:
-                print(f"(._.) Unknown personality: {personality_name}")
-                print(f"  Available: none, {', '.join(self.personalities.keys())}")
+                print(f"(._.) 未知的人格: {personality_name}")
+                print(f"  可用: none, {', '.join(self.personalities.keys())}")
         else:
             # Show available personalities
             print()
             print("+" + "-" * 50 + "+")
-            print("|" + " " * 12 + "(^o^)/ Personalities" + " " * 15 + "|")
+            print("|" + " " * 12 + "(^o^)/ 人格" + " " * 20 + "|")
             print("+" + "-" * 50 + "+")
             print()
-            print(f"  {'none':<12} - (no personality overlay)")
+            print(f"  {'none':<12} - (无人格覆盖)")
             for name, prompt in self.personalities.items():
                 if isinstance(prompt, dict):
                     preview = prompt.get("description") or prompt.get("system_prompt", "")[:50]
@@ -4118,11 +4109,11 @@ class KClawCLI:
                     preview = str(prompt)[:50]
                 print(f"  {name:<12} - {preview}")
             print()
-            print("  Usage: /personality <name>")
+            print("  用法: /personality <名称>")
             print()
     
     def _handle_cron_command(self, cmd: str):
-        """Handle the /cron command to manage scheduled tasks."""
+        """处理 /cron 命令以管理计划任务。"""
         import shlex
         from tools.cronjob_tools import cronjob as cronjob_tool
 
@@ -4164,7 +4155,7 @@ class KClawCLI:
                     try:
                         opts["repeat"] = int(tokens[i + 1])
                     except ValueError:
-                        print("(._.) --repeat must be an integer")
+                        print("(._.) --repeat 必须是整数")
                         return None
                     i += 2
                 elif token == "--skill" and i + 1 < len(tokens):
@@ -4198,13 +4189,13 @@ class KClawCLI:
         if len(tokens) == 1:
             print()
             print("+" + "-" * 68 + "+")
-            print("|" + " " * 22 + "(^_^) Scheduled Tasks" + " " * 23 + "|")
+            print("|" + " " * 22 + "(^_^) 计划任务" + " " * 26 + "|")
             print("+" + "-" * 68 + "+")
             print()
-            print("  Commands:")
+            print("  命令:")
             print("    /cron list")
-            print('    /cron add "every 2h" "Check server status" [--skill blogwatcher]')
-            print('    /cron edit <job_id> --schedule "every 4h" --prompt "New task"')
+            print('    /cron add "every 2h" "检查服务器状态" [--skill blogwatcher]')
+            print('    /cron edit <job_id> --schedule "every 4h" --prompt "新任务"')
             print("    /cron edit <job_id> --skill blogwatcher --skill find-nearby")
             print("    /cron edit <job_id> --remove-skill blogwatcher")
             print("    /cron edit <job_id> --clear-skills")
@@ -4216,19 +4207,19 @@ class KClawCLI:
             result = _cron_api(action="list")
             jobs = result.get("jobs", []) if result.get("success") else []
             if jobs:
-                print("  Current Jobs:")
+                print("  当前任务:")
                 print("  " + "-" * 63)
                 for job in jobs:
                     repeat_str = job.get("repeat", "?")
                     print(f"    {job['job_id'][:12]:<12} | {job['schedule']:<15} | {repeat_str:<8}")
                     if job.get("skills"):
-                        print(f"      Skills: {', '.join(job['skills'])}")
+                        print(f"      技能: {', '.join(job['skills'])}")
                     print(f"      {job.get('prompt_preview', '')}")
                     if job.get("next_run_at"):
-                        print(f"      Next: {job['next_run_at']}")
+                        print(f"      下次: {job['next_run_at']}")
                     print()
             else:
-                print("  No scheduled jobs. Use '/cron add' to create one.")
+                print("  没有计划任务。使用 '/cron add' 创建一个。")
             print()
             return
 
@@ -4241,36 +4232,36 @@ class KClawCLI:
             result = _cron_api(action="list", include_disabled=opts["all"])
             jobs = result.get("jobs", []) if result.get("success") else []
             if not jobs:
-                print("(._.) No scheduled jobs.")
+                print("(._.) 没有计划任务。")
                 return
 
             print()
-            print("Scheduled Jobs:")
+            print("计划任务:")
             print("-" * 80)
             for job in jobs:
                 print(f"  ID: {job['job_id']}")
-                print(f"  Name: {job['name']}")
-                print(f"  State: {job.get('state', '?')}")
-                print(f"  Schedule: {job['schedule']} ({job.get('repeat', '?')})")
-                print(f"  Next run: {job.get('next_run_at', 'N/A')}")
+                print(f"  名称: {job['name']}")
+                print(f"  状态: {job.get('state', '?')}")
+                print(f"  计划: {job['schedule']} ({job.get('repeat', '?')})")
+                print(f"  下次运行: {job.get('next_run_at', 'N/A')}")
                 if job.get("skills"):
-                    print(f"  Skills: {', '.join(job['skills'])}")
-                print(f"  Prompt: {job.get('prompt_preview', '')}")
+                    print(f"  技能: {', '.join(job['skills'])}")
+                print(f"  提示词: {job.get('prompt_preview', '')}")
                 if job.get("last_run_at"):
-                    print(f"  Last run: {job['last_run_at']} ({job.get('last_status', '?')})")
+                    print(f"  上次运行: {job['last_run_at']} ({job.get('last_status', '?')})")
                 print()
             return
 
         if subcommand in {"add", "create"}:
             positionals = opts["positionals"]
             if not positionals:
-                print("(._.) Usage: /cron add <schedule> <prompt>")
+                print("(._.) 用法: /cron add <计划> <提示词>")
                 return
             schedule = opts["schedule"] or positionals[0]
             prompt = opts["prompt"] or " ".join(positionals[1:])
             skills = _normalize_skills(opts["skills"])
             if not prompt and not skills:
-                print("(._.) Please provide a prompt or at least one skill")
+                print("(._.) 请提供一个提示词或至少一个技能")
                 return
             result = _cron_api(
                 action="create",
@@ -4282,24 +4273,24 @@ class KClawCLI:
                 skills=skills or None,
             )
             if result.get("success"):
-                print(f"(^_^)b Created job: {result['job_id']}")
-                print(f"  Schedule: {result['schedule']}")
+                print(f"(^_^)b 已创建任务: {result['job_id']}")
+                print(f"  计划: {result['schedule']}")
                 if result.get("skills"):
-                    print(f"  Skills: {', '.join(result['skills'])}")
-                print(f"  Next run: {result['next_run_at']}")
+                    print(f"  技能: {', '.join(result['skills'])}")
+                print(f"  下次运行: {result['next_run_at']}")
             else:
-                print(f"(x_x) Failed to create job: {result.get('error')}")
+                print(f"(x_x) 创建任务失败: {result.get('error')}")
             return
 
         if subcommand == "edit":
             positionals = opts["positionals"]
             if not positionals:
-                print("(._.) Usage: /cron edit <job_id> [--schedule ...] [--prompt ...] [--skill ...]")
+                print("(._.) 用法: /cron edit <任务ID> [--schedule ...] [--prompt ...] [--skill ...]")
                 return
             job_id = positionals[0]
             existing = get_job(job_id)
             if not existing:
-                print(f"(._.) Job not found: {job_id}")
+                print(f"(._.) 未找到任务: {job_id}")
                 return
 
             final_skills = None
@@ -4329,50 +4320,50 @@ class KClawCLI:
             )
             if result.get("success"):
                 job = result["job"]
-                print(f"(^_^)b Updated job: {job['job_id']}")
-                print(f"  Schedule: {job['schedule']}")
+                print(f"(^_^)b 已更新任务: {job['job_id']}")
+                print(f"  计划: {job['schedule']}")
                 if job.get("skills"):
-                    print(f"  Skills: {', '.join(job['skills'])}")
+                    print(f"  技能: {', '.join(job['skills'])}")
                 else:
-                    print("  Skills: none")
+                    print("  技能: 无")
             else:
-                print(f"(x_x) Failed to update job: {result.get('error')}")
+                print(f"(x_x) 更新任务失败: {result.get('error')}")
             return
 
         if subcommand in {"pause", "resume", "run", "remove", "rm", "delete"}:
             positionals = opts["positionals"]
             if not positionals:
-                print(f"(._.) Usage: /cron {subcommand} <job_id>")
+                print(f"(._.) 用法: /cron {subcommand} <任务ID>")
                 return
             job_id = positionals[0]
             action = "remove" if subcommand in {"remove", "rm", "delete"} else subcommand
             result = _cron_api(action=action, job_id=job_id, reason="paused from /cron" if action == "pause" else None)
             if not result.get("success"):
-                print(f"(x_x) Failed to {action} job: {result.get('error')}")
+                print(f"(x_x) {action} 任务失败: {result.get('error')}")
                 return
             if action == "pause":
-                print(f"(^_^)b Paused job: {result['job']['name']} ({job_id})")
+                print(f"(^_^)b 已暂停任务: {result['job']['name']} ({job_id})")
             elif action == "resume":
-                print(f"(^_^)b Resumed job: {result['job']['name']} ({job_id})")
-                print(f"  Next run: {result['job'].get('next_run_at')}")
+                print(f"(^_^)b 已恢复任务: {result['job']['name']} ({job_id})")
+                print(f"  下次运行: {result['job'].get('next_run_at')}")
             elif action == "run":
-                print(f"(^_^)b Triggered job: {result['job']['name']} ({job_id})")
-                print("  It will run on the next scheduler tick.")
+                print(f"(^_^)b 已触发任务: {result['job']['name']} ({job_id})")
+                print("  它将在下一个调度器 tick 时运行。")
             else:
                 removed = result.get("removed_job", {})
-                print(f"(^_^)b Removed job: {removed.get('name', job_id)} ({job_id})")
+                print(f"(^_^)b 已删除任务: {removed.get('name', job_id)} ({job_id})")
             return
 
-        print(f"(._.) Unknown cron command: {subcommand}")
-        print("  Available: list, add, edit, pause, resume, run, remove")
+        print(f"(._.) 未知 cron 命令: {subcommand}")
+        print("  可用: list, add, edit, pause, resume, run, remove")
     
     def _handle_skills_command(self, cmd: str):
-        """Handle /skills slash command — delegates to kclaw_cli.skills_hub."""
+        """处理 /skills 斜杠命令 — 委托给 kclaw_cli.skills_hub。"""
         from kclaw_cli.skills_hub import handle_skills_slash
         handle_skills_slash(cmd, ChatConsole())
 
     def _show_gateway_status(self):
-        """Show status of the gateway and connected messaging platforms."""
+        """显示网关和已连接消息平台的状态。"""
         from gateway.config import load_gateway_config, Platform
         
         print()
@@ -4761,7 +4752,7 @@ class KClawCLI:
         return True
     
     def _handle_plan_command(self, cmd: str):
-        """Handle /plan [request] — load the bundled plan skill."""
+        """处理 /plan [request] — 加载捆绑的计划技能。"""
         parts = cmd.strip().split(maxsplit=1)
         user_instruction = parts[1].strip() if len(parts) > 1 else ""
 
@@ -4787,11 +4778,11 @@ class KClawCLI:
             ChatConsole().print("[bold red]Plan mode unavailable: input queue not initialized[/]")
     
     def _handle_background_command(self, cmd: str):
-        """Handle /background <prompt> — run a prompt in a separate background session.
+        """处理 /background <提示词> — 在独立的后台会话中运行提示词。
 
-        Spawns a new AIAgent in a background thread with its own session.
-        When it completes, prints the result to the CLI without modifying
-        the active session's conversation history.
+        在后台线程中生成一个新的 AIAgent,拥有自己的会话。
+        当完成后,将结果打印到 CLI 而不修改
+        当前会话的对话历史。
         """
         parts = cmd.strip().split(maxsplit=1)
         if len(parts) < 2 or not parts[1].strip():
@@ -4926,11 +4917,10 @@ class KClawCLI:
         thread.start()
 
     def _handle_btw_command(self, cmd: str):
-        """Handle /btw <question> — ephemeral side question using session context.
+        """处理 /btw <问题> — 使用会话上下文的临时附带问题。
 
-        Snapshots the current conversation history, spawns a no-tools agent in
-        a background thread, and prints the answer without persisting anything
-        to the main session.
+        快照当前对话历史,在后台线程中生成一个无工具的 agent,
+        并打印答案而不将任何内容持久化到主会话。
         """
         parts = cmd.strip().split(maxsplit=1)
         if len(parts) < 2 or not parts[1].strip():
@@ -5041,9 +5031,9 @@ class KClawCLI:
 
     @staticmethod
     def _try_launch_chrome_debug(port: int, system: str) -> bool:
-        """Try to launch Chrome/Chromium with remote debugging enabled.
+        """尝试启动启用了远程调试的 Chrome/Chromium。
 
-        Returns True if a launch command was executed (doesn't guarantee success).
+        如果执行了启动命令则返回 True(不保证成功)。
         """
         import subprocess as _sp
 
@@ -5065,7 +5055,7 @@ class KClawCLI:
             return False
 
     def _handle_browser_command(self, cmd: str):
-        """Handle /browser connect|disconnect|status — manage live Chrome CDP connection."""
+        """处理 /browser connect|disconnect|status — 管理实时 Chrome CDP 连接。"""
         import platform as _plat
 
         parts = cmd.strip().split(None, 1)
@@ -5108,10 +5098,10 @@ class KClawCLI:
                 pass
 
             if _already_open:
-                print(f"   ✓ Chrome is already listening on port {_port}")
+                print(f"   ✓ Chrome 已在端口 {_port} 上监听")
             elif cdp_url == _DEFAULT_CDP:
                 # Try to auto-launch Chrome with remote debugging
-                print("   Chrome isn't running with remote debugging — attempting to launch...")
+                print("   Chrome 未在运行远程调试 — 尝试启动...")
                 _launched = self._try_launch_chrome_debug(_port, _plat.system())
                 if _launched:
                     # Wait for the port to come up
@@ -5127,12 +5117,12 @@ class KClawCLI:
                         except (OSError, socket.timeout):
                             _time.sleep(0.5)
                     if _already_open:
-                        print(f"   ✓ Chrome launched and listening on port {_port}")
+                        print(f"   ✓ Chrome 已启动并在端口 {_port} 上监听")
                     else:
-                        print(f"   ⚠ Chrome launched but port {_port} isn't responding yet")
-                        print("     You may need to close existing Chrome windows first and retry")
+                        print(f"   ⚠ Chrome 已启动但端口 {_port} 尚未响应")
+                        print("     您可能需要先关闭现有 Chrome 窗口然后重试")
                 else:
-                    print("   ⚠ Could not auto-launch Chrome")
+                    print("   ⚠ 无法自动启动 Chrome")
                     # Show manual instructions as fallback
                     sys_name = _plat.system()
                     if sys_name == "Darwin":
@@ -5141,14 +5131,14 @@ class KClawCLI:
                         chrome_cmd = 'chrome.exe --remote-debugging-port=9222'
                     else:
                         chrome_cmd = "google-chrome --remote-debugging-port=9222"
-                    print(f"     Launch Chrome manually: {chrome_cmd}")
+                    print(f"     手动启动 Chrome: {chrome_cmd}")
             else:
-                print(f"   ⚠ Port {_port} is not reachable at {cdp_url}")
+                print(f"   ⚠ 端口 {_port} 在 {cdp_url} 上不可达")
 
             os.environ["BROWSER_CDP_URL"] = cdp_url
             print()
-            print("🌐 Browser connected to live Chrome via CDP")
-            print(f"   Endpoint: {cdp_url}")
+            print("🌐 浏览器已通过 CDP 连接到实时 Chrome")
+            print(f"   端点: {cdp_url}")
             print()
 
             # Inject context message so the model knows
@@ -5172,8 +5162,8 @@ class KClawCLI:
                 except Exception:
                     pass
                 print()
-                print("🌐 Browser disconnected from live Chrome")
-                print("   Browser tools reverted to default mode (local headless or cloud provider)")
+                print("🌐 浏览器已从实时 Chrome 断开连接")
+                print("   浏览器工具已恢复为默认模式(本地无头模式或云提供商)")
                 print()
 
                 if hasattr(self, '_pending_input'):
@@ -5183,14 +5173,14 @@ class KClawCLI:
                     )
             else:
                 print()
-                print("Browser is not connected to live Chrome (already using default mode)")
+                print("浏览器未连接到实时 Chrome(已使用默认模式)")
                 print()
 
         elif sub == "status":
             print()
             if current:
-                print("🌐 Browser: connected to live Chrome via CDP")
-                print(f"   Endpoint: {current}")
+                print("🌐 浏览器: 已通过 CDP 连接到实时 Chrome")
+                print(f"   端点: {current}")
 
                 _port = 9222
                 try:
@@ -5203,9 +5193,9 @@ class KClawCLI:
                     s.settimeout(1)
                     s.connect(("127.0.0.1", _port))
                     s.close()
-                    print("   Status: ✓ reachable")
+                    print("   状态: ✓ 可达")
                 except (OSError, Exception):
-                    print("   Status: ⚠ not reachable (Chrome may not be running)")
+                    print("   状态: ⚠ 不可达(Chrome 可能未运行)")
             else:
                 try:
                     from tools.browser_tool import _get_cloud_provider
@@ -5214,12 +5204,12 @@ class KClawCLI:
                     provider = None
 
                 if provider is not None:
-                    print(f"🌐 Browser: {provider.provider_name()} (cloud)")
+                    print(f"🌐 浏览器: {provider.provider_name()} (云)")
                 else:
-                    print("🌐 Browser: local headless Chromium (agent-browser)")
+                    print("🌐 浏览器: 本地无头 Chromium (agent-browser)")
             print()
-            print("   /browser connect      — connect to your live Chrome")
-            print("   /browser disconnect   — revert to default")
+            print("   /browser connect      — 连接到您的实时 Chrome")
+            print("   /browser disconnect   — 恢复默认")
             print()
 
         else:
@@ -5232,7 +5222,7 @@ class KClawCLI:
             print()
 
     def _handle_skin_command(self, cmd: str):
-        """Handle /skin [name] — show or change the display skin."""
+        """处理 /skin [name] — 显示或更改显示皮肤。"""
         try:
             from kclaw_cli.skin_engine import list_skins, set_active_skin, get_active_skin_name
         except ImportError:
@@ -5271,7 +5261,7 @@ class KClawCLI:
             print("  Prompt + TUI colors updated.")
 
     def _toggle_verbose(self):
-        """Cycle tool progress mode: off → new → all → verbose → off."""
+        """循环工具进度模式: off → new → all → verbose → off。"""
         cycle = ["off", "new", "all", "verbose"]
         try:
             idx = cycle.index(self.tool_progress_mode)
@@ -5299,7 +5289,7 @@ class KClawCLI:
         _cprint(labels.get(self.tool_progress_mode, ""))
 
     def _toggle_yolo(self):
-        """Toggle YOLO mode — skip all dangerous command approval prompts."""
+        """切换 YOLO 模式 — 跳过所有危险命令审批提示。"""
         import os
         current = bool(os.environ.get("KCLAW_YOLO_MODE"))
         if current:
@@ -5310,13 +5300,13 @@ class KClawCLI:
             self.console.print("  ⚡ YOLO mode [bold green]ON[/] — all commands auto-approved. Use with caution.")
 
     def _handle_reasoning_command(self, cmd: str):
-        """Handle /reasoning — manage effort level and display toggle.
+        """处理 /reasoning — 管理推理努力级别和显示切换。
 
-        Usage:
-            /reasoning              Show current effort level and display state
-            /reasoning <level>      Set reasoning effort (none, low, medium, high, xhigh)
-            /reasoning show|on      Show model thinking/reasoning in output
-            /reasoning hide|off     Hide model thinking/reasoning from output
+        用法:
+            /reasoning              显示当前努力级别和显示状态
+            /reasoning <级别>       设置推理努力(none, low, medium, high, xhigh)
+            /reasoning show|on      在输出中显示模型思考/推理
+            /reasoning hide|off    在输出中隐藏模型思考/推理
         """
         parts = cmd.strip().split(maxsplit=1)
 
@@ -5324,15 +5314,15 @@ class KClawCLI:
             # Show current state
             rc = self.reasoning_config
             if rc is None:
-                level = "medium (default)"
+                level = "medium (默认)"
             elif rc.get("enabled") is False:
-                level = "none (disabled)"
+                level = "none (已禁用)"
             else:
                 level = rc.get("effort", "medium")
-            display_state = "on ✓" if self.show_reasoning else "off"
-            _cprint(f"  {_GOLD}Reasoning effort:  {level}{_RST}")
-            _cprint(f"  {_GOLD}Reasoning display: {display_state}{_RST}")
-            _cprint(f"  {_DIM}Usage: /reasoning <none|low|medium|high|xhigh|show|hide>{_RST}")
+            display_state = "开启 ✓" if self.show_reasoning else "关闭"
+            _cprint(f"  {_GOLD}推理努力级别:  {level}{_RST}")
+            _cprint(f"  {_GOLD}推理显示: {display_state}{_RST}")
+            _cprint(f"  {_DIM}用法: /reasoning <none|low|medium|high|xhigh|show|hide>{_RST}")
             return
 
         arg = parts[1].strip().lower()
@@ -5343,59 +5333,59 @@ class KClawCLI:
             if self.agent:
                 self.agent.reasoning_callback = self._current_reasoning_callback()
             save_config_value("display.show_reasoning", True)
-            _cprint(f"  {_GOLD}✓ Reasoning display: ON (saved){_RST}")
-            _cprint(f"  {_DIM}  Model thinking will be shown during and after each response.{_RST}")
+            _cprint(f"  {_GOLD}✓ 推理显示: 已开启(已保存){_RST}")
+            _cprint(f"  {_DIM}  模型思考将在响应期间和之后显示。{_RST}")
             return
         if arg in ("hide", "off"):
             self.show_reasoning = False
             if self.agent:
                 self.agent.reasoning_callback = self._current_reasoning_callback()
             save_config_value("display.show_reasoning", False)
-            _cprint(f"  {_GOLD}✓ Reasoning display: OFF (saved){_RST}")
+            _cprint(f"  {_GOLD}✓ 推理显示: 已关闭(已保存){_RST}")
             return
 
         # Effort level change
         parsed = _parse_reasoning_config(arg)
         if parsed is None:
-            _cprint(f"  {_DIM}(._.) Unknown argument: {arg}{_RST}")
-            _cprint(f"  {_DIM}Valid levels: none, low, minimal, medium, high, xhigh{_RST}")
-            _cprint(f"  {_DIM}Display:      show, hide{_RST}")
+            _cprint(f"  {_DIM}(._.) 未知参数: {arg}{_RST}")
+            _cprint(f"  {_DIM}有效的级别: none, low, minimal, medium, high, xhigh{_RST}")
+            _cprint(f"  {_DIM}显示:      show, hide{_RST}")
             return
 
         self.reasoning_config = parsed
         self.agent = None  # Force agent re-init with new reasoning config
 
         if save_config_value("agent.reasoning_effort", arg):
-            _cprint(f"  {_GOLD}✓ Reasoning effort set to '{arg}' (saved to config){_RST}")
+            _cprint(f"  {_GOLD}✓ 推理努力级别已设置为 '{arg}' (已保存到配置){_RST}")
         else:
-            _cprint(f"  {_GOLD}✓ Reasoning effort set to '{arg}' (session only){_RST}")
+            _cprint(f"  {_GOLD}✓ 推理努力级别已设置为 '{arg}' (仅会话){_RST}")
 
     def _on_reasoning(self, reasoning_text: str):
-        """Callback for intermediate reasoning display during tool-call loops."""
+        """工具调用循环期间中间推理显示的回调。"""
         if not reasoning_text:
             return
         self._reasoning_preview_buf = getattr(self, "_reasoning_preview_buf", "") + reasoning_text
         self._flush_reasoning_preview(force=False)
 
     def _manual_compress(self):
-        """Manually trigger context compression on the current conversation."""
+        """手动在当前对话上触发上下文压缩。"""
         if not self.conversation_history or len(self.conversation_history) < 4:
-            print("(._.) Not enough conversation to compress (need at least 4 messages).")
+            print("(._.) 对话内容不足以压缩(至少需要 4 条消息)。")
             return
 
         if not self.agent:
-            print("(._.) No active agent -- send a message first.")
+            print("(._.) 没有活动的 agent — 请先发送一条消息。")
             return
 
         if not self.agent.compression_enabled:
-            print("(._.) Compression is disabled in config.")
+            print("(._.) 配置中已禁用压缩。")
             return
 
         original_count = len(self.conversation_history)
         try:
             from agent.model_metadata import estimate_messages_tokens_rough
             approx_tokens = estimate_messages_tokens_rough(self.conversation_history)
-            print(f"🗜️  Compressing {original_count} messages (~{approx_tokens:,} tokens)...")
+            print(f"🗜️  正在压缩 {original_count} 条消息(~{approx_tokens:,} tokens)...")
 
             compressed, new_system = self.agent._compress_context(
                 self.conversation_history,
@@ -5406,24 +5396,24 @@ class KClawCLI:
             new_count = len(self.conversation_history)
             new_tokens = estimate_messages_tokens_rough(self.conversation_history)
             print(
-                f"  ✅ Compressed: {original_count} → {new_count} messages "
+                f"  ✅ 已压缩: {original_count} → {new_count} 条消息 "
                 f"(~{approx_tokens:,} → ~{new_tokens:,} tokens)"
             )
 
         except Exception as e:
-            print(f"  ❌ Compression failed: {e}")
+            print(f"  ❌ 压缩失败: {e}")
 
     def _show_usage(self):
-        """Show rate limits (if available) and session token usage."""
+        """显示速率限制（如果有）和会话令牌使用情况。"""
         if not self.agent:
-            print("(._.) No active agent -- send a message first.")
+            print("(._.) 没有活动的 agent — 请先发送一条消息。")
             return
 
         agent = self.agent
         calls = agent.session_api_calls
 
         if calls == 0:
-            print("(._.) No API calls made yet in this session.")
+            print("(._.) 此会话中尚未进行 API 调用。")
             return
 
         # ── Rate limits (shown first when available) ────────────────
@@ -5463,30 +5453,30 @@ class KClawCLI:
         )
         elapsed = format_duration_compact((datetime.now() - self.session_start).total_seconds())
 
-        print("  📊 Session Token Usage")
+        print("  📊 会话令牌使用情况")
         print(f"  {'─' * 40}")
-        print(f"  Model:                     {agent.model}")
-        print(f"  Input tokens:              {input_tokens:>10,}")
-        print(f"  Cache read tokens:         {cache_read_tokens:>10,}")
-        print(f"  Cache write tokens:        {cache_write_tokens:>10,}")
-        print(f"  Output tokens:             {output_tokens:>10,}")
-        print(f"  Prompt tokens (total):     {prompt:>10,}")
-        print(f"  Completion tokens:         {completion:>10,}")
-        print(f"  Total tokens:              {total:>10,}")
-        print(f"  API calls:                 {calls:>10,}")
-        print(f"  Session duration:          {elapsed:>10}")
-        print(f"  Cost status:              {cost_result.status:>10}")
-        print(f"  Cost source:              {cost_result.source:>10}")
+        print(f"  模型:                     {agent.model}")
+        print(f"  输入 tokens:              {input_tokens:>10,}")
+        print(f"  缓存读取 tokens:         {cache_read_tokens:>10,}")
+        print(f"  缓存写入 tokens:        {cache_write_tokens:>10,}")
+        print(f"  输出 tokens:             {output_tokens:>10,}")
+        print(f"  提示词 tokens(总计):     {prompt:>10,}")
+        print(f"  完成 tokens:              {completion:>10,}")
+        print(f"  总 tokens:               {total:>10,}")
+        print(f"  API 调用:                 {calls:>10,}")
+        print(f"  会话时长:                {elapsed:>10}")
+        print(f"  成本状态:              {cost_result.status:>10}")
+        print(f"  成本来源:              {cost_result.source:>10}")
         if cost_result.amount_usd is not None:
             prefix = "~" if cost_result.status == "estimated" else ""
-            print(f"  Total cost:              {prefix}${float(cost_result.amount_usd):>10.4f}")
+            print(f"  总成本:              {prefix}${float(cost_result.amount_usd):>10.4f}")
         elif cost_result.status == "included":
-            print(f"  Total cost:              {'included':>10}")
+            print(f"  总成本:              {'已包含':>10}")
         else:
-            print(f"  Total cost:              {'n/a':>10}")
+            print(f"  总成本:              {'n/a':>10}")
         print(f"  {'─' * 40}")
-        print(f"  Current context:  {last_prompt:,} / {ctx_len:,} ({pct:.0f}%)")
-        print(f"  Messages:         {msg_count}")
+        print(f"  当前上下文:  {last_prompt:,} / {ctx_len:,} ({pct:.0f}%)")
+        print(f"  消息数:         {msg_count}")
         print(f"  Compressions:     {compressions}")
         if cost_result.status == "unknown":
             print(f"  Note:             Pricing unknown for {agent.model}")
@@ -5501,7 +5491,7 @@ class KClawCLI:
                 logging.getLogger(quiet_logger).setLevel(logging.ERROR)
 
     def _show_insights(self, command: str = "/insights"):
-        """Show usage insights and analytics from session history."""
+        """从会话历史显示使用洞察和分析。"""
         # Parse optional --days flag
         parts = command.split()
         days = 30
@@ -5534,12 +5524,12 @@ class KClawCLI:
             print(f"  Error generating insights: {e}")
 
     def _check_config_mcp_changes(self) -> None:
-        """Detect mcp_servers changes in config.yaml and auto-reload MCP connections.
+        """检测 config.yaml 中的 mcp_servers 更改并自动重新加载 MCP 连接。
 
-        Called from process_loop every CONFIG_WATCH_INTERVAL seconds.
-        Compares config.yaml mtime + mcp_servers section against the last
-        known state.  When a change is detected, triggers _reload_mcp() and
-        informs the user so they know the tool list has been refreshed.
+        每个 CONFIG_WATCH_INTERVAL 秒从 process_loop 调用。
+        将 config.yaml 的 mtime + mcp_servers 部分与上一次
+        已知状态进行比较。当检测到更改时,触发 _reload_mcp() 并
+        通知用户,以便他们知道工具列表已刷新。
         """
         import time
         import yaml as _yaml
@@ -5591,10 +5581,10 @@ class KClawCLI:
             print("  ⚠️  MCP reload timed out (30s). Some servers may not have reconnected.")
 
     def _reload_mcp(self):
-        """Reload MCP servers: disconnect all, re-read config.yaml, reconnect.
+        """重新加载 MCP 服务器:断开所有连接,重新读取 config.yaml,重新连接。
 
-        After reconnecting, refreshes the agent's tool list so the model
-        sees the updated tools on the next turn.
+        重新连接后,刷新 agent 的工具列表,以便模型
+        在下一轮看到更新的工具。
         """
         try:
             from tools.mcp_tool import shutdown_mcp_servers, discover_mcp_tools, _servers, _lock
@@ -5621,15 +5611,15 @@ class KClawCLI:
             reconnected = connected_servers & old_servers
 
             if reconnected:
-                print(f"  ♻️  Reconnected: {', '.join(sorted(reconnected))}")
+                print(f"  ♻️  已重新连接: {', '.join(sorted(reconnected))}")
             if added:
-                print(f"  ➕ Added: {', '.join(sorted(added))}")
+                print(f"  ➕ 已添加: {', '.join(sorted(added))}")
             if removed:
-                print(f"  ➖ Removed: {', '.join(sorted(removed))}")
+                print(f"  ➖ 已移除: {', '.join(sorted(removed))}")
             if not connected_servers:
-                print("  No MCP servers connected.")
+                print("  没有 MCP 服务器连接。")
             else:
-                print(f"  🔧 {len(new_tools)} tool(s) available from {len(connected_servers)} server(s)")
+                print(f"  🔧 {len(new_tools)} 个工具可从 {len(connected_servers)} 个服务器使用")
 
             # Refresh the agent's tool list so the model can call new tools
             if self.agent is not None:
@@ -5681,11 +5671,11 @@ class KClawCLI:
     # ====================================================================
 
     def _on_tool_gen_start(self, tool_name: str) -> None:
-        """Called when the model begins generating tool-call arguments.
+        """当模型开始生成工具调用参数时调用。
 
-        Closes any open streaming boxes (reasoning / response) exactly once,
-        then prints a short status line so the user sees activity instead of
-        a frozen screen while a large payload (e.g. 45 KB write_file) streams.
+        正好关闭一次任何打开的流盒子(reasoning / response),
+        然后打印简短状态行,使用户看到活动而不是
+        当大 payload(例如 45 KB write_file)流式传输时出现冻结屏幕。
         """
         if getattr(self, "_stream_box_opened", False):
             self._flush_stream()
@@ -5701,11 +5691,11 @@ class KClawCLI:
     # ====================================================================
 
     def _on_tool_progress(self, event_type: str, function_name: str = None, preview: str = None, function_args: dict = None, **kwargs):
-        """Called on tool lifecycle events (tool.started, tool.completed, reasoning.available, etc.).
+        """在工具生命周期事件上调用(tool.started、tool.completed、reasoning.available 等)。
 
-        Updates the TUI spinner widget so the user can see what the agent
-        is doing during tool execution (fills the gap between thinking
-        spinner and next response).  Also plays audio cue in voice mode.
+        更新 TUI 微调器小部件,使用户可以看到 agent
+        在工具执行期间在做什么(填充思考
+        微调器和下一个响应之间的空白)。在语音模式下也会播放音频提示。
         """
         # Only act on tool.started; ignore tool.completed, reasoning.available, etc.
         if event_type != "tool.started":
@@ -5736,7 +5726,7 @@ class KClawCLI:
             pass
 
     def _on_tool_start(self, tool_call_id: str, function_name: str, function_args: dict):
-        """Capture local before-state for write-capable tools."""
+        """为有写能力的工具捕获本地前置状态。"""
         try:
             from agent.display import capture_local_edit_snapshot
 
@@ -5747,7 +5737,7 @@ class KClawCLI:
             logger.debug("Edit snapshot capture failed for %s", function_name, exc_info=True)
 
     def _on_tool_complete(self, tool_call_id: str, function_name: str, function_args: dict, function_result: str):
-        """Render file edits with inline diff after write-capable tools complete."""
+        """在有写能力的工具完成后用内联 diff 渲染文件编辑。"""
         snapshot = self._pending_edit_snapshots.pop(tool_call_id, None)
         try:
             from agent.display import render_edit_diff_with_delta
@@ -5767,7 +5757,7 @@ class KClawCLI:
     # ====================================================================
 
     def _voice_start_recording(self):
-        """Start capturing audio from the microphone."""
+        """开始从麦克风捕获音频。"""
         if getattr(self, '_should_exit', False):
             return
         from tools.voice_mode import AudioRecorder, check_voice_requirements
@@ -5809,7 +5799,7 @@ class KClawCLI:
         self._voice_recorder._silence_duration = voice_cfg.get("silence_duration", 3.0)
 
         def _on_silence():
-            """Called by AudioRecorder when silence is detected after speech."""
+            """在检测到语音后静默时由 AudioRecorder 调用。"""
             with self._voice_lock:
                 if not self._voice_recording:
                     return
@@ -5846,7 +5836,7 @@ class KClawCLI:
         threading.Thread(target=_refresh_level, daemon=True).start()
 
     def _voice_stop_and_transcribe(self):
-        """Stop recording, transcribe via STT, and queue the transcript as input."""
+        """停止录音,通过 STT 转录,并将转录内容排队为输入。"""
         # Atomic guard: only one thread can enter stop-and-transcribe.
         # Set _voice_processing immediately so concurrent Ctrl+B presses
         # don't race into the START path while recorder.stop() holds its lock.
@@ -5942,7 +5932,7 @@ class KClawCLI:
                 threading.Thread(target=_restart_recording, daemon=True).start()
 
     def _voice_speak_response(self, text: str):
-        """Speak the agent's response aloud using TTS (runs in background thread)."""
+        """使用 TTS 大声朗读 agent 的响应（在线程中后台运行）。"""
         if not self._voice_tts:
             return
         self._voice_tts_done.clear()
@@ -5995,7 +5985,7 @@ class KClawCLI:
             self._voice_tts_done.set()
 
     def _handle_voice_command(self, command: str):
-        """Handle /voice [on|off|tts|status] command."""
+        """处理 /voice [on|off|tts|status] 命令。"""
         parts = command.strip().split(maxsplit=1)
         subcommand = parts[1].lower().strip() if len(parts) > 1 else ""
 
@@ -6018,7 +6008,7 @@ class KClawCLI:
             _cprint("Usage: /voice [on|off|tts|status]")
 
     def _enable_voice_mode(self):
-        """Enable voice mode after checking requirements."""
+        """在检查要求后启用语音模式。"""
         if self._voice_mode:
             _cprint(f"{_DIM}Voice mode is already enabled.{_RST}")
             return
@@ -6074,7 +6064,7 @@ class KClawCLI:
         _cprint(f"  {_DIM}/voice off  to disable voice mode{_RST}")
 
     def _disable_voice_mode(self):
-        """Disable voice mode, cancel any active recording, and stop TTS."""
+        """禁用语音模式,取消任何活动录音,并停止 TTS。"""
         recorder = None
         with self._voice_lock:
             if self._voice_recording and self._voice_recorder:
@@ -6106,7 +6096,7 @@ class KClawCLI:
         _cprint(f"\n{_DIM}Voice mode disabled.{_RST}")
 
     def _toggle_voice_tts(self):
-        """Toggle TTS output for voice mode."""
+        """为语音模式切换 TTS 输出。"""
         if not self._voice_mode:
             _cprint(f"{_DIM}Enable voice mode first: /voice on{_RST}")
             return
@@ -6123,7 +6113,7 @@ class KClawCLI:
         _cprint(f"{_GOLD}Voice TTS {status}.{_RST}")
 
     def _show_voice_status(self):
-        """Show current voice mode status."""
+        """显示当前语音模式状态。"""
         from kclaw_cli.config import load_config
         from tools.voice_mode import check_voice_requirements
 
@@ -6309,14 +6299,14 @@ class KClawCLI:
             return "deny"
 
     def _approval_choices(self, command: str, *, allow_permanent: bool = True) -> list[str]:
-        """Return approval choices for a dangerous command prompt."""
+        """返回危险命令提示的审批选项。"""
         choices = ["once", "session", "always", "deny"] if allow_permanent else ["once", "session", "deny"]
         if len(command) > 70:
             choices.append("view")
         return choices
 
     def _handle_approval_selection(self) -> None:
-        """Process the currently selected dangerous-command approval choice."""
+        """处理当前选中的危险命令审批选项。"""
         state = self._approval_state
         if not state:
             return
@@ -6340,7 +6330,7 @@ class KClawCLI:
         self._invalidate()
 
     def _get_approval_display_fragments(self):
-        """Render the dangerous-command approval panel for the prompt_toolkit UI."""
+        """为 prompt_toolkit UI 呈现危险命令审批面板。"""
         state = self._approval_state
         if not state:
             return []
@@ -6422,7 +6412,7 @@ class KClawCLI:
         return prompt_for_secret(self, var_name, prompt, metadata)
 
     def _capture_modal_input_snapshot(self) -> None:
-        """Temporarily clear the input buffer and save the user's in-progress draft."""
+        """临时清除输入缓冲区并保存用户进行中的草稿。"""
         if self._modal_input_snapshot is not None or not getattr(self, "_app", None):
             return
         try:
@@ -6436,7 +6426,7 @@ class KClawCLI:
             self._modal_input_snapshot = None
 
     def _restore_modal_input_snapshot(self) -> None:
-        """Restore any draft text that was present before a modal prompt opened."""
+        """恢复模态提示打开之前存在的任何草稿文本。"""
         snapshot = self._modal_input_snapshot
         self._modal_input_snapshot = None
         if not snapshot or not getattr(self, "_app", None):
@@ -6597,7 +6587,7 @@ class KClawCLI:
                 stop_event = threading.Event()
 
                 def display_callback(sentence: str):
-                    """Called by TTS consumer when a sentence is ready to display + speak."""
+                    """当 TTS 消费者准备好显示和朗读句子时调用。"""
                     nonlocal _streaming_box_opened
                     if not _streaming_box_opened:
                         _streaming_box_opened = True
@@ -6898,7 +6888,7 @@ class KClawCLI:
                 tts_thread.join(timeout=5)
     
     def _print_exit_summary(self):
-        """Print session resume info on exit, similar to Claude Code."""
+        """在退出时打印会话恢复信息,类似于 Claude Code。"""
         print()
         msg_count = len(self.conversation_history)
         if msg_count > 0:
@@ -6922,16 +6912,16 @@ class KClawCLI:
                 except Exception:
                     pass
 
-            print("Resume this session with:")
+            print("使用以下命令恢复此会话:")
             print(f"  kclaw --resume {self.session_id}")
             if session_title:
                 print(f"  kclaw -c \"{session_title}\"")
             print()
-            print(f"Session:        {self.session_id}")
+            print(f"会话:        {self.session_id}")
             if session_title:
-                print(f"Title:          {session_title}")
-            print(f"Duration:       {duration_str}")
-            print(f"Messages:       {msg_count} ({user_msgs} user, {tool_calls} tool calls)")
+                print(f"标题:          {session_title}")
+            print(f"时长:       {duration_str}")
+            print(f"消息:       {msg_count} ({user_msgs} 条用户消息, {tool_calls} 次工具调用)")
         else:
             try:
                 from kclaw_cli.skin_engine import get_active_goodbye
@@ -6941,14 +6931,14 @@ class KClawCLI:
             print(goodbye)
 
     def _get_tui_prompt_symbols(self) -> tuple[str, str]:
-        """Return ``(normal_prompt, state_suffix)`` for the active skin.
+        """返回活跃皮肤的 ``(normal_prompt, state_suffix)``。
 
-        ``normal_prompt`` is the full ``branding.prompt_symbol``.
-        ``state_suffix`` is what special states (sudo/secret/approval/agent)
-        should render after their leading icon.
+        ``normal_prompt`` 是完整的 ``branding.prompt_symbol``。
+        ``state_suffix`` 是特殊状态(sudo/secret/approval/agent)
+        应在其前导图标之后呈现的内容。
 
-        When a profile is active (not "default"), the profile name is
-        prepended to the prompt symbol: ``coder ❯`` instead of ``❯``.
+        当配置文件处于活跃状态(非 "default")时,配置文件名
+        会被添加到提示符号前面: ``coder ❯`` 而不是 ``❯``。
         """
         try:
             from kclaw_cli.skin_engine import get_active_prompt_symbol
@@ -6980,7 +6970,7 @@ class KClawCLI:
         return symbol, symbol
 
     def _audio_level_bar(self) -> str:
-        """Return a visual audio level indicator based on current RMS."""
+        """根据当前 RMS 返回可视音频电平指示器。"""
         _LEVEL_BARS = " ▁▂▃▄▅▆▇"
         rec = getattr(self, "_voice_recorder", None)
         if rec is None:
@@ -6992,7 +6982,7 @@ class KClawCLI:
         return _LEVEL_BARS[level]
 
     def _get_tui_prompt_fragments(self):
-        """Return the prompt_toolkit fragments for the current interactive state."""
+        """返回当前交互状态的 prompt_toolkit 片段。"""
         symbol, state_suffix = self._get_tui_prompt_symbols()
         if self._voice_recording:
             bar = self._audio_level_bar()
@@ -7018,11 +7008,11 @@ class KClawCLI:
         return [("class:prompt", symbol)]
 
     def _get_tui_prompt_text(self) -> str:
-        """Return the visible prompt text for width calculations."""
+        """返回用于宽度计算的可视提示文本。"""
         return "".join(text for _, text in self._get_tui_prompt_fragments())
 
     def _build_tui_style_dict(self) -> dict[str, str]:
-        """Layer the active skin's prompt_toolkit colors over the base TUI style."""
+        """将活跃皮肤的 prompt_toolkit 颜色层叠到基础 TUI 样式上。"""
         style_dict = dict(getattr(self, "_tui_style_base", {}) or {})
         try:
             from kclaw_cli.skin_engine import get_prompt_toolkit_style_overrides
@@ -7032,7 +7022,7 @@ class KClawCLI:
         return style_dict
 
     def _apply_tui_skin_style(self) -> bool:
-        """Refresh prompt_toolkit styling for a running interactive TUI."""
+        """刷新运行中交互式 TUI 的 prompt_toolkit 样式。"""
         if not getattr(self, "_app", None) or not getattr(self, "_tui_style_base", None):
             return False
         self._app.style = PTStyle.from_dict(self._build_tui_style_dict())
@@ -7042,27 +7032,27 @@ class KClawCLI:
     # --- Protected TUI extension hooks for wrapper CLIs ---
 
     def _get_extra_tui_widgets(self) -> list:
-        """Return extra prompt_toolkit widgets to insert into the TUI layout.
+        """返回要插入到 TUI 布局中的额外 prompt_toolkit 小部件。
 
-        Wrapper CLIs can override this to inject widgets (e.g. a mini-player,
-        overlay menu) into the layout without overriding ``run()``.  Widgets
-        are inserted between the spacer and the status bar.
+        包装器 CLI 可以重写此方法以注入小部件(例如迷你播放器、
+        覆盖菜单)到布局中,而无需重写 ``run()``。小部件
+        被插入到分隔符和状态栏之间。
         """
         return []
 
     def _register_extra_tui_keybindings(self, kb, *, input_area) -> None:
-        """Register extra keybindings on the TUI ``KeyBindings`` object.
+        """在 TUI ``KeyBindings`` 对象上注册额外的按键绑定。
 
-        Wrapper CLIs can override this to add keybindings (e.g. transport
-        controls, modal shortcuts) without overriding ``run()``.
+        包装器 CLI 可以重写此方法以添加按键绑定(例如传输
+        控制、模态快捷键)而无需重写 ``run()``。
 
-        Parameters
+        参数
         ----------
         kb : KeyBindings
-            The active keybinding registry for the prompt_toolkit application.
+            prompt_toolkit 应用程序的活动按键绑定注册表。
         input_area : TextArea
-            The main input widget, for wrappers that need to inspect or
-            manipulate user input from a keybinding handler.
+            主输入小部件,用于需要检查或
+            从按键绑定处理器操作用户输入的包装器。
         """
 
     def _build_tui_layout_children(
@@ -7082,11 +7072,10 @@ class KClawCLI:
         voice_status_bar,
         completions_menu,
     ) -> list:
-        """Assemble the ordered list of children for the root ``HSplit``.
+        """为根 ``HSplit`` 组装有序的子部件列表。
 
-        Wrapper CLIs typically override ``_get_extra_tui_widgets`` instead of
-        this method.  Override this only when you need full control over widget
-        ordering.
+        包装器 CLI 通常重写 ``_get_extra_tui_widgets`` 而不是
+        此方法。只有在需要完全控制小部件排序时才重写此方法。
         """
         return [
             Window(height=0),
@@ -7107,7 +7096,7 @@ class KClawCLI:
         ]
 
     def run(self):
-        """Run the interactive CLI loop with persistent input at bottom."""
+        """使用固定在底部的输入运行交互式 CLI 循环。"""
         # Push the entire TUI to the bottom of the terminal so the banner,
         # responses, and prompt all appear pinned to the bottom — empty
         # space stays above, not below.  This prints enough blank lines to
@@ -7230,17 +7219,17 @@ class KClawCLI:
         
         @kb.add('enter')
         def handle_enter(event):
-            """Handle Enter key - submit input.
-            
-            Routes to the correct queue based on active UI state:
-            - Sudo password prompt: password goes to sudo response queue
-            - Approval selection: selected choice goes to approval response queue
-            - Clarify freetext mode: answer goes to the clarify response queue
-            - Clarify choice mode: selected choice goes to the clarify response queue
-            - Agent running: goes to _interrupt_queue (chat() monitors this)
-            - Agent idle: goes to _pending_input (process_loop monitors this)
-            Commands (starting with /) always go to _pending_input so they're
-            handled as commands, not sent as interrupt text to the agent.
+            """处理回车键 - 提交输入。
+
+            根据活动的 UI 状态路由到正确的队列:
+            - Sudo 密码提示:密码发送到 sudo 响应队列
+            - 审批选择:选中的选项发送到审批响应队列
+            - 澄清自由文本模式:答案发送到澄清响应队列
+            - 澄清选择模式:选中的选项发送到澄清响应队列
+            - Agent 运行中:发送到 _interrupt_queue(chat() 监控这个)
+            - Agent 空闲:发送到 _pending_input(process_loop 监控这个)
+            命令(以 / 开头)始终发送到 _pending_input,以便它们
+            作为命令处理,而不是作为中断文本发送给 agent。
             """
             # --- Sudo password prompt: submit the typed password ---
             if self._sudo_state:
@@ -7323,27 +7312,26 @@ class KClawCLI:
         
         @kb.add('escape', 'enter')
         def handle_alt_enter(event):
-            """Alt+Enter inserts a newline for multi-line input."""
+            """Alt+Enter 插入换行符用于多行输入。"""
             event.current_buffer.insert_text('\n')
 
         @kb.add('c-j')
         def handle_ctrl_enter(event):
-            """Ctrl+Enter (c-j) inserts a newline. Most terminals send c-j for Ctrl+Enter."""
+            """Ctrl+Enter (c-j) 插入换行符。大多数终端将 c-j 识别为 Ctrl+Enter。"""
             event.current_buffer.insert_text('\n')
 
         @kb.add('tab', eager=True)
         def handle_tab(event):
-            """Tab: accept completion, auto-suggestion, or start completions.
+            """Tab: 接受补全、自动建议或启动补全菜单。
 
-            Priority:
-            1. Completion menu open → accept selected completion
-            2. Ghost text suggestion available → accept auto-suggestion
-            3. Otherwise → start completion menu
+            优先级:
+            1. 补全菜单打开 → 接受选中的补全
+            2. 存在 ghost text 建议 → 接受自动建议
+            3. 否则 → 启动补全菜单
 
-            After accepting a provider like 'anthropic:', the completion menu
-            closes and complete_while_typing doesn't fire (no keystroke).
-            This binding re-triggers completions so stage-2 models appear
-            immediately.
+            在接受如 'anthropic:' 这样的提供商后,补全菜单
+            会关闭且 complete_while_typing 不会触发(无按键)。
+            此绑定重新触发补全使第二阶段模型立即出现。
             """
             buf = event.current_buffer
             if buf.complete_state:
@@ -7368,14 +7356,14 @@ class KClawCLI:
 
         @kb.add('up', filter=Condition(lambda: bool(self._clarify_state) and not self._clarify_freetext))
         def clarify_up(event):
-            """Move selection up in clarify choices."""
+            """在澄清选项中向上移动选择。"""
             if self._clarify_state:
                 self._clarify_state["selected"] = max(0, self._clarify_state["selected"] - 1)
                 event.app.invalidate()
 
         @kb.add('down', filter=Condition(lambda: bool(self._clarify_state) and not self._clarify_freetext))
         def clarify_down(event):
-            """Move selection down in clarify choices."""
+            """在澄清选项中向下移动选择。"""
             if self._clarify_state:
                 choices = self._clarify_state.get("choices") or []
                 max_idx = len(choices)  # last index is the "Other" option
@@ -7407,23 +7395,23 @@ class KClawCLI:
 
         @kb.add('up', filter=_normal_input)
         def history_up(event):
-            """Up arrow: browse history when on first line, else move cursor up."""
+            """上箭头:在第一行时浏览历史,否则向上移动光标。"""
             event.app.current_buffer.auto_up(count=event.arg)
 
         @kb.add('down', filter=_normal_input)
         def history_down(event):
-            """Down arrow: browse history when on last line, else move cursor down."""
+            """下箭头:在最后一行时浏览历史,否则向下移动光标。"""
             event.app.current_buffer.auto_down(count=event.arg)
 
         @kb.add('c-c')
         def handle_ctrl_c(event):
-            """Handle Ctrl+C - cancel interactive prompts, interrupt agent, or exit.
-            
-            Priority:
-            0. Cancel active voice recording
-            1. Cancel active sudo/approval/clarify prompt
-            2. Interrupt the running agent (first press)
-            3. Force exit (second press within 2s, or when idle)
+            """处理 Ctrl+C - 取消交互提示、中断 agent 或退出。
+
+            优先级:
+            0. 取消活动的语音录制
+            1. 取消活动的 sudo/approval/clarify 提示
+            2. 中断运行的 agent(第一次按键)
+            3. 强制退出(2秒内第二次按键,或空闲时)
             """
             import time as _time
             now = _time.time()
@@ -7502,13 +7490,13 @@ class KClawCLI:
         
         @kb.add('c-d')
         def handle_ctrl_d(event):
-            """Handle Ctrl+D - exit."""
+            """处理 Ctrl+D - 退出。"""
             self._should_exit = True
             event.app.exit()
 
         @kb.add('c-z')
         def handle_ctrl_z(event):
-            """Handle Ctrl+Z - suspend process to background (Unix only)."""
+            """处理 Ctrl+Z - 暂停进程到后台(仅 Unix)。"""
             import sys
             if sys.platform == 'win32':
                 _cprint(f"\n{_DIM}Suspend (Ctrl+Z) is not supported on Windows.{_RST}")
@@ -7536,11 +7524,11 @@ class KClawCLI:
 
         @kb.add(_voice_key)
         def handle_voice_record(event):
-            """Toggle voice recording when voice mode is active.
+            """在语音模式活跃时切换语音录制。
 
-            IMPORTANT: This handler runs in prompt_toolkit's event-loop thread.
-            Any blocking call here (locks, sd.wait, disk I/O) freezes the
-            entire UI.  All heavy work is dispatched to daemon threads.
+            重要: 此处理器在 prompt_toolkit 的事件循环线程中运行。
+            任何阻塞调用(锁、sd.wait、磁盘 I/O)都会冻结
+            整个 UI。所有繁重的工作都被分发到守护线程。
             """
             if not cli_ref._voice_mode:
                 return
@@ -7597,15 +7585,14 @@ class KClawCLI:
 
         @kb.add(Keys.BracketedPaste, eager=True)
         def handle_paste(event):
-            """Handle terminal paste — detect clipboard images.
+            """处理终端粘贴 — 检测剪贴板图像。
 
-            When the terminal supports bracketed paste, Ctrl+V / Cmd+V
-            triggers this with the pasted text.  We also check the
-            clipboard for an image on every paste event.
+            当终端支持带括号的粘贴时,Ctrl+V / Cmd+V
+            会用粘贴的文本触发此处理器。我们还会在
+            每次粘贴事件时检查剪贴板是否有图像。
 
-            Large pastes (5+ lines) are collapsed to a file reference
-            placeholder while preserving any existing user text in the
-            buffer.
+            大型粘贴(5 行以上)会被折叠为文件引用占位符,
+            同时保留缓冲区中任何现有的用户文本。
             """
             pasted_text = event.data or ""
             # Normalise line endings — Windows \r\n and old Mac \r both become \n
@@ -7633,27 +7620,27 @@ class KClawCLI:
 
         @kb.add('c-v')
         def handle_ctrl_v(event):
-            """Fallback image paste for terminals without bracketed paste.
+            """用于不支持带括号粘贴的终端的备用图像粘贴。
 
-            On Linux terminals (GNOME Terminal, Konsole, etc.), Ctrl+V
-            sends raw byte 0x16 instead of triggering a paste.  This
-            binding catches that and checks the clipboard for images.
-            On terminals that DO intercept Ctrl+V for paste (macOS
-            Terminal, iTerm2, VSCode, Windows Terminal), the bracketed
-            paste handler fires instead and this binding never triggers.
+            在 Linux 终端(GNOME Terminal、Konsole 等)上,Ctrl+V
+            发送原始字节 0x16 而不是触发粘贴。此
+            绑定捕获它并检查剪贴板是否有图像。
+            在确实拦截 Ctrl+V 用于粘贴的终端上(macOS
+            Terminal、iTerm2、VSCode、Windows Terminal)，
+            带括号的粘贴处理器会触发,此绑定不会触发。
             """
             if self._try_attach_clipboard_image():
                 event.app.invalidate()
 
         @kb.add('escape', 'v')
         def handle_alt_v(event):
-            """Alt+V — paste image from clipboard.
+            """Alt+V — 从剪贴板粘贴图像。
 
-            Alt key combos pass through all terminal emulators (sent as
-            ESC + key), unlike Ctrl+V which terminals intercept for text
-            paste.  This is the reliable way to attach clipboard images
-            on WSL2, VSCode, and any terminal over SSH where Ctrl+V
-            can't reach the application for image-only clipboard.
+            Alt 组合键通过所有终端模拟器传递(发送为
+            ESC + key),与终端拦截用于文本粘贴的 Ctrl+V 不同。
+            这是在 WSL2、VSCode 和通过 SSH 的任何终端上
+            附加剪贴板图像的可靠方式,因为 Ctrl+V
+            无法仅将图像剪贴板传递给应用程序。
             """
             if self._try_attach_clipboard_image():
                 event.app.invalidate()
@@ -7728,11 +7715,11 @@ class KClawCLI:
         _paste_just_collapsed = [False]
 
         def _on_text_changed(buf):
-            """Detect large pastes and collapse them to a file reference.
+            """检测大型粘贴并将其折叠为文件引用。
 
-            When bracketed paste is available, handle_paste collapses
-            large pastes directly.  This handler is a fallback for
-            terminals without bracketed paste support.
+            当支持带括号的粘贴时,handle_paste 直接折叠
+            大型粘贴。此处理器是不支持带括号粘贴的
+            终端的备用方案。
 
             Two heuristics (either triggers collapse):
             1. Many characters added at once (chars_added > 1) — works
@@ -7780,7 +7767,7 @@ class KClawCLI:
         )
 
         class _PlaceholderProcessor(Processor):
-            """Render grayed-out placeholder text inside the input when empty."""
+            """在输入为空时在输入框内呈现灰色占位符文本。"""
             def __init__(self, get_text):
                 self._get_text = get_text
 
@@ -7896,7 +7883,7 @@ class KClawCLI:
         # --- Clarify tool: dynamic display widget for questions + choices ---
 
         def _panel_box_width(title: str, content_lines: list[str], min_width: int = 46, max_width: int = 76) -> int:
-            """Choose a stable panel width wide enough for the title and content."""
+            """选择一个足够容纳标题和内容的稳定面板宽度。"""
             term_cols = shutil.get_terminal_size((100, 20)).columns
             longest = max([len(title)] + [len(line) for line in content_lines] + [min_width - 4])
             inner = min(max(longest + 4, min_width - 2), max_width - 2, max(24, term_cols - 6))
@@ -7922,7 +7909,7 @@ class KClawCLI:
             lines.append((border_style, "│" + (" " * box_width) + "│\n"))
 
         def _get_clarify_display():
-            """Build styled text for the clarify question/choices panel."""
+            """为澄清问题/选项面板构建样式文本。"""
             state = cli_ref._clarify_state
             if not state:
                 return []
@@ -8473,7 +8460,7 @@ class KClawCLI:
         
         # Register signal handlers for graceful shutdown on SSH disconnect / SIGTERM
         def _signal_handler(signum, frame):
-            """Handle SIGHUP/SIGTERM by triggering graceful cleanup."""
+            """通过触发优雅清理来处理 SIGHUP/SIGTERM。"""
             logger.debug("Received signal %s, triggering graceful shutdown", signum)
             raise KeyboardInterrupt()
         

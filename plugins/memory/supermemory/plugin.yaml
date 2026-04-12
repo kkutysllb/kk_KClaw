@@ -1,5 +1,5 @@
 name: supermemory
 version: 1.0.0
-description: "Supermemory semantic long-term memory with profile recall, semantic search, explicit memory tools, and session ingest."
+description: "Supermemory — 语义长-term 内存，支持主题回忆、语义搜索、显式内存工具和会话摄取。"
 pip_dependencies:
   - supermemory

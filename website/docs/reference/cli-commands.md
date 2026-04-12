@@ -305,7 +305,7 @@ Outputs a compact, plain-text summary of your entire KClaw setup. Designed to be
 
 ```
 --- kclaw dump ---
-version:          0.8.0 (2026.4.8) [af4abd2f]
+version:          0.1.0 (2026.4.8) [af4abd2f]
 os:               Linux 6.14.0-37-generic x86_64
 python:           3.11.14
 openai_sdk:       2.24.0

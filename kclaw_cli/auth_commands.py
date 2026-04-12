@@ -138,7 +138,7 @@ def _format_exhausted_status(entry) -> str:
 def auth_add_command(args) -> None:
     provider = _normalize_provider(getattr(args, "provider", ""))
     if provider not in PROVIDER_REGISTRY and provider != "openrouter" and not provider.startswith(CUSTOM_POOL_PREFIX):
-        raise SystemExit(f"Unknown provider: {provider}")
+        raise SystemExit(f"未知提供者: {provider}")
 
     requested_type = str(getattr(args, "auth_type", "") or "").strip().lower()
     if requested_type in {AUTH_TYPE_API_KEY, "api-key"}:
@@ -289,7 +289,7 @@ def auth_list_command(args) -> None:
         if not entries:
             continue
         current = pool.peek()
-        print(f"{provider} ({len(entries)} credentials):")
+        print(f"{provider} ({len(entries)} 个凭据):")
         for idx, entry in enumerate(entries, start=1):
             marker = "  "
             if current is not None and entry.id == current.id:
@@ -308,11 +308,11 @@ def auth_remove_command(args) -> None:
     pool = load_pool(provider)
     index, matched, error = pool.resolve_target(target)
     if matched is None or index is None:
-        raise SystemExit(f"{error} Provider: {provider}.")
+        raise SystemExit(f"{error} 提供者: {provider}.")
     removed = pool.remove_index(index)
     if removed is None:
-        raise SystemExit(f'No credential matching "{target}" for provider {provider}.')
-    print(f"Removed {provider} credential #{index} ({removed.label})")
+        raise SystemExit(f'没有找到与 "{target}" 匹配的 {provider} 凭据。')
+    print(f"已移除 {provider} 凭据 #{index} ({removed.label})")
 
     # If this was an env-seeded credential, also clear the env var from .env
     # so it doesn't get re-seeded on the next load_pool() call.
@@ -322,7 +322,7 @@ def auth_remove_command(args) -> None:
             from kclaw_cli.config import remove_env_value
             cleared = remove_env_value(env_var)
             if cleared:
-                print(f"Cleared {env_var} from .env")
+                print(f"已从 .env 中清除 {env_var}")
 
     # If this was a singleton-seeded credential (OAuth device_code, kclaw_pkce),
     # clear the underlying auth store / credential file so it doesn't get
@@ -337,31 +337,31 @@ def auth_remove_command(args) -> None:
             if isinstance(providers_dict, dict) and provider in providers_dict:
                 del providers_dict[provider]
                 _save_auth_store(auth_store)
-                print(f"Cleared {provider} OAuth tokens from auth store")
+                print(f"已从认证存储中清除 {provider} OAuth 令牌")
 
     elif removed.source == "kclaw_pkce" and provider == "anthropic":
         from kclaw_constants import get_kclaw_home
         oauth_file = get_kclaw_home() / ".anthropic_oauth.json"
         if oauth_file.exists():
             oauth_file.unlink()
-            print("Cleared KClaw Anthropic OAuth credentials")
+            print("已清除 KClaw Anthropic OAuth 凭据")
 
     elif removed.source == "claude_code" and provider == "anthropic":
-        print("Note: Claude Code credentials live in ~/.claude/.credentials.json")
-        print("      Remove them manually if you want to deauthorize Claude Code.")
+        print("注意: Claude Code 凭据位于 ~/.claude/.credentials.json")
+        print("      如果要取消 Claude Code 的授权，请手动删除。")
 
 
 def auth_reset_command(args) -> None:
     provider = _normalize_provider(getattr(args, "provider", ""))
     pool = load_pool(provider)
     count = pool.reset_statuses()
-    print(f"Reset status on {count} {provider} credentials")
+    print(f"已重置 {count} 个 {provider} 凭据的状态")
 
 
 def _interactive_auth() -> None:
-    """Interactive credential pool management when `kclaw auth` is called bare."""
+    """当 `kclaw auth` 无参数调用时的交互式凭据池管理。"""
     # Show current pool status first
-    print("Credential Pool Status")
+    print("凭据池状态")
     print("=" * 50)
 
     auth_list_command(SimpleNamespace(provider=None))
@@ -369,18 +369,18 @@ def _interactive_auth() -> None:
 
     # Main menu
     choices = [
-        "Add a credential",
-        "Remove a credential",
-        "Reset cooldowns for a provider",
-        "Set rotation strategy for a provider",
-        "Exit",
+        "添加凭据",
+        "移除凭据",
+        "重置提供者的冷却时间",
+        "设置提供者的轮换策略",
+        "退出",
     ]
-    print("What would you like to do?")
+    print("您想做什么?")
     for i, choice in enumerate(choices, 1):
         print(f"  {i}. {choice}")
 
     try:
-        raw = input("\nChoice: ").strip()
+        raw = input("\n选择: ").strip()
     except (EOFError, KeyboardInterrupt):
         return
 
@@ -397,16 +397,16 @@ def _interactive_auth() -> None:
         _interactive_strategy()
 
 
-def _pick_provider(prompt: str = "Provider") -> str:
-    """Prompt for a provider name with auto-complete hints."""
+def _pick_provider(prompt: str = "提供者") -> str:
+    """提示输入提供者名称并带有自动补全提示。"""
     known = sorted(set(list(PROVIDER_REGISTRY.keys()) + ["openrouter"]))
     custom_names = _get_custom_provider_names()
     if custom_names:
         custom_display = [name for name, _key in custom_names]
-        print(f"\nKnown providers: {', '.join(known)}")
-        print(f"Custom endpoints: {', '.join(custom_display)}")
+        print(f"\n已知提供者: {', '.join(known)}")
+        print(f"自定义端点: {', '.join(custom_display)}")
     else:
-        print(f"\nKnown providers: {', '.join(known)}")
+        print(f"\n已知提供者: {', '.join(known)}")
     try:
         raw = input(f"{prompt}: ").strip()
     except (EOFError, KeyboardInterrupt):
@@ -415,17 +415,17 @@ def _pick_provider(prompt: str = "Provider") -> str:
 
 
 def _interactive_add() -> None:
-    provider = _pick_provider("Provider to add credential for")
+    provider = _pick_provider("添加凭据的提供者")
     if provider not in PROVIDER_REGISTRY and provider != "openrouter" and not provider.startswith(CUSTOM_POOL_PREFIX):
-        raise SystemExit(f"Unknown provider: {provider}")
+        raise SystemExit(f"未知提供者: {provider}")
 
     # For OAuth-capable providers, ask which type
     if provider in _OAUTH_CAPABLE_PROVIDERS:
-        print(f"\n{provider} supports both API keys and OAuth login.")
-        print("  1. API key (paste a key from the provider dashboard)")
-        print("  2. OAuth login (authenticate via browser)")
+        print(f"\n{provider} 支持 API 密钥和 OAuth 登录。")
+        print("  1. API 密钥（从提供商仪表板粘贴密钥）")
+        print("  2. OAuth 登录（通过浏览器认证）")
         try:
-            type_choice = input("Type [1/2]: ").strip()
+            type_choice = input("类型 [1/2]: ").strip()
         except (EOFError, KeyboardInterrupt):
             return
         if type_choice == "2":
@@ -437,7 +437,7 @@ def _interactive_add() -> None:
 
     label = None
     try:
-        typed_label = input("Label / account name (optional): ").strip()
+        typed_label = input("标签 / 账户名称（可选）: ").strip()
     except (EOFError, KeyboardInterrupt):
         return
     if typed_label:
@@ -451,10 +451,10 @@ def _interactive_add() -> None:
 
 
 def _interactive_remove() -> None:
-    provider = _pick_provider("Provider to remove credential from")
+    provider = _pick_provider("移除凭据的提供者")
     pool = load_pool(provider)
     if not pool.has_credentials():
-        print(f"No credentials for {provider}.")
+        print(f"没有 {provider} 的凭据。")
         return
 
     # Show entries with indices
@@ -463,7 +463,7 @@ def _interactive_remove() -> None:
         print(f"  #{i}  {e.label:25s} {e.auth_type:10s} {e.source}{exhausted} [id:{e.id}]")
 
     try:
-        raw = input("Remove #, id, or label (blank to cancel): ").strip()
+        raw = input("输入编号、id 或标签（留空取消）: ").strip()
     except (EOFError, KeyboardInterrupt):
         return
     if not raw:
@@ -473,30 +473,30 @@ def _interactive_remove() -> None:
 
 
 def _interactive_reset() -> None:
-    provider = _pick_provider("Provider to reset cooldowns for")
+    provider = _pick_provider("重置冷却时间的提供者")
 
     auth_reset_command(SimpleNamespace(provider=provider))
 
 
 def _interactive_strategy() -> None:
-    provider = _pick_provider("Provider to set strategy for")
+    provider = _pick_provider("设置策略的提供者")
     current = get_pool_strategy(provider)
     strategies = [STRATEGY_FILL_FIRST, STRATEGY_ROUND_ROBIN, STRATEGY_LEAST_USED, STRATEGY_RANDOM]
 
-    print(f"\nCurrent strategy for {provider}: {current}")
+    print(f"\n{provider} 当前策略: {current}")
     print()
     descriptions = {
-        STRATEGY_FILL_FIRST: "Use first key until exhausted, then next",
-        STRATEGY_ROUND_ROBIN: "Cycle through keys evenly",
-        STRATEGY_LEAST_USED: "Always pick the least-used key",
-        STRATEGY_RANDOM: "Random selection",
+        STRATEGY_FILL_FIRST: "使用第一个密钥直到耗尽，然后切换下一个",
+        STRATEGY_ROUND_ROBIN: "均匀轮换所有密钥",
+        STRATEGY_LEAST_USED: "始终选择使用次数最少的密钥",
+        STRATEGY_RANDOM: "随机选择",
     }
     for i, s in enumerate(strategies, 1):
         marker = " ←" if s == current else ""
         print(f"  {i}. {s:15s} — {descriptions.get(s, '')}{marker}")
 
     try:
-        raw = input("\nStrategy [1-4]: ").strip()
+        raw = input("\n策略 [1-4]: ").strip()
     except (EOFError, KeyboardInterrupt):
         return
     if not raw:
@@ -506,7 +506,7 @@ def _interactive_strategy() -> None:
         idx = int(raw) - 1
         strategy = strategies[idx]
     except (ValueError, IndexError):
-        print("Invalid choice.")
+        print("无效的选择。")
         return
 
     from kclaw_cli.config import load_config, save_config
@@ -517,7 +517,7 @@ def _interactive_strategy() -> None:
     pool_strategies[provider] = strategy
     cfg["credential_pool_strategies"] = pool_strategies
     save_config(cfg)
-    print(f"Set {provider} strategy to: {strategy}")
+    print(f"已将 {provider} 策略设置为: {strategy}")
 
 
 def auth_command(args) -> None:

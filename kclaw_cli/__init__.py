@@ -11,5 +11,5 @@ KClaw CLI - KClaw Agent 的统一命令行界面。
 - kclaw cron          - 管理定时任务
 """
 
-__version__ = "0.8.0"
+__version__ = "0.1.0"
 __release_date__ = "2026.4.8"

@@ -1,116 +1,115 @@
 #!/usr/bin/env python3
 """
-Toolsets Module
+工具集模块
 
-This module provides a flexible system for defining and managing tool aliases/toolsets.
-Toolsets allow you to group tools together for specific scenarios and can be composed
-from individual tools or other toolsets.
+本模块提供了一种灵活的系统，用于定义和管理工具别名/工具集。
+工具集允许你将工具分组以适应特定场景，可以由独立工具或其他工具集组成。
 
-Features:
-- Define custom toolsets with specific tools
-- Compose toolsets from other toolsets
-- Built-in common toolsets for typical use cases
-- Easy extension for new toolsets
-- Support for dynamic toolset resolution
+功能特性:
+- 定义包含特定工具的自定义工具集
+- 从其他工具集组合工具集
+- 针对典型用例的内置常用工具集
+- 轻松扩展新工具集
+- 支持动态工具集解析
 
-Usage:
+使用方法:
     from toolsets import get_toolset, resolve_toolset, get_all_toolsets
     
-    # Get tools for a specific toolset
+    # 获取特定工具集的工具
     tools = get_toolset("research")
     
-    # Resolve a toolset to get all tool names (including from composed toolsets)
+    # 解析工具集以获取所有工具名称（包括组合工具集中的工具）
     all_tools = resolve_toolset("full_stack")
 """
 
 from typing import List, Dict, Any, Set, Optional
 
 
-# Shared tool list for CLI and all messaging platform toolsets.
-# Edit this once to update all platforms simultaneously.
+# CLI 和所有消息平台工具集共享的工具列表。
+# 编辑此处可同时更新所有平台。
 _KCLAW_CORE_TOOLS = [
-    # Web
+    # 网页
     "web_search", "web_extract",
-    # Terminal + process management
+    # 终端 + 进程管理
     "terminal", "process",
-    # File manipulation
+    # 文件操作
     "read_file", "write_file", "patch", "search_files",
-    # Vision + image generation
+    # 视觉 + 图像生成
     "vision_analyze", "image_generate",
-    # Skills
+    # 技能
     "skills_list", "skill_view", "skill_manage",
-    # Browser automation
+    # 浏览器自动化
     "browser_navigate", "browser_snapshot", "browser_click",
     "browser_type", "browser_scroll", "browser_back",
     "browser_press", "browser_get_images",
     "browser_vision", "browser_console",
-    # Text-to-speech
+    # 语音合成
     "text_to_speech",
-    # Planning & memory
+    # 规划与记忆
     "todo", "memory",
-    # Session history search
+    # 会话历史搜索
     "session_search",
-    # Clarifying questions
+    # 澄清问题
     "clarify",
-    # Code execution + delegation
+    # 代码执行 + 委托
     "execute_code", "delegate_task",
-    # Cronjob management
+    # 定时任务管理
     "cronjob",
-    # Cross-platform messaging (gated on gateway running via check_fn)
+    # 跨平台消息（通过 check_fn 限制 gateway 必须运行）
     "send_message",
-    # Home Assistant smart home control (gated on HASS_TOKEN via check_fn)
+    # Home Assistant 智能家居控制（通过 check_fn 限制 HASS_TOKEN）
     "ha_list_entities", "ha_get_state", "ha_list_services", "ha_call_service",
 ]
 
 
-# Core toolset definitions
-# These can include individual tools or reference other toolsets
+# 核心工具集定义
+# 可以包含独立工具或引用其他工具集
 TOOLSETS = {
-    # Basic toolsets - individual tool categories
+    # 基础工具集 - 独立工具类别
     "web": {
-        "description": "Web research and content extraction tools",
+        "description": "网页搜索和内容提取工具",
         "tools": ["web_search", "web_extract"],
-        "includes": []  # No other toolsets included
+        "includes": []  # 不包含其他工具集
     },
     
     "search": {
-        "description": "Web search only (no content extraction/scraping)",
+        "description": "仅网页搜索（不含内容提取/抓取）",
         "tools": ["web_search"],
         "includes": []
     },
     
     "vision": {
-        "description": "Image analysis and vision tools",
+        "description": "图像分析和视觉工具",
         "tools": ["vision_analyze"],
         "includes": []
     },
     
     "image_gen": {
-        "description": "Creative generation tools (images)",
+        "description": "创意生成工具（图像）",
         "tools": ["image_generate"],
         "includes": []
     },
     
     "terminal": {
-        "description": "Terminal/command execution and process management tools",
+        "description": "终端/命令执行和进程管理工具",
         "tools": ["terminal", "process"],
         "includes": []
     },
     
     "moa": {
-        "description": "Advanced reasoning and problem-solving tools",
+        "description": "高级推理和问题解决工具",
         "tools": ["mixture_of_agents"],
         "includes": []
     },
     
     "skills": {
-        "description": "Access, create, edit, and manage skill documents with specialized instructions and knowledge",
+        "description": "访问、创建、编辑和管理技能文档，包含专业指令和知识",
         "tools": ["skills_list", "skill_view", "skill_manage"],
         "includes": []
     },
     
     "browser": {
-        "description": "Browser automation for web interaction (navigate, click, type, scroll, iframes, hold-click) with web search for finding URLs",
+        "description": "用于网页交互的浏览器自动化工具（导航、点击、输入、滚动、iframe、长按点击），包含用于查找 URL 的网页搜索",
         "tools": [
             "browser_navigate", "browser_snapshot", "browser_click",
             "browser_type", "browser_scroll", "browser_back",
@@ -121,19 +120,19 @@ TOOLSETS = {
     },
     
     "cronjob": {
-        "description": "Cronjob management tool - create, list, update, pause, resume, remove, and trigger scheduled tasks",
+        "description": "定时任务管理工具 - 创建、列出、更新、暂停、恢复、删除和触发计划任务",
         "tools": ["cronjob"],
         "includes": []
     },
     
     "messaging": {
-        "description": "Cross-platform messaging: send messages to Telegram, Discord, Slack, SMS, etc.",
+        "description": "跨平台消息：向 Telegram、Discord、Slack、短信等发送消息",
         "tools": ["send_message"],
         "includes": []
     },
     
     "rl": {
-        "description": "RL training tools for running reinforcement learning on Tinker-Atropos",
+        "description": "在 Tinker-Atropos 上运行强化学习的强化学习训练工具",
         "tools": [
             "rl_list_environments", "rl_select_environment",
             "rl_get_current_config", "rl_edit_config",
@@ -145,86 +144,86 @@ TOOLSETS = {
     },
     
     "file": {
-        "description": "File manipulation tools: read, write, patch (with fuzzy matching), and search (content + files)",
+        "description": "文件操作工具：读取、写入、打补丁（模糊匹配）、搜索（内容 + 文件）",
         "tools": ["read_file", "write_file", "patch", "search_files"],
         "includes": []
     },
     
     "tts": {
-        "description": "Text-to-speech: convert text to audio with Edge TTS (free), ElevenLabs, or OpenAI",
+        "description": "语音合成：使用 Edge TTS（免费）、ElevenLabs 或 OpenAI 将文本转换为音频",
         "tools": ["text_to_speech"],
         "includes": []
     },
     
     "todo": {
-        "description": "Task planning and tracking for multi-step work",
+        "description": "多步骤工作的任务规划和跟踪",
         "tools": ["todo"],
         "includes": []
     },
     
     "memory": {
-        "description": "Persistent memory across sessions (personal notes + user profile)",
+        "description": "跨会话的持久化记忆（个人笔记 + 用户资料）",
         "tools": ["memory"],
         "includes": []
     },
     
     "session_search": {
-        "description": "Search and recall past conversations with summarization",
+        "description": "通过摘要搜索和回忆过去的对话",
         "tools": ["session_search"],
         "includes": []
     },
     
     "clarify": {
-        "description": "Ask the user clarifying questions (multiple-choice or open-ended)",
+        "description": "向用户提出澄清问题（多选或开放式）",
         "tools": ["clarify"],
         "includes": []
     },
     
     "code_execution": {
-        "description": "Run Python scripts that call tools programmatically (reduces LLM round trips)",
+        "description": "运行以编程方式调用工具的 Python 脚本（减少 LLM 往返次数）",
         "tools": ["execute_code"],
         "includes": []
     },
     
     "delegation": {
-        "description": "Spawn subagents with isolated context for complex subtasks",
+        "description": "为复杂子任务生成具有隔离上下文的子代理",
         "tools": ["delegate_task"],
         "includes": []
     },
 
-    # "honcho" toolset removed — Honcho is now a memory provider plugin.
-    # Tools are injected via MemoryManager, not the toolset system.
+    # "honcho" 工具集已移除 — Honcho 现在是记忆提供者插件。
+    # 工具通过 MemoryManager 注入，而非工具集系统。
 
     "homeassistant": {
-        "description": "Home Assistant smart home control and monitoring",
+        "description": "Home Assistant 智能家居控制与监控",
         "tools": ["ha_list_entities", "ha_get_state", "ha_list_services", "ha_call_service"],
         "includes": []
     },
 
 
-    # Scenario-specific toolsets
+    # 场景特定工具集
     
     "debugging": {
-        "description": "Debugging and troubleshooting toolkit",
+        "description": "调试和故障排除工具包",
         "tools": ["terminal", "process"],
-        "includes": ["web", "file"]  # For searching error messages and solutions, and file operations
+        "includes": ["web", "file"]  # 用于搜索错误消息和解决方案，以及文件操作
     },
     
     "safe": {
-        "description": "Safe toolkit without terminal access",
+        "description": "不含终端访问的安全工具包",
         "tools": [],
         "includes": ["web", "vision", "image_gen"]
     },
     
     # ==========================================================================
-    # Full KClaw toolsets (CLI + messaging platforms)
+    # 完整 KClaw 工具集（CLI + 消息平台）
     #
-    # All platforms share the same core tools (including send_message,
-    # which is gated on gateway running via its check_fn).
+    # 所有平台共享相同的核心工具（包括 send_message，
+    # 通过其 check_fn 限制 gateway 必须运行）。
     # ==========================================================================
 
     "kclaw-acp": {
-        "description": "Editor integration (VS Code, Zed, JetBrains) — coding-focused tools without messaging, audio, or clarify UI",
+        "description": "编辑器集成（VS Code、Zed、JetBrains）— 无消息、音频或澄清界面的编码专用工具",
         "tools": [
             "web_search", "web_extract",
             "terminal", "process",
@@ -243,32 +242,32 @@ TOOLSETS = {
     },
 
     "kclaw-api-server": {
-        "description": "OpenAI-compatible API server — full agent tools accessible via HTTP (no interactive UI tools like clarify or send_message)",
+        "description": "OpenAI 兼容 API 服务器 — 通过 HTTP 访问完整代理工具（无交互式 UI 工具如 clarify 或 send_message）",
         "tools": [
-            # Web
+            # 网页
             "web_search", "web_extract",
-            # Terminal + process management
+            # 终端 + 进程管理
             "terminal", "process",
-            # File manipulation
+            # 文件操作
             "read_file", "write_file", "patch", "search_files",
-            # Vision + image generation
+            # 视觉 + 图像生成
             "vision_analyze", "image_generate",
-            # Skills
+            # 技能
             "skills_list", "skill_view", "skill_manage",
-            # Browser automation
+            # 浏览器自动化
             "browser_navigate", "browser_snapshot", "browser_click",
             "browser_type", "browser_scroll", "browser_back",
             "browser_press", "browser_get_images",
             "browser_vision", "browser_console",
-            # Planning & memory
+            # 规划与记忆
             "todo", "memory",
-            # Session history search
+            # 会话历史搜索
             "session_search",
-            # Code execution + delegation
+            # 代码执行 + 委托
             "execute_code", "delegate_task",
-            # Cronjob management
+            # 定时任务管理
             "cronjob",
-            # Home Assistant smart home control (gated on HASS_TOKEN via check_fn)
+            # Home Assistant 智能家居控制（通过 check_fn 限制 HASS_TOKEN）
             "ha_list_entities", "ha_get_state", "ha_list_services", "ha_call_service",
 
         ],
@@ -276,103 +275,103 @@ TOOLSETS = {
     },
     
     "kclaw-cli": {
-        "description": "Full interactive CLI toolset - all default tools plus cronjob management",
+        "description": "完整交互式 CLI 工具集 - 所有默认工具加定时任务管理",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
     
     "kclaw-telegram": {
-        "description": "Telegram bot toolset - full access for personal use (terminal has safety checks)",
+        "description": "Telegram 机器人工具集 - 个人使用完全访问权限（终端有安全检查）",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
     
     "kclaw-discord": {
-        "description": "Discord bot toolset - full access (terminal has safety checks via dangerous command approval)",
+        "description": "Discord 机器人工具集 - 完全访问权限（终端通过危险命令审批进行安全检查）",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
     
     "kclaw-whatsapp": {
-        "description": "WhatsApp bot toolset - similar to Telegram (personal messaging, more trusted)",
+        "description": "WhatsApp 机器人工具集 - 与 Telegram 类似（个人消息，更可信）",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
     
     "kclaw-slack": {
-        "description": "Slack bot toolset - full access for workspace use (terminal has safety checks)",
+        "description": "Slack 机器人工具集 - 工作空间完全访问权限（终端有安全检查）",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
     
     "kclaw-signal": {
-        "description": "Signal bot toolset - encrypted messaging platform (full access)",
+        "description": "Signal 机器人工具集 - 加密消息平台（完全访问权限）",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
 
     "kclaw-bluebubbles": {
-        "description": "BlueBubbles iMessage bot toolset - Apple iMessage via local BlueBubbles server",
+        "description": "BlueBubbles iMessage 机器人工具集 - 通过本地 BlueBubbles 服务器连接 Apple iMessage",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
 
     "kclaw-homeassistant": {
-        "description": "Home Assistant bot toolset - smart home event monitoring and control",
+        "description": "Home Assistant 机器人工具集 - 智能家居事件监控与控制",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
 
     "kclaw-email": {
-        "description": "Email bot toolset - interact with KClaw via email (IMAP/SMTP)",
+        "description": "邮件机器人工具集 - 通过邮件与 KClaw 交互（IMAP/SMTP）",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
 
     "kclaw-mattermost": {
-        "description": "Mattermost bot toolset - self-hosted team messaging (full access)",
+        "description": "Mattermost 机器人工具集 - 自托管团队消息（完全访问权限）",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
 
     "kclaw-matrix": {
-        "description": "Matrix bot toolset - decentralized encrypted messaging (full access)",
+        "description": "Matrix 机器人工具集 - 去中心化加密消息（完全访问权限）",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
 
     "kclaw-dingtalk": {
-        "description": "DingTalk bot toolset - enterprise messaging platform (full access)",
+        "description": "钉钉机器人工具集 - 企业消息平台（完全访问权限）",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
 
     "kclaw-feishu": {
-        "description": "Feishu/Lark bot toolset - enterprise messaging via Feishu/Lark (full access)",
+        "description": "飞书机器人工具集 - 通过飞书/ Lark 进行企业消息（完全访问权限）",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
 
     "kclaw-wecom": {
-        "description": "WeCom bot toolset - enterprise WeChat messaging (full access)",
+        "description": "企业微信机器人工具集 - 企业微信消息（完全访问权限）",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
 
     "kclaw-sms": {
-        "description": "SMS bot toolset - interact with KClaw via SMS (Twilio)",
+        "description": "短信机器人工具集 - 通过短信与 KClaw 交互（Twilio）",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
 
     "kclaw-webhook": {
-        "description": "Webhook toolset - receive and process external webhook events",
+        "description": "Webhook 工具集 - 接收和处理外部 webhook 事件",
         "tools": _KCLAW_CORE_TOOLS,
         "includes": []
     },
 
     "kclaw-gateway": {
-        "description": "Gateway toolset - union of all messaging platform tools",
+        "description": "Gateway 工具集 - 所有消息平台工具的并集",
         "tools": [],
         "includes": ["kclaw-telegram", "kclaw-discord", "kclaw-whatsapp", "kclaw-slack", "kclaw-signal", "kclaw-bluebubbles", "kclaw-homeassistant", "kclaw-email", "kclaw-sms", "kclaw-mattermost", "kclaw-matrix", "kclaw-dingtalk", "kclaw-feishu", "kclaw-wecom", "kclaw-webhook"]
     }
@@ -382,58 +381,57 @@ TOOLSETS = {
 
 def get_toolset(name: str) -> Optional[Dict[str, Any]]:
     """
-    Get a toolset definition by name.
+    按名称获取工具集定义。
     
-    Args:
-        name (str): Name of the toolset
+    参数:
+        name (str): 工具集名称
         
-    Returns:
-        Dict: Toolset definition with description, tools, and includes
-        None: If toolset not found
+    返回:
+        Dict: 包含 description、tools 和 includes 的工具集定义
+        None: 如果工具集未找到
     """
-    # Return toolset definition
+    # 返回工具集定义
     return TOOLSETS.get(name)
 
 
 def resolve_toolset(name: str, visited: Set[str] = None) -> List[str]:
     """
-    Recursively resolve a toolset to get all tool names.
+    递归解析工具集以获取所有工具名称。
     
-    This function handles toolset composition by recursively resolving
-    included toolsets and combining all tools.
+    此函数通过递归解析包含的工具集并组合所有工具来处理工具集组合。
     
-    Args:
-        name (str): Name of the toolset to resolve
-        visited (Set[str]): Set of already visited toolsets (for cycle detection)
+    参数:
+        name (str): 要解析的工具集名称
+        visited (Set[str]): 已访问工具集的集合（用于循环检测）
         
-    Returns:
-        List[str]: List of all tool names in the toolset
+    返回:
+        List[str]: 工具集中所有工具名称的列表
     """
     if visited is None:
         visited = set()
     
-    # Special aliases that represent all tools across every toolset
-    # This ensures future toolsets are automatically included without changes.
+    # 代表所有工具集中所有工具的特殊别名
+    # 这确保未来的工具集会自动包含，无需更改。
     if name in {"all", "*"}:
         all_tools: Set[str] = set()
         for toolset_name in get_toolset_names():
-            # Use a fresh visited set per branch to avoid cross-branch contamination
+            # 每个分支使用新的 visited 集合以避免跨分支污染
             resolved = resolve_toolset(toolset_name, visited.copy())
             all_tools.update(resolved)
         return list(all_tools)
 
-    # Check for cycles / already-resolved (diamond deps).
-    # Silently return [] — either this is a diamond (not a bug, tools already
-    # collected via another path) or a genuine cycle (safe to skip).
+    # 检查循环 / 已解析（菱形依赖）。
+    # 静默返回 [] — 要么是菱形（不是 bug，工具已通过
+    # 另一条路径收集），要么是真正的循环（安全跳过）。
     if name in visited:
         return []
 
     visited.add(name)
 
-    # Get toolset definition
+    # 获取工具集定义
     toolset = TOOLSETS.get(name)
     if not toolset:
-        # Fall back to tool registry for plugin-provided toolsets
+        # 回退到工具注册表以获取插件提供的工具集
         if name in _get_plugin_toolset_names():
             try:
                 from tools.registry import registry
@@ -442,12 +440,12 @@ def resolve_toolset(name: str, visited: Set[str] = None) -> List[str]:
                 pass
         return []
 
-    # Collect direct tools
+    # 收集直接工具
     tools = set(toolset.get("tools", []))
 
-    # Recursively resolve included toolsets, sharing the visited set across
-    # sibling includes so diamond dependencies are only resolved once and
-    # cycle warnings don't fire multiple times for the same cycle.
+    # 递归解析包含的工具集，在兄弟包含之间共享 visited 集合，
+    # 以便菱形依赖只解析一次，且同一循环的循环警告
+    # 不会触发多次。
     for included_name in toolset.get("includes", []):
         included_tools = resolve_toolset(included_name, visited)
         tools.update(included_tools)
@@ -457,13 +455,13 @@ def resolve_toolset(name: str, visited: Set[str] = None) -> List[str]:
 
 def resolve_multiple_toolsets(toolset_names: List[str]) -> List[str]:
     """
-    Resolve multiple toolsets and combine their tools.
+    解析多个工具集并组合它们的工具。
     
-    Args:
-        toolset_names (List[str]): List of toolset names to resolve
+    参数:
+        toolset_names (List[str]): 要解析的工具集名称列表
         
-    Returns:
-        List[str]: Combined list of all tool names (deduplicated)
+    返回:
+        List[str]: 所有工具名称的合并列表（去重）
     """
     all_tools = set()
     
@@ -475,10 +473,10 @@ def resolve_multiple_toolsets(toolset_names: List[str]) -> List[str]:
 
 
 def _get_plugin_toolset_names() -> Set[str]:
-    """Return toolset names registered by plugins (from the tool registry).
+    """返回由插件注册的工具集名称（来自工具注册表）。
 
-    These are toolsets that exist in the registry but not in the static
-    ``TOOLSETS`` dict — i.e. they were added by plugins at load time.
+    这些是存在于注册表中但不在静态 ``TOOLSETS`` 字典中的工具集
+    —— 即它们是在加载时由插件添加的。
     """
     try:
         from tools.registry import registry
@@ -493,22 +491,22 @@ def _get_plugin_toolset_names() -> Set[str]:
 
 def get_all_toolsets() -> Dict[str, Dict[str, Any]]:
     """
-    Get all available toolsets with their definitions.
+    获取所有可用的工具集及其定义。
 
-    Includes both statically-defined toolsets and plugin-registered ones.
+    包括静态定义的工具集和插件注册的工具集。
     
-    Returns:
-        Dict: All toolset definitions
+    返回:
+        Dict: 所有工具集定义
     """
     result = TOOLSETS.copy()
-    # Add plugin-provided toolsets (synthetic entries)
+    # 添加插件提供的工具集（合成条目）
     for ts_name in _get_plugin_toolset_names():
         if ts_name not in result:
             try:
                 from tools.registry import registry
                 tools = [e.name for e in registry._tools.values() if e.toolset == ts_name]
                 result[ts_name] = {
-                    "description": f"Plugin toolset: {ts_name}",
+                    "description": f"插件工具集: {ts_name}",
                     "tools": tools,
                 }
             except Exception:
@@ -518,12 +516,12 @@ def get_all_toolsets() -> Dict[str, Dict[str, Any]]:
 
 def get_toolset_names() -> List[str]:
     """
-    Get names of all available toolsets (excluding aliases).
+    获取所有可用工具集的名称（不包括别名）。
 
-    Includes plugin-registered toolset names.
+    包括插件注册的工具集名称。
     
-    Returns:
-        List[str]: List of toolset names
+    返回:
+        List[str]: 工具集名称列表
     """
     names = set(TOOLSETS.keys())
     names |= _get_plugin_toolset_names()
@@ -534,20 +532,20 @@ def get_toolset_names() -> List[str]:
 
 def validate_toolset(name: str) -> bool:
     """
-    Check if a toolset name is valid.
+    检查工具集名称是否有效。
     
-    Args:
-        name (str): Toolset name to validate
+    参数:
+        name (str): 要验证的工具集名称
         
-    Returns:
-        bool: True if valid, False otherwise
+    返回:
+        bool: 如果有效返回 True，否则返回 False
     """
-    # Accept special alias names for convenience
+    # 为了方便接受特殊别名名称
     if name in {"all", "*"}:
         return True
     if name in TOOLSETS:
         return True
-    # Check tool registry for plugin-provided toolsets
+    # 检查工具注册表以获取插件提供的工具集
     return name in _get_plugin_toolset_names()
 
 
@@ -558,13 +556,13 @@ def create_custom_toolset(
     includes: List[str] = None
 ) -> None:
     """
-    Create a custom toolset at runtime.
+    在运行时创建自定义工具集。
     
-    Args:
-        name (str): Name for the new toolset
-        description (str): Description of the toolset
-        tools (List[str]): Direct tools to include
-        includes (List[str]): Other toolsets to include
+    参数:
+        name (str): 新工具集的名称
+        description (str): 工具集描述
+        tools (List[str]): 要包含的直接工具
+        includes (List[str]): 要包含的其他工具集
     """
     TOOLSETS[name] = {
         "description": description,
@@ -577,13 +575,13 @@ def create_custom_toolset(
 
 def get_toolset_info(name: str) -> Dict[str, Any]:
     """
-    Get detailed information about a toolset including resolved tools.
+    获取工具集的详细信息，包括解析后的工具。
     
-    Args:
-        name (str): Toolset name
+    参数:
+        name (str): 工具集名称
         
-    Returns:
-        Dict: Detailed toolset information
+    返回:
+        Dict: 详细的工具集信息
     """
     toolset = get_toolset(name)
     if not toolset:
@@ -605,39 +603,39 @@ def get_toolset_info(name: str) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    print("Toolsets System Demo")
+    print("工具集系统演示")
     print("=" * 60)
     
-    print("\nAvailable Toolsets:")
+    print("\n可用工具集:")
     print("-" * 40)
     for name, toolset in get_all_toolsets().items():
         info = get_toolset_info(name)
-        composite = "[composite]" if info["is_composite"] else "[leaf]"
+        composite = "[组合]" if info["is_composite"] else "[独立]"
         print(f"  {composite} {name:20} - {toolset['description']}")
-        print(f"     Tools: {len(info['resolved_tools'])} total")
+        print(f"     工具数: {len(info['resolved_tools'])} 个")
     
-    print("\nToolset Resolution Examples:")
+    print("\n工具集解析示例:")
     print("-" * 40)
     for name in ["web", "terminal", "safe", "debugging"]:
         tools = resolve_toolset(name)
         print(f"\n  {name}:")
-        print(f"    Resolved to {len(tools)} tools: {', '.join(sorted(tools))}")
+        print(f"    解析为 {len(tools)} 个工具: {', '.join(sorted(tools))}")
     
-    print("\nMultiple Toolset Resolution:")
+    print("\n多工具集解析:")
     print("-" * 40)
     combined = resolve_multiple_toolsets(["web", "vision", "terminal"])
-    print("  Combining ['web', 'vision', 'terminal']:")
-    print(f"    Result: {', '.join(sorted(combined))}")
+    print("  组合 ['web', 'vision', 'terminal']:")
+    print(f"    结果: {', '.join(sorted(combined))}")
     
-    print("\nCustom Toolset Creation:")
+    print("\n创建自定义工具集:")
     print("-" * 40)
     create_custom_toolset(
         name="my_custom",
-        description="My custom toolset for specific tasks",
+        description="我的自定义工具集，用于特定任务",
         tools=["web_search"],
         includes=["terminal", "vision"]
     )
     custom_info = get_toolset_info("my_custom")
-    print("  Created 'my_custom' toolset:")
-    print(f"    Description: {custom_info['description']}")
-    print(f"    Resolved tools: {', '.join(custom_info['resolved_tools'])}")
+    print("  创建了 'my_custom' 工具集:")
+    print(f"    描述: {custom_info['description']}")
+    print(f"    解析后的工具: {', '.join(custom_info['resolved_tools'])}")

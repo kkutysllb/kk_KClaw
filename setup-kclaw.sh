@@ -1,25 +1,25 @@
 #!/bin/bash
 # ============================================================================
-# KClaw Agent Setup Script
+# KClaw Agent 安装脚本
 # ============================================================================
-# Quick setup for developers who cloned the repo manually.
-# Uses uv for fast Python provisioning and package management.
+# 适用于手动克隆仓库的开发者的快速安装方式。
+# 使用 uv 进行快速 Python 配置和包管理。
 #
-# Usage:
+# 使用方法:
 #   ./setup-kclaw.sh
 #
-# This script:
-# 1. Installs uv if not present
-# 2. Creates a virtual environment with Python 3.11 via uv
-# 3. Installs all dependencies (main package + submodules)
-# 4. Creates .env from template (if not exists)
-# 5. Symlinks the 'kclaw' CLI command into ~/.local/bin
-# 6. Runs the setup wizard (optional)
+# 此脚本执行以下操作:
+# 1. 安装 uv（如未安装）
+# 2. 通过 uv 使用 Python 3.11 创建虚拟环境
+# 3. 安装所有依赖（主包 + 子模块）
+# 4. 从模板创建 .env 文件（如不存在）
+# 5. 将 'kclaw' CLI 命令符号链接到 ~/.local/bin
+# 6. 运行安装向导（可选）
 # ============================================================================
 
 set -e
 
-# Colors
+# 颜色
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 CYAN='\033[0;36m'
@@ -32,14 +32,14 @@ cd "$SCRIPT_DIR"
 PYTHON_VERSION="3.11"
 
 echo ""
-echo -e "${CYAN}⚕ KClaw Agent Setup${NC}"
+echo -e "${CYAN}⚕ KClaw Agent 安装脚本${NC}"
 echo ""
 
 # ============================================================================
-# Install / locate uv
+# 安装 / 定位 uv
 # ============================================================================
 
-echo -e "${CYAN}→${NC} Checking for uv..."
+echo -e "${CYAN}→${NC} 检查 uv 是否存在..."
 
 UV_CMD=""
 if command -v uv &> /dev/null; then
@@ -51,10 +51,9 @@ elif [ -x "$HOME/.cargo/bin/uv" ]; then
 fi
 
 if [ -n "$UV_CMD" ]; then
-    UV_VERSION=$($UV_CMD --version 2>/dev/null)
-    echo -e "${GREEN}✓${NC} uv found ($UV_VERSION)"
+    echo -e "${GREEN}✓${NC} uv 已找到 ($UV_VERSION)"
 else
-    echo -e "${CYAN}→${NC} Installing uv..."
+    echo -e "${CYAN}→${NC} 正在安装 uv..."
     if curl -LsSf https://astral.sh/uv/install.sh | sh 2>/dev/null; then
         if [ -x "$HOME/.local/bin/uv" ]; then
             UV_CMD="$HOME/.local/bin/uv"
@@ -64,104 +63,104 @@ else
         
         if [ -n "$UV_CMD" ]; then
             UV_VERSION=$($UV_CMD --version 2>/dev/null)
-            echo -e "${GREEN}✓${NC} uv installed ($UV_VERSION)"
+            echo -e "${GREEN}✓${NC} uv 已安装 ($UV_VERSION)"
         else
-            echo -e "${RED}✗${NC} uv installed but not found. Add ~/.local/bin to PATH and retry."
+            echo -e "${RED}✗${NC} uv 已安装但未找到。请将 ~/.local/bin 添加到 PATH 后重试。"
             exit 1
         fi
     else
-        echo -e "${RED}✗${NC} Failed to install uv. Visit https://docs.astral.sh/uv/"
+        echo -e "${RED}✗${NC} uv 安装失败。请访问 https://docs.astral.sh/uv/"
         exit 1
     fi
 fi
 
 # ============================================================================
-# Python check (uv can provision it automatically)
+# Python 检查 (uv 可自动配置)
 # ============================================================================
 
-echo -e "${CYAN}→${NC} Checking Python $PYTHON_VERSION..."
+echo -e "${CYAN}→${NC} 检查 Python $PYTHON_VERSION..."
 
 if $UV_CMD python find "$PYTHON_VERSION" &> /dev/null; then
     PYTHON_PATH=$($UV_CMD python find "$PYTHON_VERSION")
     PYTHON_FOUND_VERSION=$($PYTHON_PATH --version 2>/dev/null)
-    echo -e "${GREEN}✓${NC} $PYTHON_FOUND_VERSION found"
+    echo -e "${GREEN}✓${NC} $PYTHON_FOUND_VERSION 已找到"
 else
-    echo -e "${CYAN}→${NC} Python $PYTHON_VERSION not found, installing via uv..."
+    echo -e "${CYAN}→${NC} Python $PYTHON_VERSION 未找到，正在通过 uv 安装..."
     $UV_CMD python install "$PYTHON_VERSION"
     PYTHON_PATH=$($UV_CMD python find "$PYTHON_VERSION")
     PYTHON_FOUND_VERSION=$($PYTHON_PATH --version 2>/dev/null)
-    echo -e "${GREEN}✓${NC} $PYTHON_FOUND_VERSION installed"
+    echo -e "${GREEN}✓${NC} $PYTHON_FOUND_VERSION 已安装"
 fi
 
 # ============================================================================
-# Virtual environment
+# 虚拟环境
 # ============================================================================
 
-echo -e "${CYAN}→${NC} Setting up virtual environment..."
+echo -e "${CYAN}→${NC} 设置虚拟环境..."
 
 if [ -d "venv" ]; then
-    echo -e "${CYAN}→${NC} Removing old venv..."
+    echo -e "${CYAN}→${NC} 移除旧的虚拟环境..."
     rm -rf venv
 fi
 
 $UV_CMD venv venv --python "$PYTHON_VERSION"
-echo -e "${GREEN}✓${NC} venv created (Python $PYTHON_VERSION)"
+echo -e "${GREEN}✓${NC} 虚拟环境已创建 (Python $PYTHON_VERSION)"
 
-# Tell uv to install into this venv (no activation needed for uv)
+# 告诉 uv 安装到此虚拟环境（uv 无需激活即可使用）
 export VIRTUAL_ENV="$SCRIPT_DIR/venv"
 
 # ============================================================================
-# Dependencies
+# 依赖安装
 # ============================================================================
 
-echo -e "${CYAN}→${NC} Installing dependencies..."
+echo -e "${CYAN}→${NC} 安装依赖..."
 
-# Prefer uv sync with lockfile (hash-verified installs) when available,
-# fall back to pip install for compatibility or when lockfile is stale.
+# 优先使用 uv sync + lockfile（哈希验证安装）
+# 回退到 pip install 以保证兼容性或当 lockfile 过时
 if [ -f "uv.lock" ]; then
-    echo -e "${CYAN}→${NC} Using uv.lock for hash-verified installation..."
+    echo -e "${CYAN}→${NC} 使用 uv.lock 进行哈希验证安装..."
     UV_PROJECT_ENVIRONMENT="$SCRIPT_DIR/venv" $UV_CMD sync --all-extras --locked 2>/dev/null && \
-        echo -e "${GREEN}✓${NC} Dependencies installed (lockfile verified)" || {
-        echo -e "${YELLOW}⚠${NC} Lockfile install failed (may be outdated), falling back to pip install..."
+        echo -e "${GREEN}✓${NC} 依赖已安装（lockfile 验证通过）" || {
+        echo -e "${YELLOW}⚠${NC} Lockfile 安装失败（可能已过期），回退到 pip install..."
         $UV_CMD pip install -e ".[all]" || $UV_CMD pip install -e "."
-        echo -e "${GREEN}✓${NC} Dependencies installed"
+        echo -e "${GREEN}✓${NC} 依赖已安装"
     }
 else
     $UV_CMD pip install -e ".[all]" || $UV_CMD pip install -e "."
-    echo -e "${GREEN}✓${NC} Dependencies installed"
+    echo -e "${GREEN}✓${NC} 依赖已安装"
 fi
 
 # ============================================================================
-# Submodules (terminal backend + RL training)
+# 子模块（终端后端 + 强化学习训练）
 # ============================================================================
 
-echo -e "${CYAN}→${NC} Installing optional submodules..."
+echo -e "${CYAN}→${NC} 安装可选子模块..."
 
-# tinker-atropos (RL training backend)
+# tinker-atropos (强化学习训练后端)
 if [ -d "tinker-atropos" ] && [ -f "tinker-atropos/pyproject.toml" ]; then
     $UV_CMD pip install -e "./tinker-atropos" && \
-        echo -e "${GREEN}✓${NC} tinker-atropos installed" || \
-        echo -e "${YELLOW}⚠${NC} tinker-atropos install failed (RL tools may not work)"
+        echo -e "${GREEN}✓${NC} tinker-atropos 已安装" || \
+        echo -e "${YELLOW}⚠${NC} tinker-atropos 安装失败（强化学习工具可能无法使用）"
 else
-    echo -e "${YELLOW}⚠${NC} tinker-atropos not found (run: git submodule update --init --recursive)"
+    echo -e "${YELLOW}⚠${NC} tinker-atropos 未找到（运行: git submodule update --init --recursive）"
 fi
 
 # ============================================================================
-# Optional: ripgrep (for faster file search)
+# 可选: ripgrep（用于更快的文件搜索）
 # ============================================================================
 
-echo -e "${CYAN}→${NC} Checking ripgrep (optional, for faster search)..."
+echo -e "${CYAN}→${NC} 检查 ripgrep（可选，用于更快的搜索）..."
 
 if command -v rg &> /dev/null; then
-    echo -e "${GREEN}✓${NC} ripgrep found"
+    echo -e "${GREEN}✓${NC} ripgrep 已找到"
 else
-    echo -e "${YELLOW}⚠${NC} ripgrep not found (file search will use grep fallback)"
-    read -p "Install ripgrep for faster search? [Y/n] " -n 1 -r
+    echo -e "${YELLOW}⚠${NC} ripgrep 未找到（文件搜索将使用 grep 回退方案）"
+    read -p "安装 ripgrep 以加快搜索速度？[Y/n] " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
         INSTALLED=false
         
-        # Check if sudo is available
+        # 检查 sudo 是否可用
         if command -v sudo &> /dev/null && sudo -n true 2>/dev/null; then
             if command -v apt &> /dev/null; then
                 sudo apt install -y ripgrep && INSTALLED=true
@@ -170,54 +169,54 @@ else
             fi
         fi
         
-        # Try brew (no sudo needed)
+        # 尝试 brew（无需 sudo）
         if [ "$INSTALLED" = false ] && command -v brew &> /dev/null; then
             brew install ripgrep && INSTALLED=true
         fi
         
-        # Try cargo (no sudo needed)
+        # 尝试 cargo（无需 sudo）
         if [ "$INSTALLED" = false ] && command -v cargo &> /dev/null; then
-            echo -e "${CYAN}→${NC} Trying cargo install (no sudo required)..."
+            echo -e "${CYAN}→${NC} 尝试 cargo install（无需 sudo）..."
             cargo install ripgrep && INSTALLED=true
         fi
         
         if [ "$INSTALLED" = true ]; then
-            echo -e "${GREEN}✓${NC} ripgrep installed"
+            echo -e "${GREEN}✓${NC} ripgrep 已安装"
         else
-            echo -e "${YELLOW}⚠${NC} Auto-install failed. Install options:"
+            echo -e "${YELLOW}⚠${NC} 自动安装失败。可选安装方式："
             echo "    sudo apt install ripgrep     # Debian/Ubuntu"
             echo "    brew install ripgrep         # macOS"
-            echo "    cargo install ripgrep        # With Rust (no sudo)"
+            echo "    cargo install ripgrep        # 使用 Rust（无需 sudo）"
             echo "    https://github.com/BurntSushi/ripgrep#installation"
         fi
     fi
 fi
 
 # ============================================================================
-# Environment file
+# 环境变量文件
 # ============================================================================
 
 if [ ! -f ".env" ]; then
     if [ -f ".env.example" ]; then
         cp .env.example .env
-        echo -e "${GREEN}✓${NC} Created .env from template"
+        echo -e "${GREEN}✓${NC} 已从模板创建 .env 文件"
     fi
 else
-    echo -e "${GREEN}✓${NC} .env exists"
+    echo -e "${GREEN}✓${NC} .env 已存在"
 fi
 
 # ============================================================================
-# PATH setup — symlink kclaw into ~/.local/bin
+# PATH 设置 — 将 kclaw 符号链接到 ~/.local/bin
 # ============================================================================
 
-echo -e "${CYAN}→${NC} Setting up kclaw command..."
+echo -e "${CYAN}→${NC} 设置 kclaw 命令..."
 
 KCLAW_BIN="$SCRIPT_DIR/venv/bin/kclaw"
 mkdir -p "$HOME/.local/bin"
 ln -sf "$KCLAW_BIN" "$HOME/.local/bin/kclaw"
-echo -e "${GREEN}✓${NC} Symlinked kclaw → ~/.local/bin/kclaw"
+echo -e "${GREEN}✓${NC} 已创建符号链接 kclaw → ~/.local/bin/kclaw"
 
-# Determine the appropriate shell config file
+# 确定合适的 shell 配置文件
 SHELL_CONFIG=""
 if [[ "$SHELL" == *"zsh"* ]]; then
     SHELL_CONFIG="$HOME/.zshrc"
@@ -225,7 +224,7 @@ elif [[ "$SHELL" == *"bash"* ]]; then
     SHELL_CONFIG="$HOME/.bashrc"
     [ ! -f "$SHELL_CONFIG" ] && SHELL_CONFIG="$HOME/.bash_profile"
 else
-    # Fallback to checking existing files
+    # 回退方案：检查现有文件
     if [ -f "$HOME/.zshrc" ]; then
         SHELL_CONFIG="$HOME/.zshrc"
     elif [ -f "$HOME/.bashrc" ]; then
@@ -236,72 +235,72 @@ else
 fi
 
 if [ -n "$SHELL_CONFIG" ]; then
-    # Touch the file just in case it doesn't exist yet but was selected
+    # 以防文件不存在但已被选中，先创建它
     touch "$SHELL_CONFIG" 2>/dev/null || true
     
     if ! echo "$PATH" | tr ':' '\n' | grep -q "^$HOME/.local/bin$"; then
         if ! grep -q '\.local/bin' "$SHELL_CONFIG" 2>/dev/null; then
             echo "" >> "$SHELL_CONFIG"
-            echo "# KClaw Agent — ensure ~/.local/bin is on PATH" >> "$SHELL_CONFIG"
+            echo "# KClaw Agent — 确保 ~/.local/bin 在 PATH 中" >> "$SHELL_CONFIG"
             echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$SHELL_CONFIG"
-            echo -e "${GREEN}✓${NC} Added ~/.local/bin to PATH in $SHELL_CONFIG"
+            echo -e "${GREEN}✓${NC} 已在 $SHELL_CONFIG 中添加 ~/.local/bin 到 PATH"
         else
-            echo -e "${GREEN}✓${NC} ~/.local/bin already in $SHELL_CONFIG"
+            echo -e "${GREEN}✓${NC} ~/.local/bin 已在 $SHELL_CONFIG 中"
         fi
     else
-        echo -e "${GREEN}✓${NC} ~/.local/bin already on PATH"
+        echo -e "${GREEN}✓${NC} ~/.local/bin 已在 PATH 中"
     fi
 fi
 
 # ============================================================================
-# Seed bundled skills into ~/.kclaw/skills/
+# 将捆绑的技能同步到 ~/.kclaw/skills/
 # ============================================================================
 
 KCLAW_SKILLS_DIR="${KCLAW_HOME:-$HOME/.kclaw}/skills"
 mkdir -p "$KCLAW_SKILLS_DIR"
 
 echo ""
-echo "Syncing bundled skills to ~/.kclaw/skills/ ..."
+echo "正在将捆绑的技能同步到 ~/.kclaw/skills/ ..."
 if "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/tools/skills_sync.py" 2>/dev/null; then
-    echo -e "${GREEN}✓${NC} Skills synced"
+    echo -e "${GREEN}✓${NC} 技能已同步"
 else
-    # Fallback: copy if sync script fails (missing deps, etc.)
+    # 回退：如果同步脚本失败则复制（缺少依赖等）
     if [ -d "$SCRIPT_DIR/skills" ]; then
         cp -rn "$SCRIPT_DIR/skills/"* "$KCLAW_SKILLS_DIR/" 2>/dev/null || true
-        echo -e "${GREEN}✓${NC} Skills copied"
+        echo -e "${GREEN}✓${NC} 技能已复制"
     fi
 fi
 
 # ============================================================================
-# Done
+# 完成
 # ============================================================================
 
 echo ""
-echo -e "${GREEN}✓ Setup complete!${NC}"
+echo -e "${GREEN}✓ 安装完成！${NC}"
 echo ""
-echo "Next steps:"
+echo "后续步骤："
 echo ""
-echo "  1. Reload your shell:"
+echo "  1. 重新加载 shell："
 echo "     source $SHELL_CONFIG"
 echo ""
-echo "  2. Run the setup wizard to configure API keys:"
+echo "  2. 运行安装向导配置 API 密钥："
 echo "     kclaw setup"
 echo ""
-echo "  3. Start chatting:"
+echo "  3. 开始对话："
 echo "     kclaw"
 echo ""
-echo "Other commands:"
-echo "  kclaw status        # Check configuration"
-echo "  kclaw gateway install # Install gateway service (messaging + cron)"
-echo "  kclaw cron list     # View scheduled jobs"
-echo "  kclaw doctor        # Diagnose issues"
+echo "其他命令："
+echo "  kclaw status        # 检查配置"
+echo "  kclaw gateway install # 安装 gateway 服务（消息 + 定时任务）"
+echo "  kclaw cron list     # 查看定时任务"
+echo "  kclaw doctor        # 诊断问题"
 echo ""
 
-# Ask if they want to run setup wizard now
-read -p "Would you like to run the setup wizard now? [Y/n] " -n 1 -r
+# 询问是否现在运行安装向导
+read -p "是否现在运行安装向导？[Y/n] " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
     echo ""
-    # Run directly with venv Python (no activation needed)
+    # 直接使用 venv Python 运行（无需激活）
     "$SCRIPT_DIR/venv/bin/python" -m kclaw_cli.main setup
 fi

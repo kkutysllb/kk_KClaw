@@ -198,7 +198,7 @@ def _cmd_list(args):
         if desc:
             print(f"    {desc}")
         print(f"    URL:     {base_url}/webhooks/{name}")
-        print(f"    Events:  {events}")
+        print(f"    事件:   {events}")
         print(f"    Deliver: {deliver}")
         print()
 

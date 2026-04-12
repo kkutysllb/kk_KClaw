@@ -1,6 +1,6 @@
 name: honcho
 version: 1.0.0
-description: "Honcho AI-native memory — cross-session user modeling with dialectic Q&A, semantic search, and persistent conclusions."
+description: "Honcho AI原生记忆 — 跨会话用户建模、辩证问答、语义搜索与持久化结论。"
 pip_dependencies:
   - honcho-ai
 hooks:

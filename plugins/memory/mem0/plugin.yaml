@@ -1,5 +1,5 @@
 name: mem0
 version: 1.0.0
-description: "Mem0 — server-side LLM fact extraction with semantic search, reranking, and automatic deduplication."
+description: "Mem0 —— 支持语义搜索、重排序和自动去重的服务端 LLM 事实提取工具。"
 pip_dependencies:
   - mem0ai

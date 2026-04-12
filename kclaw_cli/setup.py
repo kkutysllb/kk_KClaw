@@ -331,33 +331,33 @@ from kclaw_cli.colors import Colors, color
 
 
 def print_header(title: str):
-    """Print a section header."""
+    """打印章节标题。"""
     print()
     print(color(f"◆ {title}", Colors.CYAN, Colors.BOLD))
 
 
 def print_info(text: str):
-    """Print info text."""
+    """打印信息文本。"""
     print(color(f"  {text}", Colors.DIM))
 
 
 def print_success(text: str):
-    """Print success message."""
+    """打印成功消息。"""
     print(color(f"✓ {text}", Colors.GREEN))
 
 
 def print_warning(text: str):
-    """Print warning message."""
+    """打印警告消息。"""
     print(color(f"⚠ {text}", Colors.YELLOW))
 
 
 def print_error(text: str):
-    """Print error message."""
+    """打印错误消息。"""
     print(color(f"✗ {text}", Colors.RED))
 
 
 def is_interactive_stdin() -> bool:
-    """Return True when stdin looks like a usable interactive TTY."""
+    """当 stdin 看起来像一个可用的交互式 TTY 时返回 True。"""
     stdin = getattr(sys, "stdin", None)
     if stdin is None:
         return False
@@ -368,26 +368,26 @@ def is_interactive_stdin() -> bool:
 
 
 def print_noninteractive_setup_guidance(reason: str | None = None) -> None:
-    """Print guidance for headless/non-interactive setup flows."""
+    """打印适用于无头/非交互式设置流程的指导。"""
     print()
-    print(color("⚕ KClaw Setup — Non-interactive mode", Colors.CYAN, Colors.BOLD))
+    print(color("⚕ KClaw 设置 — 非交互模式", Colors.CYAN, Colors.BOLD))
     print()
     if reason:
         print_info(reason)
-    print_info("The interactive wizard cannot be used here.")
+    print_info("交互式向导无法在此使用。")
     print()
-    print_info("Configure KClaw using environment variables or config commands:")
+    print_info("使用环境变量或 config 命令配置 KClaw:")
     print_info("  kclaw config set model.provider custom")
     print_info("  kclaw config set model.base_url http://localhost:8080/v1")
     print_info("  kclaw config set model.default your-model-name")
     print()
-    print_info("Or set OPENROUTER_API_KEY / OPENAI_API_KEY in your environment.")
-    print_info("Run 'kclaw setup' in an interactive terminal to use the full wizard.")
+    print_info("或者在您的环境中设置 OPENROUTER_API_KEY / OPENAI_API_KEY。")
+    print_info("在交互式终端中运行 'kclaw setup' 来使用完整向导。")
     print()
 
 
 def prompt(question: str, default: str = None, password: bool = False) -> str:
-    """Prompt for input with optional default."""
+    """提示输入,可选择默认值。"""
     if default:
         display = f"{question} [{default}]: "
     else:
@@ -408,7 +408,7 @@ def prompt(question: str, default: str = None, password: bool = False) -> str:
 
 
 def _curses_prompt_choice(question: str, choices: list, default: int = 0) -> int:
-    """Single-select menu using curses to avoid simple_term_menu rendering bugs."""
+    """使用 curses 的单项选择菜单,以避免 simple_term_menu 渲染错误。"""
     try:
         import curses
         result_holder = [default]
@@ -527,7 +527,7 @@ def prompt_choice(question: str, choices: list, default: int = 0) -> int:
 
 
 def prompt_yes_no(question: str, default: bool = True) -> bool:
-    """Prompt for yes/no. Ctrl+C exits, empty input returns default."""
+    """是/否提示。Ctrl+C 退出,空输入返回默认值。"""
     default_str = "Y/n" if default else "y/N"
 
     while True:
@@ -580,7 +580,7 @@ def prompt_checklist(title: str, items: list, pre_selected: list = None) -> list
 
 
 def _prompt_api_key(var: dict):
-    """Display a nicely formatted API key input screen for a single env var."""
+    """为单个环境变量显示格式良好的 API 密钥输入界面。"""
     tools = var.get("tools", [])
     tools_str = ", ".join(tools[:3])
     if len(tools) > 3:
@@ -608,7 +608,7 @@ def _prompt_api_key(var: dict):
 
 
 def _print_setup_summary(config: dict, kclaw_home):
-    """Print the setup completion summary."""
+    """打印设置完成摘要。"""
     # Tool availability summary
     print()
     print_header("Tool Availability Summary")
@@ -833,7 +833,7 @@ def _print_setup_summary(config: dict, kclaw_home):
 
 
 def _prompt_container_resources(config: dict):
-    """Prompt for container resource settings (Docker, Singularity, Modal, Daytona)."""
+    """提示容器资源设置（Docker、Singularity、Modal、Daytona）。"""
     terminal = config.setdefault("terminal", {})
 
     print()
@@ -1115,13 +1115,13 @@ def setup_model_provider(config: dict, *, quick: bool = False):
 
 
 def _check_espeak_ng() -> bool:
-    """Check if espeak-ng is installed."""
+    """检查 espeak-ng 是否已安装。"""
     import shutil
     return shutil.which("espeak-ng") is not None or shutil.which("espeak") is not None
 
 
 def _install_neutts_deps() -> bool:
-    """Install NeuTTS dependencies with user approval. Returns True on success."""
+    """在用户同意后安装 NeuTTS 依赖项。成功时返回 True。"""
     import subprocess
     import sys
 
@@ -1130,13 +1130,13 @@ def _install_neutts_deps() -> bool:
         print()
         print_warning("NeuTTS requires espeak-ng for phonemization.")
         if sys.platform == "darwin":
-            print_info("Install with: brew install espeak-ng")
+            print_info("安装命令: brew install espeak-ng")
         elif sys.platform == "win32":
-            print_info("Install with: choco install espeak-ng")
+            print_info("安装命令: choco install espeak-ng")
         else:
-            print_info("Install with: sudo apt install espeak-ng")
+            print_info("安装命令: sudo apt install espeak-ng")
         print()
-        if prompt_yes_no("Install espeak-ng now?", True):
+        if prompt_yes_no("现在安装 espeak-ng?", True):
             try:
                 if sys.platform == "darwin":
                     subprocess.run(["brew", "install", "espeak-ng"], check=True)
@@ -1171,7 +1171,7 @@ def _install_neutts_deps() -> bool:
 
 
 def _setup_tts_provider(config: dict):
-    """Interactive TTS provider selection with install flow for NeuTTS."""
+    """交互式 TTS 提供者选择,包括 NeuTTS 的安装流程。"""
     tts_config = config.get("tts", {})
     current_provider = tts_config.get("provider", "edge")
     subscription_features = get_nous_subscription_features(config)
@@ -1291,7 +1291,7 @@ def _setup_tts_provider(config: dict):
 
 
 def setup_tts(config: dict):
-    """Standalone TTS setup (for 'kclaw setup tts')."""
+    """独立 TTS 设置（用于 'kclaw setup tts'）。"""
     _setup_tts_provider(config)
 
 
@@ -1503,7 +1503,7 @@ def setup_terminal_backend(config: dict):
             print_info("  Get your token at: https://modal.com/settings")
             existing_token = get_env_value("MODAL_TOKEN_ID")
             if existing_token:
-                print_info("  Modal token: already configured")
+                print_info("  Modal 令牌: 已配置")
                 if prompt_yes_no("  Update Modal credentials?", False):
                     token_id = prompt("    Modal Token ID", password=True)
                     token_secret = prompt("    Modal Token Secret", password=True)
@@ -1558,7 +1558,7 @@ def setup_terminal_backend(config: dict):
         print()
         existing_key = get_env_value("DAYTONA_API_KEY")
         if existing_key:
-            print_info("  Daytona API key: already configured")
+            print_info("  Daytona API 密钥: 已配置")
             if prompt_yes_no("  Update API key?", False):
                 api_key = prompt("    Daytona API key", password=True)
                 if api_key:
@@ -1644,7 +1644,7 @@ def setup_terminal_backend(config: dict):
 
 
 def _apply_default_agent_settings(config: dict):
-    """Apply recommended defaults for all agent settings without prompting."""
+    """在提示前为所有代理设置应用推荐的默认值。"""
     config.setdefault("agent", {})["max_turns"] = 90
     save_env_value("KCLAW_MAX_ITERATIONS", "90")
 
@@ -1669,7 +1669,7 @@ def _apply_default_agent_settings(config: dict):
 
 
 def setup_agent_settings(config: dict):
-    """Configure agent behavior: iterations, progress display, compression, session reset."""
+    """配置代理行为:迭代次数、进度显示、压缩、会话重置。"""
 
     print_header("Agent Settings")
     print_info(f"   Guide: {_DOCS_BASE}/user-guide/configuration")
@@ -1839,12 +1839,12 @@ def setup_agent_settings(config: dict):
 
 
 def _setup_telegram():
-    """Configure Telegram bot credentials and allowlist."""
+    """配置 Telegram 机器人凭据和白名单。"""
     print_header("Telegram")
     existing = get_env_value("TELEGRAM_BOT_TOKEN")
     if existing:
-        print_info("Telegram: already configured")
-        if not prompt_yes_no("Reconfigure Telegram?", False):
+        print_info("Telegram: 已配置")
+        if not prompt_yes_no("重新配置 Telegram?", False):
             # Check missing allowlist on existing config
             if not get_env_value("TELEGRAM_ALLOWED_USERS"):
                 print_info("⚠️  Telegram has no user allowlist - anyone can use your bot!")
@@ -1900,12 +1900,12 @@ def _setup_telegram():
 
 
 def _setup_discord():
-    """Configure Discord bot credentials and allowlist."""
+    """配置 Discord 机器人凭据和白名单。"""
     print_header("Discord")
     existing = get_env_value("DISCORD_BOT_TOKEN")
     if existing:
-        print_info("Discord: already configured")
-        if not prompt_yes_no("Reconfigure Discord?", False):
+        print_info("Discord: 已配置")
+        if not prompt_yes_no("重新配置 Discord?", False):
             if not get_env_value("DISCORD_ALLOWED_USERS"):
                 print_info("⚠️  Discord has no user allowlist - anyone can use your bot!")
                 if prompt_yes_no("Add allowed users now?", True):
@@ -1968,12 +1968,12 @@ def _clean_discord_user_ids(raw: str) -> list:
 
 
 def _setup_slack():
-    """Configure Slack bot credentials."""
+    """配置 Slack 机器人凭据。"""
     print_header("Slack")
     existing = get_env_value("SLACK_BOT_TOKEN")
     if existing:
-        print_info("Slack: already configured")
-        if not prompt_yes_no("Reconfigure Slack?", False):
+        print_info("Slack: 已配置")
+        if not prompt_yes_no("重新配置 Slack?", False):
             return
 
     print_info("Steps to create a Slack app:")
@@ -2021,12 +2021,12 @@ def _setup_slack():
 
 
 def _setup_matrix():
-    """Configure Matrix credentials."""
+    """配置 Matrix 凭据。"""
     print_header("Matrix")
     existing = get_env_value("MATRIX_ACCESS_TOKEN") or get_env_value("MATRIX_PASSWORD")
     if existing:
-        print_info("Matrix: already configured")
-        if not prompt_yes_no("Reconfigure Matrix?", False):
+        print_info("Matrix: 已配置")
+        if not prompt_yes_no("重新配置 Matrix?", False):
             return
 
     print_info("Works with any Matrix homeserver (Synapse, Conduit, Dendrite, or matrix.org).")
@@ -2107,12 +2107,12 @@ def _setup_matrix():
 
 
 def _setup_mattermost():
-    """Configure Mattermost bot credentials."""
+    """配置 Mattermost 机器人凭据。"""
     print_header("Mattermost")
     existing = get_env_value("MATTERMOST_TOKEN")
     if existing:
-        print_info("Mattermost: already configured")
-        if not prompt_yes_no("Reconfigure Mattermost?", False):
+        print_info("Mattermost: 已配置")
+        if not prompt_yes_no("重新配置 Mattermost?", False):
             return
 
     print_info("Works with any self-hosted Mattermost instance.")
@@ -2150,11 +2150,11 @@ def _setup_mattermost():
 
 
 def _setup_whatsapp():
-    """Configure WhatsApp bridge."""
+    """配置 WhatsApp 桥接。"""
     print_header("WhatsApp")
     existing = get_env_value("WHATSAPP_ENABLED")
     if existing:
-        print_info("WhatsApp: already enabled")
+        print_info("WhatsApp: 已启用")
         return
 
     print_info("WhatsApp connects via a built-in bridge (Baileys).")
@@ -2168,12 +2168,12 @@ def _setup_whatsapp():
 
 
 def _setup_bluebubbles():
-    """Configure BlueBubbles iMessage gateway."""
+    """配置 BlueBubbles iMessage 网关。"""
     print_header("BlueBubbles (iMessage)")
     existing = get_env_value("BLUEBUBBLES_SERVER_URL")
     if existing:
-        print_info("BlueBubbles: already configured")
-        if not prompt_yes_no("Reconfigure BlueBubbles?", False):
+        print_info("BlueBubbles: 已配置")
+        if not prompt_yes_no("重新配置 BlueBubbles?", False):
             return
 
     print_info("Connects KClaw to iMessage via BlueBubbles — a free, open-source")
@@ -2233,12 +2233,12 @@ def _setup_bluebubbles():
 
 
 def _setup_webhooks():
-    """Configure webhook integration."""
+    """配置 webhook 集成。"""
     print_header("Webhooks")
     existing = get_env_value("WEBHOOK_ENABLED")
     if existing:
-        print_info("Webhooks: already configured")
-        if not prompt_yes_no("Reconfigure webhooks?", False):
+        print_info("Webhooks: 已配置")
+        if not prompt_yes_no("重新配置 Webhooks?", False):
             return
 
     print()
@@ -2292,10 +2292,10 @@ _GATEWAY_PLATFORMS = [
 
 
 def setup_gateway(config: dict):
-    """Configure messaging platform integrations."""
+    """配置消息平台集成。"""
     print_header("Messaging Platforms")
     print_info("Connect to messaging platforms to chat with KClaw from anywhere.")
-    print_info("Toggle with Space, confirm with Enter.")
+    print_info("使用 Space 切换,Enter 确认。")
     print()
 
     # Build checklist items, pre-selecting already-configured platforms
@@ -2473,11 +2473,11 @@ def setup_tools(config: dict, first_install: bool = False):
 
 
 def _get_section_config_summary(config: dict, section_key: str) -> Optional[str]:
-    """Return a short summary if a setup section is already configured, else None.
+    """如果设置部分已配置,则返回简短摘要,否则返回 None。
 
-    Used after OpenClaw migration to detect which sections can be skipped.
-    ``get_env_value`` is the module-level import from kclaw_cli.config
-    so that test patches on ``setup_mod.get_env_value`` take effect.
+    在 OpenClaw 迁移后使用,用于检测哪些部分可以跳过。
+    ``get_env_value`` 是从 kclaw_cli.config 模块级导入的,
+    以便对 ``setup_mod.get_env_value`` 的测试补丁生效。
     """
     if section_key == "model":
         has_key = bool(
@@ -2691,15 +2691,15 @@ RETURNING_USER_MENU_SECTION_KEYS = [
 
 
 def run_setup_wizard(args):
-    """Run the interactive setup wizard.
+    """运行交互式设置向导。
 
-    Supports full, quick, and section-specific setup:
-      kclaw setup           — full or quick (auto-detected)
-      kclaw setup model     — just model/provider
-      kclaw setup terminal  — just terminal backend
-      kclaw setup gateway   — just messaging platforms
-      kclaw setup tools     — just tool configuration
-      kclaw setup agent     — just agent settings
+    支持完整、快速和部分特定设置:
+      kclaw setup           — 完整或快速（自动检测）
+      kclaw setup model     — 仅模型/提供者
+      kclaw setup terminal  — 仅终端后端
+      kclaw setup gateway   — 仅消息平台
+      kclaw setup tools     — 仅工具配置
+      kclaw setup agent     — 仅代理设置
     """
     from kclaw_cli.config import is_managed, managed_error
     if is_managed():
@@ -2908,9 +2908,9 @@ def run_setup_wizard(args):
 
 
 def _offer_launch_chat():
-    """Prompt the user to jump straight into chat after setup."""
+    """提示用户直接在设置后进入聊天。"""
     print()
-    if prompt_yes_no("Launch kclaw chat now?", True):
+    if prompt_yes_no("现在启动 kclaw 聊天?", True):
         from kclaw_cli.main import cmd_chat
         from types import SimpleNamespace
         cmd_chat(SimpleNamespace(
@@ -2967,7 +2967,7 @@ def _run_first_time_quick_setup(config: dict, kclaw_home, is_existing: bool):
 
 
 def _run_quick_setup(config: dict, kclaw_home):
-    """Quick setup — only configure items that are missing."""
+    """快速设置 — 仅配置缺失的项目。"""
     from kclaw_cli.config import (
         get_missing_env_vars,
         get_missing_config_fields,

@@ -85,7 +85,7 @@ QWEN_ACCESS_TOKEN_REFRESH_SKEW_SECONDS = 120
 
 @dataclass
 class ProviderConfig:
-    """Describes a known inference provider."""
+    """描述一个已知的推理提供者。"""
     id: str
     name: str
     auth_type: str  # "oauth_device_code", "oauth_external", or "api_key"
@@ -1371,9 +1371,9 @@ def resolve_codex_runtime_credentials(
         cli_tokens = _import_codex_cli_tokens()
         if cli_tokens:
             logger.info("Migrating Codex credentials from ~/.codex/ to KClaw auth store")
-            print("⚠️  Migrating Codex credentials to KClaw's own auth store.")
-            print("   This avoids conflicts with Codex CLI and VS Code.")
-            print("   Run `kclaw auth` to create a fully independent session.\n")
+            print("⚠️  正在将 Codex 凭据迁移到 KClaw 自己的凭据存储。")
+            print("   这样可以避免与 Codex CLI 和 VS Code 的冲突。")
+            print("   运行 `kclaw auth` 创建一个完全独立的会话。\n")
             _save_codex_tokens(cli_tokens)
             data = _read_codex_tokens()
         else:
@@ -2640,9 +2640,9 @@ def _save_model_choice(model_id: str) -> None:
 
 def login_command(args) -> None:
     """Deprecated: use 'kclaw model' or 'kclaw setup' instead."""
-    print("The 'kclaw login' command has been removed.")
-    print("Use 'kclaw auth' to manage credentials,")
-    print("'kclaw model' to select a provider, or 'kclaw setup' for full setup.")
+    print("'kclaw login' 命令已被移除。")
+    print("请使用 'kclaw auth' 管理凭据,")
+    print("'kclaw model' 选择提供者,或 'kclaw setup' 进行完整设置。")
     raise SystemExit(0)
 
 
@@ -2658,7 +2658,7 @@ def _login_openai_codex(args, pconfig: ProviderConfig) -> None:
         # the user "Login successful!".
         _resolved_key = existing.get("api_key", "")
         if isinstance(_resolved_key, str) and _resolved_key and not _codex_access_token_is_expiring(_resolved_key, 60):
-            print("Existing Codex credentials found in KClaw auth store.")
+            print("在 KClaw 凭据存储中找到现有 Codex 凭据。")
             try:
                 reuse = input("Use existing credentials? [Y/n]: ").strip().lower()
             except (EOFError, KeyboardInterrupt):
@@ -2666,19 +2666,19 @@ def _login_openai_codex(args, pconfig: ProviderConfig) -> None:
             if reuse in ("", "y", "yes"):
                 config_path = _update_config_for_provider("openai-codex", existing.get("base_url", DEFAULT_CODEX_BASE_URL))
                 print()
-                print("Login successful!")
-                print(f"  Config updated: {config_path} (model.provider=openai-codex)")
+                print("登录成功!")
+                print(f"  配置已更新: {config_path} (model.provider=openai-codex)")
                 return
         else:
-            print("Existing Codex credentials are expired. Starting fresh login...")
+            print("现有 Codex 凭据已过期。开始新的登录...")
     except AuthError:
         pass
 
     # Check for existing Codex CLI tokens we can import
     cli_tokens = _import_codex_cli_tokens()
     if cli_tokens:
-        print("Found existing Codex CLI credentials at ~/.codex/auth.json")
-        print("KClaw will create its own session to avoid conflicts with Codex CLI / VS Code.")
+        print("在 ~/.codex/auth.json 找到现有 Codex CLI 凭据")
+        print("KClaw 将创建自己的会话以避免与 Codex CLI / VS Code 的冲突。")
         try:
             do_import = input("Import these credentials? (a separate login is recommended) [y/N]: ").strip().lower()
         except (EOFError, KeyboardInterrupt):
@@ -2688,15 +2688,15 @@ def _login_openai_codex(args, pconfig: ProviderConfig) -> None:
             base_url = os.getenv("KCLAW_CODEX_BASE_URL", "").strip().rstrip("/") or DEFAULT_CODEX_BASE_URL
             config_path = _update_config_for_provider("openai-codex", base_url)
             print()
-            print("Credentials imported. Note: if Codex CLI refreshes its token,")
-            print("KClaw will keep working independently with its own session.")
-            print(f"  Config updated: {config_path} (model.provider=openai-codex)")
+            print("凭据已导入。注意:如果 Codex CLI 刷新其令牌,")
+            print("KClaw 将继续使用自己的会话独立工作。")
+            print(f"  配置已更新: {config_path} (model.provider=openai-codex)")
             return
 
     # Run a fresh device code flow — KClaw gets its own OAuth session
     print()
-    print("Signing in to OpenAI Codex...")
-    print("(KClaw creates its own session — won't affect Codex CLI or VS Code)")
+    print("正在登录 OpenAI Codex...")
+    print("（KClaw 创建自己的会话 — 不会影响 Codex CLI 或 VS Code）")
     print()
 
     creds = _codex_device_code_login()
@@ -2705,7 +2705,7 @@ def _login_openai_codex(args, pconfig: ProviderConfig) -> None:
     _save_codex_tokens(creds["tokens"], creds.get("last_refresh"))
     config_path = _update_config_for_provider("openai-codex", creds.get("base_url", DEFAULT_CODEX_BASE_URL))
     print()
-    print("Login successful!")
+    print("登录成功!")
     from kclaw_constants import display_kclaw_home as _dhh
     print(f"  Auth state: {_dhh()}/auth.json")
     print(f"  Config updated: {config_path} (model.provider=openai-codex)")
@@ -3019,7 +3019,7 @@ def _login_nous(args, pconfig: ProviderConfig) -> None:
 
         config_path = _update_config_for_provider("nous", inference_base_url)
         print()
-        print("Login successful!")
+        print("登录成功!")
         print(f"  Auth state: {saved_to}")
         print(f"  Config updated: {config_path} (model.provider=nous)")
 

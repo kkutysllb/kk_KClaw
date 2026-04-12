@@ -40,7 +40,7 @@ def _resolve_short_name(name: str, sources, console: Console) -> str:
     from tools.skills_hub import unified_search
 
     c = console or _console
-    c.print(f"[dim]Resolving '{name}'...[/]")
+    c.print(f"[dim]正在解析 '{name}'...[/]")
 
     results = unified_search(name, sources, source_filter="all", limit=20)
 
@@ -48,11 +48,11 @@ def _resolve_short_name(name: str, sources, console: Console) -> str:
     exact = [r for r in results if r.name.lower() == name.lower()]
 
     if len(exact) == 1:
-        c.print(f"[dim]Resolved to: {exact[0].identifier}[/]")
+        c.print(f"[dim]已解析为: {exact[0].identifier}[/]")
         return exact[0].identifier
 
     if len(exact) > 1:
-        c.print(f"\n[yellow]Multiple skills named '{name}' found:[/]")
+        c.print(f"\n[yellow]找到多个名为 '{name}' 的技能:[/]")
         table = Table()
         table.add_column("Source", style="dim")
         table.add_column("Trust", style="dim")
@@ -62,18 +62,18 @@ def _resolve_short_name(name: str, sources, console: Console) -> str:
             trust_label = "official" if r.source == "official" else r.trust_level
             table.add_row(r.source, f"[{trust_style}]{trust_label}[/]", r.identifier)
         c.print(table)
-        c.print("[bold]Use the full identifier to install a specific one.[/]\n")
+        c.print("[bold]使用完整标识符安装特定版本。[/]\n")
         return ""
 
     # No exact match — check if there are partial matches to suggest
     if results:
-        c.print(f"[yellow]No exact match for '{name}'. Did you mean one of these?[/]")
+        c.print(f"[yellow]'{name}' 没有精确匹配。您是想找其中之一吗?[/]")
         for r in results[:5]:
             c.print(f"  [cyan]{r.name}[/] — {r.identifier}")
         c.print()
         return ""
 
-    c.print(f"[bold red]Error:[/] No skill named '{name}' found in any source.\n")
+    c.print(f"[bold red]错误:[/] 在任何源中都找不到名为 '{name}' 的技能。\n")
     return ""
 
 
@@ -83,24 +83,24 @@ def _format_extra_metadata_lines(extra: Dict[str, Any]) -> list[str]:
         return lines
 
     if extra.get("repo_url"):
-        lines.append(f"[bold]Repo:[/] {extra['repo_url']}")
+        lines.append(f"[bold]仓库:[/] {extra['repo_url']}")
     if extra.get("detail_url"):
-        lines.append(f"[bold]Detail Page:[/] {extra['detail_url']}")
+        lines.append(f"[bold]详情页:[/] {extra['detail_url']}")
     if extra.get("index_url"):
-        lines.append(f"[bold]Index:[/] {extra['index_url']}")
+        lines.append(f"[bold]索引:[/] {extra['index_url']}")
     if extra.get("endpoint"):
-        lines.append(f"[bold]Endpoint:[/] {extra['endpoint']}")
+        lines.append(f"[bold]端点:[/] {extra['endpoint']}")
     if extra.get("install_command"):
-        lines.append(f"[bold]Install Command:[/] {extra['install_command']}")
+        lines.append(f"[bold]安装命令:[/] {extra['install_command']}")
     if extra.get("installs") is not None:
-        lines.append(f"[bold]Installs:[/] {extra['installs']}")
+        lines.append(f"[bold]安装数:[/] {extra['installs']}")
     if extra.get("weekly_installs"):
-        lines.append(f"[bold]Weekly Installs:[/] {extra['weekly_installs']}")
+        lines.append(f"[bold]周安装数:[/] {extra['weekly_installs']}")
 
     security = extra.get("security_audits")
     if isinstance(security, dict) and security:
         ordered = ", ".join(f"{name}={status}" for name, status in sorted(security.items()))
-        lines.append(f"[bold]Security:[/] {ordered}")
+        lines.append(f"[bold]安全审计:[/] {ordered}")
 
     return lines
 
@@ -143,30 +143,30 @@ def _derive_category_from_install_path(install_path: str) -> str:
 
 def do_search(query: str, source: str = "all", limit: int = 10,
               console: Optional[Console] = None) -> None:
-    """Search registries and display results as a Rich table."""
+    """搜索注册表并以 Rich 表格显示结果。"""
     from tools.skills_hub import GitHubAuth, create_source_router, unified_search
 
     c = console or _console
-    c.print(f"\n[bold]Searching for:[/] {query}")
+    c.print(f"\n[bold]搜索:[/] {query}")
 
     auth = GitHubAuth()
     sources = create_source_router(auth)
     results = unified_search(query, sources, source_filter=source, limit=limit)
 
     if not results:
-        c.print("[dim]No skills found matching your query.[/]\n")
+        c.print("[dim]没有找到与您的查询匹配的技能。[/]\n")
         return
 
-    table = Table(title=f"Skills Hub — {len(results)} result(s)")
-    table.add_column("Name", style="bold cyan")
-    table.add_column("Description", max_width=60)
-    table.add_column("Source", style="dim")
-    table.add_column("Trust", style="dim")
-    table.add_column("Identifier", style="dim")
+    table = Table(title=f"技能中心 — {len(results)} 个结果")
+    table.add_column("名称", style="bold cyan")
+    table.add_column("描述", max_width=60)
+    table.add_column("来源", style="dim")
+    table.add_column("信任", style="dim")
+    table.add_column("标识符", style="dim")
 
     for r in results:
         trust_style = {"builtin": "bright_cyan", "trusted": "green", "community": "yellow"}.get(r.trust_level, "dim")
-        trust_label = "official" if r.source == "official" else r.trust_level
+        trust_label = "官方" if r.source == "official" else r.trust_level
         table.add_row(
             r.name,
             r.description[:60] + ("..." if len(r.description) > 60 else ""),
@@ -176,15 +176,15 @@ def do_search(query: str, source: str = "all", limit: int = 10,
         )
 
     c.print(table)
-    c.print("[dim]Use: kclaw skills inspect <identifier> to preview, "
-            "kclaw skills install <identifier> to install[/]\n")
+    c.print("[dim]使用: kclaw skills inspect <标识符> 预览, "
+            "kclaw skills install <标识符> 安装[/]\n")
 
 
 def do_browse(page: int = 1, page_size: int = 20, source: str = "all",
               console: Optional[Console] = None) -> None:
-    """Browse all available skills across registries, paginated.
+    """浏览所有可用的技能（分页）。
 
-    Official skills are always shown first, regardless of source filter.
+    无论源过滤器如何，官方技能始终首先显示。
     """
     from tools.skills_hub import (
         GitHubAuth, create_source_router,
@@ -221,7 +221,7 @@ def do_browse(page: int = 1, page_size: int = 20, source: str = "all",
             continue
 
     if not all_results:
-        c.print("[dim]No skills found in the Skills Hub.[/]\n")
+        c.print("[dim]技能中心中没有找到技能。[/]\n")
         return
 
     # Deduplicate by name, preferring higher trust
@@ -251,25 +251,25 @@ def do_browse(page: int = 1, page_size: int = 20, source: str = "all",
     official_count = sum(1 for r in deduped if r.source == "official")
 
     # Build header
-    source_label = f"— {source}" if source != "all" else "— all sources"
-    c.print(f"\n[bold]Skills Hub — Browse {source_label}[/]"
-            f"  [dim]({total} skills, page {page}/{total_pages})[/]")
+    source_label = f"— {source}" if source != "all" else "— 所有来源"
+    c.print(f"\n[bold]技能中心 — 浏览 {source_label}[/]"
+            f"  [dim]({total} 个技能, 第 {page}/{total_pages} 页)[/]")
     if official_count > 0 and page == 1:
-        c.print(f"[bright_cyan]★ {official_count} official optional skill(s) from kkutysllb[/]")
+        c.print(f"[bright_cyan]★ {official_count} 个来自 kkutysllb 的官方可选技能[/]")
     c.print()
 
     # Build table
     table = Table(show_header=True, header_style="bold")
     table.add_column("#", style="dim", width=4, justify="right")
-    table.add_column("Name", style="bold cyan", max_width=25)
-    table.add_column("Description", max_width=50)
-    table.add_column("Source", style="dim", width=12)
-    table.add_column("Trust", width=10)
+    table.add_column("名称", style="bold cyan", max_width=25)
+    table.add_column("描述", max_width=50)
+    table.add_column("来源", style="dim", width=12)
+    table.add_column("信任", width=10)
 
     for i, r in enumerate(page_items, start=start + 1):
         trust_style = {"builtin": "bright_cyan", "trusted": "green",
                        "community": "yellow"}.get(r.trust_level, "dim")
-        trust_label = "★ official" if r.source == "official" else r.trust_level
+        trust_label = "★ 官方" if r.source == "official" else r.trust_level
 
         desc = r.description[:50]
         if len(r.description) > 50:
@@ -288,9 +288,9 @@ def do_browse(page: int = 1, page_size: int = 20, source: str = "all",
     # Navigation hints
     nav_parts = []
     if page > 1:
-        nav_parts.append(f"[cyan]--page {page - 1}[/] ← prev")
+        nav_parts.append(f"[cyan]--page {page - 1}[/] ← 上一页")
     if page < total_pages:
-        nav_parts.append(f"[cyan]--page {page + 1}[/] → next")
+        nav_parts.append(f"[cyan]--page {page + 1}[/] 下一页 →")
 
     if nav_parts:
         c.print(f"  {' | '.join(nav_parts)}")
@@ -298,16 +298,16 @@ def do_browse(page: int = 1, page_size: int = 20, source: str = "all",
     # Source summary
     if source == "all" and source_counts:
         parts = [f"{sid}: {ct}" for sid, ct in sorted(source_counts.items())]
-        c.print(f"  [dim]Sources: {', '.join(parts)}[/]")
+        c.print(f"  [dim]来源: {', '.join(parts)}[/]")
 
-    c.print("[dim]Use: kclaw skills inspect <identifier> to preview, "
-            "kclaw skills install <identifier> to install[/]\n")
+    c.print("[dim]使用: kclaw skills inspect <标识符> 预览, "
+            "kclaw skills install <标识符> 安装[/]\n")
 
 
 def do_install(identifier: str, category: str = "", force: bool = False,
                console: Optional[Console] = None, skip_confirm: bool = False,
                invalidate_cache: bool = True) -> None:
-    """Fetch, quarantine, scan, confirm, and install a skill."""
+    """获取、隔离、扫描、确认并安装技能。"""
     from tools.skills_hub import (
         GitHubAuth, create_source_router, ensure_hub_dirs,
         quarantine_bundle, install_from_quarantine, HubLockFile,
@@ -327,12 +327,12 @@ def do_install(identifier: str, category: str = "", force: bool = False,
         if not identifier:
             return
 
-    c.print(f"\n[bold]Fetching:[/] {identifier}")
+    c.print(f"\n[bold]正在获取:[/] {identifier}")
 
     meta, bundle, _matched_source = _resolve_source_meta_and_bundle(identifier, sources)
 
     if not bundle:
-        c.print(f"[bold red]Error:[/] Could not fetch '{identifier}' from any source.\n")
+        c.print(f"[bold red]错误:[/] 无法从任何源获取 '{identifier}'。\n")
         return
 
     # Auto-detect category for official skills (e.g. "official/autonomous-ai-agents/blackbox")
@@ -345,9 +345,9 @@ def do_install(identifier: str, category: str = "", force: bool = False,
     lock = HubLockFile()
     existing = lock.get_installed(bundle.name)
     if existing:
-        c.print(f"[yellow]Warning:[/] '{bundle.name}' is already installed at {existing['install_path']}")
+        c.print(f"[yellow]警告:[/] '{bundle.name}' 已安装在 {existing['install_path']}")
         if not force:
-            c.print("Use --force to reinstall.\n")
+            c.print("使用 --force 重新安装。\n")
             return
 
     extra_metadata = dict(getattr(meta, "extra", {}) or {})
@@ -357,15 +357,15 @@ def do_install(identifier: str, category: str = "", force: bool = False,
     try:
         q_path = quarantine_bundle(bundle)
     except ValueError as exc:
-        c.print(f"[bold red]Installation blocked:[/] {exc}\n")
+        c.print(f"[bold red]安装被阻止:[/] {exc}\n")
         from tools.skills_hub import append_audit_log
         append_audit_log("BLOCKED", bundle.name, bundle.source,
                          bundle.trust_level, "invalid_path", str(exc))
         return
-    c.print(f"[dim]Quarantined to {q_path.relative_to(q_path.parent.parent.parent)}[/]")
+    c.print(f"[dim]已隔离到 {q_path.relative_to(q_path.parent.parent.parent)}[/]")
 
     # Scan
-    c.print("[bold]Running security scan...[/]")
+    c.print("[bold]正在运行安全扫描...[/]")
     scan_source = getattr(bundle, "identifier", "") or getattr(meta, "identifier", "") or identifier
     result = scan_skill(q_path, source=scan_source)
     c.print(format_scan_report(result))
@@ -373,7 +373,7 @@ def do_install(identifier: str, category: str = "", force: bool = False,
     # Check install policy
     allowed, reason = should_allow_install(result, force=force)
     if not allowed:
-        c.print(f"\n[bold red]Installation blocked:[/] {reason}")
+        c.print(f"\n[bold red]安装被阻止:[/] {reason}")
         # Clean up quarantine
         shutil.rmtree(q_path, ignore_errors=True)
         from tools.skills_hub import append_audit_log
@@ -385,7 +385,7 @@ def do_install(identifier: str, category: str = "", force: bool = False,
     if extra_metadata:
         metadata_lines = _format_extra_metadata_lines(extra_metadata)
         if metadata_lines:
-            c.print(Panel("\n".join(metadata_lines), title="Upstream Metadata", border_style="blue"))
+            c.print(Panel("\n".join(metadata_lines), title="上游元数据", border_style="blue"))
 
     # Confirm with user — show appropriate warning based on source
     # skip_confirm bypasses the prompt (needed in TUI mode where input() hangs)
@@ -393,30 +393,30 @@ def do_install(identifier: str, category: str = "", force: bool = False,
         c.print()
         if bundle.source == "official":
             c.print(Panel(
-                "[bold bright_cyan]This is an official optional skill maintained by kkutysllb.[/]\n\n"
-                "It ships with kclaw but is not activated by default.\n"
-                "Installing will copy it to your skills directory where the agent can use it.\n\n"
-                f"Files will be at: [cyan]{display_kclaw_home()}/skills/{category + '/' if category else ''}{bundle.name}/[/]",
-                title="Official Skill",
+                "[bold bright_cyan]这是由 kkutysllb 维护的官方可选技能。[/]\n\n"
+                "它随 kclaw 附带但默认未激活。\n"
+                "安装会将其复制到您的技能目录中，智能体即可使用。\n\n"
+                f"文件将在: [cyan]{display_kclaw_home()}/skills/{category + '/' if category else ''}{bundle.name}/[/]",
+                title="官方技能",
                 border_style="bright_cyan",
             ))
         else:
             c.print(Panel(
-                "[bold yellow]You are installing a third-party skill at your own risk.[/]\n\n"
-                "External skills can contain instructions that influence agent behavior,\n"
-                "shell commands, and scripts. Even after automated scanning, you should\n"
-                "review the installed files before use.\n\n"
-                f"Files will be at: [cyan]{display_kclaw_home()}/skills/{category + '/' if category else ''}{bundle.name}/[/]",
-                title="Disclaimer",
+                "[bold yellow]您正在安装第三方技能，风险自负。[/]\n\n"
+                "外部技能可能包含影响智能体行为的指令、\n"
+                "shell 命令和脚本。即使经过自动扫描，您也应该\n"
+                "使用前检查已安装的文件。\n\n"
+                f"文件将在: [cyan]{display_kclaw_home()}/skills/{category + '/' if category else ''}{bundle.name}/[/]",
+                title="免责声明",
                 border_style="yellow",
             ))
-        c.print(f"[bold]Install '{bundle.name}'?[/]")
+        c.print(f"[bold]安装 '{bundle.name}'?[/]")
         try:
-            answer = input("Confirm [y/N]: ").strip().lower()
+            answer = input("确认 [y/N]: ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             answer = "n"
         if answer not in ("y", "yes"):
-            c.print("[dim]Installation cancelled.[/]\n")
+            c.print("[dim]安装已取消。[/]\n")
             shutil.rmtree(q_path, ignore_errors=True)
             return
 
@@ -424,15 +424,15 @@ def do_install(identifier: str, category: str = "", force: bool = False,
     try:
         install_dir = install_from_quarantine(q_path, bundle.name, category, bundle, result)
     except ValueError as exc:
-        c.print(f"[bold red]Installation blocked:[/] {exc}\n")
+        c.print(f"[bold red]安装被阻止:[/] {exc}\n")
         shutil.rmtree(q_path, ignore_errors=True)
         from tools.skills_hub import append_audit_log
         append_audit_log("BLOCKED", bundle.name, bundle.source,
                          bundle.trust_level, "invalid_path", str(exc))
         return
     from tools.skills_hub import SKILLS_DIR
-    c.print(f"[bold green]Installed:[/] {install_dir.relative_to(SKILLS_DIR)}")
-    c.print(f"[dim]Files: {', '.join(bundle.files.keys())}[/]\n")
+    c.print(f"[bold green]已安装:[/] {install_dir.relative_to(SKILLS_DIR)}")
+    c.print(f"[dim]文件: {', '.join(bundle.files.keys())}[/]\n")
 
     if invalidate_cache:
         # Invalidate the skills prompt cache so the new skill appears immediately
@@ -442,12 +442,12 @@ def do_install(identifier: str, category: str = "", force: bool = False,
         except Exception:
             pass
     else:
-        c.print("[dim]Skill will be available in your next session.[/]")
-        c.print("[dim]Use /reset to start a new session now, or --now to activate immediately (invalidates prompt cache).[/]\n")
+        c.print("[dim]技能将在您的下一个会话中可用。[/]")
+        c.print("[dim]使用 /reset 立即启动新会话，或使用 --now 立即激活（使提示缓存失效）。[/]\n")
 
 
 def do_inspect(identifier: str, console: Optional[Console] = None) -> None:
-    """Preview a skill's SKILL.md content without installing."""
+    """预览技能的 SKILL.md 内容而不安装。"""
     from tools.skills_hub import GitHubAuth, create_source_router
 
     c = console or _console
@@ -462,25 +462,25 @@ def do_inspect(identifier: str, console: Optional[Console] = None) -> None:
     meta, bundle, _matched_source = _resolve_source_meta_and_bundle(identifier, sources)
 
     if not meta:
-        c.print(f"[bold red]Error:[/] Could not find '{identifier}' in any source.\n")
+        c.print(f"[bold red]错误:[/] 在任何源中都找不到 '{identifier}'。\n")
         return
 
     c.print()
     trust_style = {"builtin": "bright_cyan", "trusted": "green", "community": "yellow"}.get(meta.trust_level, "dim")
-    trust_label = "official" if meta.source == "official" else meta.trust_level
+    trust_label = "官方" if meta.source == "official" else meta.trust_level
 
     info_lines = [
-        f"[bold]Name:[/] {meta.name}",
-        f"[bold]Description:[/] {meta.description}",
-        f"[bold]Source:[/] {meta.source}",
-        f"[bold]Trust:[/] [{trust_style}]{trust_label}[/]",
-        f"[bold]Identifier:[/] {meta.identifier}",
+        f"[bold]名称:[/] {meta.name}",
+        f"[bold]描述:[/] {meta.description}",
+        f"[bold]来源:[/] {meta.source}",
+        f"[bold]信任:[/] [{trust_style}]{trust_label}[/]",
+        f"[bold]标识符:[/] {meta.identifier}",
     ]
     if meta.tags:
-        info_lines.append(f"[bold]Tags:[/] {', '.join(meta.tags)}")
+        info_lines.append(f"[bold]标签:[/] {', '.join(meta.tags)}")
     info_lines.extend(_format_extra_metadata_lines(meta.extra))
 
-    c.print(Panel("\n".join(info_lines), title=f"Skill: {meta.name}"))
+    c.print(Panel("\n".join(info_lines), title=f"技能: {meta.name}"))
 
     if bundle and "SKILL.md" in bundle.files:
         content = bundle.files["SKILL.md"]
@@ -490,14 +490,14 @@ def do_inspect(identifier: str, console: Optional[Console] = None) -> None:
         lines = content.split("\n")
         preview = "\n".join(lines[:50])
         if len(lines) > 50:
-            preview += f"\n\n... ({len(lines) - 50} more lines)"
-        c.print(Panel(preview, title="SKILL.md Preview", subtitle="kclaw skills install <id> to install"))
+            preview += f"\n\n... (还有 {len(lines) - 50} 行)"
+        c.print(Panel(preview, title="SKILL.md 预览", subtitle="kclaw skills install <id> 安装"))
 
     c.print()
 
 
 def do_list(source_filter: str = "all", console: Optional[Console] = None) -> None:
-    """List installed skills, distinguishing hub, builtin, and local skills."""
+    """列出已安装的技能，区分 hub、内置和本地技能。"""
     from tools.skills_hub import HubLockFile, ensure_hub_dirs
     from tools.skills_sync import _read_manifest
     from tools.skills_tool import _find_all_skills
@@ -510,11 +510,11 @@ def do_list(source_filter: str = "all", console: Optional[Console] = None) -> No
 
     all_skills = _find_all_skills()
 
-    table = Table(title="Installed Skills")
-    table.add_column("Name", style="bold cyan")
-    table.add_column("Category", style="dim")
-    table.add_column("Source", style="dim")
-    table.add_column("Trust", style="dim")
+    table = Table(title="已安装的技能")
+    table.add_column("名称", style="bold cyan")
+    table.add_column("类别", style="dim")
+    table.add_column("来源", style="dim")
+    table.add_column("信任", style="dim")
 
     hub_count = 0
     builtin_count = 0
@@ -550,55 +550,55 @@ def do_list(source_filter: str = "all", console: Optional[Console] = None) -> No
 
     c.print(table)
     c.print(
-        f"[dim]{hub_count} hub-installed, {builtin_count} builtin, {local_count} local[/]\n"
+        f"[dim]{hub_count} hub安装, {builtin_count} 内置, {local_count} 本地[/]\n"
     )
 
 
 def do_check(name: Optional[str] = None, console: Optional[Console] = None) -> None:
-    """Check hub-installed skills for upstream updates."""
+    """检查 hub 安装的技能是否有上游更新。"""
     from tools.skills_hub import check_for_skill_updates
 
     c = console or _console
     results = check_for_skill_updates(name=name)
     if not results:
-        c.print("[dim]No hub-installed skills to check.[/]\n")
+        c.print("[dim]没有 hub 安装的技能需要检查。[/]\n")
         return
 
-    table = Table(title="Skill Updates")
-    table.add_column("Name", style="bold cyan")
-    table.add_column("Source", style="dim")
-    table.add_column("Status", style="dim")
+    table = Table(title="技能更新")
+    table.add_column("名称", style="bold cyan")
+    table.add_column("来源", style="dim")
+    table.add_column("状态", style="dim")
 
     for entry in results:
         table.add_row(entry.get("name", ""), entry.get("source", ""), entry.get("status", ""))
 
     c.print(table)
     update_count = sum(1 for entry in results if entry.get("status") == "update_available")
-    c.print(f"[dim]{update_count} update(s) available across {len(results)} checked skill(s)[/]\n")
+    c.print(f"[dim]{len(results)} 个已检查技能中有 {update_count} 个有可用更新[/]\n")
 
 
 def do_update(name: Optional[str] = None, console: Optional[Console] = None) -> None:
-    """Update hub-installed skills with upstream changes."""
+    """使用上游更改更新 hub 安装的技能。"""
     from tools.skills_hub import HubLockFile, check_for_skill_updates
 
     c = console or _console
     lock = HubLockFile()
     updates = [entry for entry in check_for_skill_updates(name=name) if entry.get("status") == "update_available"]
     if not updates:
-        c.print("[dim]No updates available.[/]\n")
+        c.print("[dim]没有可用更新。[/]\n")
         return
 
     for entry in updates:
         installed = lock.get_installed(entry["name"])
         category = _derive_category_from_install_path(installed.get("install_path", "")) if installed else ""
-        c.print(f"[bold]Updating:[/] {entry['name']}")
+        c.print(f"[bold]正在更新:[/] {entry['name']}")
         do_install(entry["identifier"], category=category, force=True, console=c)
 
-    c.print(f"[bold green]Updated {len(updates)} skill(s).[/]\n")
+    c.print(f"[bold green]已更新 {len(updates)} 个技能。[/]\n")
 
 
 def do_audit(name: Optional[str] = None, console: Optional[Console] = None) -> None:
-    """Re-run security scan on installed hub skills."""
+    """对已安装的 hub 技能重新运行安全扫描。"""
     from tools.skills_hub import HubLockFile, SKILLS_DIR
     from tools.skills_guard import scan_skill, format_scan_report
 
@@ -607,22 +607,22 @@ def do_audit(name: Optional[str] = None, console: Optional[Console] = None) -> N
     installed = lock.list_installed()
 
     if not installed:
-        c.print("[dim]No hub-installed skills to audit.[/]\n")
+        c.print("[dim]没有 hub 安装的技能需要审计。[/]\n")
         return
 
     targets = installed
     if name:
         targets = [e for e in installed if e["name"] == name]
         if not targets:
-            c.print(f"[bold red]Error:[/] '{name}' is not a hub-installed skill.\n")
+            c.print(f"[bold red]错误:[/] '{name}' 不是 hub 安装的技能。\n")
             return
 
-    c.print(f"\n[bold]Auditing {len(targets)} skill(s)...[/]\n")
+    c.print(f"\n[bold]正在审计 {len(targets)} 个技能...[/]\n")
 
     for entry in targets:
         skill_path = SKILLS_DIR / entry["install_path"]
         if not skill_path.exists():
-            c.print(f"[yellow]Warning:[/] {entry['name']} — path missing: {entry['install_path']}")
+            c.print(f"[yellow]警告:[/] {entry['name']} — 路径缺失: {entry['install_path']}")
             continue
 
         result = scan_skill(skill_path, source=entry.get("identifier", entry["source"]))
@@ -633,20 +633,20 @@ def do_audit(name: Optional[str] = None, console: Optional[Console] = None) -> N
 def do_uninstall(name: str, console: Optional[Console] = None,
                  skip_confirm: bool = False,
                  invalidate_cache: bool = True) -> None:
-    """Remove a hub-installed skill with confirmation."""
+    """移除 hub 安装的技能（需确认）。"""
     from tools.skills_hub import uninstall_skill
 
     c = console or _console
 
     # skip_confirm bypasses the prompt (needed in TUI mode where input() hangs)
     if not skip_confirm:
-        c.print(f"\n[bold]Uninstall '{name}'?[/]")
+        c.print(f"\n[bold]卸载 '{name}'?[/]")
         try:
-            answer = input("Confirm [y/N]: ").strip().lower()
+            answer = input("确认 [y/N]: ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             answer = "n"
         if answer not in ("y", "yes"):
-            c.print("[dim]Cancelled.[/]\n")
+            c.print("[dim]已取消。[/]\n")
             return
 
     success, msg = uninstall_skill(name)
@@ -659,14 +659,14 @@ def do_uninstall(name: str, console: Optional[Console] = None,
             except Exception:
                 pass
         else:
-            c.print("[dim]Change will take effect in your next session.[/]")
-            c.print("[dim]Use /reset to start a new session now, or --now to apply immediately (invalidates prompt cache).[/]\n")
+            c.print("[dim]更改将在您的下一个会话中生效。[/]")
+            c.print("[dim]使用 /reset 立即启动新会话，或使用 --now 立即应用（使提示缓存失效）。[/]\n")
     else:
-        c.print(f"[bold red]Error:[/] {msg}\n")
+        c.print(f"[bold red]错误:[/] {msg}\n")
 
 
 def do_tap(action: str, repo: str = "", console: Optional[Console] = None) -> None:
-    """Manage taps (custom GitHub repo sources)."""
+    """管理 taps（自定义 GitHub 仓库源）。"""
     from tools.skills_hub import TapsManager
 
     c = console or _console
@@ -675,42 +675,42 @@ def do_tap(action: str, repo: str = "", console: Optional[Console] = None) -> No
     if action == "list":
         taps = mgr.list_taps()
         if not taps:
-            c.print("[dim]No custom taps configured. Using default sources only.[/]\n")
+            c.print("[dim]未配置自定义 taps。仅使用默认来源。[/]\n")
             return
-        table = Table(title="Configured Taps")
-        table.add_column("Repo", style="bold cyan")
-        table.add_column("Path", style="dim")
+        table = Table(title="已配置的 Taps")
+        table.add_column("仓库", style="bold cyan")
+        table.add_column("路径", style="dim")
         for t in taps:
-            label = t.get("repo") or t.get("name") or t.get("path", "unknown")
+            label = t.get("repo") or t.get("name") or t.get("path", "未知")
             table.add_row(label, t.get("path", "skills/"))
         c.print(table)
         c.print()
 
     elif action == "add":
         if not repo:
-            c.print("[bold red]Error:[/] Repo required. Usage: kclaw skills tap add owner/repo\n")
+            c.print("[bold red]错误:[/] 需要仓库。用法: kclaw skills tap add owner/repo\n")
             return
         if mgr.add(repo):
-            c.print(f"[bold green]Added tap:[/] {repo}\n")
+            c.print(f"[bold green]已添加 tap:[/] {repo}\n")
         else:
-            c.print(f"[yellow]Tap already exists:[/] {repo}\n")
+            c.print(f"[yellow]Tap 已存在:[/] {repo}\n")
 
     elif action == "remove":
         if not repo:
-            c.print("[bold red]Error:[/] Repo required. Usage: kclaw skills tap remove owner/repo\n")
+            c.print("[bold red]错误:[/] 需要仓库。用法: kclaw skills tap remove owner/repo\n")
             return
         if mgr.remove(repo):
-            c.print(f"[bold green]Removed tap:[/] {repo}\n")
+            c.print(f"[bold green]已移除 tap:[/] {repo}\n")
         else:
-            c.print(f"[bold red]Error:[/] Tap not found: {repo}\n")
+            c.print(f"[bold red]错误:[/] 未找到 tap: {repo}\n")
 
     else:
-        c.print(f"[bold red]Unknown tap action:[/] {action}. Use: list, add, remove\n")
+        c.print(f"[bold red]未知的 tap 操作:[/] {action}。使用: list, add, remove\n")
 
 
 def do_publish(skill_path: str, target: str = "github", repo: str = "",
                console: Optional[Console] = None) -> None:
-    """Publish a local skill to a registry (GitHub PR or ClawHub submission)."""
+    """将本地技能发布到注册表（GitHub PR 或 ClawHub 提交）。"""
     from tools.skills_hub import GitHubAuth, SKILLS_DIR
     from tools.skills_guard import scan_skill, format_scan_report
 
@@ -721,7 +721,7 @@ def do_publish(skill_path: str, target: str = "github", repo: str = "",
     if not path.is_absolute():
         path = SKILLS_DIR / path
     if not path.exists() or not (path / "SKILL.md").exists():
-        c.print(f"[bold red]Error:[/] No SKILL.md found at {path}\n")
+        c.print(f"[bold red]错误:[/] 在 {path} 未找到 SKILL.md\n")
         return
 
     # Validate the skill
@@ -740,41 +740,41 @@ def do_publish(skill_path: str, target: str = "github", repo: str = "",
     name = fm.get("name", path.name)
     description = fm.get("description", "")
     if not description:
-        c.print("[bold red]Error:[/] SKILL.md must have a 'description' in frontmatter.\n")
+        c.print("[bold red]错误:[/] SKILL.md 的 frontmatter 必须包含 'description'。\n")
         return
 
     # Self-scan before publishing
-    c.print(f"[bold]Scanning '{name}' before publish...[/]")
+    c.print(f"[bold]发布前扫描 '{name}'...[/]")
     result = scan_skill(path, source="self")
     c.print(format_scan_report(result))
     if result.verdict == "dangerous":
-        c.print("[bold red]Cannot publish a skill with DANGEROUS verdict.[/]\n")
+        c.print("[bold red]无法发布具有 DANGEROUS 裁定的技能。[/]\n")
         return
 
     if target == "github":
         if not repo:
-            c.print("[bold red]Error:[/] --repo required for GitHub publish.\n"
-                    "Usage: kclaw skills publish <path> --to github --repo owner/repo\n")
+            c.print("[bold red]错误:[/] GitHub 发布需要 --repo。\n"
+                    "用法: kclaw skills publish <路径> --to github --repo owner/repo\n")
             return
 
         auth = GitHubAuth()
         if not auth.is_authenticated():
-            c.print("[bold red]Error:[/] GitHub authentication required.\n"
-                    f"Set GITHUB_TOKEN in {display_kclaw_home()}/.env or run 'gh auth login'.\n")
+            c.print("[bold red]错误:[/] 需要 GitHub 认证。\n"
+                    f"在 {display_kclaw_home()}/.env 中设置 GITHUB_TOKEN 或运行 'gh auth login'。\n")
             return
 
-        c.print(f"[bold]Publishing '{name}' to {repo}...[/]")
+        c.print(f"[bold]正在将 '{name}' 发布到 {repo}...[/]")
         success, msg = _github_publish(path, name, repo, auth)
         if success:
             c.print(f"[bold green]{msg}[/]\n")
         else:
-            c.print(f"[bold red]Error:[/] {msg}\n")
+            c.print(f"[bold red]错误:[/] {msg}\n")
 
     elif target == "clawhub":
-        c.print("[yellow]ClawHub publishing is not yet supported. "
-                "Submit manually at https://clawhub.ai/submit[/]\n")
+        c.print("[yellow]ClawHub 发布尚不支持。 "
+                "请手动提交至 https://clawhub.ai/submit[/]\n")
     else:
-        c.print(f"[bold red]Unknown target:[/] {target}. Use 'github' or 'clawhub'.\n")
+        c.print(f"[bold red]未知目标:[/] {target}。使用 'github' 或 'clawhub'。\n")
 
 
 def _github_publish(skill_path: Path, skill_name: str, target_repo: str,
@@ -798,7 +798,7 @@ def _github_publish(skill_path: Path, skill_name: str, target_repo: str,
         else:
             return False, f"Failed to fork {target_repo}: {resp.status_code}"
     except httpx.HTTPError as e:
-        return False, f"Network error forking repo: {e}"
+        return False, f"分叉仓库时出现网络错误: {e}"
 
     # 2. Get default branch
     try:
@@ -818,7 +818,7 @@ def _github_publish(skill_path: Path, skill_name: str, target_repo: str,
         )
         base_sha = resp.json()["object"]["sha"]
     except Exception as e:
-        return False, f"Failed to get base branch: {e}"
+        return False, f"获取基础分支失败: {e}"
 
     # 4. Create a new branch
     branch_name = f"add-skill-{skill_name}"
@@ -829,7 +829,7 @@ def _github_publish(skill_path: Path, skill_name: str, target_repo: str,
             json={"ref": f"refs/heads/{branch_name}", "sha": base_sha},
         )
     except Exception as e:
-        return False, f"Failed to create branch: {e}"
+        return False, f"创建分支失败: {e}"
 
     # 5. Upload skill files
     for f in skill_path.rglob("*"):
@@ -850,7 +850,7 @@ def _github_publish(skill_path: Path, skill_name: str, target_repo: str,
                 },
             )
         except Exception as e:
-            return False, f"Failed to upload {rel}: {e}"
+            return False, f"上传 {rel} 失败: {e}"
 
     # 6. Create PR
     try:
@@ -867,15 +867,15 @@ def _github_publish(skill_path: Path, skill_name: str, target_repo: str,
         )
         if resp.status_code == 201:
             pr_url = resp.json().get("html_url", "")
-            return True, f"PR created: {pr_url}"
+            return True, f"已创建 PR: {pr_url}"
         else:
-            return False, f"Failed to create PR: {resp.status_code} {resp.text[:200]}"
+            return False, f"创建 PR 失败: {resp.status_code} {resp.text[:200]}"
     except httpx.HTTPError as e:
-        return False, f"Network error creating PR: {e}"
+        return False, f"创建 PR 时出现网络错误: {e}"
 
 
 def do_snapshot_export(output_path: str, console: Optional[Console] = None) -> None:
-    """Export current hub skill configuration to a portable JSON file."""
+    """将当前的 hub 技能配置导出为可移植的 JSON 文件。"""
     from tools.skills_hub import HubLockFile, TapsManager
 
     c = console or _console
@@ -910,28 +910,28 @@ def do_snapshot_export(output_path: str, console: Optional[Console] = None) -> N
     else:
         out = Path(output_path)
         out.write_text(payload)
-        c.print(f"[bold green]Snapshot exported:[/] {out}")
-        c.print(f"[dim]{len(installed)} skill(s), {len(tap_list)} tap(s)[/]\n")
+        c.print(f"[bold green]快照已导出:[/] {out}")
+        c.print(f"[dim]{len(installed)} 个技能, {len(tap_list)} 个 tap[/]\n")
 
 
 def do_snapshot_import(input_path: str, force: bool = False,
                        console: Optional[Console] = None) -> None:
-    """Re-install skills from a snapshot file."""
+    """从快照文件重新安装技能。"""
     from tools.skills_hub import TapsManager
 
     c = console or _console
     inp = Path(input_path)
     if not inp.exists():
-        c.print(f"[bold red]Error:[/] File not found: {inp}\n")
+        c.print(f"[bold red]错误:[/] 文件未找到: {inp}\n")
         return
 
     try:
         snapshot = json.loads(inp.read_text())
     except json.JSONDecodeError:
-        c.print(f"[bold red]Error:[/] Invalid JSON in {inp}\n")
+        c.print(f"[bold red]错误:[/] {inp} 中的 JSON 格式无效\n")
         return
 
-    # Restore taps first
+    # 首先恢复 taps
     taps = snapshot.get("taps", [])
     if taps:
         mgr = TapsManager()
@@ -939,26 +939,26 @@ def do_snapshot_import(input_path: str, force: bool = False,
             repo = tap.get("repo", "")
             if repo:
                 mgr.add(repo, tap.get("path", "skills/"))
-        c.print(f"[dim]Restored {len(taps)} tap(s)[/]")
+        c.print(f"[dim]已恢复 {len(taps)} 个 tap[/]")
 
-    # Install skills
+    # 安装技能
     skills = snapshot.get("skills", [])
     if not skills:
-        c.print("[dim]No skills in snapshot to install.[/]\n")
+        c.print("[dim]快照中没有需要安装的技能。[/\n")
         return
 
-    c.print(f"[bold]Importing {len(skills)} skill(s) from snapshot...[/]\n")
+    c.print(f"[bold]正在从快照导入 {len(skills)} 个技能...[/]\n")
     for entry in skills:
         identifier = entry.get("identifier", "")
         category = entry.get("category", "")
         if not identifier:
-            c.print(f"[yellow]Skipping entry with no identifier: {entry.get('name', '?')}[/]")
+            c.print(f"[yellow]跳过没有标识符的条目: {entry.get('name', '?')}[/]")
             continue
 
         c.print(f"[bold]--- {entry.get('name', identifier)} ---[/]")
         do_install(identifier, category=category, force=force, console=c)
 
-    c.print("[bold green]Snapshot import complete.[/]\n")
+    c.print("[bold green]快照导入完成。[/\n")
 
 
 # ---------------------------------------------------------------------------
@@ -966,7 +966,7 @@ def do_snapshot_import(input_path: str, force: bool = False,
 # ---------------------------------------------------------------------------
 
 def skills_command(args) -> None:
-    """Router for `kclaw skills <subcommand>` — called from kclaw_cli/main.py."""
+    """`kclaw skills <子命令>` 的路由分发器 — 由 kclaw_cli/main.py 调用。"""
     action = getattr(args, "skills_action", None)
 
     if action == "browse":
@@ -1001,17 +1001,17 @@ def skills_command(args) -> None:
         elif snap_action == "import":
             do_snapshot_import(args.input, force=getattr(args, "force", False))
         else:
-            _console.print("Usage: kclaw skills snapshot [export|import]\n")
+            _console.print("用法: kclaw skills snapshot [export|import]\n")
     elif action == "tap":
         tap_action = getattr(args, "tap_action", None)
         repo = getattr(args, "repo", "") or getattr(args, "name", "")
         if not tap_action:
-            _console.print("Usage: kclaw skills tap [list|add|remove]\n")
+            _console.print("用法: kclaw skills tap [list|add|remove]\n")
             return
         do_tap(tap_action, repo=repo)
     else:
-        _console.print("Usage: kclaw skills [browse|search|install|inspect|list|check|update|audit|uninstall|publish|snapshot|tap]\n")
-        _console.print("Run 'kclaw skills <command> --help' for details.\n")
+        _console.print("用法: kclaw skills [browse|search|install|inspect|list|check|update|audit|uninstall|publish|snapshot|tap]\n")
+        _console.print("运行 'kclaw skills <命令> --help' 查看详情。\n")
 
 
 # ---------------------------------------------------------------------------
@@ -1020,9 +1020,9 @@ def skills_command(args) -> None:
 
 def handle_skills_slash(cmd: str, console: Optional[Console] = None) -> None:
     """
-    Parse and dispatch `/skills <subcommand> [args]` from the chat interface.
+    解析并分发来自聊天界面的 `/skills <子命令> [参数]`。
 
-    Examples:
+    示例:
         /skills search kubernetes
         /skills install openai/skills/skill-creator
         /skills install openai/skills/skill-creator --force
@@ -1079,7 +1079,7 @@ def handle_skills_slash(cmd: str, console: Optional[Console] = None) -> None:
 
     elif action == "search":
         if not args:
-            c.print("[bold red]Usage:[/] /skills search <query> [--source skills-sh|well-known|github|official] [--limit N]\n")
+            c.print("[bold red]用法:[/] /skills search <查询词> [--source skills-sh|well-known|github|official] [--limit N]\n")
             return
         source = "all"
         limit = 10
@@ -1102,16 +1102,16 @@ def handle_skills_slash(cmd: str, console: Optional[Console] = None) -> None:
 
     elif action == "install":
         if not args:
-            c.print("[bold red]Usage:[/] /skills install <identifier> [--category <cat>] [--force] [--now]\n")
+            c.print("[bold red]用法:[/] /skills install <标识符> [--category <分类>] [--force] [--now]\n")
             return
         identifier = args[0]
         category = ""
-        # Slash commands run inside prompt_toolkit where input() hangs.
-        # Always skip confirmation — the user typing the command is implicit consent.
+        # 斜杠命令在 prompt_toolkit 中运行,input() 会导致挂起。
+        # 直接跳过确认 — 用户输入命令即表示同意。
         skip_confirm = True
         force = "--force" in args
-        # --now invalidates prompt cache immediately (costs more money).
-        # Default: defer to next session to preserve cache.
+        # --now 会立即使提示缓存失效（会产生更多费用）。
+        # 默认行为: 推迟到下次会话以保留缓存。
         invalidate_cache = "--now" in args
         for i, a in enumerate(args):
             if a == "--category" and i + 1 < len(args):
@@ -1122,7 +1122,7 @@ def handle_skills_slash(cmd: str, console: Optional[Console] = None) -> None:
 
     elif action == "inspect":
         if not args:
-            c.print("[bold red]Usage:[/] /skills inspect <identifier>\n")
+            c.print("[bold red]用法:[/] /skills inspect <标识符>\n")
             return
         do_inspect(args[0], console=c)
 
@@ -1148,9 +1148,9 @@ def handle_skills_slash(cmd: str, console: Optional[Console] = None) -> None:
 
     elif action == "uninstall":
         if not args:
-            c.print("[bold red]Usage:[/] /skills uninstall <name> [--now]\n")
+            c.print("[bold red]用法:[/] /skills uninstall <名称> [--now]\n")
             return
-        # Slash commands run inside prompt_toolkit where input() hangs.
+        # 斜杠命令在 prompt_toolkit 中运行,input() 会导致挂起。
         skip_confirm = True
         invalidate_cache = "--now" in args
         do_uninstall(args[0], console=c, skip_confirm=skip_confirm,
@@ -1158,7 +1158,7 @@ def handle_skills_slash(cmd: str, console: Optional[Console] = None) -> None:
 
     elif action == "publish":
         if not args:
-            c.print("[bold red]Usage:[/] /skills publish <skill-path> [--to github] [--repo owner/repo]\n")
+            c.print("[bold red]用法:[/] /skills publish <技能路径> [--to github] [--repo owner/repo]\n")
             return
         skill_path = args[0]
         target = "github"
@@ -1172,7 +1172,7 @@ def handle_skills_slash(cmd: str, console: Optional[Console] = None) -> None:
 
     elif action == "snapshot":
         if not args:
-            c.print("[bold red]Usage:[/] /skills snapshot export <file> | /skills snapshot import <file>\n")
+            c.print("[bold red]用法:[/] /skills snapshot export <文件> | /skills snapshot import <文件>\n")
             return
         snap_action = args[0]
         if snap_action == "export" and len(args) > 1:
@@ -1181,7 +1181,7 @@ def handle_skills_slash(cmd: str, console: Optional[Console] = None) -> None:
             force = "--force" in args
             do_snapshot_import(args[1], force=force, console=c)
         else:
-            c.print("[bold red]Usage:[/] /skills snapshot export <file> | /skills snapshot import <file>\n")
+            c.print("[bold red]用法:[/] /skills snapshot export <文件> | /skills snapshot import <文件>\n")
 
     elif action == "tap":
         if not args:
@@ -1195,25 +1195,25 @@ def handle_skills_slash(cmd: str, console: Optional[Console] = None) -> None:
         _print_skills_help(c)
 
     else:
-        c.print(f"[bold red]Unknown action:[/] {action}")
+        c.print(f"[bold red]未知操作:[/] {action}")
         _print_skills_help(c)
 
 
 def _print_skills_help(console: Console) -> None:
-    """Print help for the /skills slash command."""
+    """打印 /skills 斜杠命令的帮助信息。"""
     console.print(Panel(
-        "[bold]Skills Hub Commands:[/]\n\n"
-        "  [cyan]browse[/] [--source official]   Browse all available skills (paginated)\n"
-        "  [cyan]search[/] <query>              Search registries for skills\n"
-        "  [cyan]install[/] <identifier>        Install a skill (with security scan)\n"
-        "  [cyan]inspect[/] <identifier>        Preview a skill without installing\n"
-        "  [cyan]list[/] [--source hub|builtin|local] List installed skills\n"
-        "  [cyan]check[/] [name]                Check hub skills for upstream updates\n"
-        "  [cyan]update[/] [name]               Update hub skills with upstream changes\n"
-        "  [cyan]audit[/] [name]                Re-scan hub skills for security\n"
-        "  [cyan]uninstall[/] <name>            Remove a hub-installed skill\n"
-        "  [cyan]publish[/] <path> --repo <r>   Publish a skill to GitHub via PR\n"
-        "  [cyan]snapshot[/] export|import      Export/import skill configurations\n"
-        "  [cyan]tap[/] list|add|remove         Manage skill sources\n",
+        "[bold]Skills Hub 命令:[/]\n\n"
+        "  [cyan]browse[/] [--source official]   浏览所有可用技能（分页）\n"
+        "  [cyan]search[/] <查询词>              在注册表中搜索技能\n"
+        "  [cyan]install[/] <标识符>             安装技能（带安全扫描）\n"
+        "  [cyan]inspect[/] <标识符>             预览技能（不安装）\n"
+        "  [cyan]list[/] [--source hub|builtin|local] 列出已安装的技能\n"
+        "  [cyan]check[/] [名称]                 检查 hub 技能是否有上游更新\n"
+        "  [cyan]update[/] [名称]                 更新 hub 技能（同步上游变更）\n"
+        "  [cyan]audit[/] [名称]                  重新扫描 hub 技能的安全问题\n"
+        "  [cyan]uninstall[/] <名称>             卸载 hub 安装的技能\n"
+        "  [cyan]publish[/] <路径> --repo <r>    通过 PR 发布技能到 GitHub\n"
+        "  [cyan]snapshot[/] export|import      导出/导入技能配置\n"
+        "  [cyan]tap[/] list|add|remove         管理技能来源\n",
         title="/skills",
     ))

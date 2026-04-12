@@ -1,18 +1,18 @@
 """Memory provider 插件发现。
 
-Scans ``plugins/memory/<name>/`` directories for memory provider plugins.
-Each subdirectory must contain ``__init__.py`` with a class implementing
-the MemoryProvider ABC.
+扫描 ``plugins/memory/<name>/`` 目录以查找 memory provider 插件。
+每个子目录必须包含 ``__init__.py``，并在其中提供一个实现
+MemoryProvider 抽象基类（ABC）的类。
 
-Memory providers are separate from the general plugin system — they live
-in the repo and are always available without user installation. Only ONE
-can be active at a time, selected via ``memory.provider`` in config.yaml.
+Memory provider 与通用插件系统是分离的——它们位于仓库中，
+无需用户单独安装即可使用。任意时刻只能启用**一个**，
+通过 config.yaml 中的 ``memory.provider`` 进行选择。
 
-Usage:
+用法:
     from plugins.memory import discover_memory_providers, load_memory_provider
 
     available = discover_memory_providers()   # [(name, desc, available), ...]
-    provider = load_memory_provider("openviking")  # MemoryProvider instance
+    provider = load_memory_provider("openviking")  # MemoryProvider 实例
 """
 
 from __future__ import annotations

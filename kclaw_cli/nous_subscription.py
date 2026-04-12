@@ -442,14 +442,14 @@ def get_nous_subscription_explainer_lines() -> list[str]:
         return []
 
     return [
-        "Nous subscription enables managed web tools, image generation, OpenAI TTS, and browser automation by default.",
-        "Those managed tools bill to your Nous subscription. Modal execution is optional and can bill to your subscription too.",
-        "Change these later with: kclaw setup tools, kclaw setup terminal, or kclaw status.",
+        "Nous 订阅默认启用托管网页工具、图像生成、OpenAI TTS 和浏览器自动化。",
+        "这些托管工具会计入您的 Nous 订阅。Modal 执行是可选的，也可以计入您的订阅。",
+        "之后可以通过以下命令更改: kclaw setup tools, kclaw setup terminal, 或 kclaw status。",
     ]
 
 
 def apply_nous_provider_defaults(config: Dict[str, object]) -> set[str]:
-    """Apply provider-level Nous defaults shared by `kclaw setup` and `kclaw model`."""
+    """应用由 `kclaw setup` 和 `kclaw model` 共享的提供者级别 Nous 默认值。"""
     if not managed_nous_tools_enabled():
         return set()
 

@@ -257,7 +257,7 @@ def show_status(args):
     # Terminal Configuration
     # =========================================================================
     print()
-    print(color("◆ Terminal Backend", Colors.CYAN, Colors.BOLD))
+    print(color("◆ 终端后端", Colors.CYAN, Colors.BOLD))
     
     terminal_env = os.getenv("TERMINAL_ENV", "")
     if not terminal_env:
@@ -289,7 +289,7 @@ def show_status(args):
     # Messaging Platforms
     # =========================================================================
     print()
-    print(color("◆ Messaging Platforms", Colors.CYAN, Colors.BOLD))
+    print(color("◆ 消息平台", Colors.CYAN, Colors.BOLD))
     
     platforms = {
         "Telegram": ("TELEGRAM_BOT_TOKEN", "TELEGRAM_HOME_CHANNEL"),
@@ -323,7 +323,7 @@ def show_status(args):
     # Gateway Status
     # =========================================================================
     print()
-    print(color("◆ Gateway Service", Colors.CYAN, Colors.BOLD))
+    print(color("◆ 网关服务", Colors.CYAN, Colors.BOLD))
     
     if sys.platform.startswith('linux'):
         try:
@@ -366,7 +366,7 @@ def show_status(args):
     # Cron Jobs
     # =========================================================================
     print()
-    print(color("◆ Scheduled Jobs", Colors.CYAN, Colors.BOLD))
+    print(color("◆ 计划任务", Colors.CYAN, Colors.BOLD))
     
     jobs_file = get_kclaw_home() / "cron" / "jobs.json"
     if jobs_file.exists():
@@ -386,7 +386,7 @@ def show_status(args):
     # Sessions
     # =========================================================================
     print()
-    print(color("◆ Sessions", Colors.CYAN, Colors.BOLD))
+    print(color("◆ 会话", Colors.CYAN, Colors.BOLD))
     
     sessions_file = get_kclaw_home() / "sessions" / "sessions.json"
     if sessions_file.exists():
@@ -405,7 +405,7 @@ def show_status(args):
     # =========================================================================
     if deep:
         print()
-        print(color("◆ Deep Checks", Colors.CYAN, Colors.BOLD))
+        print(color("◆ 深度检查", Colors.CYAN, Colors.BOLD))
         
         # Check OpenRouter connectivity
         openrouter_key = os.getenv("OPENROUTER_API_KEY", "")
@@ -438,6 +438,6 @@ def show_status(args):
     
     print()
     print(color("─" * 60, Colors.DIM))
-    print(color("  Run 'kclaw doctor' for detailed diagnostics", Colors.DIM))
-    print(color("  Run 'kclaw setup' to configure", Colors.DIM))
+    print(color("  运行 'kclaw doctor' 获取详细诊断信息", Colors.DIM))
+    print(color("  运行 'kclaw setup' 进行配置", Colors.DIM))
     print()

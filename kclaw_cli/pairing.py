@@ -44,7 +44,7 @@ def _cmd_list(store):
         for p in pending:
             print(
                 f"  {p['platform']:<12} {p['code']:<10} {p['user_id']:<20} "
-                f"{p.get('user_name', ''):<20} {p['age_minutes']}m ago"
+                f"{p.get('user_name', ''):<20} {p['age_minutes']}分钟前"
             )
     else:
         print(f"\n  暂无待处理的配对请求。")
