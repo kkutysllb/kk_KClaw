@@ -1,7 +1,8 @@
 """
-Gateway subcommand for kclaw CLI.
+KClaw CLI 的 Gateway 子命令。
 
-Handles: kclaw gateway [run|start|stop|restart|status|install|uninstall|setup]
+处理: kclaw gateway [run|start|stop|restart|status|install|uninstall|setup]
+
 """
 
 import asyncio
