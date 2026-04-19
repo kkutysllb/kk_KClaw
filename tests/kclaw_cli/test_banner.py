@@ -1,5 +1,6 @@
 """Tests for banner toolset name normalization and skin color usage."""
 
+import os
 from unittest.mock import patch
 
 from rich.console import Console
@@ -68,3 +69,31 @@ def test_build_welcome_banner_uses_normalized_toolset_names():
     assert "homeassistant_tools:" not in output
     assert "honcho_tools:" not in output
     assert "web_tools:" not in output
+
+
+def test_build_welcome_banner_hides_wide_logo_when_terminal_is_too_narrow():
+    """Wide logo should be skipped when the terminal cannot fit it without wrapping."""
+    with (
+        patch.object(model_tools, "check_tool_availability", return_value=([], [])),
+        patch.object(banner, "get_available_skills", return_value={}),
+        patch.object(banner, "get_update_result", return_value=None),
+        patch.object(tools.mcp_tool, "get_mcp_status", return_value=[]),
+        patch.object(
+            banner.shutil,
+            "get_terminal_size",
+            return_value=os.terminal_size((100, 24)),
+        ),
+    ):
+        console = Console(
+            record=True, force_terminal=False, color_system=None, width=100
+        )
+        banner.build_welcome_banner(
+            console=console,
+            model="anthropic/test-model",
+            cwd="/tmp/project",
+            tools=[],
+        )
+
+    output = console.export_text()
+    assert "KCLAW SUPER AGENT" not in output
+    assert "KClaw Agent v" in output

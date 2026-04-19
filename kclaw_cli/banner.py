@@ -17,6 +17,7 @@ from typing import Dict, List, Optional
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from prompt_toolkit import print_formatted_text as _pt_print
 from prompt_toolkit.formatted_text import ANSI as _PT_ANSI
@@ -67,7 +68,7 @@ def _skin_branding(key: str, fallback: str) -> str:
 
 from kclaw_cli import __version__ as VERSION, __release_date__ as RELEASE_DATE
 
-# ASCII Art - KCLAW Super Agent logo (full width - requires ~95 char terminal)
+# ASCII Art - KCLAW Super Agent logo (full width - only shown when terminal is wide enough)
 KCLAW_AGENT_LOGO = """[bold #FFD700]█    █  █████  █          █    █     █      █████                                    █[/]
 [bold #FFD700]█   █  █     █ █         █ █   █  █  █     █     █ █    █ █████  ██████ █████       █ █    ████  ██████ █    █ █████[/]
 [#FFBF00]█  █   █       █        █   █  █  █  █     █       █    █ █    █ █      █    █     █   █  █    █ █      ██   █   █[/]
@@ -325,6 +326,17 @@ def _display_toolset_name(toolset_name: str) -> str:
     )
 
 
+def _markup_block_display_width(markup_block: str) -> int:
+    """Return the widest rendered line of a Rich-markup text block."""
+    widths = []
+    for line in markup_block.splitlines():
+        try:
+            widths.append(Text.from_markup(line).cell_len)
+        except Exception:
+            widths.append(len(line))
+    return max(widths, default=0)
+
+
 def build_welcome_banner(console: Console, model: str, cwd: str,
                          tools: List[dict] = None,
                          enabled_toolsets: List[str] = None,
@@ -540,9 +552,9 @@ def build_welcome_banner(console: Console, model: str, cwd: str,
     )
 
     console.print()
-    term_width = shutil.get_terminal_size().columns
-    if term_width >= 95:
-        _logo = _bskin.banner_logo if _bskin and hasattr(_bskin, 'banner_logo') and _bskin.banner_logo else KCLAW_AGENT_LOGO
+    term_width = getattr(console, "width", 0) or shutil.get_terminal_size((80, 24)).columns
+    _logo = _bskin.banner_logo if _bskin and hasattr(_bskin, 'banner_logo') and _bskin.banner_logo else KCLAW_AGENT_LOGO
+    if term_width >= _markup_block_display_width(_logo):
         console.print(_logo)
         console.print()
     console.print(outer_panel)
